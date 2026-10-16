@@ -5,16 +5,18 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <title>LocalDNS 控制台</title>
+  <script src="assets/js/appearance.js?v=20261016-UI-1"></script>
   <link id="dynamic-favicon" rel="icon" type="image/png" href="assets/img/logo-08-dark-64.png?v=20261015-2" />
   <link rel="preload" href="assets/fonts/noto-serif-sc-ui.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="preload" href="assets/fonts/instrument-serif-numerals.woff2" as="font" type="font/woff2" crossorigin>
-  <link rel="stylesheet" href="assets/css/fonts.css?v=20261015-SERIF-01" />
-  <link rel="stylesheet" href="assets/css/app.css?v=20261015-POLISHED-08" />
-  <link rel="stylesheet" href="assets/css/console.css?v=20261015-TRANSLUCENT-08" />
-  <link rel="stylesheet" href="assets/css/material.css?v=20261015-UI-2" />
-  <link rel="stylesheet" href="assets/css/navbar.css?v=20261015-FLOATING-01" />
-  <link rel="stylesheet" href="assets/css/overview.css?v=20261015-SERIF-01" />
-  <link rel="stylesheet" href="assets/css/typography.css?v=20261015-SERIF-01" />
+  <link rel="stylesheet" href="assets/css/fonts.css?v=20261016-UI-1" />
+  <link rel="stylesheet" href="assets/css/app.css?v=20261016-UI-1" />
+  <link rel="stylesheet" href="assets/css/console.css?v=20261016-UI-1" />
+  <link rel="stylesheet" href="assets/css/material.css?v=20261016-UI-1" />
+  <link rel="stylesheet" href="assets/css/navbar.css?v=20261016-UI-1" />
+  <link rel="stylesheet" href="assets/css/overview.css?v=20261016-UI-1" />
+  <link rel="stylesheet" href="assets/css/typography.css?v=20261016-UI-1" />
+  <link rel="stylesheet" href="assets/css/interaction.css?v=20261016-UI-1" />
 </head>
 <body>
 
@@ -28,7 +30,7 @@
       <div class="brand-box">
         <div class="brand-logo" id="brand-logo-slot"><img id="brand-mark" src="assets/img/logo-08-dark.png?v=20261015-2" alt="" width="36" height="36" /></div>
         <span class="brand-name">LocalDNS</span>
-        <span class="brand-ver" id="brand-version-tag">FJG20</span>
+        <span class="brand-ver" id="brand-version-tag">FJG4O</span>
         <button class="icon-button sidebar-collapse" id="sidebar-collapse" aria-label="折叠侧栏" style="display:none"></button>
       </div>
 
@@ -110,6 +112,19 @@
               <div class="bcp-row-head"><label for="slider-dimmer">背景暗化遮罩</label><strong class="mono" id="val-dimmer">22%</strong></div>
               <input type="range" class="bcp-slider" id="slider-dimmer" min="0" max="88" value="22" />
             </div>
+            <section class="bcp-fonts" aria-labelledby="typography-title">
+              <h3 id="typography-title">字体与阅读</h3>
+              <div class="font-presets" role="group" aria-label="字体组合">
+                <button type="button" data-font-preset="classic" aria-pressed="true">经典宋体</button>
+                <button type="button" data-font-preset="clear" aria-pressed="false">清晰黑体</button>
+                <button type="button" data-font-preset="technical" aria-pressed="false">等宽数字</button>
+              </div>
+              <div class="font-setting"><label for="font-heading">标题字体</label><select id="font-heading"><option value="serif">Noto Serif SC · 宋体</option><option value="sans">Noto Sans SC · 黑体</option><option value="system">系统字体</option></select></div>
+              <div class="font-setting"><label for="font-numeral">指标数字</label><select id="font-numeral"><option value="serif">Instrument Serif · 衬线</option><option value="sans">IBM Plex Sans · 无衬线</option><option value="mono">IBM Plex Mono · 等宽</option></select></div>
+              <div class="font-setting"><label for="font-body">界面文字</label><select id="font-body"><option value="plex">IBM Plex Sans + Noto Sans SC</option><option value="noto">Noto Sans SC</option><option value="system">系统字体</option></select></div>
+              <p class="font-note">域名、IP、日志和配置保持等宽排版。</p>
+              <p id="typography-save-status" class="bcp-save-status" role="status" aria-live="polite">字体偏好保存在当前浏览器。</p>
+            </section>
           </div>
         </div>
       </div>
@@ -122,9 +137,9 @@
 
         <div class="sidebar-foot" id="sidebar-status">
           <span class="dot-online status-dot" aria-hidden="true"></span>
-          <div style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">
+          <div class="sidebar-status-copy">
             <strong style="font-weight:600;color:var(--text-1)">LocalDNS 在线</strong>
-            <small id="api-endpoint-label" style="display:block;font-size:11px;color:var(--text-3)">:53</small>
+            <small id="api-endpoint-label" style="color:var(--text-3)">:53</small>
           </div>
         </div>
       </aside>
@@ -158,12 +173,12 @@
   </dialog>
 
   <div id="toast-stack" class="toast-stack" aria-live="polite"></div>
-  <script src="config.js?v=20261015-POLISHED-08"></script>
+  <script src="config.js?v=20261016-UI-1"></script>
   <script src="assets/js/chart.umd.min.js"></script>
-  <script src="assets/js/console.js?v=20261015-SERIF-01"></script>
-  <script src="assets/js/wallpaper.js?v=20261015-UI-2"></script>
-  <script src="assets/js/app.js?v=20261015-UI-2"></script>
-  <script src="assets/js/material.js?v=20261015-TRANSLUCENT-08"></script>
-  <script src="assets/js/navbar.js?v=20261015-FLOATING-01"></script>
+  <script src="assets/js/console.js?v=20261016-UI-1"></script>
+  <script src="assets/js/wallpaper.js?v=20261016-UI-1"></script>
+  <script src="assets/js/app.js?v=20261016-UI-1"></script>
+  <script src="assets/js/material.js?v=20261016-UI-1"></script>
+  <script src="assets/js/navbar.js?v=20261016-UI-1"></script>
 </body>
 </html>

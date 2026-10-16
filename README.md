@@ -6,9 +6,9 @@
 
 **DNS 核心主要由折腾日记交流群里的 R 大使用 Rust 编写；[yyhoworks](https://github.com/yyhoworks) 负责 UI 设计。**
 
-当前版本：**后端 FJG20 / UI 2026.10.15.2**。
+当前版本：**后端 FJG4O / UI 2026.10.16.1**。
 
-最新下载：**[UI 2026.10.15.2 Release](https://github.com/yyhoworks/LocalDNS/releases/tag/ui-v2026.10.15.2)**。
+最新下载：**[UI 2026.10.16.1 Release](https://github.com/yyhoworks/LocalDNS/releases/tag/ui-v2026.10.16.1)**。
 
 [产品图集](docs/SCREENSHOTS.md) · [功能指南](docs/FEATURES.md) · [安装说明](INSTALL.md) · [下载 Releases](https://github.com/yyhoworks/LocalDNS/releases) · [作者与分工](AUTHORS.md) · [开发说明](docs/DEVELOPMENT.md) · [近期更新](CHANGELOG.md)
 
@@ -23,32 +23,38 @@
 
 ## 界面预览
 
-![LocalDNS 概览：服务状态、系统信息与 DNS 指标](docs/images/overview-desktop.png)
+![LocalDNS 概览：服务状态、系统信息与 DNS 指标](docs/images/overview-desktop.jpg)
 
 **集中查看 DNS 运行情况。** 服务状态与六项关键指标、查询吞吐趋势、分流占比、解析路径、请求排行和多级缓存状态集中展示。解析路径节点可点击查看详情，连线用于说明解析关系。
 
-界面采用可调整透明度与模糊度的玻璃材质，搭配随滚动收拢的浮动顶部导航、Noto Serif SC 宋体风格标题与 Instrument Serif 衬线数字。字体随项目本地提供。
+界面采用可调整透明度与模糊度的玻璃材质，搭配随滚动收拢的浮动顶部导航、Noto Serif SC 宋体风格标题与 Instrument Serif 衬线数字。字体随项目本地提供，可在「外观 → 字体与阅读」切换经典宋体、清晰黑体、等宽数字，或分别选择标题、数字与正文。
 
-> 截图来自 UI 2026.10.15.2 实际页面。域名、客户端、订阅地址等使用脱敏或示例数据；图中数值仅用于展示界面，不代表性能测试结果。
+> 截图来自 UI 2026.10.16.1 实际页面。域名、客户端、订阅地址等使用脱敏或示例数据；图中数值仅用于展示界面，不代表性能测试结果。
 
 ### 深浅主题与外观定制
 
-![浅色玻璃主题](docs/images/overview-light.png)
+![浅色玻璃主题](docs/images/overview-light.jpg)
 
 深浅主题一键切换，Logo 随主题适配。五组预设光影、本地壁纸和在线图片地址可自由选择；模糊度、面板遮盖度与背景暗化独立调整。
 
 <details>
 <summary>查看外观设置面板</summary>
 
-![外观面板：壁纸、玻璃模糊度、透明度和暗化设置](docs/images/appearance.png)
+![外观面板：壁纸、玻璃模糊度、透明度和暗化设置](docs/images/appearance.jpg)
 
 选择本地图片后自动保存；在线地址点击「应用」保存。面板显示保存结果，刷新后恢复当前浏览器的外观偏好。
 
 </details>
 
+### 字体与阅读
+
+![字体组合与独立字体选择](docs/images/font-settings.jpg)
+
+经典宋体、清晰黑体、等宽数字三组组合一键切换，也可以分别选择标题、指标数字和界面文字；偏好在当前浏览器保存。
+
 ### 日志、上游与规则管理
 
-![查询日志：多条件筛选与解析记录](docs/images/query-logs.png)
+![查询日志：多条件筛选与解析记录](docs/images/query-logs.jpg)
 
 按域名、客户端、请求类型、分流结果和响应码筛选，点击「详情」查看完整查询与响应记录。
 
@@ -57,27 +63,27 @@
 
 **查询详情** · 抽屉显示查询时间、客户端、响应码、耗时、Trace ID 与响应内容。
 
-![DNS 查询详情抽屉](docs/images/query-detail.png)
+![DNS 查询详情抽屉](docs/images/query-detail.jpg)
 
 **DNS 管理** · 查看各组上游的协议、地址、平均响应、请求数、并发采纳数、错误数与成功率。
 
-![DNS 上游节点与健康统计](docs/images/dns-upstreams.png)
+![DNS 上游节点与健康统计](docs/images/dns-upstreams.jpg)
 
 **名单管理** · 编辑本地名单、下载列表，并在切换名单时保留未保存草稿。
 
-![本地规则与名单编辑器](docs/images/rules-lists.png)
+![本地规则与名单编辑器](docs/images/rules-lists.jpg)
 
 **广告拦截** · 管理 AdGuard 规则订阅、更新间隔与自动更新状态。
 
-![AdGuard 广告拦截订阅](docs/images/rules-adguard.png)
+![AdGuard 广告拦截订阅](docs/images/rules-adguard.jpg)
 
 **在线分流** · 管理国内、国外、GeoIP 与 Geosite 来源，查看识别格式与规则数量。
 
-![在线分流 SRS 规则管理](docs/images/rules-diversion.png)
+![在线分流 SRS 规则管理](docs/images/rules-diversion.jpg)
 
 **系统管理** · 集中管理缓存、功能开关、域名统计与分流刷新任务。
 
-![缓存、功能开关与分流刷新任务](docs/images/system-management.png)
+![缓存、功能开关与分流刷新任务](docs/images/system-management.jpg)
 
 </details>
 
@@ -88,11 +94,11 @@
 <details>
 <summary>查看手机概览与查询日志</summary>
 
-<img src="docs/images/overview-mobile.png" alt="LocalDNS 手机运行概览" width="300"> <img src="docs/images/query-logs-mobile.png" alt="LocalDNS 手机查询日志与记录卡片" width="300">
+<img src="docs/images/overview-mobile.jpg" alt="LocalDNS 手机运行概览" width="300"> <img src="docs/images/query-logs-mobile.jpg" alt="LocalDNS 手机查询日志与记录卡片" width="300">
 
 </details>
 
-全部 12 张截图及页面说明见 **[产品图集](docs/SCREENSHOTS.md)**。
+全部 13 张截图及页面说明见 **[产品图集](docs/SCREENSHOTS.md)**。
 
 ## 可以做什么
 
@@ -107,15 +113,17 @@
 | **系统管理** | 四类缓存池的查看与清空；请求、类型、广告、IPv6、核心缓存、过期缓存及客户端分流开关；域名列表统计与 Requery 定时刷新 |
 | **外观与交互** | 深浅主题、五组光影预设、本地 / 在线壁纸、玻璃参数、滚动浮动导航、顶部搜索、键盘操作与手机布局 |
 
-详细操作、协议与规则格式说明见 **[功能指南](docs/FEATURES.md)**。后端相关能力需要配套的 FJG20 服务与对应插件。
+详细操作、协议与规则格式说明见 **[功能指南](docs/FEATURES.md)**。后端相关能力需要配套的 FJG4O 服务与对应插件。
 
-壁纸与外观保存在当前浏览器，不会同步到其他设备。较大的本地图片使用 IndexedDB 保存；面板会提示保存结果，在线图片地址在刷新后自动回填。
+两行侧栏状态文字分别居中；输入与导航使用柔白细边，键盘操作保留清楚的单层焦点提示。
+
+壁纸、字体与外观保存在当前浏览器，不会同步到其他设备。较大的本地图片使用 IndexedDB 保存；面板会提示保存结果，在线图片地址在刷新后自动回填。
 
 查询趋势使用当前浏览器会话的真实采样，提供 15 / 30 分钟视图；至少积累三次采样后绘图，最多保留 240 个采样点、最长两小时，不作为服务器历史报表。
 
 ## 快速安装
 
-1. 在 [Releases](https://github.com/yyhoworks/LocalDNS/releases/tag/ui-v2026.10.15.2) 下载完整包或 UI 升级包，并核对同页的 `SHA256SUMS.txt`。
+1. 在 [Releases](https://github.com/yyhoworks/LocalDNS/releases/tag/ui-v2026.10.16.1) 下载完整包或 UI 升级包，并核对同页的 `SHA256SUMS.txt`。
 2. 已有 LocalDNS 服务时，解压 UI 升级包并运行：
 
    ```sh
@@ -139,7 +147,7 @@ VERSION.json          UI 与后端版号
 
 安装 ZIP 和后端预编译程序放在 Releases。部署凭据、设备配置、运行日志、临时截图和历史工作文件不进入 Git。
 
-**当前仓库包含 UI 源码；当前工作目录未提供 Rust DNS 核心源码，DNS 核心通过 FJG20 预编译发行包提供。**
+**当前仓库包含 UI 源码；当前工作目录未提供 Rust DNS 核心源码，DNS 核心通过 FJG4O 预编译发行包提供。**
 
 ## 开发与打包
 

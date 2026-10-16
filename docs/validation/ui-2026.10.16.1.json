@@ -1,0 +1,88 @@
+{
+  "uiVersion": "2026.10.16.1",
+  "backendVersion": "FJG4O",
+  "pages": [
+    {
+      "body": 1430,
+      "errors": [],
+      "route": "#/overview",
+      "viewport": 1440
+    },
+    {
+      "body": 1430,
+      "errors": [],
+      "route": "#/logs",
+      "viewport": 1440
+    },
+    {
+      "body": 1440,
+      "errors": [],
+      "route": "#/upstreams",
+      "viewport": 1440
+    },
+    {
+      "body": 1430,
+      "errors": [],
+      "route": "#/rules",
+      "viewport": 1440
+    },
+    {
+      "body": 1430,
+      "errors": [],
+      "route": "#/management",
+      "viewport": 1440
+    },
+    {
+      "body": 380,
+      "errors": [],
+      "route": "#/overview",
+      "viewport": 390
+    },
+    {
+      "body": 380,
+      "errors": [],
+      "route": "#/logs",
+      "viewport": 390
+    },
+    {
+      "body": 380,
+      "errors": [],
+      "route": "#/upstreams",
+      "viewport": 390
+    },
+    {
+      "body": 380,
+      "errors": [],
+      "route": "#/rules",
+      "viewport": 390
+    },
+    {
+      "body": 380,
+      "errors": [],
+      "route": "#/management",
+      "viewport": 390
+    }
+  ],
+  "fontPresets": [
+    "classic",
+    "clear",
+    "technical"
+  ],
+  "fontReloadPersistence": true,
+  "statusTextCenterDifferencePx": 0,
+  "pointerFocus": "single soft border",
+  "keyboardFocus": "single neutral ring",
+  "preflightApiChecks": 7,
+  "dnsTcp": {
+    "rcode": 0,
+    "answers": 1
+  },
+  "dnsUdp": {
+    "rcode": 0,
+    "answers": 1
+  },
+  "protectedConfigurationAndManualRulesUnchanged": true,
+  "uiFilesVerifiedBySha256": 37,
+  "screenshots": 13,
+  "javascriptErrors": []
+}

@@ -1,14 +1,14 @@
 # LocalDNS 产品图集
 
-**后端 FJG20 / UI 2026.10.15.2** · [返回首页](../README.md) · [功能指南](FEATURES.md)
+**后端 FJG4O / UI 2026.10.16.1** · [返回首页](../README.md) · [功能指南](FEATURES.md)
 
-以下 12 张截图来自当前版本的实际 Web 页面，桌面宽度 1440px，手机宽度 390px。域名、客户端、订阅地址等使用脱敏或示例数据；截图数值仅用于展示界面，不代表性能测试结果。
+以下 13 张截图来自当前版本的实际 Web 页面，桌面宽度 1440px，手机宽度 390px。域名、客户端、订阅地址等使用脱敏或示例数据；截图数值仅用于展示界面，不代表性能测试结果。
 
 ## 1. 运行概览 · 深色玻璃
 
 服务状态、启动时间、运行时长、进程资源与六项 DNS 指标位于顶部。下方依次展示 QPS 趋势、分流占比、解析路径、请求排行、缓存池与慢查询。
 
-![运行概览完整页面](images/overview-desktop.png)
+![运行概览完整页面](images/overview-desktop.jpg)
 
 解析路径节点可点击查看相关内容；连线是解析关系示意，不代表逐请求抓包或实测流量。
 
@@ -16,60 +16,66 @@
 
 一键切换深浅主题，Logo、文字与面板颜色随主题调整。
 
-![浅色玻璃概览](images/overview-light.png)
+![浅色玻璃概览](images/overview-light.jpg)
 
 ## 3. 外观设置
 
 五组预设光影、本地图片与在线图片 URL；分别调整玻璃模糊度、面板遮盖度与背景暗化。壁纸保存在当前浏览器，面板显示保存状态。
 
-![外观与壁纸设置面板](images/appearance.png)
+![外观与壁纸设置面板](images/appearance.jpg)
 
 ## 4. 查询日志
 
 域名、客户端、请求类型、分流结果、响应码与精确匹配组合筛选；表格展示响应内容、耗时和状态。
 
-![查询日志与过滤器](images/query-logs.png)
+![查询日志与过滤器](images/query-logs.jpg)
 
 ## 5. 查询详情
 
 点击单条记录的「详情」，在侧边抽屉查看时间、客户端、请求类型、分流结果、响应码、耗时、Trace ID 和响应记录。
 
-![查询详情抽屉](images/query-detail.png)
+![查询详情抽屉](images/query-detail.jpg)
 
 ## 6. DNS 上游管理
 
 按国内、国外、国外 ECS 与代理组管理上游节点；查看协议、地址、响应耗时、请求数、并发采纳数、错误数和成功率。
 
-![DNS 上游管理](images/dns-upstreams.png)
+![DNS 上游管理](images/dns-upstreams.jpg)
 
 ## 7. 本地名单管理
 
 白名单、黑名单、灰名单和其他本地规则集中编辑；支持列表下载，切换名单时保留未保存内容。
 
-![本地名单编辑器](images/rules-lists.png)
+![本地名单编辑器](images/rules-lists.jpg)
 
 ## 8. AdGuard 广告拦截订阅
 
 查看订阅地址、规则数量、自动更新状态和上次更新时间；支持单条更新、更新全部、编辑和删除。
 
-![AdGuard 订阅列表](images/rules-adguard.png)
+![AdGuard 订阅列表](images/rules-adguard.jpg)
 
 ## 9. SRS 在线分流规则
 
 管理国内 / 国外自定义规则、GeoIP CN、Geosite CN 与非 CN 来源；展示识别格式、转换结果、规则数量和更新状态。
 
-![SRS 在线分流规则](images/rules-diversion.png)
+![SRS 在线分流规则](images/rules-diversion.jpg)
 
 ## 10. 系统管理
 
 缓存池、常用功能开关、自动分流域名统计与 Requery 刷新任务集中管理，可配置定时执行间隔和首次执行时间。
 
-![系统管理完整页面](images/system-management.png)
+![系统管理完整页面](images/system-management.jpg)
 
 ## 11–12. 手机布局
 
 手机使用底部导航与记录卡片，适合查看运行状态、筛选查询和操作管理页面。
 
-<img src="images/overview-mobile.png" alt="390px 手机运行概览" width="340"> <img src="images/query-logs-mobile.png" alt="390px 手机查询日志" width="340">
+<img src="images/overview-mobile.jpg" alt="390px 手机运行概览" width="340"> <img src="images/query-logs-mobile.jpg" alt="390px 手机查询日志" width="340">
+
+## 13. 字体与阅读
+
+选择经典宋体、清晰黑体或等宽数字，也可分别调整标题、指标数字与界面文字。字体本地加载，偏好保存在当前浏览器。
+
+![字体选择面板](images/font-settings.jpg)
 
 [返回首页](../README.md) · [查看功能与使用方法](FEATURES.md) · [安装与更新](../INSTALL.md)

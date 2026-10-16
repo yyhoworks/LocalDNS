@@ -292,6 +292,7 @@
 
     // 主题对应的 LocalDNS 品牌图形。
     window.LocalDNSInterface?.updateBrand();
+    window.LocalDNSTypography?.setup();
 
     // 2. 背景与毛玻璃调校器
     const wpLayer = $('#wallpaper-layer');

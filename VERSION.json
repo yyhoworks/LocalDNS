@@ -1,7 +1,6 @@
 {
   "product": "LocalDNS",
-  "uiVersion": "2026.10.15.2",
-  "backendVersion": "FJG20",
-  "builtAt": "2026-10-15T21:42:02+08:00",
-  "sourceUiDeployment": "20261015-214000"
+  "uiVersion": "2026.10.16.1",
+  "backendVersion": "FJG4O",
+  "builtAt": "2026-10-16T09:40:46+08:00"
 }

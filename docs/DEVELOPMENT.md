@@ -3,7 +3,7 @@
 ## 源码范围
 
 本仓库提供当前 Web UI 的 HTML、CSS、JavaScript、Logo 和本地字体。
-DNS 核心主要由折腾日记交流群的 R 大使用 Rust 编写；当前工作目录没有提供核心 Rust 源码，发行版使用 FJG20 预编译程序。
+DNS 核心主要由折腾日记交流群的 R 大使用 Rust 编写；当前工作目录没有提供核心 Rust 源码，发行版使用 FJG4O 预编译程序。
 
 ## 主要文件
 
@@ -15,6 +15,8 @@ DNS 核心主要由折腾日记交流群的 R 大使用 Rust 编写；当前工�
 | `_src/ui/assets/js/console.js` | 布局、真实采样、草稿、语义与数字排版 |
 | `_src/ui/assets/js/material.js` | 外观参数与静态背景光影 |
 | `_src/ui/assets/js/navbar.js` | 顶部滚动联动 |
+| `_src/ui/assets/js/appearance.js` | 字体偏好提前恢复、组合选择与输入方式识别 |
+| `_src/ui/assets/css/interaction.css` | 状态文字居中、柔白细边与键盘焦点 |
 | `_src/ui/assets/js/wallpaper.js` | 壁纸验证、IndexedDB 保存、旧数据迁移与失败反馈 |
 | `_src/ui/assets/css/overview.css` | 服务摘要与指标分组 |
 | `_src/ui/assets/css/typography.css` | 宋体标题与衬线数字 |
@@ -49,5 +51,7 @@ python tools/package_ui.py
 - 更新脚本通过 Alpine `sh -n` 语法检查；打包时未执行升级脚本。
 - UI 2026.10.15.2 验证了 7 MB 壁纸刷新与重开浏览器后保留、在线地址回填、事务中止反馈、小容量回退和旧数据迁移；见 [验证记录](validation/wallpaper-2026.10.15.2.json)。
 
-本仓库没有构建或重新验证所有架构的 Rust 核心。预编译程序沿用 FJG20 发行文件。
+本仓库没有构建或重新验证所有架构的 Rust 核心。预编译程序沿用 FJG4O 发行文件。
 
+
+UI 2026.10.16.1 / FJG4O 增加字体选择、状态文字居中和单层焦点；新后端经过独立端口兼容性检查后部署，DNS 查询及配置保留验证见 [本版验证记录](validation/ui-2026.10.16.1.json)。
