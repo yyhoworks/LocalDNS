@@ -144,30 +144,31 @@
     setTimeout(()=>page.classList.remove('view-enter'),1050);
   }
   function animateCountUps(root){
+    // 先让 displayNumerals 完成「数字 / 单位」分层，再只滚动数字本体：
+    // 保持结构不被覆写，避免动画后数字与单位字号失衡。
+    window.LocalDNSInterface?.displayNumerals?.();
     if(reduceMotion.matches)return;
-    root.querySelectorAll('.sk-val .display-number').forEach(el=>{
-      const raw=el.textContent.trim();
-      const m=raw.match(/^([^0-9]*)([0-9][0-9,]*(?:\.[0-9]+)?)(.*)$/);
-      if(!m)return;
-      if(/[-−]/.test(m[1]))return; // 负数（数据未就绪时的瞬时值）不参与滚动
-      const target=parseFloat(m[2].replace(/,/g,''));
+    root.querySelectorAll('.sk-val').forEach(el=>{
+      const numEl=el.querySelector('.display-number');
+      if(!numEl)return;
+      const numText=numEl.textContent.trim();
+      const target=parseFloat(numText.replace(/,/g,''));
       if(!isFinite(target)||target<=0)return;
-      const decimals=(m[2].split('.')[1]||'').length, grouped=m[2].includes(',');
-      const fmt=v=>{
+      const decimals=(numText.split('.')[1]||'').length, grouped=numText.includes(',');
+      const fmtNum=v=>{
         const num=decimals?Number(v.toFixed(decimals)):Math.round(v);
-        const body=grouped?num.toLocaleString('en-US',{minimumFractionDigits:decimals,maximumFractionDigits:decimals}):num.toFixed(decimals);
-        return m[1]+body+m[3];
+        return grouped?num.toLocaleString('en-US',{minimumFractionDigits:decimals,maximumFractionDigits:decimals}):num.toFixed(decimals);
       };
       const t0=performance.now(),dur=560;
       const step=now=>{
-        if(!el.isConnected)return;
-        if(reduceMotion.matches){el.textContent=raw;return;}
+        if(!numEl.isConnected)return;
+        if(reduceMotion.matches){numEl.textContent=numText;return;}
         const k=Math.min(1,(now-t0)/dur),e=1-Math.pow(1-k,3);
-        el.textContent=fmt(target*e);
+        numEl.textContent=fmtNum(target*e);
         if(k<1)requestAnimationFrame(step);
-        else{el.textContent=raw;el.classList.add('is-bumping');setTimeout(()=>el.classList.remove('is-bumping'),520)}
+        else{numEl.textContent=numText;el.classList.add('is-bumping');setTimeout(()=>el.classList.remove('is-bumping'),520)}
       };
-      el.textContent=fmt(0);
+      numEl.textContent=fmtNum(0);
       requestAnimationFrame(step);
     });
   }

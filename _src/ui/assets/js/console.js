@@ -84,7 +84,10 @@
   function ruleSaved(tag,value){if(drafts.get(tag)===value||!drafts.has(tag))drafts.delete(tag);persistDrafts();if(activeTag()===tag){const text=$('#rule-text');if(text)text.dataset.original=value;ruleState();}}
   function displayNumerals(){
     $$('.console-kpi .sk-val,.tec-big,.ring-center,.service-value[data-display-number]').forEach(el=>{
-      if(el.classList.contains('has-display-number'))return;
+      if(el.classList.contains('has-display-number')){
+        if(el.querySelector('.display-number'))return;
+        el.classList.remove('has-display-number');
+      }
       const value=el.textContent.trim(),match=value.match(/^([+\-]?\d[\d,.]*)(\s*(?:%|ms|s|KB|MB|GB|TB|万|亿))?$/);
       if(!match)return;
       el.classList.add('has-display-number');
@@ -112,7 +115,7 @@
     document.addEventListener('click',e=>{if(e.target.closest('[data-rule-tag],[data-route],#theme-toggle,#refresh-button'))rememberDraft();if(e.target.closest('[data-route]'))$('.cmd-search-bar').classList.remove('console-search-open');},true);
     window.addEventListener('beforeunload',e=>{rememberDraft();if(drafts.size){e.preventDefault();e.returnValue='';}});
     document.addEventListener('keydown',e=>{if(!drawer.classList.contains('open'))return;if(e.key==='Escape'){e.preventDefault();$('#drawer-close').click();}if(e.key==='Tab'){const items=$$('button,a,input,select,textarea,[tabindex="0"]',drawer).filter(x=>x.getClientRects().length);if(!items.length)return;if(e.shiftKey&&document.activeElement===items[0]){e.preventDefault();items.at(-1).focus();}else if(!e.shiftKey&&document.activeElement===items.at(-1)){e.preventDefault();items[0].focus();}}});
-    observer=new MutationObserver(()=>{if(scheduled)return;scheduled=true;requestAnimationFrame(()=>{scheduled=false;observer.disconnect();try{semantics($('#page-content'));if(route()==='rules')rules();}finally{observer.observe($('#page-content'),{childList:true,subtree:true});}});});observer.observe($('#page-content'),{childList:true,subtree:true});updateBrand();connection();semantics();
+    observer=new MutationObserver(()=>{if(scheduled)return;scheduled=true;requestAnimationFrame(()=>{scheduled=false;observer.disconnect();try{semantics($('#page-content'));if(route()==='overview')displayNumerals();if(route()==='rules')rules();}finally{observer.observe($('#page-content'),{childList:true,subtree:true});}});});observer.observe($('#page-content'),{childList:true,subtree:true});updateBrand();connection();semantics();
   }
-  window.LocalDNSInterface={setup,apply,rememberDraft,recordMetrics,connection,updateBrand,ruleSaved,drawerOpened,drawerClosed,semantics,formError};
+  window.LocalDNSInterface={setup,apply,rememberDraft,recordMetrics,connection,updateBrand,ruleSaved,drawerOpened,drawerClosed,semantics,formError,displayNumerals};
 })();
