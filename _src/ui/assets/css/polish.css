@@ -667,3 +667,41 @@ html[data-theme=light-glass] .bcp-font-item { border-color: rgba(15, 23, 42, .08
   .bcp-font-item .bcp-font-del { min-width: 44px; min-height: 44px; }
   .mobile-records td.td-domain::before { display: block; }
 }
+
+/* ---- 日志表（含长域名）排版修复 ----
+   长域名按任意字符强制断行，避免不可断长串抬高表格最小宽度、把右侧列挤出容器；
+   类型列（A / AAAA / 65 等）保持单行不折行。 */
+.table-wrap table td.td-domain strong { overflow-wrap: anywhere; }
+.table-wrap table td.td-domain > div { overflow-wrap: anywhere; }
+.table-wrap table:has(td.td-domain) td:nth-child(3) { white-space: nowrap; }
+
+/* 宽屏（视口 ≥1181px）：时间戳保持单行，同时收紧 1181-1320px 的列内边距，
+   把省下的宽度还给域名列，避免「时间单行」把长域名列挤瘦。实测 1181-1440px 全程无横向溢出。 */
+@media (min-width: 1181px) {
+  .table-wrap table:has(td.td-domain) th:first-child,
+  .table-wrap table:has(td.td-domain) td:first-child { white-space: nowrap; }
+  /* 耗时列不能把单位（ms）甩到第二行；实测域名列只让出 6-11px */
+  .table-wrap table:has(td.td-domain) th:nth-child(5),
+  .table-wrap table:has(td.td-domain) td:nth-child(5) { white-space: nowrap; }
+}
+
+@media (min-width: 1181px) and (max-width: 1320px) {
+  .table-wrap table:has(td.td-domain) th,
+  .table-wrap table:has(td.td-domain) td:not(.td-domain) { padding-left: 8px; padding-right: 8px; }
+  .table-wrap table:has(td.td-domain) td.td-domain { padding-right: 8px; }
+}
+
+/* 中窄窗口（601-1180px）：日志表紧凑布局——其他列收紧内边距，类型徽标保留原位不重叠，
+   值胶囊与徽标同步减重，尽量让八列全部收进容器、免横向滚动 */
+@media (min-width: 601px) and (max-width: 1180px) {
+  .table-wrap table:has(td.td-domain) th,
+  .table-wrap table:has(td.td-domain) td:not(.td-domain) { padding-left: 8px; padding-right: 8px; }
+  .table-wrap table:has(td.td-domain) td.td-domain { padding-right: 8px; }
+  .table-wrap table:has(td.td-domain) .value-chip { font-size: 10.5px; padding: 1px 5px; }
+  .table-wrap table:has(td.td-domain) .badge { padding-left: 6px; padding-right: 6px; }
+}
+
+/* ---- 卡片头上下居中 ----
+   卡片上内边距 18px（卡顶边 -> 卡头），而卡头自身只留 12px（卡头 -> 分割线），
+   于是「标题 + 副标题」整体偏低约 3px。把卡头下内边距对齐成 18px，上下留白相等。 */
+.card-header { padding-bottom: 18px; }
