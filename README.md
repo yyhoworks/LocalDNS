@@ -6,9 +6,9 @@
 
 **DNS 核心主要由折腾日记交流群里的 R 大使用 Rust 编写；[yyhoworks](https://github.com/yyhoworks) 负责 UI 设计。**
 
-当前版本：**后端 FJG4O / UI 2026.10.16.3**。
+当前版本：**后端 FJG4Z / UI 2026.10.16.3**。
 
-最新下载：**[UI 2026.10.16.3 Release](https://github.com/yyhoworks/LocalDNS/releases/tag/ui-v2026.10.16.3)**。
+最新下载：**[FJG4Z / UI 2026.10.16.3 正式版](https://github.com/yyhoworks/LocalDNS/releases/tag/fjg4z-ui-v2026.10.16.3)**。本次更新内核，保留现有 UI 布局；旧 FJG4O Release 保留可回退。
 
 [产品图集](docs/SCREENSHOTS.md) · [功能指南](docs/FEATURES.md) · [安装说明](INSTALL.md) · [下载 Releases](https://github.com/yyhoworks/LocalDNS/releases) · [作者与分工](AUTHORS.md) · [开发说明](docs/DEVELOPMENT.md) · [近期更新](CHANGELOG.md)
 
@@ -114,7 +114,7 @@
 | **系统管理** | 四类缓存池的查看与清空；请求、类型、广告、IPv6、核心缓存、过期缓存及客户端分流开关；域名列表统计与 Requery 定时刷新 |
 | **外观与交互** | 深浅主题、五组光影预设、本地 / 在线壁纸、玻璃参数、滚动浮动导航、顶部搜索、键盘操作与手机布局 |
 
-详细操作、协议与规则格式说明见 **[功能指南](docs/FEATURES.md)**。后端相关能力需要配套的 FJG4O 服务与对应插件。
+详细操作、协议与规则格式说明见 **[功能指南](docs/FEATURES.md)**。后端相关能力需要配套的 FJG4Z 服务与对应插件。
 
 两行侧栏状态文字分别居中；输入与导航使用柔白细边，键盘操作保留清楚的单层焦点提示。
 
@@ -124,7 +124,7 @@
 
 ## 快速安装
 
-1. 在 [Releases](https://github.com/yyhoworks/LocalDNS/releases/tag/ui-v2026.10.16.3) 下载完整包或 UI 升级包，并核对同页的 `SHA256SUMS.txt`。
+1. 在 [Releases](https://github.com/yyhoworks/LocalDNS/releases/tag/fjg4z-ui-v2026.10.16.3) 下载完整包或 UI 升级包，并核对同页的 `SHA256SUMS.txt`。**升级 FJG4Z 内核必须从完整包选择对应架构的程序；UI 升级包不含内核。**
 2. 已有 LocalDNS 服务时，解压 UI 升级包并运行：
 
    ```sh
@@ -148,7 +148,7 @@ VERSION.json          UI 与后端版号
 
 安装 ZIP 和后端预编译程序放在 Releases。部署凭据、设备配置、运行日志、临时截图和历史工作文件不进入 Git。
 
-**当前仓库包含 UI 源码；当前工作目录未提供 Rust DNS 核心源码，DNS 核心通过 FJG4O 预编译发行包提供。**
+**当前仓库包含 UI 源码；当前工作目录未提供 Rust DNS 核心源码，DNS 核心通过 FJG4Z 预编译发行包提供。**
 
 ## 开发与打包
 

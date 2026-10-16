@@ -3,7 +3,7 @@
 ## 源码范围
 
 本仓库提供当前 Web UI 的 HTML、CSS、JavaScript、Logo 和本地字体。
-DNS 核心主要由折腾日记交流群的 R 大使用 Rust 编写；当前工作目录没有提供核心 Rust 源码，发行版使用 FJG4O 预编译程序。
+DNS 核心主要由折腾日记交流群的 R 大使用 Rust 编写；当前工作目录没有提供核心 Rust 源码，当前发行版使用 FJG4Z 预编译程序。
 
 ## 主要文件
 
@@ -38,19 +38,21 @@ python tools/package_ui.py
 ```
 
 脚本读取 `VERSION.json` 和 `_src/ui/`，生成 UI 升级包、逐文件校验清单和整包 SHA-256。
-输出位于 `dist/`，不会修改正在运行的服务器。
+输出位于 `dist/`；设置 `VERSION.json.releaseTag` 时位于 `dist/<releaseTag>/`，避免覆盖旧构建。打包不会修改正在运行的服务器。
 
 新 UI 版本需要先更新 `VERSION.json`，再更新发布说明和资源查询版本，验证后发布。
 
-完整包使用已发布的 FJG4O 完整 ZIP 作为输入，并要求提供从 GitHub Release 核对过的 SHA-256；不从运行中的设备读取配置：
+完整包使用已发布的完整 ZIP 作为默认配置与规则来源，并要求提供从 GitHub Release 核对过的 SHA-256；不从运行中的设备读取配置：
 
 ```sh
 python tools/package_ui.py --full-base /path/to/published-full.zip --base-sha256 <verified-sha256>
 ```
 
-两个包均包含作者表和第三方许可。后端程序、默认配置与规则沿用已校验的基础包。
+两个包均包含作者表和第三方许可。默认情况下后端程序、默认配置与规则沿用已校验的基础包。仅更新内核时额外传入 `--kernel-archive /path/to/LocalDNS_FJG4Z.zip --kernel-sha256 <verified-sha256>`：只读取三种架构 ELF 程序，不导入上游包内 UI、配置与规则；默认配置、规则和服务文件仍与旧完整包逐字节一致。
 
-PR #1 回归可运行 `node tools/test_countup.cjs` 及 `node tools/verify_ui_merge.cjs`。后者需要 Playwright、Edge 和 `LOCALDNS_PREVIEW_BACKEND`；只读代理阻止后端写入，报告与截图留在忽略的 `dist/`。详见 [整合记录](PR1-INTEGRATION.md)。
+后端单独升级不增加 UI 版号，以 `releaseTag` 选择独立发布说明和构建目录。完整包名包含后端版本，UI 升级包不包含内核。
+
+PR #1 回归可运行 `node tools/test_countup.cjs` 及 `node tools/verify_ui_merge.cjs`。后者需要 Playwright、Edge 和 `LOCALDNS_PREVIEW_BACKEND`；设置 `LOCALDNS_EXPECT_BACKEND=FJG4Z` 时额外断言真实运行版本。只读代理阻止后端写入，报告与截图留在忽略的 `dist/`。详见 [整合记录](PR1-INTEGRATION.md) 与 [FJG4Z 验证记录](validation/fjg4z-2026.10.16.3.json)。
 
 ## 已核验范围
 
@@ -63,7 +65,7 @@ PR #1 回归可运行 `node tools/test_countup.cjs` 及 `node tools/verify_ui_me
 - 更新脚本通过 Alpine `sh -n` 语法检查；打包时未执行升级脚本。
 - UI 2026.10.15.2 验证了 7 MB 壁纸刷新与重开浏览器后保留、在线地址回填、事务中止反馈、小容量回退和旧数据迁移；见 [验证记录](validation/wallpaper-2026.10.15.2.json)。
 
-本仓库没有构建或重新验证所有架构的 Rust 核心。预编译程序沿用 FJG4O 发行文件。
+本仓库没有构建或逐架构运行所有 Rust 核心。FJG4Z 的运行验证针对现有 amd64-v3 环境；其他架构只核验 ELF 类型、哈希与包完整性。
 
 
 UI 2026.10.16.1 / FJG4O 增加字体选择、状态文字居中和单层焦点；新后端经过独立端口兼容性检查后部署，DNS 查询及配置保留验证见 [本版验证记录](validation/ui-2026.10.16.1.json)。

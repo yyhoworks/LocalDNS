@@ -1,5 +1,13 @@
 # LocalDNS 更新记录
 
+## 后端 FJG4Z / UI 2026.10.16.3
+
+- 内核更新至用户提供的 `LocalDNS_FJG4Z.zip`，保留 amd64-v1、amd64-v3、arm64 三种程序；默认 amd64-v3，未附 ARMv7。
+- UI 保持 2026.10.16.3 的布局、字体与交互，DNS 解析路径继续采用 .1 版布局。仅同步后端版本信息与初始标签，保留 R 大、yyhoworks 和 @clone-fan 的署名。
+- 完整包只从新 ZIP 读取内核，不导入其旧 UI、客户端别名或配置；默认配置与规则沿用上一已发布且校验通过的完整包。
+- 使用独立发布标签 `fjg4z-ui-v2026.10.16.3`，保留原 FJG4O Release，不覆盖历史附件。没有上游变更清单，不推测内核内部修复内容。
+- 已通过 amd64-v3 隔离实例兼容性检查、上线后的 TCP / UDP DNS 与配置保留核验，以及 FJG4Z 上的 22 项浏览器回归；其他架构未进行运行测试。
+
 ## UI 2026.10.16.3 / 后端 FJG4O
 
 - 整合 [@clone-fan](https://github.com/clone-fan) 的 [PR #1](https://github.com/yyhoworks/LocalDNS/pull/1)：玻璃细节、排行弹窗、遮罩关闭、快捷搜索、键盘可复制日志、圆角和版本标签设置；保留原始贡献提交与作者署名。

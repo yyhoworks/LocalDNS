@@ -1,14 +1,14 @@
 # 安装与更新
 
-当前发行版本：**后端 FJG4O / UI 2026.10.16.3**。
+当前发行版本：**后端 FJG4Z / UI 2026.10.16.3**。本次是内核更新，UI 布局与贡献署名保留。
 
 ## 选择下载包
 
-从 [UI 2026.10.16.3 Release](https://github.com/yyhoworks/LocalDNS/releases/tag/ui-v2026.10.16.3) 下载：
+从 [FJG4Z / UI 2026.10.16.3 Release](https://github.com/yyhoworks/LocalDNS/releases/tag/fjg4z-ui-v2026.10.16.3) 下载：
 
 | 文件 | 用途 |
 |---|---|
-| `LocalDNS_FJG4O_UI_2026.10.16.3_Full.zip` | 新安装：后端预编译程序、原始 FJG4O 预设配置、规则和新 UI |
+| `LocalDNS_FJG4Z_UI_2026.10.16.3_Full.zip` | 新安装或提取新内核：FJG4Z 程序、上一正式版已清理的默认配置与规则、当前 UI |
 | `LocalDNS_UI_2026.10.16.3_Update.zip` | 已安装环境更新界面 |
 | `SHA256SUMS.txt` | 两个发行包的 SHA-256 校验值 |
 
@@ -34,15 +34,15 @@ sh install-ui.sh /opt/localdns
 
 ## 已安装环境升级后端
 
-UI 升级包只更新界面，不包含后端程序。需要从 FJG20 升级 FJG4O 时，从完整包选择对应架构的 `localdns` 程序，先备份后端、配置、规则与 UI，停止服务后替换 `/opt/localdns/bin/localdns`，恢复可执行权限并启动服务，再检查 DNS 查询与 `/metrics` 中的版本。
+**UI 升级包只更新界面，不包含后端程序。** 升级 FJG4Z 时，从完整包的 `LocalDNS_FJG4Z_Binaries/` 选择对应架构的 `localdns` 程序。先备份后端、配置、规则与 UI，在隔离目录及独立端口验证兼容性，停止服务后替换 `/opt/localdns/bin/localdns`，恢复可执行权限并启动服务，再检查 TCP / UDP DNS 查询、管理接口与 `/metrics` 中的 `FJG4Z` 版本。切换内核需要短暂中断 DNS 服务。
 
-保留已有 `config/`、`rules/`、`generated/` 与 `cache/`，不要用完整包目录覆盖已有安装。FJG4O 原包的部分手工名单为空。
+保留已有 `config/`、`rules/`、`generated/`、`cache/` 和 `ui/`，不要用完整包目录覆盖已有安装。上游内核 ZIP 附带的旧 UI、客户端别名和配置不作为升级来源。验证失败时停止新服务，恢复备份的旧内核及必要的数据，再启动旧服务。
 
 此次上游仅提供 amd64-v1、amd64-v3、arm64；未附带 ARMv7 新程序。
 
 ## 新安装
 
-完整包中的 `localdns/` 放到 `/opt/localdns`。默认程序为 **amd64-v3**；其他二进制位于 `LocalDNS_FJG4O_Binaries/`，按设备架构选择。
+完整包中的 `localdns/` 放到 `/opt/localdns`。默认程序为 **amd64-v3**；其他二进制位于 `LocalDNS_FJG4Z_Binaries/`，按设备架构选择。
 
 | 文件 | 平台 |
 |---|---|
@@ -57,9 +57,9 @@ chmod +x /opt/localdns/bin/localdns
 /opt/localdns/bin/localdns --root /opt/localdns --config /opt/localdns/config/localdns.json
 ```
 
-监听地址和端口由 `localdns/config/localdns.json` 决定。完整包以原始 FJG4O 预设为基础，清理客户端别名与任务历史，将私有上游地址改为本机示例；需按实际环境调整。
+监听地址和端口由 `localdns/config/localdns.json` 决定。完整包沿用上一正式版基于 FJG4O 整理的默认配置与规则，已清理客户端别名、任务历史，并将私有上游地址改为本机示例；本次只引入 FJG4Z 内核，需按实际环境调整配置。
 
-`localdns.service` 是 systemd 服务示例。Alpine/OpenRC 使用对应的服务启动方式，运行库要求沿用 FJG4O 程序本身的要求。
+`localdns.service` 是 systemd 服务示例。Alpine/OpenRC 使用对应的服务启动方式，并保留原有兼容库和环境变量。FJG4Z 为上游预编译程序，本仓库不保证其在所有发行版或 CPU 上均可直接运行。
 
 ## 回退 UI
 

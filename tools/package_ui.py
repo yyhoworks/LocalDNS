@@ -2,6 +2,8 @@
 import argparse
 import hashlib
 import json
+import re
+import struct
 from datetime import datetime
 from pathlib import Path, PurePosixPath
 from zipfile import ZIP_DEFLATED, ZipFile, ZipInfo
@@ -54,7 +56,7 @@ def write_archive(path, payload, version, modes=None):
             raise RuntimeError('ZIP contents differ from source payload')
         verify_manifest(actual)
         for info in archive.infolist():
-            if info.filename.endswith('.sh') or '/bin/' in info.filename or info.filename.startswith('LocalDNS_FJG4O_Binaries/localdns-'):
+            if info.filename.endswith('.sh') or '/bin/' in info.filename or re.match(r'LocalDNS_[A-Z0-9]+_Binaries/localdns-', info.filename):
                 if not info.is_dir() and not (info.external_attr >> 16) & 0o111:
                     raise RuntimeError('Executable permission missing: ' + info.filename)
     return sha(path.read_bytes())
@@ -62,11 +64,15 @@ def write_archive(path, payload, version, modes=None):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--full-base', type=Path, help='Previously published FJG4O full ZIP')
+    parser.add_argument('--full-base', type=Path, help='Previously published full ZIP with clean default configuration')
     parser.add_argument('--base-sha256', help='SHA-256 verified against the published Release')
+    parser.add_argument('--kernel-archive', type=Path, help='Upstream kernel ZIP; import only the three platform binaries')
+    parser.add_argument('--kernel-sha256', help='SHA-256 of the separately verified upstream kernel archive')
     args = parser.parse_args()
     if bool(args.full_base) != bool(args.base_sha256):
         parser.error('--full-base and --base-sha256 must be supplied together')
+    if bool(args.kernel_archive) != bool(args.kernel_sha256) or (args.kernel_archive and not args.full_base):
+        parser.error('--kernel-archive requires --kernel-sha256 and a verified --full-base')
 
     version = json.loads((ROOT / 'VERSION.json').read_text(encoding='utf-8'))
     if json.loads((ROOT / '_src/ui/version.json').read_text(encoding='utf-8')) != version:
@@ -80,7 +86,10 @@ def main():
     for file in (ROOT / 'docs/licenses').rglob('*'):
         if file.is_file():
             common[file.relative_to(ROOT).as_posix()] = file.read_bytes()
-    release_notes = ROOT / 'docs/releases' / f"ui-v{version['uiVersion']}.md"
+    release_tag = version.get('releaseTag', f"ui-v{version['uiVersion']}")
+    if not re.fullmatch(r'[A-Za-z0-9._-]+', release_tag):
+        raise ValueError('Invalid release tag')
+    release_notes = ROOT / 'docs/releases' / (release_tag + '.md')
     if release_notes.exists():
         common['RELEASE_NOTES.md'] = release_notes.read_bytes()
     update = dict(common)
@@ -110,9 +119,42 @@ def main():
         verify_manifest(base)
         meta = json.loads(base['release.json'])
         binary_sha = sha(base['localdns/bin/localdns'])
-        if meta['backendVersion'] != version['backendVersion'] or binary_sha != meta['backendBinarySha256']:
+        if (not args.kernel_archive and meta['backendVersion'] != version['backendVersion']) or binary_sha != meta['backendBinarySha256']:
             raise ValueError('Backend version or binary hash mismatch')
         full = {name: data for name, data in base.items() if not name.startswith('localdns/ui/')}
+        kernel_metadata = {}
+        if args.kernel_archive:
+            kernel_digest = sha(args.kernel_archive.read_bytes())
+            if kernel_digest != args.kernel_sha256.lower():
+                raise ValueError('Upstream kernel archive SHA-256 mismatch')
+            backend = version['backendVersion']
+            if not re.fullmatch(r'FJG[A-Z0-9]+', backend):
+                raise ValueError('Invalid kernel version')
+            kernel_prefix = f'LocalDNS_{backend}_Binaries/'
+            kernels = {}
+            with ZipFile(args.kernel_archive) as archive:
+                if archive.testzip() is not None or len(archive.namelist()) != len(set(archive.namelist())):
+                    raise ValueError('Invalid upstream kernel archive')
+                for platform, machine in [('amd64-v1', 62), ('amd64-v3', 62), ('arm64', 183)]:
+                    name = kernel_prefix + 'localdns-' + platform
+                    data = archive.read(name)
+                    if data[:6] != b'\x7fELF\x02\x01' or struct.unpack_from('<H', data, 18)[0] != machine:
+                        raise ValueError('Unexpected ELF architecture: ' + platform)
+                    kernels[name] = data
+                if archive.read(f'LocalDNS_{backend}/localdns/bin/localdns') != kernels[kernel_prefix + 'localdns-amd64-v3']:
+                    raise ValueError('Default binary differs from amd64-v3')
+            # Do not import upstream UI, personal settings, subscriptions or rules.
+            full = {name: data for name, data in full.items()
+                    if not re.match(r'LocalDNS_[A-Z0-9]+_Binaries/', name)}
+            full.update(kernels)
+            for name in kernels:
+                modes[name] = 0o100755
+            full['localdns/bin/localdns'] = kernels[kernel_prefix + 'localdns-amd64-v3']
+            modes['localdns/bin/localdns'] = 0o100755
+            binary_sha = sha(full['localdns/bin/localdns'])
+            kernel_metadata = {'kernelArchive': args.kernel_archive.name,
+                               'kernelArchiveSha256': kernel_digest,
+                               'kernelBinaries': {name: sha(data) for name, data in kernels.items()}}
         full.update(common)
         full['THIRD_PARTY_NOTICES.md'] = common['THIRD_PARTY_NOTICES.md'].replace(b'%5Fsrc/ui/', b'localdns/ui/').replace(b'_src/ui/', b'localdns/ui/')
         full.update({'localdns/ui/' + name: data for name, data in ui.items()})
@@ -122,16 +164,18 @@ def main():
             baseArchiveSha256=base_digest, backendBinarySha256=binary_sha,
             configurationSource=meta['configurationSource'],
             templateCleanup=meta.get('templateCleanup', ''),
-            uiFiles={name: sha(data) for name, data in ui.items()}))
+            uiFiles={name: sha(data) for name, data in ui.items()}, **kernel_metadata))
         for name, data in base.items():
-            protected = (name.startswith(('localdns/', 'LocalDNS_FJG4O_Binaries/'))
+            protected = ((name.startswith('localdns/') or re.match(r'LocalDNS_[A-Z0-9]+_Binaries/', name))
                          and not name.startswith('localdns/ui/') and name != 'localdns/UI-VERSION')
+            if args.kernel_archive and (name == 'localdns/bin/localdns' or re.match(r'LocalDNS_[A-Z0-9]+_Binaries/', name)):
+                protected = False
             if (protected or name == 'localdns.service') and full[name] != data:
                 raise ValueError('Protected base content changed: ' + name)
         packages.append((f"LocalDNS_{version['backendVersion']}_UI_{version['uiVersion']}_Full.zip", full, modes))
 
-    output = ROOT / 'dist'
-    output.mkdir(exist_ok=True)
+    output = ROOT / 'dist' / release_tag if 'releaseTag' in version else ROOT / 'dist'
+    output.mkdir(parents=True, exist_ok=True)
     sums = []
     for name, payload, modes in packages:
         digest = write_archive(output / name, payload, version, modes)

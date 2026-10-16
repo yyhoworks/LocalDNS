@@ -1,0 +1,53 @@
+{
+  "releaseTag": "fjg4z-ui-v2026.10.16.3",
+  "backendVersion": "FJG4Z",
+  "uiVersion": "2026.10.16.3",
+  "date": "2026-10-16",
+  "timezone": "Asia/Shanghai",
+  "kernelSource": {
+    "archive": "LocalDNS_FJG4Z.zip",
+    "sha256": "15e6200aad1fec5e9508780ea26166859b374a1e3fd7531a06da8255bae554a9",
+    "importedContent": "Only amd64-v1, amd64-v3 and arm64 binaries; bundled UI and configuration excluded"
+  },
+  "runtime": {
+    "testedPlatform": "amd64-v3, Alpine Linux 3.23.3 with existing compatibility library",
+    "reportedVersion": "FJG4Z",
+    "isolatedLoopbackApiChecksPassed": 7,
+    "isolatedDnsUdpPassed": true,
+    "productionDnsTcp53Passed": true,
+    "productionDnsUdp53Passed": true,
+    "backupArchiveVerified": true,
+    "protectedConfigAndManualRuleFiles": 30,
+    "configurationPreserved": true,
+    "requeryRuntimeStatusExcludedFromSemanticComparison": true,
+    "existingUiHttpFilesVerified": 40,
+    "uiModification": "Backend metadata only; installed UI version and all other UI file bytes retained"
+  },
+  "browserRegression": {
+    "browser": "Microsoft Edge via Playwright",
+    "backend": "FJG4Z through an allowlisted read-only proxy",
+    "viewports": [1440, 390],
+    "themes": ["dark", "light"],
+    "pages": ["overview", "logs", "upstreams", "rules", "management"],
+    "passed": 22,
+    "failed": 0,
+    "runtimeErrors": 0,
+    "failedLocalResources": 0,
+    "backendWritesBlocked": true,
+    "countUpBoundaryTestsPassed": true
+  },
+  "packageValidation": {
+    "zipCrcPassed": true,
+    "perFileManifestPassed": true,
+    "platformElfHeadersChecked": true,
+    "executablePermissionsChecked": true,
+    "defaultConfigurationRulesAndServiceUnchangedFromPublishedBase": true,
+    "authorAttributionIncluded": true
+  },
+  "limitations": [
+    "No Rust source rebuild or upstream fix claims",
+    "amd64-v1 and arm64 binaries were not executed",
+    "No physical mobile-device or cross-browser coverage",
+    "Private device settings and screenshots are not included in this record"
+  ]
+}

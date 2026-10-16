@@ -19,7 +19,7 @@
       const visible=mode==='version'||(mode==='custom'&&!!custom);
       tag.style.display=visible?'':'none';
       if(mode==='custom')tag.textContent=custom;
-      else if(mode==='version')tag.textContent=tag.dataset.backendVersion || 'FJG4O';
+      else if(mode==='version')tag.textContent=tag.dataset.backendVersion || '—';
     }
     const verVal=document.querySelector('#val-brand-ver');if(verVal)verVal.textContent=BRAND_VER_LABELS[mode];
     const sel=document.querySelector('#select-brand-ver');if(sel&&sel.value!==mode)sel.value=mode;
