@@ -1,15 +1,15 @@
 # 安装与更新
 
-当前发行版本：**后端 FJG4O / UI 2026.10.16.1**。
+当前发行版本：**后端 FJG4O / UI 2026.10.16.2**。
 
 ## 选择下载包
 
-从 [UI 2026.10.16.1 Release](https://github.com/yyhoworks/LocalDNS/releases/tag/ui-v2026.10.16.1) 下载：
+从 [UI 2026.10.16.2 Release](https://github.com/yyhoworks/LocalDNS/releases/tag/ui-v2026.10.16.2) 下载：
 
 | 文件 | 用途 |
 |---|---|
-| `LocalDNS_FJG4O_UI_2026.10.16.1_Full.zip` | 新安装：后端预编译程序、原始 FJG4O 预设配置、规则和新 UI |
-| `LocalDNS_UI_2026.10.16.1_Update.zip` | 已安装环境更新界面 |
+| `LocalDNS_FJG4O_UI_2026.10.16.2_Full.zip` | 新安装：后端预编译程序、原始 FJG4O 预设配置、规则和新 UI |
+| `LocalDNS_UI_2026.10.16.2_Update.zip` | 已安装环境更新界面 |
 | `SHA256SUMS.txt` | 两个发行包的 SHA-256 校验值 |
 
 在同一目录核对：

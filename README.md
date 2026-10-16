@@ -6,9 +6,9 @@
 
 **DNS 核心主要由折腾日记交流群里的 R 大使用 Rust 编写；[yyhoworks](https://github.com/yyhoworks) 负责 UI 设计。**
 
-当前版本：**后端 FJG4O / UI 2026.10.16.1**。
+当前版本：**后端 FJG4O / UI 2026.10.16.2**。
 
-最新下载：**[UI 2026.10.16.1 Release](https://github.com/yyhoworks/LocalDNS/releases/tag/ui-v2026.10.16.1)**。
+最新下载：**[UI 2026.10.16.2 Release](https://github.com/yyhoworks/LocalDNS/releases/tag/ui-v2026.10.16.2)**。
 
 [产品图集](docs/SCREENSHOTS.md) · [功能指南](docs/FEATURES.md) · [安装说明](INSTALL.md) · [下载 Releases](https://github.com/yyhoworks/LocalDNS/releases) · [作者与分工](AUTHORS.md) · [开发说明](docs/DEVELOPMENT.md) · [近期更新](CHANGELOG.md)
 
@@ -29,7 +29,7 @@
 
 界面采用可调整透明度与模糊度的玻璃材质，搭配随滚动收拢的浮动顶部导航、Noto Serif SC 宋体风格标题与 Instrument Serif 衬线数字。字体随项目本地提供，可在「外观 → 字体与阅读」切换经典宋体、清晰黑体、等宽数字，或分别选择标题、数字与正文。
 
-> 截图来自 UI 2026.10.16.1 实际页面。域名、客户端、订阅地址等使用脱敏或示例数据；图中数值仅用于展示界面，不代表性能测试结果。
+> 截图来自 UI 2026.10.16.2 实际页面。域名、客户端、订阅地址等使用脱敏或示例数据；图中数值仅用于展示界面，不代表性能测试结果。
 
 ### 深浅主题与外观定制
 
@@ -123,7 +123,7 @@
 
 ## 快速安装
 
-1. 在 [Releases](https://github.com/yyhoworks/LocalDNS/releases/tag/ui-v2026.10.16.1) 下载完整包或 UI 升级包，并核对同页的 `SHA256SUMS.txt`。
+1. 在 [Releases](https://github.com/yyhoworks/LocalDNS/releases/tag/ui-v2026.10.16.2) 下载完整包或 UI 升级包，并核对同页的 `SHA256SUMS.txt`。
 2. 已有 LocalDNS 服务时，解压 UI 升级包并运行：
 
    ```sh

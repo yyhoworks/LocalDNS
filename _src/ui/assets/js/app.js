@@ -641,7 +641,7 @@
     return map[type] || map.monitor;
   }
 
-  function drawTopoCurves(edges) {
+  function drawTopoCurves(edges, inspectorCtx) {
     const wrap = document.getElementById('topo-stage-wrap');
     const svg = document.getElementById('topo-svg');
     if (!wrap || !svg) return;
@@ -650,86 +650,132 @@
     if (!wrapRect.width || !wrapRect.height) return;
     svg.setAttribute('viewBox', `0 0 ${wrapRect.width} ${wrapRect.height}`);
 
+    const normEdges = edges.map(e => Array.isArray(e)
+      ? { from: e[0], to: e[1], color: e[2] || '#3B82F6', weight: 1.6, muted: false, rY1: 0.5, rY2: 0.5, preset: '' }
+      : e
+    );
+
     let pathsHtml = '';
-    let dotsHtml = '';
-    const dotSet = new Set();
-
-    const addDot = (x, y, color) => {
-      const key = `${Math.round(x)},${Math.round(y)}`;
-      if (dotSet.has(key)) return;
-      dotSet.add(key);
-      dotsHtml += `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="2.8" fill="${color}" />`;
-    };
-
-    edges.forEach(([fromId, toId, color], i) => {
-      const fromEl = wrap.querySelector(`[data-node-id="${fromId}"]`);
-      const toEl = wrap.querySelector(`[data-node-id="${toId}"]`);
+    normEdges.forEach((edge, i) => {
+      const fromEl = wrap.querySelector(`[data-node-id="${edge.from}"]`);
+      const toEl = wrap.querySelector(`[data-node-id="${edge.to}"]`);
       if (!fromEl || !toEl) return;
 
       const r1 = fromEl.getBoundingClientRect();
       const r2 = toEl.getBoundingClientRect();
 
       const x1 = r1.right - wrapRect.left;
-      const y1 = r1.top + r1.height / 2 - wrapRect.top;
+      const y1 = r1.top + r1.height * (edge.rY1 ?? 0.5) - wrapRect.top;
       const x2 = r2.left - wrapRect.left;
-      const y2 = r2.top + r2.height / 2 - wrapRect.top;
+      const y2 = r2.top + r2.height * (edge.rY2 ?? 0.5) - wrapRect.top;
 
-      const dx = (x2 - x1) * 0.54;
+      const dx = Math.max(16, (x2 - x1) * 0.54);
       const d = `M ${x1.toFixed(1)} ${y1.toFixed(1)} C ${(x1 + dx).toFixed(1)} ${y1.toFixed(1)}, ${(x2 - dx).toFixed(1)} ${y2.toFixed(1)}, ${x2.toFixed(1)} ${y2.toFixed(1)}`;
+      const w = edge.weight || 1.6;
+      const baseOp = edge.muted ? 0.22 : (w > 2.8 ? 0.62 : 0.45);
 
-      pathsHtml += `<path class="topo-edge" data-edge-idx="${i}" d="${d}" stroke="${color}" />`;
-      pathsHtml += `<path class="topo-particle" data-part-idx="${i}" d="${d}" stroke="${color}" />`;
-
-      addDot(x1, y1, color);
-      addDot(x2, y2, color);
+      pathsHtml += `<path class="topo-edge ${edge.muted ? 'is-muted' : ''}" data-edge-idx="${i}" d="${d}" stroke="${edge.color}" style="stroke-width:${w}px;stroke-opacity:${baseOp}" />`;
+      if (!edge.muted) {
+        pathsHtml += `<path class="topo-particle" data-part-idx="${i}" d="${d}" stroke="${edge.color}" style="stroke-width:${Math.max(1.5, +(w * 0.72).toFixed(2))}px" />`;
+      }
     });
 
-    svg.innerHTML = pathsHtml + dotsHtml;
+    svg.innerHTML = pathsHtml;
 
     const nodes = wrap.querySelectorAll('.t-node');
-    nodes.forEach(node => {
-      node.onmouseenter = () => {
-        const startId = node.dataset.nodeId;
-        const activeNodes = new Set([startId]);
+    const stepsEl = document.getElementById('topo-insp-steps');
+    const rttEl = document.getElementById('topo-insp-rtt');
+
+    const renderInspector = info => {
+      if (!info || !stepsEl || !rttEl) return;
+      stepsEl.innerHTML = info.steps.map((s, idx) =>
+        `${idx > 0 ? '<span class="topo-insp-sep" aria-hidden="true">──▸</span>' : ''}<span class="topo-insp-chip" ${s.accent ? `style="border-color:${s.accent}"` : ''}><small>${esc(s.stage)}</small><strong ${s.color ? `style="color:${s.color}"` : ''}>${esc(s.label)}</strong></span>`
+      ).join('');
+      rttEl.textContent = info.summary || '';
+    };
+
+    const applyTraceState = (hoveredId = null) => {
+      const presetKey = state.topoPreset || 'all';
+      if (hoveredId) {
+        const activeNodes = new Set([hoveredId]);
         const activeEdges = new Set();
 
-        const qUp = [startId];
+        const qUp = [hoveredId];
         while (qUp.length) {
           const cur = qUp.shift();
-          edges.forEach(([u, v], idx) => {
-            if (v === cur) {
+          normEdges.forEach((edge, idx) => {
+            if (edge.to === cur) {
               activeEdges.add(idx);
-              if (!activeNodes.has(u)) { activeNodes.add(u); qUp.push(u); }
+              if (!activeNodes.has(edge.from)) { activeNodes.add(edge.from); qUp.push(edge.from); }
             }
           });
         }
-        const qDown = [startId];
+        const qDown = [hoveredId];
         while (qDown.length) {
           const cur = qDown.shift();
-          edges.forEach(([u, v], idx) => {
-            if (u === cur) {
+          normEdges.forEach((edge, idx) => {
+            if (edge.from === cur) {
               activeEdges.add(idx);
-              if (!activeNodes.has(v)) { activeNodes.add(v); qDown.push(v); }
+              if (!activeNodes.has(edge.to)) { activeNodes.add(edge.to); qDown.push(edge.to); }
             }
           });
         }
 
         wrap.classList.add('has-hover');
         nodes.forEach(n => n.classList.toggle('is-active', activeNodes.has(n.dataset.nodeId)));
-        svg.querySelectorAll('.topo-edge').forEach(el => {
-          el.classList.toggle('is-active', activeEdges.has(+el.dataset.edgeIdx));
-        });
-        svg.querySelectorAll('.topo-particle').forEach(el => {
-          el.classList.toggle('is-active', activeEdges.has(+el.dataset.partIdx));
-        });
-      };
+        svg.querySelectorAll('.topo-edge').forEach(el => el.classList.toggle('is-active', activeEdges.has(+el.dataset.edgeIdx)));
+        svg.querySelectorAll('.topo-particle').forEach(el => el.classList.toggle('is-active', activeEdges.has(+el.dataset.partIdx)));
+        if (inspectorCtx?.forNode) renderInspector(inspectorCtx.forNode(hoveredId, activeNodes));
+        return;
+      }
 
-      node.onmouseleave = () => {
-        wrap.classList.remove('has-hover');
-        nodes.forEach(n => n.classList.remove('is-active'));
-        svg.querySelectorAll('.is-active').forEach(el => el.classList.remove('is-active'));
-      };
+      if (presetKey !== 'all' && inspectorCtx?.presets?.[presetKey]) {
+        const presetInfo = inspectorCtx.presets[presetKey];
+        const activeNodes = new Set(presetInfo.nodes || []);
+        const activeEdges = new Set();
+        normEdges.forEach((edge, idx) => {
+          const tags = String(edge.preset || '').split(',');
+          if (tags.includes(presetKey) && activeNodes.has(edge.from) && activeNodes.has(edge.to)) {
+            activeEdges.add(idx);
+          }
+        });
+        wrap.classList.add('has-hover');
+        nodes.forEach(n => n.classList.toggle('is-active', activeNodes.has(n.dataset.nodeId)));
+        svg.querySelectorAll('.topo-edge').forEach(el => el.classList.toggle('is-active', activeEdges.has(+el.dataset.edgeIdx)));
+        svg.querySelectorAll('.topo-particle').forEach(el => el.classList.toggle('is-active', activeEdges.has(+el.dataset.partIdx)));
+        renderInspector(presetInfo);
+        return;
+      }
+
+      wrap.classList.remove('has-hover');
+      nodes.forEach(n => n.classList.remove('is-active'));
+      svg.querySelectorAll('.is-active').forEach(el => el.classList.remove('is-active'));
+      if (inspectorCtx?.presets?.all) renderInspector(inspectorCtx.presets.all);
+    };
+
+    nodes.forEach(node => {
+      node.onmouseenter = () => applyTraceState(node.dataset.nodeId);
+      node.onmouseleave = () => applyTraceState(null);
     });
+
+    const cardEl = wrap.closest('.topology-glass-card');
+    if (cardEl) {
+      cardEl.querySelectorAll('[data-topo-preset]').forEach(btn => {
+        btn.onclick = e => {
+          e.stopPropagation();
+          const nextPreset = btn.dataset.topoPreset || 'all';
+          state.topoPreset = state.topoPreset === nextPreset && nextPreset !== 'all' ? 'all' : nextPreset;
+          cardEl.querySelectorAll('[data-topo-preset]').forEach(b => {
+            const isSel = b.dataset.topoPreset === (state.topoPreset || 'all');
+            b.classList.toggle('active', isSel);
+            b.setAttribute('aria-pressed', String(isSel));
+          });
+          applyTraceState(null);
+        };
+      });
+    }
+
+    applyTraceState(null);
   }
 
   async function renderOverview(){
@@ -786,60 +832,105 @@
     // 客户端分流策略状态（对应真实 switch2 / switch12）
     const clientMode = sw.switch2 === 'A' ? 'fakeip' : (sw.switch12 === 'A' ? 'realip' : 'all');
 
-    // === 构造五阶段全链路拓扑真实数据 ===
+    // === 构造五阶段全链路拓扑真实数据（方案 A 加权拓扑 + 方案 D 实时链路公式栏） ===
     const totalQ = Math.max(1, +stats.total_queries || 0);
-    // 01 客户端来源（5 节点：真实客户端排名前 4 + 其余客户端汇总/补位）
+    const shortUpstreamAddr = raw => {
+      const s = String(raw || '').trim();
+      if (!s) return '—';
+      return s.replace(/^[a-z0-9+.-]+:\/\//i, '').replace(/\/dns-query\/?$/i, '').replace(/:53$/, '');
+    };
+    const protoLabel = rawProto => {
+      const p = String(rawProto || 'udp').toLowerCase();
+      if (p === 'https' || p === 'doh') return 'DoH';
+      if (p === 'tls' || p === 'dot') return 'DoT';
+      return p.toUpperCase();
+    };
+
+    // 01 客户端来源（5 节点：真实客户端排名前 4 + 其余客户端汇总/去重补位）
     const top4Clients = (clients || []).slice(0, 4);
     const restClients = (clients || []).slice(4);
+    const usedClientIps = new Set(top4Clients.map(c => c.key));
+    const unusedAliases = Object.entries(state.aliases || {}).filter(([ip]) => !usedClientIps.has(ip));
+    let unusedAliasIdx = 0;
     const topoClients = [];
     for (let i = 0; i < 4; i++) {
       const c = top4Clients[i];
       if (c) {
-        const sharePct = Math.round((+c.count || 0) / totalQ * 100);
+        const cnt = +c.count || 0;
+        const sharePct = Math.round(cnt / totalQ * 100);
+        const hasAlias = Boolean(state.aliases[c.key] && state.aliases[c.key] !== c.key);
         topoClients.push({
           id: `c${i+1}`,
           ip: c.key,
-          name: state.aliases[c.key] || c.key,
-          sub: `${c.key} · ${compactNum(c.count)} 次`,
+          name: hasAlias ? state.aliases[c.key] : c.key,
+          tag: i === 0 ? '主终端' : (hasAlias ? '终端' : 'LAN'),
+          tagColor: i === 0 ? '#93C5FD' : 'var(--text-2)',
+          sub: hasAlias ? `${c.key} · ${compactNum(cnt)}` : `${compactNum(cnt)} 次 · ${i === 0 ? '活跃峰值' : 'LAN 终端'}`,
           val: `${sharePct}%`,
-          valColor: i === 0 ? '#93C5FD' : 'var(--text-1)',
-          icon: i === 3 ? 'server' : 'monitor'
+          valColor: cnt === 0 ? 'var(--text-3)' : (i === 0 ? '#93C5FD' : 'var(--text-1)'),
+          barPct: cnt > 0 ? Math.max(5, sharePct) : 0,
+          barColor: i === 0 ? '#3B82F6' : '#14B8A6',
+          icon: i === 0 ? 'monitor' : (hasAlias ? 'server' : 'monitor'),
+          iconColor: i === 0 ? '#60A5FA' : (cnt > 0 ? '#2DD4BF' : '#94A3B8'),
+          count: cnt,
+          muted: cnt === 0
         });
       } else {
-        const aliasEntries = Object.entries(state.aliases || {});
-        const fallback = aliasEntries[i] || [`终端槽位 #${i+1}`, '等待 DNS 请求接入'];
+        const fb = unusedAliases[unusedAliasIdx++];
         topoClients.push({
           id: `c${i+1}`,
-          ip: '',
-          name: fallback[1] || fallback[0],
-          sub: `${fallback[0]} · 0 次`,
-          val: '0%',
+          ip: fb ? fb[0] : '',
+          name: fb ? (fb[1] || fb[0]) : `预留终端槽位 #${i+1}`,
+          tag: fb ? '待机' : '',
+          tagColor: 'var(--text-3)',
+          sub: fb ? `${fb[0]} · 0 次` : '等待新设备接入 · 0 次',
+          val: fb ? '0%' : '待机',
           valColor: 'var(--text-3)',
-          icon: 'monitor'
+          barPct: 0,
+          barColor: '#64748B',
+          icon: 'monitor',
+          iconColor: '#64748B',
+          count: 0,
+          muted: true
         });
       }
     }
     const restSum = restClients.reduce((s, x) => s + (+x.count || 0), 0);
+    const restShare = restClients.length ? Math.round(restSum / totalQ * 100) : 0;
     topoClients.push({
       id: 'c5',
       ip: '',
       name: restClients.length ? `其余 ${restClients.length} 台设备` : '局域网其余终端',
-      sub: restClients.length ? `LAN 活跃终端 · ${compactNum(restSum)} 次` : 'LAN 子网监听中 (:53)',
-      val: restClients.length ? `${Math.round(restSum / totalQ * 100)}%` : '就绪',
-      valColor: 'var(--text-2)',
-      icon: 'dots'
+      tag: 'LAN',
+      tagColor: 'var(--text-3)',
+      sub: restClients.length ? `LAN 活跃终端 · ${compactNum(restSum)} 次` : 'LAN 子网监听 (:53)',
+      val: restClients.length ? `${restShare}%` : '就绪',
+      valColor: restClients.length ? 'var(--text-1)' : '#34D399',
+      barPct: restSum > 0 ? Math.max(4, restShare) : 0,
+      barColor: '#64748B',
+      icon: 'dots',
+      iconColor: '#94A3B8',
+      count: restSum,
+      muted: false
     });
 
     // 03 分流规则集（6 节点：对应真实 /api/v1/status rules 与 stats）
     const rRules = engineStatus?.rules || {};
     const eStats = engineStatus?.stats || {};
+    const domHits = +eStats.domestic || 0;
+    const forHits = (+eStats.foreign || 0) + (+eStats.foreign_ecs || 0);
+    const fakeHits = +eStats.fakeip || 0;
+    const blkHits = +eStats.blocked || 0;
+    const maxRuleHit = Math.max(1, domHits, forHits, fakeHits, adguardBlocked, blkHits);
+    const totalRulesCount = (+rRules.geosite_cn || 0) + (+rRules.force_domestic || 0) + (+rRules.geosite_non_cn || 0) + (+rRules.force_foreign_fakeip || 0) + (+engineStatus?.adguard_rules || 0) + (+rRules.block || 0);
+
     const topoRules = [
-      { id: 'r1', tab: 'diversion', name: 'geosite_cn', sub: `国内大陆域名直连 · ${num(rRules.geosite_cn || 0)} 条规则`, val: compactNum(eStats.domestic || 0), iconColor: '#10B981', icon: 'globe' },
-      { id: 'r2', tab: 'lists', name: 'whitelist / custom_cn', sub: `白名单与自定义国内 · ${num(rRules.force_domestic || 0)} 条规则`, val: `${num(rRules.force_domestic || 0)} 条`, iconColor: '#60A5FA', icon: 'check' },
-      { id: 'r3', tab: 'diversion', name: 'geosite_non_cn', sub: `海外无污染分流 · ${num(rRules.geosite_non_cn || 0)} 条规则`, val: compactNum((+eStats.foreign || 0) + (+eStats.foreign_ecs || 0)), iconColor: '#14B8A6', icon: 'split' },
-      { id: 'r4', tab: 'lists', name: 'force_fakeip / 灰名单', sub: `FakeIP 分流映射 · ${num(rRules.force_foreign_fakeip || 0)} 条规则`, val: compactNum(eStats.fakeip || 0), iconColor: '#F59E0B', icon: 'spark' },
-      { id: 'r5', tab: 'adguard', name: 'adguard_block', sub: `广告与追踪器拦截 · ${num(engineStatus?.adguard_rules || 0)} 条规则`, val: compactNum(adguardBlocked), iconColor: '#EF4444', icon: 'shield' },
-      { id: 'r6', tab: 'lists', name: 'block / 特殊类型清洗', sub: `黑名单与类型抑制 · ${num(rRules.block || 0)} 条规则`, val: compactNum(eStats.blocked || 0), iconColor: '#94A3B8', icon: 'sliders' }
+      { id: 'r1', tab: 'diversion', name: '国内域名', protoTag: 'geosite_cn', sub: `${num(rRules.geosite_cn || 0)} 条规则 · 大陆直连`, val: compactNum(domHits), valSub: '次命中', valColor: 'var(--text-1)', barPct: domHits > 0 ? Math.max(6, Math.round(domHits / maxRuleHit * 100)) : 0, iconColor: '#10B981', icon: 'globe', count: domHits, muted: false },
+      { id: 'r2', tab: 'lists', name: '白名单与自定义', protoTag: '', sub: `${num(rRules.force_domestic || 0)} 条强制国内规则 · 优先直连`, val: `${num(rRules.force_domestic || 0)} 条`, valSub: '常驻生效', valColor: '#60A5FA', barPct: (+rRules.force_domestic || 0) > 0 ? 14 : 0, iconColor: '#60A5FA', icon: 'check', count: +rRules.force_domestic || 0, muted: (+rRules.force_domestic || 0) === 0 },
+      { id: 'r3', tab: 'diversion', name: '海外域名', protoTag: 'non_cn', sub: `${num(rRules.geosite_non_cn || 0)} 条规则 · 无污染分流`, val: compactNum(forHits), valSub: '次命中', valColor: 'var(--text-1)', barPct: forHits > 0 ? Math.max(6, Math.round(forHits / maxRuleHit * 100)) : 0, iconColor: '#14B8A6', icon: 'split', count: forHits, muted: false },
+      { id: 'r4', tab: 'lists', name: 'FakeIP 与灰名单', protoTag: '', sub: `${num(rRules.force_foreign_fakeip || 0)} 条规则 · 代理映射`, val: compactNum(fakeHits), valSub: fakeHits >= maxRuleHit && fakeHits > 0 ? '最高频' : '次命中', valColor: '#FBBF24', barPct: fakeHits > 0 ? Math.max(6, Math.round(fakeHits / maxRuleHit * 100)) : 0, iconColor: '#F59E0B', icon: 'spark', count: fakeHits, muted: false },
+      { id: 'r5', tab: 'adguard', name: '广告与追踪拦截', protoTag: '', sub: `AdGuard · ${num(engineStatus?.adguard_rules || 0)} 条规则`, val: compactNum(adguardBlocked), valSub: adguardBlocked > 0 ? '已拦截' : '未触发', valColor: adguardBlocked > 0 ? '#F87171' : 'var(--text-3)', barPct: adguardBlocked > 0 ? Math.max(6, Math.round(adguardBlocked / maxRuleHit * 100)) : 0, iconColor: '#EF4444', icon: 'shield', count: adguardBlocked, muted: adguardBlocked === 0 },
+      { id: 'r6', tab: 'lists', name: '黑名单与类型过滤', protoTag: '', sub: `${num(rRules.block || 0)} 条规则 · 类型抑制`, val: compactNum(blkHits), valSub: '已拦截', valColor: blkHits > 0 ? '#F87171' : 'var(--text-2)', barPct: blkHits > 0 ? Math.max(6, Math.round(blkHits / maxRuleHit * 100)) : 0, iconColor: '#94A3B8', icon: 'sliders', count: blkHits, muted: blkHits === 0 && (+rRules.block || 0) === 0 }
     ];
 
     // 提取真实配置的上游列表及性能指标
@@ -857,11 +948,11 @@
 
     // 04 上游策略组（5 节点：对应真实 domestic / foreign / foreign_ecs / proxy / 拦截）
     const topoGroups = [
-      { id: 'g1', code: 'CN', codeColor: '#34D399', codeBg: 'rgba(16,185,129,0.14)', name: '国内组 (domestic)', sub: `并发竞速 · ${groupAvgMs('domestic')} · ${num(eStats.domestic || 0)} 次` },
-      { id: 'g2', code: 'GL', codeColor: '#2DD4BF', codeBg: 'rgba(20,184,166,0.14)', name: '国外组 (foreign)', sub: `无污染解析 · ${groupAvgMs('foreign')} · ${num(eStats.foreign || 0)} 次` },
-      { id: 'g3', code: 'ECS', codeColor: '#93C5FD', codeBg: 'rgba(59,130,246,0.16)', name: '国外 ECS (foreign_ecs)', sub: `EDNS 子网 · ${groupAvgMs('foreign_ecs')} · ${num(eStats.foreign_ecs || 0)} 次` },
-      { id: 'g4', code: 'PX', codeColor: '#FBBF24', codeBg: 'rgba(245,158,11,0.15)', name: '代理组 (proxy)', sub: `远端解析 · ${groupAvgMs('proxy')} · ${num(eStats.fakeip || 0)} 次` },
-      { id: 'g5', code: 'BLK', codeColor: '#F87171', codeBg: 'rgba(239,68,68,0.15)', name: '本地拦截黑洞', sub: `0.0.0.0 / NXDOMAIN · ${num(eStats.blocked || 0)} 拦截` }
+      { id: 'g1', code: 'CN', codeColor: '#34D399', codeBg: 'rgba(16,185,129,0.15)', name: '国内解析组', sub: `并发竞速 · ${num(domHits)} 次`, val: groupAvgMs('domestic'), valSub: '平均耗时' },
+      { id: 'g2', code: 'GL', codeColor: '#2DD4BF', codeBg: 'rgba(20,184,166,0.15)', name: '海外解析组', sub: `无污染解析 · ${num(eStats.foreign || 0)} 次`, val: groupAvgMs('foreign'), valSub: '平均耗时' },
+      { id: 'g3', code: 'ECS', codeColor: '#93C5FD', codeBg: 'rgba(59,130,246,0.16)', name: '海外 ECS 组', sub: `EDNS 子网 · ${num(eStats.foreign_ecs || 0)} 次`, val: groupAvgMs('foreign_ecs'), valSub: '平均耗时' },
+      { id: 'g4', code: 'PX', codeColor: '#FBBF24', codeBg: 'rgba(245,158,11,0.16)', name: '代理解析组', sub: `远端解析 · ${num(fakeHits)} 次`, val: groupAvgMs('proxy'), valSub: '极速响应' },
+      { id: 'g5', code: 'BLK', codeColor: '#F87171', codeBg: 'rgba(239,68,68,0.16)', name: '本地拦截', sub: '0.0.0.0 / NXDOMAIN', val: compactNum(blkHits + adguardBlocked), valSub: '0.0 ms' }
     ];
 
     // 05 上游 DNS 节点（6 节点：5 个真实上游 DNS + 第 6 个拦截直接响应节点）
@@ -872,7 +963,6 @@
       ...(groupUpstreams.proxy || [])
     ].sort((a, b) => Number(b.u.enabled !== false) - Number(a.u.enabled !== false) || (b.m.win - a.m.win));
 
-    // 优先保证国内、国外、ECS、代理各选代表节点展示在拓扑第 05 列
     const pickedUps = [];
     const pickFrom = (g, count) => {
       const candidates = (groupUpstreams[g] || []).slice().sort((a,b)=>Number(b.u.enabled!==false)-Number(a.u.enabled!==false)||(b.m.win-a.m.win));
@@ -885,10 +975,11 @@
     allRealUps.forEach(x => { if (pickedUps.length < 5 && !pickedUps.includes(x)) pickedUps.push(x); });
 
     const groupToNodeId = { domestic: 'g1', foreign: 'g2', foreign_ecs: 'g3', proxy: 'g4' };
+    const groupPrefix = { domestic: '', foreign: 'GL·', foreign_ecs: 'ECS·', proxy: 'PX·' };
     const topoServers = pickedUps.map((item, idx) => {
       const { g, u, m } = item;
-      const latTxt = m.latency > 0 ? `${m.latency.toFixed(1)} ms` : (u.enabled !== false ? '在线' : '未启用');
-      const badgeTxt = m.q > 0 ? `${Math.round(m.adoption)}% 采纳` : (u.protocol || 'UDP').toUpperCase();
+      const latTxt = m.latency > 0 ? `${m.latency.toFixed(1)}ms` : (u.enabled !== false ? '在线' : '未启用');
+      const badgeTxt = m.q > 0 ? `${Math.round(m.adoption)}% 采纳` : protoLabel(u.protocol);
       const colorMap = {
         domestic: ['#34D399', 'rgba(16,185,129,0.15)'],
         foreign: ['#2DD4BF', 'rgba(20,184,166,0.15)'],
@@ -896,52 +987,176 @@
         proxy: ['#FBBF24', 'rgba(245,158,11,0.16)']
       };
       const [badgeColor, badgeBg] = colorMap[g] || ['#CBD5E1', 'rgba(148,163,184,0.14)'];
+      const rawAddr = u.addr || u.server_addr || '—';
       return {
         id: `s${idx+1}`,
         groupNode: groupToNodeId[g] || 'g1',
         name: u.tag || `Upstream-${idx+1}`,
-        sub: `${u.addr || u.server_addr || '—'} · ${latTxt}`,
+        protoTag: `${groupPrefix[g] || ''}${protoLabel(u.protocol)}`,
+        sub: `${shortUpstreamAddr(rawAddr)} · ${latTxt}`,
+        fullTitle: `${u.tag || ''} · ${rawAddr} · ${latTxt}`,
         badge: badgeTxt,
         badgeColor,
         badgeBg,
-        icon: 'server'
+        icon: 'server',
+        iconColor: badgeColor,
+        muted: u.enabled === false
       };
     });
     topoServers.push({
       id: 's6',
       groupNode: 'g5',
       name: '拦截直接响应',
+      protoTag: '',
       sub: '零上游消耗 · 立即阻断',
-      badge: `${compactNum(eStats.blocked || 0)} 阻断`,
+      fullTitle: '拦截直接响应 · 0.0.0.0 / NXDOMAIN',
+      badge: `${compactNum(blkHits + adguardBlocked)} 阻断`,
       badgeColor: '#F87171',
       badgeBg: 'rgba(239,68,68,0.16)',
-      icon: 'shieldRed'
+      icon: 'shieldRed',
+      iconColor: '#F87171',
+      muted: (blkHits + adguardBlocked) === 0
     });
 
+    const calcEdgeWeight = (cnt, maxRef, minW = 1.4, maxW = 4.0) => {
+      if (!cnt || cnt <= 0) return 1.1;
+      const ratio = Math.min(1, Math.sqrt(cnt / Math.max(1, maxRef)));
+      return +(minW + ratio * (maxW - minW)).toFixed(2);
+    };
+    const cMax = Math.max(1, ...topoClients.map(c => c.count || 0));
+    const activeClientNodeIds = topoClients.filter((c, idx) => c.count > 0 || idx === 0).map(c => c.id);
+
     const topoEdges = [
-      ['c1', 'e_core', '#3B82F6'],
-      ['c2', 'e_core', '#3B82F6'],
-      ['c3', 'e_core', '#3B82F6'],
-      ['c4', 'e_core', '#3B82F6'],
-      ['c5', 'e_core', '#3B82F6'],
+      ...topoClients.map((c, idx) => ({
+        from: c.id,
+        to: 'e_core',
+        color: idx === 0 ? '#60A5FA' : (c.count > 0 ? '#2DD4BF' : '#94A3B8'),
+        weight: idx === 0 && c.count > 0 ? 4.0 : calcEdgeWeight(c.count, cMax, 1.4, 3.4),
+        muted: c.muted,
+        rY1: 0.5,
+        rY2: [0.14, 0.32, 0.50, 0.68, 0.86][idx] || 0.5,
+        preset: (c.count > 0 || idx === 0) ? 'px,cn,ecs,blk' : ''
+      })),
 
-      ['e_core', 'r1', '#14B8A6'],
-      ['e_core', 'r2', '#3B82F6'],
-      ['e_core', 'r3', '#14B8A6'],
-      ['e_core', 'r4', '#F59E0B'],
-      ['e_core', 'r5', '#14B8A6'],
-      ['e_core', 'r6', '#14B8A6'],
+      { from: 'e_core', to: 'r1', color: '#34D399', weight: calcEdgeWeight(domHits, maxRuleHit, 1.8, 3.8), muted: topoRules[0].muted, rY1: 0.12, rY2: 0.5, preset: 'cn' },
+      { from: 'e_core', to: 'r2', color: '#60A5FA', weight: 1.5, muted: topoRules[1].muted, rY1: 0.27, rY2: 0.5, preset: 'cn' },
+      { from: 'e_core', to: 'r3', color: '#2DD4BF', weight: calcEdgeWeight(forHits, maxRuleHit, 1.7, 3.4), muted: topoRules[2].muted, rY1: 0.43, rY2: 0.5, preset: 'ecs' },
+      { from: 'e_core', to: 'r4', color: '#FBBF24', weight: calcEdgeWeight(fakeHits, maxRuleHit, 2.0, 4.0), muted: topoRules[3].muted, rY1: 0.60, rY2: 0.5, preset: 'px' },
+      { from: 'e_core', to: 'r5', color: '#F87171', weight: calcEdgeWeight(adguardBlocked, maxRuleHit, 1.4, 3.0), muted: topoRules[4].muted, rY1: 0.76, rY2: 0.5, preset: 'blk' },
+      { from: 'e_core', to: 'r6', color: '#F87171', weight: calcEdgeWeight(blkHits, maxRuleHit, 1.8, 3.4), muted: topoRules[5].muted, rY1: 0.90, rY2: 0.5, preset: 'blk' },
 
-      ['r1', 'g1', '#14B8A6'],
-      ['r2', 'g1', '#14B8A6'],
-      ['r3', 'g2', '#14B8A6'],
-      ['r3', 'g3', '#3B82F6'],
-      ['r4', 'g4', '#F59E0B'],
-      ['r5', 'g5', '#14B8A6'],
-      ['r6', 'g5', '#14B8A6'],
+      { from: 'r1', to: 'g1', color: '#34D399', weight: calcEdgeWeight(domHits, maxRuleHit, 1.8, 3.8), muted: topoRules[0].muted, rY1: 0.5, rY2: 0.42, preset: 'cn' },
+      { from: 'r2', to: 'g1', color: '#60A5FA', weight: 1.5, muted: topoRules[1].muted, rY1: 0.5, rY2: 0.62, preset: 'cn' },
+      { from: 'r3', to: 'g2', color: '#2DD4BF', weight: calcEdgeWeight(+eStats.foreign || 0, maxRuleHit, 1.6, 3.0), muted: (+eStats.foreign || 0) === 0 && forHits === 0, rY1: 0.42, rY2: 0.5, preset: 'ecs' },
+      { from: 'r3', to: 'g3', color: '#60A5FA', weight: calcEdgeWeight(+eStats.foreign_ecs || 0, maxRuleHit, 1.6, 3.0), muted: (+eStats.foreign_ecs || 0) === 0 && forHits === 0, rY1: 0.58, rY2: 0.5, preset: 'ecs' },
+      { from: 'r4', to: 'g4', color: '#FBBF24', weight: calcEdgeWeight(fakeHits, maxRuleHit, 2.0, 4.0), muted: topoRules[3].muted, rY1: 0.5, rY2: 0.5, preset: 'px' },
+      { from: 'r5', to: 'g5', color: '#F87171', weight: calcEdgeWeight(adguardBlocked, maxRuleHit, 1.4, 3.0), muted: topoRules[4].muted, rY1: 0.5, rY2: 0.38, preset: 'blk' },
+      { from: 'r6', to: 'g5', color: '#F87171', weight: calcEdgeWeight(blkHits, maxRuleHit, 1.8, 3.4), muted: topoRules[5].muted, rY1: 0.5, rY2: 0.58, preset: 'blk' },
 
-      ...topoServers.map(s => [s.groupNode, s.id, '#10B981'])
+      ...topoServers.map((s, idx) => {
+        const presetMap = { g1: 'cn', g2: 'ecs', g3: 'ecs', g4: 'px', g5: 'blk' };
+        const wMap = { g1: 2.2, g2: 1.8, g3: 1.7, g4: calcEdgeWeight(fakeHits, maxRuleHit, 2.0, 4.0), g5: calcEdgeWeight(blkHits + adguardBlocked, maxRuleHit, 1.8, 3.2) };
+        return {
+          from: s.groupNode,
+          to: s.id,
+          color: s.badgeColor,
+          weight: s.muted ? 1.1 : (wMap[s.groupNode] || 2.0),
+          muted: s.muted,
+          rY1: s.groupNode === 'g1' ? (idx === 0 ? 0.4 : 0.6) : 0.5,
+          rY2: 0.5,
+          preset: presetMap[s.groupNode] || 'cn'
+        };
+      })
     ];
+
+    // 方案 D 顶部实时链路公式栏上下文数据
+    const topRuleNode = [...topoRules].sort((a, b) => (b.count || 0) - (a.count || 0))[0] || topoRules[0];
+    const pxServer = topoServers.find(s => s.groupNode === 'g4') || topoServers[0];
+    const cnServers = topoServers.filter(s => s.groupNode === 'g1');
+    const ecsServers = topoServers.filter(s => s.groupNode === 'g2' || s.groupNode === 'g3');
+    const curTopoPreset = state.topoPreset || 'all';
+
+    const topoInspectorCtx = {
+      presets: {
+        all: {
+          nodes: [],
+          summary: `总查询 ${compactNum(stats.total_queries)} · 平均响应 ${ms(stats.average_duration_ms)}`,
+          steps: [
+            { stage: '01 主终端', label: `${topoClients[0].name} (${topoClients[0].val})` },
+            { stage: '02 缓存池', label: cacheDisabled ? '核心缓存已关闭' : `多级缓存 ${overallHitRate.toFixed(1)}% 命中` },
+            { stage: '03 主分流', label: `${topRuleNode.name} (${topRuleNode.val})`, accent: 'rgba(96,165,250,0.35)' },
+            { stage: '04 策略组', label: '5 组并发调度' },
+            { stage: '05 出口', label: `${topoServers.filter(s => !s.muted).length} 节点在线`, color: '#34D399' }
+          ]
+        },
+        px: {
+          nodes: [...activeClientNodeIds, 'e_core', 'r4', 'g4', ...topoServers.filter(s => s.groupNode === 'g4').map(s => s.id)],
+          summary: `代理链路耗时 ≈ ${groupAvgMs('proxy')}`,
+          steps: [
+            { stage: '01 终端', label: `${topoClients[0].name} (${topoClients[0].val})` },
+            { stage: '02 缓存池', label: '穿透进入规则分流' },
+            { stage: '03 规则', label: `FakeIP 与灰名单 (${compactNum(fakeHits)}次)`, accent: 'rgba(251,191,36,0.4)' },
+            { stage: '04 策略组', label: `PX 代理解析组 (${groupAvgMs('proxy')})`, accent: 'rgba(251,191,36,0.4)' },
+            { stage: '05 上游', label: pxServer ? `${pxServer.name} (${pxServer.badge})` : '代理节点', color: '#FBBF24' }
+          ]
+        },
+        cn: {
+          nodes: [...activeClientNodeIds, 'e_core', 'r1', 'r2', 'g1', ...cnServers.map(s => s.id)],
+          summary: `并发竞速耗时 ≈ ${groupAvgMs('domestic')}`,
+          steps: [
+            { stage: '01 终端', label: `${topoClients[0].name}` },
+            { stage: '02 缓存池', label: `国内池 ${cDom.hit.toFixed(1)}% 命中` },
+            { stage: '03 规则', label: `国内域名 (${compactNum(domHits)}) + 白名单 (${num(rRules.force_domestic || 0)}条)`, accent: 'rgba(52,211,153,0.4)' },
+            { stage: '04 策略组', label: `CN 国内解析组 (${groupAvgMs('domestic')})`, accent: 'rgba(52,211,153,0.4)' },
+            { stage: '05 上游', label: cnServers.length ? cnServers.map(s => s.name).join(' / ') : '国内上游', color: '#34D399' }
+          ]
+        },
+        ecs: {
+          nodes: [...activeClientNodeIds, 'e_core', 'r3', 'g2', 'g3', ...ecsServers.map(s => s.id)],
+          summary: `海外加密耗时 ≈ ${groupAvgMs('foreign')}`,
+          steps: [
+            { stage: '01 终端', label: `${topoClients[0].name}` },
+            { stage: '02 缓存池', label: `国外池 ${cFor.hit.toFixed(1)}% / ECS池 ${cEcs.hit.toFixed(1)}%` },
+            { stage: '03 规则', label: `海外域名 (${compactNum(forHits)}次)`, accent: 'rgba(45,212,191,0.4)' },
+            { stage: '04 策略组', label: `GL (${num(eStats.foreign || 0)}) & ECS (${num(eStats.foreign_ecs || 0)})`, accent: 'rgba(45,212,191,0.4)' },
+            { stage: '05 上游', label: ecsServers.length ? ecsServers.map(s => `${s.name}(${s.protoTag})`).join(' / ') : '海外上游', color: '#2DD4BF' }
+          ]
+        },
+        blk: {
+          nodes: [...activeClientNodeIds, 'e_core', 'r5', 'r6', 'g5', 's6'],
+          summary: '本地直接阻断 ≈ 0.0 ms (零上游消耗)',
+          steps: [
+            { stage: '01 终端', label: `${topoClients[0].name}` },
+            { stage: '02 引擎', label: '安全过滤前置拦截' },
+            { stage: '03 规则', label: `黑名单 (${compactNum(blkHits)}) + 广告拦截 (${compactNum(adguardBlocked)})`, accent: 'rgba(248,113,113,0.4)' },
+            { stage: '04 策略组', label: 'BLK 本地拦截黑洞', accent: 'rgba(248,113,113,0.4)' },
+            { stage: '05 响应', label: `NXDOMAIN 立即阻断 (${compactNum(blkHits + adguardBlocked)})`, color: '#F87171' }
+          ]
+        }
+      },
+      forNode(hoveredId, activeSet) {
+        const cNode = topoClients.find(c => c.id === hoveredId) || topoClients.find(c => activeSet.has(c.id)) || topoClients[0];
+        const rList = topoRules.filter(r => activeSet.has(r.id));
+        const gList = topoGroups.filter(g => activeSet.has(g.id));
+        const sList = topoServers.filter(s => activeSet.has(s.id));
+        const rLabel = rList.length === 1 ? `${rList[0].name} (${rList[0].val})` : (rList.length > 1 ? `${rList[0].name} 等 ${rList.length} 项规则` : `${topRuleNode.name}`);
+        const gLabel = gList.length === 1 ? `${gList[0].code} ${gList[0].name} (${gList[0].val})` : (gList.length > 1 ? gList.map(g => g.code).join(' / ') + ' 策略组' : '多策略协同');
+        const sLabel = sList.length === 1 ? `${sList[0].name} (${sList[0].badge})` : (sList.length > 1 ? `${sList.slice(0, 2).map(s => s.name).join(' / ')}` : '上游节点');
+        const cacheStageLabel = gList.length === 1
+          ? ({ g1: `国内池 ${cDom.hit.toFixed(1)}% 命中`, g2: `国外池 ${cFor.hit.toFixed(1)}% 命中`, g3: `ECS池 ${cEcs.hit.toFixed(1)}% 命中`, g4: `主缓存 ${cMain.hit.toFixed(1)}% 命中`, g5: '前置安全阻断' }[gList[0].id] || `主缓存 ${overallHitRate.toFixed(1)}%`)
+          : `多级缓存 ${overallHitRate.toFixed(1)}% 命中`;
+        return {
+          summary: gList.length === 1 ? `当前链路耗时 ≈ ${gList[0].val}` : `总查询 ${compactNum(stats.total_queries)} · 缓存命中 ${overallHitRate.toFixed(1)}%`,
+          steps: [
+            { stage: '01 终端', label: `${cNode.name} (${cNode.val})` },
+            { stage: '02 缓存', label: cacheStageLabel },
+            { stage: '03 规则', label: rLabel, accent: 'rgba(96,165,250,0.38)' },
+            { stage: '04 策略组', label: gLabel, accent: 'rgba(96,165,250,0.38)' },
+            { stage: '05 上游', label: sLabel, color: sList[0]?.badgeColor || '#34D399' }
+          ]
+        };
+      }
+    };
 
     // 分流结果占比环形图数据（基于真实 domain_set 排行 ds）
     const dsTotal = Math.max(1, ds.reduce((n, x) => n + (+x.count || 0), 0));
@@ -1093,68 +1308,142 @@
         </div>
       </div>
 
-      <!-- 第三层：图1同款「实时 DNS 解析与分流全链路拓扑」 -->
+      <!-- 第三层：方案 A 加权全高拓扑 + 方案 D 顶部实时链路公式栏 -->
       <div class="col-12">
         <section class="glass-card topology-glass-card" aria-label="实时 DNS 解析与分流全链路拓扑">
+          <div class="console-topology-heading">
+            <div class="topo-heading-left">
+              <div class="console-section-title">
+                <h2>DNS 解析路径</h2>
+                <p>终端来源、多级缓存、规则分流、策略组与上游节点实时链路</p>
+              </div>
+            </div>
+            <div class="topo-heading-right">
+              <div class="topo-legend-inline" aria-label="链路图例">
+                <span><i style="background:#3B82F6"></i>高频主干</span>
+                <span><i style="background:#10B981"></i>国内直连</span>
+                <span><i style="background:#14B8A6"></i>海外净网</span>
+                <span><i style="background:#F59E0B"></i>FakeIP代理</span>
+                <span><i style="background:#EF4444"></i>安全阻断</span>
+              </div>
+              <div class="topo-preset-group" role="group" aria-label="预设链路追踪">
+                <button type="button" class="topo-preset-btn ${curTopoPreset==='all'?'active':''}" data-topo-preset="all">全部主干</button>
+                <button type="button" class="topo-preset-btn ${curTopoPreset==='px'?'active':''}" data-topo-preset="px"><i style="background:#F59E0B"></i>FakeIP 代理</button>
+                <button type="button" class="topo-preset-btn ${curTopoPreset==='cn'?'active':''}" data-topo-preset="cn"><i style="background:#10B981"></i>国内竞速</button>
+                <button type="button" class="topo-preset-btn ${curTopoPreset==='ecs'?'active':''}" data-topo-preset="ecs"><i style="background:#14B8A6"></i>海外净网</button>
+                <button type="button" class="topo-preset-btn ${curTopoPreset==='blk'?'active':''}" data-topo-preset="blk"><i style="background:#EF4444"></i>安全阻断</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="topo-inspector-bar" id="topo-inspector-bar">
+            <div class="topo-insp-label"><i class="topo-insp-pulse"></i>实时链路</div>
+            <div class="topo-insp-steps" id="topo-insp-steps"></div>
+            <div class="topo-insp-rtt mono" id="topo-insp-rtt"></div>
+          </div>
+
           <div class="topo-stage-wrap ${state.particles === false ? 'no-particles' : ''}" id="topo-stage-wrap">
             <svg class="topo-svg-overlay" id="topo-svg" aria-hidden="true"></svg>
 
             <div class="topo-grid">
               <div class="topo-col" data-col="1">
-                <div class="topo-col-title"><span>01</span>客户端来源</div>
+                <div class="topo-col-title">
+                  <div class="topo-col-title-left"><span>01</span>客户端来源</div>
+                  <em class="topo-col-summary">活跃 ${clients.length || 1} 终端</em>
+                </div>
                 <div class="topo-col-body">
                   ${topoClients.map(c => `
-                    <div class="t-node" data-node-id="${c.id}" data-client-ip="${esc(c.ip)}">
-                      <div class="tn-left">
-                        <div class="tn-icon-box">${getNodeIcon(c.icon, '#94A3B8')}</div>
-                        <div class="tn-meta">
-                          <div class="tn-name">${esc(c.name)}</div>
-                          <div class="tn-sub">${esc(c.sub)}</div>
+                    <div class="t-node ${c.muted ? 'is-muted' : ''}" data-node-id="${c.id}" data-client-ip="${esc(c.ip)}">
+                      <i class="tn-port-r" style="background:${c.barColor}"></i>
+                      <div class="tn-row">
+                        <div class="tn-left">
+                          <div class="tn-icon-box">${getNodeIcon(c.icon, c.iconColor)}</div>
+                          <div class="tn-meta">
+                            <div class="tn-name">${esc(c.name)}${c.tag ? `<span class="tn-proto-tag" style="color:${c.tagColor}">${esc(c.tag)}</span>` : ''}</div>
+                            <div class="tn-sub">${esc(c.sub)}</div>
+                          </div>
+                        </div>
+                        <div class="tn-metric">
+                          <span class="tn-val tabular" style="color:${c.valColor}">${esc(c.val)}</span>
                         </div>
                       </div>
-                      <span class="tn-val" style="color:${c.valColor}">${esc(c.val)}</span>
+                      ${c.barPct > 0 ? `<div class="tn-micro-bar"><i style="width:${c.barPct}%;background:${c.barColor}"></i></div>` : ''}
                     </div>
                   `).join('')}
                 </div>
               </div>
 
               <div class="topo-col" data-col="2">
-                <div class="topo-col-title"><span>02</span>引擎与多级缓存</div>
+                <div class="topo-col-title">
+                  <div class="topo-col-title-left"><span>02</span>引擎与多级缓存</div>
+                  <em class="topo-col-summary">${cacheDisabled ? '已关闭' : '4 池并发'}</em>
+                </div>
                 <div class="topo-col-body">
                   <div class="t-node t-engine-card" data-node-id="e_core" data-route="management">
-                    <div>
-                      <div class="tec-top">
-                        <span class="tec-big tabular">${overallHitRate.toFixed(1)}%</span>
-                        <span class="tec-badge">${compactNum(stats.total_queries)} 请求</span>
+                    <i class="tn-port-l" style="background:#3B82F6"></i>
+                    <i class="tn-port-r" style="background:#10B981"></i>
+                    <div class="tec-hero">
+                      <div>
+                        <div class="tec-top">
+                          <span class="tec-big tabular">${cacheDisabled ? '0.0%' : `${overallHitRate.toFixed(1)}%`}</span>
+                          <span class="tec-badge">${compactNum(stats.total_queries)} 请求</span>
+                        </div>
+                        <div class="tec-desc">${cacheDisabled ? '核心缓存已关闭 · 请求直通规则分流' : `多级内存命中 ${compactNum(cMain.q > 0 ? cMain.h : totalCacheH)} · 穿透分流 ${compactNum(Math.max(0, (+stats.total_queries || 0) - (cMain.q > 0 ? cMain.h : totalCacheH)))}`}</div>
                       </div>
-                      <div class="tec-desc">多级内存缓存命中 · ${cacheDisabled ? '核心缓存已关闭' : '4 个活跃缓存池'}</div>
+                      <div class="tec-split-bar" title="蓝: 缓存直接命中 (${overallHitRate.toFixed(1)}%) / 青: 穿透进入规则分流 (${Math.max(0, 100 - overallHitRate).toFixed(1)}%)">
+                        <div class="tec-split-hit" style="width:${cacheDisabled ? 0 : Math.max(4, Math.min(96, overallHitRate)).toFixed(1)}%"></div>
+                        <div class="tec-split-miss" style="width:${cacheDisabled ? 100 : Math.max(4, 100 - overallHitRate).toFixed(1)}%"></div>
+                      </div>
                     </div>
 
                     <div class="tec-bars">
+                      <div class="tec-pool-head">
+                        <span>多级缓存池命中率</span>
+                        <span>累计 ${compactNum(cMain.size + cDom.size + cFor.size + cEcs.size)} 条</span>
+                      </div>
                       <div class="tec-bar-row">
                         <span class="tec-bar-name">主缓存</span>
-                        <div class="tec-bar-track"><div class="tec-bar-fill" style="width:${Math.max(4, cMain.hit)}%"></div></div>
+                        <div class="tec-bar-track"><div class="tec-bar-fill" style="width:${Math.max(4, cMain.hit)}%;background:linear-gradient(90deg,#3B82F6,#60A5FA)"></div></div>
                         <span class="tec-bar-pct">${cMain.hit.toFixed(1)}%</span>
                       </div>
                       <div class="tec-bar-row">
                         <span class="tec-bar-name">国内池</span>
-                        <div class="tec-bar-track"><div class="tec-bar-fill" style="width:${Math.max(4, cDom.hit)}%"></div></div>
+                        <div class="tec-bar-track"><div class="tec-bar-fill" style="width:${Math.max(4, cDom.hit)}%;background:linear-gradient(90deg,#10B981,#34D399)"></div></div>
                         <span class="tec-bar-pct">${cDom.hit.toFixed(1)}%</span>
                       </div>
                       <div class="tec-bar-row">
                         <span class="tec-bar-name">国外池</span>
-                        <div class="tec-bar-track"><div class="tec-bar-fill" style="width:${Math.max(4, cFor.hit)}%"></div></div>
+                        <div class="tec-bar-track"><div class="tec-bar-fill" style="width:${Math.max(4, cFor.hit)}%;background:linear-gradient(90deg,#14B8A6,#2DD4BF)"></div></div>
                         <span class="tec-bar-pct">${cFor.hit.toFixed(1)}%</span>
                       </div>
                       <div class="tec-bar-row">
                         <span class="tec-bar-name">ECS 池</span>
-                        <div class="tec-bar-track"><div class="tec-bar-fill" style="width:${Math.max(4, cEcs.hit)}%"></div></div>
+                        <div class="tec-bar-track"><div class="tec-bar-fill" style="width:${Math.max(4, cEcs.hit)}%;background:linear-gradient(90deg,#6366F1,#818CF8)"></div></div>
                         <span class="tec-bar-pct">${cEcs.hit.toFixed(1)}%</span>
                       </div>
                       <div class="tec-bar-row">
                         <span class="tec-bar-name">乐观过期</span>
-                        <div class="tec-bar-track"><div class="tec-bar-fill" style="width:${Math.max(4, Math.max(cMain.lazy, cDom.lazy))}%;background:#F59E0B"></div></div>
+                        <div class="tec-bar-track"><div class="tec-bar-fill" style="width:${Math.max(4, Math.max(cMain.lazy, cDom.lazy))}%;background:linear-gradient(90deg,#F59E0B,#FBBF24)"></div></div>
                         <span class="tec-bar-pct">${Math.max(cMain.lazy, cDom.lazy).toFixed(1)}%</span>
+                      </div>
+                    </div>
+
+                    <div class="tec-ports-grid">
+                      <div class="tec-port-item">
+                        <span class="tec-port-label"><i style="background:#10B981"></i>国内直连</span>
+                        <span class="tec-port-val" style="color:#34D399">${compactNum(domHits)}</span>
+                      </div>
+                      <div class="tec-port-item">
+                        <span class="tec-port-label"><i style="background:#14B8A6"></i>海外净网</span>
+                        <span class="tec-port-val" style="color:#2DD4BF">${compactNum(forHits)}</span>
+                      </div>
+                      <div class="tec-port-item">
+                        <span class="tec-port-label"><i style="background:#F59E0B"></i>FakeIP代理</span>
+                        <span class="tec-port-val" style="color:#FBBF24">${compactNum(fakeHits)}</span>
+                      </div>
+                      <div class="tec-port-item">
+                        <span class="tec-port-label"><i style="background:#EF4444"></i>安全阻断</span>
+                        <span class="tec-port-val" style="color:#F87171">${compactNum(blkHits + adguardBlocked)}</span>
                       </div>
                     </div>
                   </div>
@@ -1162,33 +1451,55 @@
               </div>
 
               <div class="topo-col" data-col="3">
-                <div class="topo-col-title"><span>03</span>分流规则集</div>
+                <div class="topo-col-title">
+                  <div class="topo-col-title-left"><span>03</span>分流规则集</div>
+                  <em class="topo-col-summary">${compactNum(totalRulesCount)} 规则</em>
+                </div>
                 <div class="topo-col-body">
                   ${topoRules.map(r => `
-                    <div class="t-node" data-node-id="${r.id}" data-rule-jump="${r.tab}">
-                      <div class="tn-left">
-                        <div class="tn-icon-box">${getNodeIcon(r.icon, r.iconColor)}</div>
-                        <div class="tn-meta">
-                          <div class="tn-name">${esc(r.name)}</div>
-                          <div class="tn-sub">${esc(r.sub)}</div>
+                    <div class="t-node ${r.muted ? 'is-muted' : ''}" data-node-id="${r.id}" data-rule-jump="${r.tab}">
+                      <i class="tn-port-l" style="background:${r.iconColor}"></i>
+                      <i class="tn-port-r" style="background:${r.iconColor}"></i>
+                      <div class="tn-row">
+                        <div class="tn-left">
+                          <div class="tn-icon-box">${getNodeIcon(r.icon, r.iconColor)}</div>
+                          <div class="tn-meta">
+                            <div class="tn-name">${esc(r.name)}${r.protoTag ? `<span class="tn-proto-tag">${esc(r.protoTag)}</span>` : ''}</div>
+                            <div class="tn-sub">${esc(r.sub)}</div>
+                          </div>
+                        </div>
+                        <div class="tn-metric">
+                          <span class="tn-val tabular" style="color:${r.valColor}">${esc(r.val)}</span>
+                          <span class="tn-val-sub">${esc(r.valSub)}</span>
                         </div>
                       </div>
-                      <span class="tn-val">${esc(r.val)}</span>
+                      ${r.barPct > 0 ? `<div class="tn-micro-bar"><i style="width:${r.barPct}%;background:${r.iconColor}"></i></div>` : ''}
                     </div>
                   `).join('')}
                 </div>
               </div>
 
               <div class="topo-col" data-col="4">
-                <div class="topo-col-title"><span>04</span>上游策略组</div>
+                <div class="topo-col-title">
+                  <div class="topo-col-title-left"><span>04</span>上游策略组</div>
+                  <em class="topo-col-summary">5 组并发</em>
+                </div>
                 <div class="topo-col-body">
                   ${topoGroups.map(g => `
                     <div class="t-node" data-node-id="${g.id}" data-route="upstreams">
-                      <div class="tn-left">
-                        <div class="tn-icon-box" style="color:${g.codeColor};background:${g.codeBg};border-color:${g.codeColor}33">${esc(g.code)}</div>
-                        <div class="tn-meta">
-                          <div class="tn-name">${esc(g.name)}</div>
-                          <div class="tn-sub">${esc(g.sub)}</div>
+                      <i class="tn-port-l" style="background:${g.codeColor}"></i>
+                      <i class="tn-port-r" style="background:${g.codeColor}"></i>
+                      <div class="tn-row">
+                        <div class="tn-left">
+                          <div class="tn-icon-box" style="color:${g.codeColor};background:${g.codeBg};border-color:${g.codeColor}33">${esc(g.code)}</div>
+                          <div class="tn-meta">
+                            <div class="tn-name">${esc(g.name)}</div>
+                            <div class="tn-sub">${esc(g.sub)}</div>
+                          </div>
+                        </div>
+                        <div class="tn-metric">
+                          <span class="tn-val tabular" style="color:${g.codeColor}">${esc(g.val)}</span>
+                          <span class="tn-val-sub">${esc(g.valSub)}</span>
                         </div>
                       </div>
                     </div>
@@ -1197,18 +1508,24 @@
               </div>
 
               <div class="topo-col" data-col="5">
-                <div class="topo-col-title"><span>05</span>上游 DNS 节点</div>
+                <div class="topo-col-title">
+                  <div class="topo-col-title-left"><span>05</span>上游 DNS 节点</div>
+                  <em class="topo-col-summary">${topoServers.filter(s => !s.muted).length} 在线</em>
+                </div>
                 <div class="topo-col-body">
                   ${topoServers.map(s => `
-                    <div class="t-node" data-node-id="${s.id}" data-route="upstreams">
-                      <div class="tn-left">
-                        <div class="tn-icon-box">${getNodeIcon(s.icon, '#94A3B8')}</div>
-                        <div class="tn-meta">
-                          <div class="tn-name">${esc(s.name)}</div>
-                          <div class="tn-sub">${esc(s.sub)}</div>
+                    <div class="t-node ${s.muted ? 'is-muted' : ''}" data-node-id="${s.id}" data-route="upstreams" title="${esc(s.fullTitle)}">
+                      <i class="tn-port-l" style="background:${s.badgeColor}"></i>
+                      <div class="tn-row">
+                        <div class="tn-left">
+                          <div class="tn-icon-box">${getNodeIcon(s.icon, s.iconColor)}</div>
+                          <div class="tn-meta">
+                            <div class="tn-name">${esc(s.name)}${s.protoTag ? `<span class="tn-proto-tag" style="color:${s.badgeColor}">${esc(s.protoTag)}</span>` : ''}</div>
+                            <div class="tn-sub">${esc(s.sub)}</div>
+                          </div>
                         </div>
+                        <span class="tn-pill" style="color:${s.badgeColor};background:${s.badgeBg}">${esc(s.badge)}</span>
                       </div>
-                      <span class="tn-pill" style="color:${s.badgeColor};background:${s.badgeBg}">${esc(s.badge)}</span>
                     </div>
                   `).join('')}
                 </div>
@@ -1353,9 +1670,9 @@
       </div>
     `;
 
-    // 绘制五阶段拓扑连线与圆点
-    requestAnimationFrame(() => requestAnimationFrame(() => drawTopoCurves(topoEdges)));
-    const onResize = () => requestAnimationFrame(() => drawTopoCurves(topoEdges));
+    // 绘制五阶段拓扑连线、预设联动与实时公式栏
+    requestAnimationFrame(() => requestAnimationFrame(() => drawTopoCurves(topoEdges, topoInspectorCtx)));
+    const onResize = () => requestAnimationFrame(() => drawTopoCurves(topoEdges, topoInspectorCtx));
     window.addEventListener('resize', onResize, { passive: true });
     trackRouteCleanup(() => window.removeEventListener('resize', onResize));
 
