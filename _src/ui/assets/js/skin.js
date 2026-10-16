@@ -47,6 +47,8 @@
 
   let prefs = readPrefs();
 
+  const normalizeTheme = value => value === 'light-glass' ? 'light-glass' : 'cosmos-glass';
+
   function savePrefs() {
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(prefs));
@@ -65,9 +67,11 @@
   applyRootAttributes();
   try {
     const existingTheme = localStorage.getItem('localdnsTheme');
-    const initialTheme = existingTheme === 'light-glass' || existingTheme === 'cosmos-glass'
-      ? existingTheme
-      : (prefs.active === 'claude' ? prefs.claude.theme : prefs.glass.theme);
+    const hasSkinPrefs = !!localStorage.getItem(STORAGE_KEY);
+    const activeTheme = prefs.active === 'claude' ? prefs.claude.theme : prefs.glass.theme;
+    const initialTheme = hasSkinPrefs
+      ? normalizeTheme(activeTheme)
+      : normalizeTheme(existingTheme || activeTheme);
     document.documentElement.dataset.theme = initialTheme;
     if (!existingTheme) localStorage.setItem('localdnsTheme', initialTheme);
   } catch {
@@ -86,7 +90,7 @@
       card.classList.toggle('active', match);
       card.setAttribute('aria-checked', String(match));
     });
-    document.querySelectorAll('[data-claude-preset]').forEach(sw => {
+    document.querySelectorAll('.preset-btn[data-claude-preset]').forEach(sw => {
       sw.classList.toggle('active', sw.dataset.claudePreset === prefs.claude.preset);
     });
     const presetLabel = document.querySelector('#val-claude-preset');
@@ -108,6 +112,32 @@
     }
   }
 
+  function applyTheme(nextTheme) {
+    const theme = normalizeTheme(nextTheme);
+    prefs[prefs.active].theme = theme;
+    if (prefs.active === 'claude') {
+      if (theme === 'cosmos-glass' && prefs.claude.preset !== 'obsidian') {
+        prefs.claude.lastLightPreset = prefs.claude.preset;
+        prefs.claude.preset = 'obsidian';
+      } else if (theme === 'light-glass' && prefs.claude.preset === 'obsidian') {
+        prefs.claude.preset = prefs.claude.lastLightPreset || 'parchment';
+      }
+      document.documentElement.dataset.claudePreset = prefs.claude.preset;
+    }
+    document.documentElement.dataset.theme = theme;
+    try { localStorage.setItem('localdnsTheme', theme); } catch {}
+    applyRootAttributes();
+    savePrefs();
+    syncControls();
+    window.LocalDNSInterface?.updateBrand?.();
+    window.dispatchEvent(new CustomEvent('localdns:themechange', { detail: { skin: prefs.active, theme } }));
+  }
+
+  function toggleTheme() {
+    const current = normalizeTheme(document.documentElement.dataset.theme);
+    applyTheme(current === 'light-glass' ? 'cosmos-glass' : 'light-glass');
+  }
+
   function setSkin(nextSkin) {
     if (nextSkin !== 'claude' && nextSkin !== 'glass') return;
     const root = document.documentElement;
@@ -115,14 +145,8 @@
     prefs[prefs.active].theme = curTheme;
 
     prefs.active = nextSkin;
-    const targetTheme = prefs[nextSkin].theme || (nextSkin === 'claude' ? 'light-glass' : 'cosmos-glass');
-    root.dataset.theme = targetTheme;
-    try { localStorage.setItem('localdnsTheme', targetTheme); } catch {}
-
-    applyRootAttributes();
-    savePrefs();
-    syncControls();
-    window.LocalDNSInterface?.updateBrand?.();
+    const targetTheme = normalizeTheme(prefs[nextSkin].theme || (nextSkin === 'claude' ? 'light-glass' : 'cosmos-glass'));
+    applyTheme(targetTheme);
     window.dispatchEvent(new CustomEvent('localdns:skinchange', { detail: { skin: nextSkin, theme: targetTheme } }));
   }
 
@@ -135,30 +159,18 @@
     } else {
       prefs.claude.theme = 'cosmos-glass';
     }
-    document.documentElement.dataset.theme = prefs.claude.theme;
-    try { localStorage.setItem('localdnsTheme', prefs.claude.theme); } catch {}
-    applyRootAttributes();
-    savePrefs();
-    syncControls();
-    window.LocalDNSInterface?.updateBrand?.();
+    applyTheme(prefs.claude.theme);
     window.dispatchEvent(new CustomEvent('localdns:skinchange', { detail: { skin: prefs.active, theme: prefs.claude.theme } }));
   }
 
   function init() {
-    // Keep #connection-status to the left of .skin-quick-pill when both exist in .top-actions-dock
-    const pill = document.querySelector('.skin-quick-pill');
-    const status = document.querySelector('#connection-status');
-    if (pill && status && pill.compareDocumentPosition(status) & Node.DOCUMENT_POSITION_FOLLOWING) {
-      pill.before(status);
-    }
-
     document.querySelectorAll('[data-skin-switch]').forEach(btn => {
       btn.addEventListener('click', () => setSkin(btn.dataset.skinSwitch));
     });
     document.querySelectorAll('[data-skin-select]').forEach(card => {
       card.addEventListener('click', () => setSkin(card.dataset.skinSelect));
     });
-    document.querySelectorAll('[data-claude-preset]').forEach(sw => {
+    document.querySelectorAll('.preset-btn[data-claude-preset]').forEach(sw => {
       sw.addEventListener('click', () => setClaudePreset(sw.dataset.claudePreset));
     });
 
@@ -182,9 +194,24 @@
       });
     }
 
+    // Delegate from the document so the theme control keeps working if the shell
+    // refreshes or replaces the header node during a route update.
+    document.addEventListener('click', event => {
+      if (event.target.closest?.('#theme-toggle')) {
+        event.preventDefault();
+        toggleTheme();
+      }
+    }, true);
+    document.addEventListener('keydown', event => {
+      if ((event.key === 'Enter' || event.key === ' ') && document.activeElement?.id === 'theme-toggle') {
+        event.preventDefault();
+        toggleTheme();
+      }
+    }, true);
+
     // Observe data-theme changes from #theme-toggle so Claude preset & per-skin theme stay in sync
     new MutationObserver(() => {
-      const theme = document.documentElement.dataset.theme === 'light-glass' ? 'light-glass' : 'cosmos-glass';
+      const theme = normalizeTheme(document.documentElement.dataset.theme);
       prefs[prefs.active].theme = theme;
       if (prefs.active === 'claude') {
         if (theme === 'cosmos-glass' && prefs.claude.preset !== 'obsidian') {
@@ -207,5 +234,5 @@
     init();
   }
 
-  window.LocalDNSSkin = { setSkin, setClaudePreset, getSkin: () => prefs.active };
+  window.LocalDNSSkin = { setSkin, setClaudePreset, toggleTheme, getSkin: () => prefs.active };
 })();

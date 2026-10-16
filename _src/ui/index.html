@@ -5,21 +5,21 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <title>LocalDNS 控制台</title>
-  <script src="assets/js/appearance.js?v=20261016-4"></script>
-  <script src="assets/js/skin.js?v=20261016-4"></script>
+  <script src="assets/js/appearance.js?v=20261017-1"></script>
+  <script src="assets/js/skin.js?v=20261017-1"></script>
   <link id="dynamic-favicon" rel="icon" type="image/png" href="assets/img/logo-04-light-64.png?v=20261015-2" />
   <link rel="preload" href="assets/fonts/noto-serif-sc-ui.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="preload" href="assets/fonts/instrument-serif-numerals.woff2" as="font" type="font/woff2" crossorigin>
-  <link rel="stylesheet" href="assets/css/fonts.css?v=20261016-4" />
-  <link rel="stylesheet" href="assets/css/app.css?v=20261016-4" />
-  <link rel="stylesheet" href="assets/css/console.css?v=20261016-4" />
-  <link rel="stylesheet" href="assets/css/material.css?v=20261016-4" />
-  <link rel="stylesheet" href="assets/css/navbar.css?v=20261016-4" />
-  <link rel="stylesheet" href="assets/css/overview.css?v=20261016-4" />
-  <link rel="stylesheet" href="assets/css/typography.css?v=20261016-4" />
-  <link rel="stylesheet" href="assets/css/polish.css?v=20261016-4" />
-  <link rel="stylesheet" href="assets/css/interaction.css?v=20261016-4" />
-  <link rel="stylesheet" href="assets/css/skin-claude.css?v=20261016-4" />
+  <link rel="stylesheet" href="assets/css/fonts.css?v=20261017-1" />
+  <link rel="stylesheet" href="assets/css/app.css?v=20261017-1" />
+  <link rel="stylesheet" href="assets/css/console.css?v=20261017-1" />
+  <link rel="stylesheet" href="assets/css/material.css?v=20261017-1" />
+  <link rel="stylesheet" href="assets/css/navbar.css?v=20261017-1" />
+  <link rel="stylesheet" href="assets/css/overview.css?v=20261017-1" />
+  <link rel="stylesheet" href="assets/css/typography.css?v=20261017-1" />
+  <link rel="stylesheet" href="assets/css/polish.css?v=20261017-1" />
+  <link rel="stylesheet" href="assets/css/interaction.css?v=20261017-1" />
+  <link rel="stylesheet" href="assets/css/skin-claude.css?v=20261017-1" />
 </head>
 <body>
 
@@ -49,21 +49,15 @@
 
         <div class="top-actions-dock">
 
-          <div class="skin-quick-pill" role="group" aria-label="快捷切换界面皮肤">
-            <button type="button" class="skin-quick-btn active" data-skin-switch="claude" aria-pressed="true" title="切换至人文羊皮纸 (Claude 风格)">
-              <i class="sq-dot sq-dot-claude" aria-hidden="true"></i>
-              <span>人文羊皮纸</span>
-            </button>
-            <button type="button" class="skin-quick-btn" data-skin-switch="glass" aria-pressed="false" title="切换至流光毛玻璃 (原版风格)">
-              <i class="sq-dot sq-dot-glass" aria-hidden="true"></i>
-              <span>流光毛玻璃</span>
-            </button>
-          </div>
-
           <div class="glass-action-capsule" role="group" aria-label="视图与主题工具">
             <button type="button" class="icon-action-btn active" id="btn-open-bg-customizer" aria-expanded="false" aria-controls="bg-customizer-popover">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-5-5L5 21"/></svg>
               <span>外观</span>
+            </button>
+            <span class="dock-divider" aria-hidden="true"></span>
+            <button type="button" class="skin-inline-btn" data-skin-switch="glass" aria-pressed="false" title="切换至流光毛玻璃 (原版风格)">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M3 7h5l3 5-3 5H3M14 7h7M14 17h7"/></svg>
+              <span>流光</span>
             </button>
             <span class="dock-divider" aria-hidden="true"></span>
             <button type="button" class="icon-action-btn active" id="btn-toggle-particles" aria-label="流向粒子动画开关" title="流向粒子动画开关">
@@ -274,14 +268,14 @@
   </dialog>
 
   <div id="toast-stack" class="toast-stack" aria-live="polite"></div>
-  <script src="config.js?v=20261016-4"></script>
+  <script src="config.js?v=20261017-1"></script>
   <script src="assets/js/chart.umd.min.js"></script>
-  <script src="assets/js/console.js?v=20261016-4"></script>
-  <script src="assets/js/wallpaper.js?v=20261016-4"></script>
-  <script src="assets/js/font-uploads.js?v=20261016-4"></script>
-  <script src="assets/js/topology-flow.js?v=20261016-4"></script>
-  <script src="assets/js/app.js?v=20261016-4"></script>
-  <script src="assets/js/material.js?v=20261016-4-FJG4Z"></script>
-  <script src="assets/js/navbar.js?v=20261016-4"></script>
+  <script src="assets/js/console.js?v=20261017-1"></script>
+  <script src="assets/js/wallpaper.js?v=20261017-1"></script>
+  <script src="assets/js/font-uploads.js?v=20261017-1"></script>
+  <script src="assets/js/topology-flow.js?v=20261017-1"></script>
+  <script src="assets/js/app.js?v=20261017-1"></script>
+  <script src="assets/js/material.js?v=20261017-1-FJG4Z"></script>
+  <script src="assets/js/navbar.js?v=20261017-1"></script>
 </body>
 </html>

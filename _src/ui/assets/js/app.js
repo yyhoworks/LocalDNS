@@ -437,15 +437,15 @@
     document.addEventListener('click',e=>{const b=e.target.closest('[data-route]');if(!b)return;navigate(b.dataset.route)});
     $('#refresh-button').onclick=()=>renderRoute(true);
     $('#restart-button').onclick=restartService;
-    $('#theme-toggle').onclick=()=>{
-      const cur=document.documentElement.dataset.theme;
-      const next=cur==='light-glass'?'cosmos-glass':'light-glass';
-      document.documentElement.dataset.theme=next;
-      storage.set('localdnsTheme',next);
-      renderRoute(true,true);
-    };
-    const savedTheme=storage.get('localdnsTheme')||document.documentElement.dataset.theme;
-    document.documentElement.dataset.theme=(savedTheme==='light-glass')?'light-glass':'cosmos-glass';
+    if (!window.LocalDNSSkin?.toggleTheme) {
+      $('#theme-toggle').onclick=()=>{
+        const cur=document.documentElement.dataset.theme;
+        const next=cur==='light-glass'?'cosmos-glass':'light-glass';
+        document.documentElement.dataset.theme=next;
+        storage.set('localdnsTheme',next);
+        window.LocalDNSInterface?.updateBrand?.();
+      };
+    }
     window.addEventListener('localdns:skinchange',()=>renderRoute(true,true));
     $('#drawer-close').onclick=closeDrawer; $('#drawer-backdrop').onclick=closeDrawer; $('#modal-close').onclick=modalClose;
     $('#modal').addEventListener('close',()=>{closeSlowTypePopover();$('#modal').classList.remove('overview-detail-modal')});
