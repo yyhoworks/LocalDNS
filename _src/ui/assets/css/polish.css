@@ -566,7 +566,7 @@ html[data-theme="light-glass"] .log-filter-bar select { background: rgba(255,255
 td.td-domain { position: relative; padding-left: 40px; }
 td.td-domain::before {
   content: attr(data-qtype-short);
-  position: absolute; left: 12px; top: 12px;
+  position: absolute; left: 12px; top: calc(50% - 10px);
   width: 24px; height: 20px; border-radius: 6px;
   display: inline-flex; align-items: center; justify-content: center;
   font-family: var(--font-mono); font-size: 10px; font-weight: 700;
