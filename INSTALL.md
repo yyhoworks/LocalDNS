@@ -1,15 +1,15 @@
 # 安装与更新
 
-当前发行版本：**后端 FJG4Z / UI 2026.10.16.3**。本次是内核更新，UI 布局与贡献署名保留。
+当前发行版本：**后端 FJG4Z / UI 2026.10.16.4**。本次新增「人文羊皮纸（Claude 风格）」与「流光毛玻璃（原版）」双皮肤体系及无刷新一键切换，保留 FJG4Z 内核、五列 DNS 解析路径布局与贡献署名。
 
 ## 选择下载包
 
-从 [FJG4Z / UI 2026.10.16.3 Release](https://github.com/yyhoworks/LocalDNS/releases/tag/fjg4z-ui-v2026.10.16.3) 下载：
+从 [FJG4Z / UI 2026.10.16.4 Release](https://github.com/yyhoworks/LocalDNS/releases/tag/fjg4z-ui-v2026.10.16.4) 下载：
 
 | 文件 | 用途 |
 |---|---|
-| `LocalDNS_FJG4Z_UI_2026.10.16.3_Full.zip` | 新安装或提取新内核：FJG4Z 程序、上一正式版已清理的默认配置与规则、当前 UI |
-| `LocalDNS_UI_2026.10.16.3_Update.zip` | 已安装环境更新界面 |
+| `LocalDNS_FJG4Z_UI_2026.10.16.4_Full.zip` | 新安装或提取新内核：FJG4Z 程序、上一正式版已清理的默认配置与规则、当前双皮肤 UI |
+| `LocalDNS_UI_2026.10.16.4_Update.zip` | 已安装环境更新界面 |
 | `SHA256SUMS.txt` | 两个发行包的 SHA-256 校验值 |
 
 在同一目录核对：

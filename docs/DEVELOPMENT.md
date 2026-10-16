@@ -16,9 +16,11 @@ DNS 核心主要由折腾日记交流群的 R 大使用 Rust 编写；当前工�
 | `_src/ui/assets/js/material.js` | 外观参数与静态背景光影 |
 | `_src/ui/assets/js/navbar.js` | 顶部滚动联动 |
 | `_src/ui/assets/js/appearance.js` | 字体偏好提前恢复、组合选择与输入方式识别 |
+| `_src/ui/assets/js/skin.js` | 人文羊皮纸（Claude）与流光毛玻璃双皮肤切换、纸张色调预设与每套皮肤独立偏好恢复 |
 | `_src/ui/assets/js/font-uploads.js` | 浏览器本地字体上传、事务确认与分项字体选择 |
 | `_src/ui/assets/js/topology-flow.js` | 可关闭的路径流光示意、交互暂停与切页清理 |
 | `_src/ui/assets/css/interaction.css` | 状态文字居中、柔白细边与键盘焦点 |
+| `_src/ui/assets/css/skin-claude.css` | 人文羊皮纸（Claude 风格）与流光毛玻璃双皮肤变量、宣纸噪点层与组件定制 |
 | `_src/ui/assets/js/wallpaper.js` | 壁纸验证、IndexedDB 保存、旧数据迁移与失败反馈 |
 | `_src/ui/assets/css/overview.css` | 服务摘要与指标分组 |
 | `_src/ui/assets/css/typography.css` | 宋体标题与衬线数字 |

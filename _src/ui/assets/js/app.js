@@ -444,8 +444,9 @@
       storage.set('localdnsTheme',next);
       renderRoute(true,true);
     };
-    const savedTheme=storage.get('localdnsTheme');
+    const savedTheme=storage.get('localdnsTheme')||document.documentElement.dataset.theme;
     document.documentElement.dataset.theme=(savedTheme==='light-glass')?'light-glass':'cosmos-glass';
+    window.addEventListener('localdns:skinchange',()=>renderRoute(true,true));
     $('#drawer-close').onclick=closeDrawer; $('#drawer-backdrop').onclick=closeDrawer; $('#modal-close').onclick=modalClose;
     $('#modal').addEventListener('close',()=>{closeSlowTypePopover();$('#modal').classList.remove('overview-detail-modal')});
     // 现代弹窗交互：点击遮罩空白关闭（必须在遮罩上按下再抬起，避免框内拖选误触）
@@ -935,15 +936,16 @@
     });
 
     // 03 分流规则集（6 节点：对应真实 /api/v1/status rules 与 stats）
+    const isClaude = document.documentElement.dataset.skin === 'claude';
     const rRules = engineStatus?.rules || {};
     const eStats = engineStatus?.stats || {};
     const topoRules = [
-      { id: 'r1', tab: 'diversion', name: 'geosite_cn', sub: `国内大陆域名直连 · ${num(rRules.geosite_cn || 0)} 条规则`, val: compactNum(eStats.domestic || 0), iconColor: '#10B981', icon: 'globe' },
-      { id: 'r2', tab: 'lists', name: 'whitelist / custom_cn', sub: `白名单与自定义国内 · ${num(rRules.force_domestic || 0)} 条规则`, val: `${num(rRules.force_domestic || 0)} 条`, iconColor: '#60A5FA', icon: 'check' },
-      { id: 'r3', tab: 'diversion', name: 'geosite_non_cn', sub: `海外无污染分流 · ${num(rRules.geosite_non_cn || 0)} 条规则`, val: compactNum((+eStats.foreign || 0) + (+eStats.foreign_ecs || 0)), iconColor: '#14B8A6', icon: 'split' },
-      { id: 'r4', tab: 'lists', name: 'force_fakeip / 灰名单', sub: `FakeIP 分流映射 · ${num(rRules.force_foreign_fakeip || 0)} 条规则`, val: compactNum(eStats.fakeip || 0), iconColor: '#F59E0B', icon: 'spark' },
-      { id: 'r5', tab: 'adguard', name: 'adguard_block', sub: `广告与追踪器拦截 · ${num(engineStatus?.adguard_rules || 0)} 条规则`, val: compactNum(adguardBlocked), iconColor: '#EF4444', icon: 'shield' },
-      { id: 'r6', tab: 'lists', name: 'block / 特殊类型清洗', sub: `黑名单与类型抑制 · ${num(rRules.block || 0)} 条规则`, val: compactNum(eStats.blocked || 0), iconColor: '#94A3B8', icon: 'sliders' }
+      { id: 'r1', tab: 'diversion', name: 'geosite_cn', sub: `国内大陆域名直连 · ${num(rRules.geosite_cn || 0)} 条规则`, val: compactNum(eStats.domestic || 0), iconColor: isClaude ? '#2D6A4F' : '#10B981', icon: 'globe' },
+      { id: 'r2', tab: 'lists', name: 'whitelist / custom_cn', sub: `白名单与自定义国内 · ${num(rRules.force_domestic || 0)} 条规则`, val: `${num(rRules.force_domestic || 0)} 条`, iconColor: isClaude ? '#C96442' : '#60A5FA', icon: 'check' },
+      { id: 'r3', tab: 'diversion', name: 'geosite_non_cn', sub: `海外无污染分流 · ${num(rRules.geosite_non_cn || 0)} 条规则`, val: compactNum((+eStats.foreign || 0) + (+eStats.foreign_ecs || 0)), iconColor: isClaude ? '#3D6B66' : '#14B8A6', icon: 'split' },
+      { id: 'r4', tab: 'lists', name: 'force_fakeip / 灰名单', sub: `FakeIP 分流映射 · ${num(rRules.force_foreign_fakeip || 0)} 条规则`, val: compactNum(eStats.fakeip || 0), iconColor: isClaude ? '#B45309' : '#F59E0B', icon: 'spark' },
+      { id: 'r5', tab: 'adguard', name: 'adguard_block', sub: `广告与追踪器拦截 · ${num(engineStatus?.adguard_rules || 0)} 条规则`, val: compactNum(adguardBlocked), iconColor: isClaude ? '#B91C1C' : '#EF4444', icon: 'shield' },
+      { id: 'r6', tab: 'lists', name: 'block / 特殊类型清洗', sub: `黑名单与类型抑制 · ${num(rRules.block || 0)} 条规则`, val: compactNum(eStats.blocked || 0), iconColor: isClaude ? '#857F74' : '#94A3B8', icon: 'sliders' }
     ];
 
     // 提取真实配置的上游列表及性能指标
@@ -961,11 +963,11 @@
 
     // 04 上游策略组（5 节点：对应真实 domestic / foreign / foreign_ecs / proxy / 拦截）
     const topoGroups = [
-      { id: 'g1', code: 'CN', codeColor: '#34D399', codeBg: 'rgba(16,185,129,0.14)', name: '国内组 (domestic)', sub: `并发竞速 · ${groupAvgMs('domestic')} · ${num(eStats.domestic || 0)} 次` },
-      { id: 'g2', code: 'GL', codeColor: '#2DD4BF', codeBg: 'rgba(20,184,166,0.14)', name: '国外组 (foreign)', sub: `无污染解析 · ${groupAvgMs('foreign')} · ${num(eStats.foreign || 0)} 次` },
-      { id: 'g3', code: 'ECS', codeColor: '#93C5FD', codeBg: 'rgba(59,130,246,0.16)', name: '国外 ECS (foreign_ecs)', sub: `EDNS 子网 · ${groupAvgMs('foreign_ecs')} · ${num(eStats.foreign_ecs || 0)} 次` },
-      { id: 'g4', code: 'PX', codeColor: '#FBBF24', codeBg: 'rgba(245,158,11,0.15)', name: '代理组 (proxy)', sub: `远端解析 · ${groupAvgMs('proxy')} · ${num(eStats.fakeip || 0)} 次` },
-      { id: 'g5', code: 'BLK', codeColor: '#F87171', codeBg: 'rgba(239,68,68,0.15)', name: '本地拦截黑洞', sub: `0.0.0.0 / NXDOMAIN · ${num(eStats.blocked || 0)} 拦截` }
+      { id: 'g1', code: 'CN', codeColor: isClaude ? '#2D6A4F' : '#34D399', codeBg: isClaude ? 'rgba(45,106,79,0.12)' : 'rgba(16,185,129,0.14)', name: '国内组 (domestic)', sub: `并发竞速 · ${groupAvgMs('domestic')} · ${num(eStats.domestic || 0)} 次` },
+      { id: 'g2', code: 'GL', codeColor: isClaude ? '#3D6B66' : '#2DD4BF', codeBg: isClaude ? 'rgba(61,107,102,0.12)' : 'rgba(20,184,166,0.14)', name: '国外组 (foreign)', sub: `无污染解析 · ${groupAvgMs('foreign')} · ${num(eStats.foreign || 0)} 次` },
+      { id: 'g3', code: 'ECS', codeColor: isClaude ? '#C96442' : '#93C5FD', codeBg: isClaude ? 'rgba(201,100,66,0.12)' : 'rgba(59,130,246,0.16)', name: '国外 ECS (foreign_ecs)', sub: `EDNS 子网 · ${groupAvgMs('foreign_ecs')} · ${num(eStats.foreign_ecs || 0)} 次` },
+      { id: 'g4', code: 'PX', codeColor: isClaude ? '#B45309' : '#FBBF24', codeBg: isClaude ? 'rgba(180,83,9,0.12)' : 'rgba(245,158,11,0.15)', name: '代理组 (proxy)', sub: `远端解析 · ${groupAvgMs('proxy')} · ${num(eStats.fakeip || 0)} 次` },
+      { id: 'g5', code: 'BLK', codeColor: isClaude ? '#B91C1C' : '#F87171', codeBg: isClaude ? 'rgba(185,28,28,0.12)' : 'rgba(239,68,68,0.15)', name: '本地拦截黑洞', sub: `0.0.0.0 / NXDOMAIN · ${num(eStats.blocked || 0)} 拦截` }
     ];
 
     // 05 上游 DNS 节点（6 节点：5 个真实上游 DNS + 第 6 个拦截直接响应节点）
@@ -993,7 +995,12 @@
       const { g, u, m } = item;
       const latTxt = m.latency > 0 ? `${m.latency.toFixed(1)} ms` : (u.enabled !== false ? '在线' : '未启用');
       const badgeTxt = m.q > 0 ? `${Math.round(m.adoption)}% 采纳` : (u.protocol || 'UDP').toUpperCase();
-      const colorMap = {
+      const colorMap = isClaude ? {
+        domestic: ['#2D6A4F', 'rgba(45,106,79,0.12)'],
+        foreign: ['#3D6B66', 'rgba(61,107,102,0.12)'],
+        foreign_ecs: ['#C96442', 'rgba(201,100,66,0.12)'],
+        proxy: ['#B45309', 'rgba(180,83,9,0.12)']
+      } : {
         domestic: ['#34D399', 'rgba(16,185,129,0.15)'],
         foreign: ['#2DD4BF', 'rgba(20,184,166,0.15)'],
         foreign_ecs: ['#93C5FD', 'rgba(59,130,246,0.16)'],
@@ -1018,34 +1025,38 @@
       name: '拦截直接响应',
       sub: '零上游消耗 · 立即阻断',
       badge: `${compactNum(eStats.blocked || 0)} 阻断`,
-      badgeColor: '#F87171',
-      badgeBg: 'rgba(239,68,68,0.16)',
+      badgeColor: isClaude ? '#B91C1C' : '#F87171',
+      badgeBg: isClaude ? 'rgba(185,28,28,0.12)' : 'rgba(239,68,68,0.16)',
       icon: 'shieldRed'
     });
 
+    const cPrimary = isClaude ? '#C96442' : '#3B82F6';
+    const cTeal = isClaude ? '#2D6A4F' : '#14B8A6';
+    const cAmber = isClaude ? '#B45309' : '#F59E0B';
+    const cGreen = isClaude ? '#2D6A4F' : '#10B981';
     const topoEdges = [
-      ['c1', 'e_core', '#3B82F6'],
-      ['c2', 'e_core', '#3B82F6'],
-      ['c3', 'e_core', '#3B82F6'],
-      ['c4', 'e_core', '#3B82F6'],
-      ['c5', 'e_core', '#3B82F6'],
+      ['c1', 'e_core', cPrimary],
+      ['c2', 'e_core', cPrimary],
+      ['c3', 'e_core', cPrimary],
+      ['c4', 'e_core', cPrimary],
+      ['c5', 'e_core', cPrimary],
 
-      ['e_core', 'r1', '#14B8A6'],
-      ['e_core', 'r2', '#3B82F6'],
-      ['e_core', 'r3', '#14B8A6'],
-      ['e_core', 'r4', '#F59E0B'],
-      ['e_core', 'r5', '#14B8A6'],
-      ['e_core', 'r6', '#14B8A6'],
+      ['e_core', 'r1', cTeal],
+      ['e_core', 'r2', cPrimary],
+      ['e_core', 'r3', cTeal],
+      ['e_core', 'r4', cAmber],
+      ['e_core', 'r5', cTeal],
+      ['e_core', 'r6', cTeal],
 
-      ['r1', 'g1', '#14B8A6'],
-      ['r2', 'g1', '#14B8A6'],
-      ['r3', 'g2', '#14B8A6'],
-      ['r3', 'g3', '#3B82F6'],
-      ['r4', 'g4', '#F59E0B'],
-      ['r5', 'g5', '#14B8A6'],
-      ['r6', 'g5', '#14B8A6'],
+      ['r1', 'g1', cTeal],
+      ['r2', 'g1', cTeal],
+      ['r3', 'g2', cTeal],
+      ['r3', 'g3', cPrimary],
+      ['r4', 'g4', cAmber],
+      ['r5', 'g5', cTeal],
+      ['r6', 'g5', cTeal],
 
-      ...topoServers.map(s => [s.groupNode, s.id, '#10B981'])
+      ...topoServers.map(s => [s.groupNode, s.id, cGreen])
     ].map(([from, to, color]) => ({
       from, to, color,
       muted: Boolean(topoClients.find(c => c.id === from)?.muted || topoServers.find(s => s.id === to)?.muted)
@@ -1053,7 +1064,9 @@
 
     // 分流结果占比环形图数据（基于真实 domain_set 排行 ds）
     const dsTotal = Math.max(1, ds.reduce((n, x) => n + (+x.count || 0), 0));
-    const ringColors = ['#2563EB', '#10B981', '#F59E0B', '#14B8A6', '#EF4444'];
+    const ringColors = isClaude
+      ? ['#C96442', '#2D6A4F', '#B45309', '#3D6B66', '#B91C1C']
+      : ['#2563EB', '#10B981', '#F59E0B', '#14B8A6', '#EF4444'];
     let dashOffset = 25;
     const ringCircles = ds.slice(0, 4).map((x, i) => {
       const pctVal = Math.max(0, Math.min(100, (+x.count || 0) / dsTotal * 100));

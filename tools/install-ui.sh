@@ -11,9 +11,9 @@ INSTALL_DIR=$(CDPATH= cd -- "$INSTALL_DIR" && pwd -P)
 cd "$PACKAGE_DIR"
 sha256sum -c MANIFEST.sha256
 STAMP=$(date +%Y%m%d-%H%M%S)
-BACKUP="$INSTALL_DIR/ui-backup-2026.10.16.3-$STAMP-$$.tar.gz"
-STAGE="$INSTALL_DIR/.ui-stage-2026.10.16.3-$STAMP-$$"
-PREVIOUS="$INSTALL_DIR/ui.previous-2026.10.16.3-$STAMP-$$"
+BACKUP="$INSTALL_DIR/ui-backup-2026.10.16.4-$STAMP-$$.tar.gz"
+STAGE="$INSTALL_DIR/.ui-stage-2026.10.16.4-$STAMP-$$"
+PREVIOUS="$INSTALL_DIR/ui.previous-2026.10.16.4-$STAMP-$$"
 tar -C "$INSTALL_DIR" -czf "$BACKUP" ui
 cp -a "$PACKAGE_DIR/ui" "$STAGE"
 ROLLBACK=0
@@ -28,4 +28,4 @@ ROLLBACK=1
 mv "$INSTALL_DIR/ui" "$PREVIOUS"
 mv "$STAGE" "$INSTALL_DIR/ui"
 ROLLBACK=0
-printf '%s\n' "LocalDNS UI 2026.10.16.3 已安装" "备份：$BACKUP" "上一版目录：$PREVIOUS"
+printf '%s\n' "LocalDNS UI 2026.10.16.4 已安装" "备份：$BACKUP" "上一版目录：$PREVIOUS"

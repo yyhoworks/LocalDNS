@@ -6,9 +6,9 @@
 
 **DNS 核心主要由折腾日记交流群里的 R 大使用 Rust 编写；[yyhoworks](https://github.com/yyhoworks) 负责 UI 设计。**
 
-当前版本：**后端 FJG4Z / UI 2026.10.16.3**。
+当前版本：**后端 FJG4Z / UI 2026.10.16.4**。
 
-最新下载：**[FJG4Z / UI 2026.10.16.3 正式版](https://github.com/yyhoworks/LocalDNS/releases/tag/fjg4z-ui-v2026.10.16.3)**。本次更新内核，保留现有 UI 布局；旧 FJG4O Release 保留可回退。
+最新下载：**[FJG4Z / UI 2026.10.16.4 正式版](https://github.com/yyhoworks/LocalDNS/releases/tag/fjg4z-ui-v2026.10.16.4)**。新增「人文羊皮纸（Claude 风格）」与「流光毛玻璃（原版）」双皮肤体系及无刷新一键切换，保留 FJG4Z 内核与五列 DNS 解析路径布局。
 
 [产品图集](docs/SCREENSHOTS.md) · [功能指南](docs/FEATURES.md) · [安装说明](INSTALL.md) · [下载 Releases](https://github.com/yyhoworks/LocalDNS/releases) · [作者与分工](AUTHORS.md) · [开发说明](docs/DEVELOPMENT.md) · [近期更新](CHANGELOG.md)
 
