@@ -6,9 +6,9 @@
 
 **DNS 核心主要由折腾日记交流群里的 R 大使用 Rust 编写；[yyhoworks](https://github.com/yyhoworks) 负责 UI 设计。**
 
-当前版本：**后端 FJG4O / UI 2026.10.16.2**。
+当前版本：**后端 FJG4O / UI 2026.10.16.3**。
 
-最新下载：**[UI 2026.10.16.2 Release](https://github.com/yyhoworks/LocalDNS/releases/tag/ui-v2026.10.16.2)**。
+最新下载：**[UI 2026.10.16.3 Release](https://github.com/yyhoworks/LocalDNS/releases/tag/ui-v2026.10.16.3)**。
 
 [产品图集](docs/SCREENSHOTS.md) · [功能指南](docs/FEATURES.md) · [安装说明](INSTALL.md) · [下载 Releases](https://github.com/yyhoworks/LocalDNS/releases) · [作者与分工](AUTHORS.md) · [开发说明](docs/DEVELOPMENT.md) · [近期更新](CHANGELOG.md)
 
@@ -18,8 +18,9 @@
 |---|---|
 | **R 大（折腾日记交流群）** | **DNS 核心，主要使用 Rust 编写** |
 | **[yyhoworks](https://github.com/yyhoworks)** | **UI 设计** |
+| **[clone-fan](https://github.com/clone-fan)** | **社区 UI 贡献：玻璃视觉、动效、字体上传与交互增强（[PR #1](https://github.com/yyhoworks/LocalDNS/pull/1)）** |
 
-完整署名见 [AUTHORS.md](AUTHORS.md)。
+感谢 @clone-fan 的 [PR #1](https://github.com/yyhoworks/LocalDNS/pull/1)。正式版保留贡献者的原始提交历史，完整署名见 [AUTHORS.md](AUTHORS.md)。
 
 ## 界面预览
 
@@ -29,7 +30,7 @@
 
 界面采用可调整透明度与模糊度的玻璃材质，搭配随滚动收拢的浮动顶部导航、Noto Serif SC 宋体风格标题与 Instrument Serif 衬线数字。字体随项目本地提供，可在「外观 → 字体与阅读」切换经典宋体、清晰黑体、等宽数字，或分别选择标题、数字与正文。
 
-> 截图来自 UI 2026.10.16.2 实际页面。域名、客户端、订阅地址等使用脱敏或示例数据；图中数值仅用于展示界面，不代表性能测试结果。
+> 以下截图来自 UI 2026.10.16.2，保留作历史界面参考。当前 2026.10.16.3 的 DNS 解析路径采用 UI 2026.10.16.1 的五列布局，叠加可关闭的流光示意，不含 .2 的公式栏和预设工具条。域名、客户端、订阅地址等使用脱敏或示例数据；图中数值不代表性能测试结果。
 
 ### 深浅主题与外观定制
 
@@ -50,7 +51,7 @@
 
 ![字体组合与独立字体选择](docs/images/font-settings.jpg)
 
-经典宋体、清晰黑体、等宽数字三组组合一键切换，也可以分别选择标题、指标数字和界面文字；偏好在当前浏览器保存。
+经典宋体、清晰黑体、等宽数字三组组合一键切换，也可以分别选择标题、指标数字和界面文字。支持上传合法取得的 TTF / OTF / WOFF / WOFF2 字体并分别分配用途；文件和偏好只保存在当前浏览器，不上传服务器。域名、IP 与日志继续使用等宽字体。
 
 ### 日志、上游与规则管理
 
@@ -123,7 +124,7 @@
 
 ## 快速安装
 
-1. 在 [Releases](https://github.com/yyhoworks/LocalDNS/releases/tag/ui-v2026.10.16.2) 下载完整包或 UI 升级包，并核对同页的 `SHA256SUMS.txt`。
+1. 在 [Releases](https://github.com/yyhoworks/LocalDNS/releases/tag/ui-v2026.10.16.3) 下载完整包或 UI 升级包，并核对同页的 `SHA256SUMS.txt`。
 2. 已有 LocalDNS 服务时，解压 UI 升级包并运行：
 
    ```sh

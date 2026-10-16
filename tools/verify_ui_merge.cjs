@@ -44,6 +44,16 @@ async function main() {
     const fonts = await styles(); assert.match(fonts['--font-heading'], /Noto Sans/); assert.match(fonts['--font-numeral'], /IBM Plex Mono/); assert.match(fonts['--font-sans'], /Noto Sans/); assert.match(fonts['--font-mono'], /IBM Plex Mono/);
     assert.equal(await page.locator('#select-font').count(), 0);
   });
+  await check('KPI number and unit structure recovers after a text-only update', async () => {
+    const before = await page.locator('.console-kpi .sk-val').evaluateAll(nodes => nodes.map(node => node.textContent));
+    assert.equal(before.length, 6);
+    await page.locator('.console-kpi .sk-val').evaluateAll(nodes => nodes.forEach(node => { node.textContent = node.textContent; }));
+    await page.waitForFunction(() => document.querySelectorAll('.console-kpi .sk-val .display-number').length === 6);
+    assert.deepEqual(await page.locator('.console-kpi .sk-val').evaluateAll(nodes => nodes.map(node => node.textContent)), before);
+    assert(await page.locator('.console-kpi .sk-val .display-unit').count() > 0);
+    const metadata = await (await fetch(origin + '/ui/version.json')).json();
+    assert.equal(metadata.uiVersion, '2026.10.16.3'); assert.equal(metadata.backendVersion, 'FJG4O');
+  });
   await check('2026.10.16.1 layout, centered edges and keyboard tracing preserved', async () => {
     const layout = await page.locator('.topo-grid').evaluate(node => ({ gap: getComputedStyle(node).columnGap, columns: getComputedStyle(node).gridTemplateColumns }));
     assert.equal(layout.gap, '22px', 'Use the explicitly selected 2026.10.16.1 topology layout');

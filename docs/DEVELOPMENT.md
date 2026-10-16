@@ -16,6 +16,8 @@ DNS 核心主要由折腾日记交流群的 R 大使用 Rust 编写；当前工�
 | `_src/ui/assets/js/material.js` | 外观参数与静态背景光影 |
 | `_src/ui/assets/js/navbar.js` | 顶部滚动联动 |
 | `_src/ui/assets/js/appearance.js` | 字体偏好提前恢复、组合选择与输入方式识别 |
+| `_src/ui/assets/js/font-uploads.js` | 浏览器本地字体上传、事务确认与分项字体选择 |
+| `_src/ui/assets/js/topology-flow.js` | 可关闭的路径流光示意、交互暂停与切页清理 |
 | `_src/ui/assets/css/interaction.css` | 状态文字居中、柔白细边与键盘焦点 |
 | `_src/ui/assets/js/wallpaper.js` | 壁纸验证、IndexedDB 保存、旧数据迁移与失败反馈 |
 | `_src/ui/assets/css/overview.css` | 服务摘要与指标分组 |
@@ -39,6 +41,16 @@ python tools/package_ui.py
 输出位于 `dist/`，不会修改正在运行的服务器。
 
 新 UI 版本需要先更新 `VERSION.json`，再更新发布说明和资源查询版本，验证后发布。
+
+完整包使用已发布的 FJG4O 完整 ZIP 作为输入，并要求提供从 GitHub Release 核对过的 SHA-256；不从运行中的设备读取配置：
+
+```sh
+python tools/package_ui.py --full-base /path/to/published-full.zip --base-sha256 <verified-sha256>
+```
+
+两个包均包含作者表和第三方许可。后端程序、默认配置与规则沿用已校验的基础包。
+
+PR #1 回归可运行 `node tools/test_countup.cjs` 及 `node tools/verify_ui_merge.cjs`。后者需要 Playwright、Edge 和 `LOCALDNS_PREVIEW_BACKEND`；只读代理阻止后端写入，报告与截图留在忽略的 `dist/`。详见 [整合记录](PR1-INTEGRATION.md)。
 
 ## 已核验范围
 
