@@ -139,7 +139,6 @@ html[data-brand-ver-mode="hidden"] .brand-ver { display: none; }
 /* ▶ 外观面板排版：按「背景 / 毛玻璃 / 界面」分组，统一行节奏，弱化右侧数值 */
 .bg-customizer-popover { gap: 14px; }
 .bcp-title { margin-bottom: 0; }
-.console-appearance-options { margin: 0 !important; }
 .bcp-group { display: flex; flex-direction: column; gap: 10px; }
 .bcp-group-title {
   display: flex; align-items: center; gap: 10px;

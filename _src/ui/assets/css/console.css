@@ -32,8 +32,7 @@ button:active{transform:translateY(1px)}button:disabled{opacity:.45;cursor:not-a
 .console-status small{font-family:var(--font-mono);color:var(--text-3);font-size:10px}
 .console-status-text{display:flex;flex-direction:column;line-height:1.5}
 #restart-button{display:none}.console-restart{color:var(--console-danger)}
-.bcp-title{margin-bottom:14px}.console-appearance-options{display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin:0 0 16px}
-.console-appearance-options .glass-action-capsule{padding:4px;border-radius: calc(9px * var(--radius-scale));background:var(--glass-pill)}
+.bcp-title{margin-bottom:14px}
 .console-kpi{grid-column:span 2!important;order:1}.console-kpi .spark-kpi-card{min-height:108px;padding:15px 16px}
 .console-kpi .sk-val{font-size:26px}.console-kpi .sk-chart{width:58px;height:26px;opacity:.85}.console-kpi .sk-bottom{gap:6px}
 .view-title-row{order:0}.console-trend{grid-column:span 8!important;order:3}.console-donut{grid-column:span 4!important;order:3}

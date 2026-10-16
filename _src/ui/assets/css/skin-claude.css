@@ -31,8 +31,8 @@ html[data-skin="claude"] .wallpaper-dimmer {
   pointer-events: none;
 }
 
-/* 2. 顶栏皮肤快捷入口：与「外观」同组，保持一眼可见 */
-.skin-inline-btn {
+/* 2. 顶栏流光粒子入口：与「外观」同组，保持一眼可见 */
+.particle-inline-btn {
   appearance: none;
   border: 1px solid var(--border-glass);
   background: transparent;
@@ -52,18 +52,18 @@ html[data-skin="claude"] .wallpaper-dimmer {
   transition: background-color 0.18s ease, color 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
 }
 
-.skin-inline-btn svg {
+.particle-inline-btn svg {
   width: 15px;
   height: 15px;
   flex-shrink: 0;
 }
 
-.skin-inline-btn:hover {
+.particle-inline-btn:hover {
   color: var(--text-1);
   background: var(--glass-pill);
 }
 
-.skin-inline-btn.active {
+.particle-inline-btn.active {
   background: var(--glass-pill-active);
   color: var(--text-1);
   font-weight: 600;
@@ -72,20 +72,20 @@ html[data-skin="claude"] .wallpaper-dimmer {
 }
 
 @media (max-width: 960px) {
-  .skin-inline-btn {
+  .particle-inline-btn {
     padding-inline: 8px;
   }
 }
 
 @media (max-width: 600px) {
-  .skin-inline-btn {
+  .particle-inline-btn {
     min-width: 40px;
     min-height: 44px;
     padding: 9px;
     border: 0;
   }
 
-  .skin-inline-btn span {
+  .particle-inline-btn span {
     display: none;
   }
 }
