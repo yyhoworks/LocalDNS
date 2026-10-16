@@ -700,3 +700,8 @@ html[data-theme=light-glass] .bcp-font-item { border-color: rgba(15, 23, 42, .08
   .table-wrap table:has(td.td-domain) .value-chip { font-size: 10.5px; padding: 1px 5px; }
   .table-wrap table:has(td.td-domain) .badge { padding-left: 6px; padding-right: 6px; }
 }
+
+/* ---- 卡片头上下居中 ----
+   卡片上内边距 18px（卡顶边 -> 卡头），而卡头自身只留 12px（卡头 -> 分割线），
+   于是「标题 + 副标题」整体偏低约 3px。把卡头下内边距对齐成 18px，上下留白相等。 */
+.card-header { padding-bottom: 18px; }
