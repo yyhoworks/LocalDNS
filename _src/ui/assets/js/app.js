@@ -689,7 +689,7 @@
     const renderInspector = info => {
       if (!info || !stepsEl || !rttEl) return;
       stepsEl.innerHTML = info.steps.map((s, idx) =>
-        `${idx > 0 ? '<span class="topo-insp-sep" aria-hidden="true">──▸</span>' : ''}<span class="topo-insp-chip" ${s.accent ? `style="border-color:${s.accent}"` : ''}><small>${esc(s.stage)}</small><strong ${s.color ? `style="color:${s.color}"` : ''}>${esc(s.label)}</strong></span>`
+        `${idx > 0 ? '<span class="topo-insp-sep" aria-hidden="true">›</span>' : ''}<span class="topo-insp-chip" ${s.accent ? `style="border-color:${s.accent}"` : ''}><small>${esc(s.stage)}</small><strong ${s.color ? `style="color:${s.color}"` : ''}>${esc(s.label)}</strong></span>`
       ).join('');
       rttEl.textContent = info.summary || '';
     };
@@ -863,10 +863,9 @@
           id: `c${i+1}`,
           ip: c.key,
           name: hasAlias ? state.aliases[c.key] : c.key,
-          tag: i === 0 ? '主终端' : (hasAlias ? '终端' : 'LAN'),
-          tagColor: i === 0 ? '#93C5FD' : 'var(--text-2)',
-          sub: hasAlias ? `${c.key} · ${compactNum(cnt)}` : `${compactNum(cnt)} 次 · ${i === 0 ? '活跃峰值' : 'LAN 终端'}`,
+          sub: hasAlias ? c.key : (i === 0 ? '活跃主终端' : '局域网终端'),
           val: `${sharePct}%`,
+          valSub: `${compactNum(cnt)}次`,
           valColor: cnt === 0 ? 'var(--text-3)' : (i === 0 ? '#93C5FD' : 'var(--text-1)'),
           barPct: cnt > 0 ? Math.max(5, sharePct) : 0,
           barColor: i === 0 ? '#3B82F6' : '#14B8A6',
@@ -880,11 +879,10 @@
         topoClients.push({
           id: `c${i+1}`,
           ip: fb ? fb[0] : '',
-          name: fb ? (fb[1] || fb[0]) : `预留终端槽位 #${i+1}`,
-          tag: fb ? '待机' : '',
-          tagColor: 'var(--text-3)',
-          sub: fb ? `${fb[0]} · 0 次` : '等待新设备接入 · 0 次',
+          name: fb ? (fb[1] || fb[0]) : `预留槽位 #${i+1}`,
+          sub: fb ? fb[0] : '等待终端接入',
           val: fb ? '0%' : '待机',
+          valSub: '0次',
           valColor: 'var(--text-3)',
           barPct: 0,
           barColor: '#64748B',
@@ -901,10 +899,9 @@
       id: 'c5',
       ip: '',
       name: restClients.length ? `其余 ${restClients.length} 台设备` : '局域网其余终端',
-      tag: 'LAN',
-      tagColor: 'var(--text-3)',
-      sub: restClients.length ? `LAN 活跃终端 · ${compactNum(restSum)} 次` : 'LAN 子网监听 (:53)',
+      sub: restClients.length ? `LAN 活跃终端` : 'LAN 监听 (:53)',
       val: restClients.length ? `${restShare}%` : '就绪',
+      valSub: restClients.length ? `${compactNum(restSum)}次` : '在线',
       valColor: restClients.length ? 'var(--text-1)' : '#34D399',
       barPct: restSum > 0 ? Math.max(4, restShare) : 0,
       barColor: '#64748B',
@@ -925,12 +922,12 @@
     const totalRulesCount = (+rRules.geosite_cn || 0) + (+rRules.force_domestic || 0) + (+rRules.geosite_non_cn || 0) + (+rRules.force_foreign_fakeip || 0) + (+engineStatus?.adguard_rules || 0) + (+rRules.block || 0);
 
     const topoRules = [
-      { id: 'r1', tab: 'diversion', name: '国内域名', protoTag: 'geosite_cn', sub: `${num(rRules.geosite_cn || 0)} 条规则 · 大陆直连`, val: compactNum(domHits), valSub: '次命中', valColor: 'var(--text-1)', barPct: domHits > 0 ? Math.max(6, Math.round(domHits / maxRuleHit * 100)) : 0, iconColor: '#10B981', icon: 'globe', count: domHits, muted: false },
-      { id: 'r2', tab: 'lists', name: '白名单与自定义', protoTag: '', sub: `${num(rRules.force_domestic || 0)} 条强制国内规则 · 优先直连`, val: `${num(rRules.force_domestic || 0)} 条`, valSub: '常驻生效', valColor: '#60A5FA', barPct: (+rRules.force_domestic || 0) > 0 ? 14 : 0, iconColor: '#60A5FA', icon: 'check', count: +rRules.force_domestic || 0, muted: (+rRules.force_domestic || 0) === 0 },
-      { id: 'r3', tab: 'diversion', name: '海外域名', protoTag: 'non_cn', sub: `${num(rRules.geosite_non_cn || 0)} 条规则 · 无污染分流`, val: compactNum(forHits), valSub: '次命中', valColor: 'var(--text-1)', barPct: forHits > 0 ? Math.max(6, Math.round(forHits / maxRuleHit * 100)) : 0, iconColor: '#14B8A6', icon: 'split', count: forHits, muted: false },
-      { id: 'r4', tab: 'lists', name: 'FakeIP 与灰名单', protoTag: '', sub: `${num(rRules.force_foreign_fakeip || 0)} 条规则 · 代理映射`, val: compactNum(fakeHits), valSub: fakeHits >= maxRuleHit && fakeHits > 0 ? '最高频' : '次命中', valColor: '#FBBF24', barPct: fakeHits > 0 ? Math.max(6, Math.round(fakeHits / maxRuleHit * 100)) : 0, iconColor: '#F59E0B', icon: 'spark', count: fakeHits, muted: false },
-      { id: 'r5', tab: 'adguard', name: '广告与追踪拦截', protoTag: '', sub: `AdGuard · ${num(engineStatus?.adguard_rules || 0)} 条规则`, val: compactNum(adguardBlocked), valSub: adguardBlocked > 0 ? '已拦截' : '未触发', valColor: adguardBlocked > 0 ? '#F87171' : 'var(--text-3)', barPct: adguardBlocked > 0 ? Math.max(6, Math.round(adguardBlocked / maxRuleHit * 100)) : 0, iconColor: '#EF4444', icon: 'shield', count: adguardBlocked, muted: adguardBlocked === 0 },
-      { id: 'r6', tab: 'lists', name: '黑名单与类型过滤', protoTag: '', sub: `${num(rRules.block || 0)} 条规则 · 类型抑制`, val: compactNum(blkHits), valSub: '已拦截', valColor: blkHits > 0 ? '#F87171' : 'var(--text-2)', barPct: blkHits > 0 ? Math.max(6, Math.round(blkHits / maxRuleHit * 100)) : 0, iconColor: '#94A3B8', icon: 'sliders', count: blkHits, muted: blkHits === 0 && (+rRules.block || 0) === 0 }
+      { id: 'r1', tab: 'diversion', name: '国内域名', sub: `${compactNum(rRules.geosite_cn || 0)} 条 · 大陆直连`, val: compactNum(domHits), valSub: '次命中', valColor: 'var(--text-1)', barPct: domHits > 0 ? Math.max(6, Math.round(domHits / maxRuleHit * 100)) : 0, iconColor: '#10B981', icon: 'globe', count: domHits, muted: false },
+      { id: 'r2', tab: 'lists', name: '白名单与自定义', sub: `${num(rRules.force_domestic || 0)} 条强制国内直连`, val: `${num(rRules.force_domestic || 0)} 条`, valSub: '常驻生效', valColor: '#60A5FA', barPct: (+rRules.force_domestic || 0) > 0 ? 14 : 0, iconColor: '#60A5FA', icon: 'check', count: +rRules.force_domestic || 0, muted: (+rRules.force_domestic || 0) === 0 },
+      { id: 'r3', tab: 'diversion', name: '海外域名', sub: `${compactNum(rRules.geosite_non_cn || 0)} 条 · 海外分流`, val: compactNum(forHits), valSub: '次命中', valColor: 'var(--text-1)', barPct: forHits > 0 ? Math.max(6, Math.round(forHits / maxRuleHit * 100)) : 0, iconColor: '#14B8A6', icon: 'split', count: forHits, muted: false },
+      { id: 'r4', tab: 'lists', name: 'FakeIP 与灰名单', sub: `${num(rRules.force_foreign_fakeip || 0)} 条 · 代理映射`, val: compactNum(fakeHits), valSub: fakeHits >= maxRuleHit && fakeHits > 0 ? '最高频' : '次命中', valColor: '#FBBF24', barPct: fakeHits > 0 ? Math.max(6, Math.round(fakeHits / maxRuleHit * 100)) : 0, iconColor: '#F59E0B', icon: 'spark', count: fakeHits, muted: false },
+      { id: 'r5', tab: 'adguard', name: '广告与追踪拦截', sub: `AdGuard · ${compactNum(engineStatus?.adguard_rules || 0)} 条`, val: compactNum(adguardBlocked), valSub: adguardBlocked > 0 ? '已拦截' : '未触发', valColor: adguardBlocked > 0 ? '#F87171' : 'var(--text-3)', barPct: adguardBlocked > 0 ? Math.max(6, Math.round(adguardBlocked / maxRuleHit * 100)) : 0, iconColor: '#EF4444', icon: 'shield', count: adguardBlocked, muted: adguardBlocked === 0 },
+      { id: 'r6', tab: 'lists', name: '黑名单与类型过滤', sub: `${num(rRules.block || 0)} 条 · 类型抑制`, val: compactNum(blkHits), valSub: '已拦截', valColor: blkHits > 0 ? '#F87171' : 'var(--text-2)', barPct: blkHits > 0 ? Math.max(6, Math.round(blkHits / maxRuleHit * 100)) : 0, iconColor: '#94A3B8', icon: 'sliders', count: blkHits, muted: blkHits === 0 && (+rRules.block || 0) === 0 }
     ];
 
     // 提取真实配置的上游列表及性能指标
@@ -948,11 +945,11 @@
 
     // 04 上游策略组（5 节点：对应真实 domestic / foreign / foreign_ecs / proxy / 拦截）
     const topoGroups = [
-      { id: 'g1', code: 'CN', codeColor: '#34D399', codeBg: 'rgba(16,185,129,0.15)', name: '国内解析组', sub: `并发竞速 · ${num(domHits)} 次`, val: groupAvgMs('domestic'), valSub: '平均耗时' },
-      { id: 'g2', code: 'GL', codeColor: '#2DD4BF', codeBg: 'rgba(20,184,166,0.15)', name: '海外解析组', sub: `无污染解析 · ${num(eStats.foreign || 0)} 次`, val: groupAvgMs('foreign'), valSub: '平均耗时' },
-      { id: 'g3', code: 'ECS', codeColor: '#93C5FD', codeBg: 'rgba(59,130,246,0.16)', name: '海外 ECS 组', sub: `EDNS 子网 · ${num(eStats.foreign_ecs || 0)} 次`, val: groupAvgMs('foreign_ecs'), valSub: '平均耗时' },
-      { id: 'g4', code: 'PX', codeColor: '#FBBF24', codeBg: 'rgba(245,158,11,0.16)', name: '代理解析组', sub: `远端解析 · ${num(fakeHits)} 次`, val: groupAvgMs('proxy'), valSub: '极速响应' },
-      { id: 'g5', code: 'BLK', codeColor: '#F87171', codeBg: 'rgba(239,68,68,0.16)', name: '本地拦截', sub: '0.0.0.0 / NXDOMAIN', val: compactNum(blkHits + adguardBlocked), valSub: '0.0 ms' }
+      { id: 'g1', code: 'CN', codeColor: '#34D399', codeBg: 'rgba(16,185,129,0.15)', name: '国内解析组', sub: `并发竞速 · ${compactNum(domHits)}`, val: groupAvgMs('domestic'), valSub: '平均耗时' },
+      { id: 'g2', code: 'GL', codeColor: '#2DD4BF', codeBg: 'rgba(20,184,166,0.15)', name: '海外解析组', sub: `无污染 · ${compactNum(eStats.foreign || 0)}`, val: groupAvgMs('foreign'), valSub: '平均耗时' },
+      { id: 'g3', code: 'ECS', codeColor: '#93C5FD', codeBg: 'rgba(59,130,246,0.16)', name: '海外 ECS 组', sub: `ECS 子网 · ${compactNum(eStats.foreign_ecs || 0)}`, val: groupAvgMs('foreign_ecs'), valSub: '平均耗时' },
+      { id: 'g4', code: 'PX', codeColor: '#FBBF24', codeBg: 'rgba(245,158,11,0.16)', name: '代理解析组', sub: `远端代理 · ${compactNum(fakeHits)}`, val: groupAvgMs('proxy'), valSub: '极速响应' },
+      { id: 'g5', code: 'BLK', codeColor: '#F87171', codeBg: 'rgba(239,68,68,0.16)', name: '本地拦截', sub: 'NXDOMAIN 阻断', val: compactNum(blkHits + adguardBlocked), valSub: '0.0 ms' }
     ];
 
     // 05 上游 DNS 节点（6 节点：5 个真实上游 DNS + 第 6 个拦截直接响应节点）
@@ -975,10 +972,9 @@
     allRealUps.forEach(x => { if (pickedUps.length < 5 && !pickedUps.includes(x)) pickedUps.push(x); });
 
     const groupToNodeId = { domestic: 'g1', foreign: 'g2', foreign_ecs: 'g3', proxy: 'g4' };
-    const groupPrefix = { domestic: '', foreign: 'GL·', foreign_ecs: 'ECS·', proxy: 'PX·' };
     const topoServers = pickedUps.map((item, idx) => {
       const { g, u, m } = item;
-      const latTxt = m.latency > 0 ? `${m.latency.toFixed(1)}ms` : (u.enabled !== false ? '在线' : '未启用');
+      const latTxt = m.latency > 0 ? `${m.latency.toFixed(1)} ms` : (u.enabled !== false ? '在线' : '未启用');
       const badgeTxt = m.q > 0 ? `${Math.round(m.adoption)}% 采纳` : protoLabel(u.protocol);
       const colorMap = {
         domestic: ['#34D399', 'rgba(16,185,129,0.15)'],
@@ -992,8 +988,9 @@
         id: `s${idx+1}`,
         groupNode: groupToNodeId[g] || 'g1',
         name: u.tag || `Upstream-${idx+1}`,
-        protoTag: `${groupPrefix[g] || ''}${protoLabel(u.protocol)}`,
-        sub: `${shortUpstreamAddr(rawAddr)} · ${latTxt}`,
+        protoTag: protoLabel(u.protocol),
+        sub: shortUpstreamAddr(rawAddr),
+        valSub: latTxt,
         fullTitle: `${u.tag || ''} · ${rawAddr} · ${latTxt}`,
         badge: badgeTxt,
         badgeColor,
@@ -1008,7 +1005,8 @@
       groupNode: 'g5',
       name: '拦截直接响应',
       protoTag: '',
-      sub: '零上游消耗 · 立即阻断',
+      sub: '零上游消耗',
+      valSub: '立即阻断',
       fullTitle: '拦截直接响应 · 0.0.0.0 / NXDOMAIN',
       badge: `${compactNum(blkHits + adguardBlocked)} 阻断`,
       badgeColor: '#F87171',
@@ -1080,57 +1078,57 @@
       presets: {
         all: {
           nodes: [],
-          summary: `总查询 ${compactNum(stats.total_queries)} · 平均响应 ${ms(stats.average_duration_ms)}`,
+          summary: `总查询 ${compactNum(stats.total_queries)} · 平均 ${ms(stats.average_duration_ms)}`,
           steps: [
-            { stage: '01 主终端', label: `${topoClients[0].name} (${topoClients[0].val})` },
-            { stage: '02 缓存池', label: cacheDisabled ? '核心缓存已关闭' : `多级缓存 ${overallHitRate.toFixed(1)}% 命中` },
-            { stage: '03 主分流', label: `${topRuleNode.name} (${topRuleNode.val})`, accent: 'rgba(96,165,250,0.35)' },
-            { stage: '04 策略组', label: '5 组并发调度' },
-            { stage: '05 出口', label: `${topoServers.filter(s => !s.muted).length} 节点在线`, color: '#34D399' }
+            { stage: '01', label: `${topoClients[0].name} (${topoClients[0].val})` },
+            { stage: '02', label: cacheDisabled ? '缓存已关闭' : `多级缓存 ${overallHitRate.toFixed(1)}%` },
+            { stage: '03', label: `${topRuleNode.name} (${topRuleNode.val})`, accent: 'rgba(96,165,250,0.35)' },
+            { stage: '04', label: '5 组并发调度' },
+            { stage: '05', label: `${topoServers.filter(s => !s.muted).length} 节点在线`, color: '#34D399' }
           ]
         },
         px: {
           nodes: [...activeClientNodeIds, 'e_core', 'r4', 'g4', ...topoServers.filter(s => s.groupNode === 'g4').map(s => s.id)],
-          summary: `代理链路耗时 ≈ ${groupAvgMs('proxy')}`,
+          summary: `代理耗时 ≈ ${groupAvgMs('proxy')}`,
           steps: [
-            { stage: '01 终端', label: `${topoClients[0].name} (${topoClients[0].val})` },
-            { stage: '02 缓存池', label: '穿透进入规则分流' },
-            { stage: '03 规则', label: `FakeIP 与灰名单 (${compactNum(fakeHits)}次)`, accent: 'rgba(251,191,36,0.4)' },
-            { stage: '04 策略组', label: `PX 代理解析组 (${groupAvgMs('proxy')})`, accent: 'rgba(251,191,36,0.4)' },
-            { stage: '05 上游', label: pxServer ? `${pxServer.name} (${pxServer.badge})` : '代理节点', color: '#FBBF24' }
+            { stage: '01', label: `${topoClients[0].name} (${topoClients[0].val})` },
+            { stage: '02', label: '穿透规则分流' },
+            { stage: '03', label: `FakeIP (${compactNum(fakeHits)})`, accent: 'rgba(251,191,36,0.4)' },
+            { stage: '04', label: `PX 代理组 (${groupAvgMs('proxy')})`, accent: 'rgba(251,191,36,0.4)' },
+            { stage: '05', label: pxServer ? `${pxServer.name} (${pxServer.badge})` : '代理节点', color: '#FBBF24' }
           ]
         },
         cn: {
           nodes: [...activeClientNodeIds, 'e_core', 'r1', 'r2', 'g1', ...cnServers.map(s => s.id)],
-          summary: `并发竞速耗时 ≈ ${groupAvgMs('domestic')}`,
+          summary: `竞速耗时 ≈ ${groupAvgMs('domestic')}`,
           steps: [
-            { stage: '01 终端', label: `${topoClients[0].name}` },
-            { stage: '02 缓存池', label: `国内池 ${cDom.hit.toFixed(1)}% 命中` },
-            { stage: '03 规则', label: `国内域名 (${compactNum(domHits)}) + 白名单 (${num(rRules.force_domestic || 0)}条)`, accent: 'rgba(52,211,153,0.4)' },
-            { stage: '04 策略组', label: `CN 国内解析组 (${groupAvgMs('domestic')})`, accent: 'rgba(52,211,153,0.4)' },
-            { stage: '05 上游', label: cnServers.length ? cnServers.map(s => s.name).join(' / ') : '国内上游', color: '#34D399' }
+            { stage: '01', label: `${topoClients[0].name}` },
+            { stage: '02', label: `国内池 ${cDom.hit.toFixed(1)}%` },
+            { stage: '03', label: `国内 (${compactNum(domHits)}) + 白名单 (${num(rRules.force_domestic || 0)})`, accent: 'rgba(52,211,153,0.4)' },
+            { stage: '04', label: `CN 国内组 (${groupAvgMs('domestic')})`, accent: 'rgba(52,211,153,0.4)' },
+            { stage: '05', label: cnServers.length ? cnServers.map(s => s.name).join(' / ') : '国内上游', color: '#34D399' }
           ]
         },
         ecs: {
           nodes: [...activeClientNodeIds, 'e_core', 'r3', 'g2', 'g3', ...ecsServers.map(s => s.id)],
-          summary: `海外加密耗时 ≈ ${groupAvgMs('foreign')}`,
+          summary: `海外耗时 ≈ ${groupAvgMs('foreign')}`,
           steps: [
-            { stage: '01 终端', label: `${topoClients[0].name}` },
-            { stage: '02 缓存池', label: `国外池 ${cFor.hit.toFixed(1)}% / ECS池 ${cEcs.hit.toFixed(1)}%` },
-            { stage: '03 规则', label: `海外域名 (${compactNum(forHits)}次)`, accent: 'rgba(45,212,191,0.4)' },
-            { stage: '04 策略组', label: `GL (${num(eStats.foreign || 0)}) & ECS (${num(eStats.foreign_ecs || 0)})`, accent: 'rgba(45,212,191,0.4)' },
-            { stage: '05 上游', label: ecsServers.length ? ecsServers.map(s => `${s.name}(${s.protoTag})`).join(' / ') : '海外上游', color: '#2DD4BF' }
+            { stage: '01', label: `${topoClients[0].name}` },
+            { stage: '02', label: `国外池 ${cFor.hit.toFixed(1)}% / ECS ${cEcs.hit.toFixed(1)}%` },
+            { stage: '03', label: `海外域名 (${compactNum(forHits)})`, accent: 'rgba(45,212,191,0.4)' },
+            { stage: '04', label: `GL (${compactNum(eStats.foreign || 0)}) & ECS (${compactNum(eStats.foreign_ecs || 0)})`, accent: 'rgba(45,212,191,0.4)' },
+            { stage: '05', label: ecsServers.length ? ecsServers.map(s => s.name).join(' / ') : '海外上游', color: '#2DD4BF' }
           ]
         },
         blk: {
           nodes: [...activeClientNodeIds, 'e_core', 'r5', 'r6', 'g5', 's6'],
-          summary: '本地直接阻断 ≈ 0.0 ms (零上游消耗)',
+          summary: '本地阻断 ≈ 0.0 ms',
           steps: [
-            { stage: '01 终端', label: `${topoClients[0].name}` },
-            { stage: '02 引擎', label: '安全过滤前置拦截' },
-            { stage: '03 规则', label: `黑名单 (${compactNum(blkHits)}) + 广告拦截 (${compactNum(adguardBlocked)})`, accent: 'rgba(248,113,113,0.4)' },
-            { stage: '04 策略组', label: 'BLK 本地拦截黑洞', accent: 'rgba(248,113,113,0.4)' },
-            { stage: '05 响应', label: `NXDOMAIN 立即阻断 (${compactNum(blkHits + adguardBlocked)})`, color: '#F87171' }
+            { stage: '01', label: `${topoClients[0].name}` },
+            { stage: '02', label: '前置安全过滤' },
+            { stage: '03', label: `黑名单 (${compactNum(blkHits)}) + AdGuard (${compactNum(adguardBlocked)})`, accent: 'rgba(248,113,113,0.4)' },
+            { stage: '04', label: 'BLK 本地拦截', accent: 'rgba(248,113,113,0.4)' },
+            { stage: '05', label: `NXDOMAIN (${compactNum(blkHits + adguardBlocked)})`, color: '#F87171' }
           ]
         }
       },
@@ -1139,20 +1137,20 @@
         const rList = topoRules.filter(r => activeSet.has(r.id));
         const gList = topoGroups.filter(g => activeSet.has(g.id));
         const sList = topoServers.filter(s => activeSet.has(s.id));
-        const rLabel = rList.length === 1 ? `${rList[0].name} (${rList[0].val})` : (rList.length > 1 ? `${rList[0].name} 等 ${rList.length} 项规则` : `${topRuleNode.name}`);
-        const gLabel = gList.length === 1 ? `${gList[0].code} ${gList[0].name} (${gList[0].val})` : (gList.length > 1 ? gList.map(g => g.code).join(' / ') + ' 策略组' : '多策略协同');
+        const rLabel = rList.length === 1 ? `${rList[0].name} (${rList[0].val})` : (rList.length > 1 ? `${rList[0].name} 等 ${rList.length} 项` : `${topRuleNode.name}`);
+        const gLabel = gList.length === 1 ? `${gList[0].code} ${gList[0].name} (${gList[0].val})` : (gList.length > 1 ? gList.map(g => g.code).join('/') + ' 策略组' : '多策略协同');
         const sLabel = sList.length === 1 ? `${sList[0].name} (${sList[0].badge})` : (sList.length > 1 ? `${sList.slice(0, 2).map(s => s.name).join(' / ')}` : '上游节点');
         const cacheStageLabel = gList.length === 1
-          ? ({ g1: `国内池 ${cDom.hit.toFixed(1)}% 命中`, g2: `国外池 ${cFor.hit.toFixed(1)}% 命中`, g3: `ECS池 ${cEcs.hit.toFixed(1)}% 命中`, g4: `主缓存 ${cMain.hit.toFixed(1)}% 命中`, g5: '前置安全阻断' }[gList[0].id] || `主缓存 ${overallHitRate.toFixed(1)}%`)
-          : `多级缓存 ${overallHitRate.toFixed(1)}% 命中`;
+          ? ({ g1: `国内池 ${cDom.hit.toFixed(1)}%`, g2: `国外池 ${cFor.hit.toFixed(1)}%`, g3: `ECS池 ${cEcs.hit.toFixed(1)}%`, g4: `主缓存 ${cMain.hit.toFixed(1)}%`, g5: '前置阻断' }[gList[0].id] || `主缓存 ${overallHitRate.toFixed(1)}%`)
+          : `多级缓存 ${overallHitRate.toFixed(1)}%`;
         return {
-          summary: gList.length === 1 ? `当前链路耗时 ≈ ${gList[0].val}` : `总查询 ${compactNum(stats.total_queries)} · 缓存命中 ${overallHitRate.toFixed(1)}%`,
+          summary: gList.length === 1 ? `链路耗时 ≈ ${gList[0].val}` : `总查询 ${compactNum(stats.total_queries)} · 命中 ${overallHitRate.toFixed(1)}%`,
           steps: [
-            { stage: '01 终端', label: `${cNode.name} (${cNode.val})` },
-            { stage: '02 缓存', label: cacheStageLabel },
-            { stage: '03 规则', label: rLabel, accent: 'rgba(96,165,250,0.38)' },
-            { stage: '04 策略组', label: gLabel, accent: 'rgba(96,165,250,0.38)' },
-            { stage: '05 上游', label: sLabel, color: sList[0]?.badgeColor || '#34D399' }
+            { stage: '01', label: `${cNode.name} (${cNode.val})` },
+            { stage: '02', label: cacheStageLabel },
+            { stage: '03', label: rLabel, accent: 'rgba(96,165,250,0.38)' },
+            { stage: '04', label: gLabel, accent: 'rgba(96,165,250,0.38)' },
+            { stage: '05', label: sLabel, color: sList[0]?.badgeColor || '#34D399' }
           ]
         };
       }
@@ -1353,18 +1351,19 @@
                 </div>
                 <div class="topo-col-body">
                   ${topoClients.map(c => `
-                    <div class="t-node ${c.muted ? 'is-muted' : ''}" data-node-id="${c.id}" data-client-ip="${esc(c.ip)}">
+                    <div class="t-node ${c.muted ? 'is-muted' : ''}" data-node-id="${c.id}" data-client-ip="${esc(c.ip)}" title="${esc(c.name)}${c.ip ? ` · ${esc(c.ip)}` : ''}">
                       <i class="tn-port-r" style="background:${c.barColor}"></i>
                       <div class="tn-row">
                         <div class="tn-left">
                           <div class="tn-icon-box">${getNodeIcon(c.icon, c.iconColor)}</div>
                           <div class="tn-meta">
-                            <div class="tn-name">${esc(c.name)}${c.tag ? `<span class="tn-proto-tag" style="color:${c.tagColor}">${esc(c.tag)}</span>` : ''}</div>
+                            <div class="tn-name"><span class="tn-name-text">${esc(c.name)}</span></div>
                             <div class="tn-sub">${esc(c.sub)}</div>
                           </div>
                         </div>
                         <div class="tn-metric">
                           <span class="tn-val tabular" style="color:${c.valColor}">${esc(c.val)}</span>
+                          <span class="tn-val-sub">${esc(c.valSub)}</span>
                         </div>
                       </div>
                       ${c.barPct > 0 ? `<div class="tn-micro-bar"><i style="width:${c.barPct}%;background:${c.barColor}"></i></div>` : ''}
@@ -1388,7 +1387,7 @@
                           <span class="tec-big tabular">${cacheDisabled ? '0.0%' : `${overallHitRate.toFixed(1)}%`}</span>
                           <span class="tec-badge">${compactNum(stats.total_queries)} 请求</span>
                         </div>
-                        <div class="tec-desc">${cacheDisabled ? '核心缓存已关闭 · 请求直通规则分流' : `多级内存命中 ${compactNum(cMain.q > 0 ? cMain.h : totalCacheH)} · 穿透分流 ${compactNum(Math.max(0, (+stats.total_queries || 0) - (cMain.q > 0 ? cMain.h : totalCacheH)))}`}</div>
+                        <div class="tec-desc">${cacheDisabled ? '核心缓存已关闭 · 直通规则分流' : `内存命中 ${compactNum(cMain.q > 0 ? cMain.h : totalCacheH)} · 穿透 ${compactNum(Math.max(0, (+stats.total_queries || 0) - (cMain.q > 0 ? cMain.h : totalCacheH)))}`}</div>
                       </div>
                       <div class="tec-split-bar" title="蓝: 缓存直接命中 (${overallHitRate.toFixed(1)}%) / 青: 穿透进入规则分流 (${Math.max(0, 100 - overallHitRate).toFixed(1)}%)">
                         <div class="tec-split-hit" style="width:${cacheDisabled ? 0 : Math.max(4, Math.min(96, overallHitRate)).toFixed(1)}%"></div>
@@ -1438,7 +1437,7 @@
                         <span class="tec-port-val" style="color:#2DD4BF">${compactNum(forHits)}</span>
                       </div>
                       <div class="tec-port-item">
-                        <span class="tec-port-label"><i style="background:#F59E0B"></i>FakeIP代理</span>
+                        <span class="tec-port-label"><i style="background:#F59E0B"></i>FakeIP</span>
                         <span class="tec-port-val" style="color:#FBBF24">${compactNum(fakeHits)}</span>
                       </div>
                       <div class="tec-port-item">
@@ -1464,7 +1463,7 @@
                         <div class="tn-left">
                           <div class="tn-icon-box">${getNodeIcon(r.icon, r.iconColor)}</div>
                           <div class="tn-meta">
-                            <div class="tn-name">${esc(r.name)}${r.protoTag ? `<span class="tn-proto-tag">${esc(r.protoTag)}</span>` : ''}</div>
+                            <div class="tn-name"><span class="tn-name-text">${esc(r.name)}</span></div>
                             <div class="tn-sub">${esc(r.sub)}</div>
                           </div>
                         </div>
@@ -1493,7 +1492,7 @@
                         <div class="tn-left">
                           <div class="tn-icon-box" style="color:${g.codeColor};background:${g.codeBg};border-color:${g.codeColor}33">${esc(g.code)}</div>
                           <div class="tn-meta">
-                            <div class="tn-name">${esc(g.name)}</div>
+                            <div class="tn-name"><span class="tn-name-text">${esc(g.name)}</span></div>
                             <div class="tn-sub">${esc(g.sub)}</div>
                           </div>
                         </div>
@@ -1520,11 +1519,14 @@
                         <div class="tn-left">
                           <div class="tn-icon-box">${getNodeIcon(s.icon, s.iconColor)}</div>
                           <div class="tn-meta">
-                            <div class="tn-name">${esc(s.name)}${s.protoTag ? `<span class="tn-proto-tag" style="color:${s.badgeColor}">${esc(s.protoTag)}</span>` : ''}</div>
+                            <div class="tn-name"><span class="tn-name-text">${esc(s.name)}</span>${s.protoTag ? `<span class="tn-proto-tag" style="color:${s.badgeColor}">${esc(s.protoTag)}</span>` : ''}</div>
                             <div class="tn-sub">${esc(s.sub)}</div>
                           </div>
                         </div>
-                        <span class="tn-pill" style="color:${s.badgeColor};background:${s.badgeBg}">${esc(s.badge)}</span>
+                        <div class="tn-metric">
+                          <span class="tn-pill" style="color:${s.badgeColor};background:${s.badgeBg}">${esc(s.badge)}</span>
+                          <span class="tn-val-sub">${esc(s.valSub)}</span>
+                        </div>
                       </div>
                     </div>
                   `).join('')}

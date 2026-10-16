@@ -46,11 +46,11 @@ button:active{transform:translateY(1px)}button:disabled{opacity:.45;cursor:not-a
 .console-shortcut-grid .control-bar-card{min-height:80px;flex-wrap:wrap;gap:10px;padding:12px;background:var(--glass-pill);border:0;box-shadow:none}.console-shortcut-grid .cb-right{flex-wrap:wrap;gap:8px}
 .console-topology-heading{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;margin-bottom:12px}
 .console-topology-heading h2{font-size:16px;font-weight:500}.console-topology-heading span{font-size:11.5px;color:var(--text-3)}
-.topology-glass-card{padding:18px 20px}.topo-grid{grid-template-columns:.98fr 1.12fr 1.12fr 1.04fr 1.16fr;gap:30px;overflow:visible}
+.topology-glass-card{padding:16px 18px}.topo-grid{grid-template-columns:1.05fr 1.12fr 1.08fr .98fr 1.12fr;gap:18px;overflow:visible}
 .topo-col-title{font-family:var(--font-sans);font-size:12px}.topo-col-title span{font-family:var(--font-mono)}
-.t-node{padding:9px 11px;min-height:58px;gap:5px}.tn-left{gap:8px}.tn-icon-box{width:26px;height:26px}.tn-name{font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1.35}.tn-sub{font-size:10px}.tn-val{font-size:11.5px;min-width:22px}.tn-pill{min-width:42px;font-size:10px;padding:3px 6px}
+.t-node{padding:8px 9px;min-height:56px;gap:5px}.tn-left{gap:7px}.tn-icon-box{width:24px;height:24px}.tn-name{font-size:11.5px;letter-spacing:-.015em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1.35}.tn-sub{font-size:10px}.tn-val{font-size:11.5px;min-width:22px}.tn-pill{min-width:0;font-size:9.5px;padding:2px 6px}
 .topo-stage-wrap.has-hover .t-node:not(.is-active){opacity:.25;filter:saturate(.38)}
-.t-engine-card{padding:15px 14px}.tec-big{font-size:36px}.tec-badge{font-size:10.5px}.tec-bar-row{gap:7px}.tec-bar-name{font-size:10.5px}
+.t-engine-card{padding:14px 13px}.tec-big{font-size:34px}.tec-badge{font-size:10.5px}.tec-bar-row{gap:7px}.tec-bar-name{font-size:10.5px}
 .console-trend .gc-head{margin-bottom:8px;align-items:flex-start}.console-trend .gc-title{display:block}.console-chart-sub{display:block;font-size:11px;font-weight:400;color:var(--text-3);margin-top:3px}
 .console-chart{width:100%;height:164px;display:block;overflow:visible}.traffic-chart-body{display:block}.tc-metrics-side{display:none}
 .console-range{display:flex;gap:3px;padding:3px;background:var(--glass-pill);border-radius:7px}.console-range button{border:0;background:none;color:var(--text-3);font-size:11px;padding:4px 8px;border-radius:5px;cursor:pointer}.console-range button[aria-pressed=true]{background:var(--glass-pill-active);color:var(--text-1)}
