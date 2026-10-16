@@ -1,22 +1,23 @@
 <!DOCTYPE html>
-<html lang="zh-CN" data-theme="cosmos-glass">
+<html lang="zh-CN" data-theme="cosmos-glass" data-brand-ver-mode="hidden">
 <head>
   <base href="/ui/" />
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <title>LocalDNS 控制台</title>
-  <script src="assets/js/appearance.js?v=20261016-UI-1"></script>
+  <script src="assets/js/appearance.js?v=20261016-MERGE-1"></script>
   <link id="dynamic-favicon" rel="icon" type="image/png" href="assets/img/logo-08-dark-64.png?v=20261015-2" />
   <link rel="preload" href="assets/fonts/noto-serif-sc-ui.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="preload" href="assets/fonts/instrument-serif-numerals.woff2" as="font" type="font/woff2" crossorigin>
-  <link rel="stylesheet" href="assets/css/fonts.css?v=20261016-UI-1" />
-  <link rel="stylesheet" href="assets/css/app.css?v=20261016-UI-1" />
-  <link rel="stylesheet" href="assets/css/console.css?v=20261016-UI-1" />
-  <link rel="stylesheet" href="assets/css/material.css?v=20261016-UI-1" />
-  <link rel="stylesheet" href="assets/css/navbar.css?v=20261016-UI-1" />
-  <link rel="stylesheet" href="assets/css/overview.css?v=20261016-UI-1" />
-  <link rel="stylesheet" href="assets/css/typography.css?v=20261016-UI-1" />
-  <link rel="stylesheet" href="assets/css/interaction.css?v=20261016-UI-1" />
+  <link rel="stylesheet" href="assets/css/fonts.css?v=20261016-MERGE-1" />
+  <link rel="stylesheet" href="assets/css/app.css?v=20261016-MERGE-1" />
+  <link rel="stylesheet" href="assets/css/console.css?v=20261016-MERGE-1" />
+  <link rel="stylesheet" href="assets/css/material.css?v=20261016-MERGE-1" />
+  <link rel="stylesheet" href="assets/css/navbar.css?v=20261016-MERGE-1" />
+  <link rel="stylesheet" href="assets/css/overview.css?v=20261016-MERGE-1" />
+  <link rel="stylesheet" href="assets/css/typography.css?v=20261016-MERGE-1" />
+  <link rel="stylesheet" href="assets/css/polish.css?v=20261016-MERGE-1" />
+  <link rel="stylesheet" href="assets/css/interaction.css?v=20261016-MERGE-1" />
 </head>
 <body>
 
@@ -66,51 +67,78 @@
               <button type="button" class="glass-btn" id="btn-close-bg-popover">关闭</button>
             </div>
 
-            <div class="bcp-row">
-              <span>1. 预设光影主题</span>
-              <div class="preset-swatches">
-                <button type="button" class="preset-btn active" data-bg-preset="cosmos" aria-label="深空暖金" title="深空暖金 (图2默认)" style="background:radial-gradient(circle at 30% 35%, #c48a45, #090a0f 75%)"></button>
-                <button type="button" class="preset-btn" data-bg-preset="aurora" aria-label="极光深海" title="极光深海" style="background:radial-gradient(circle at 30% 35%, #2563eb, #090a0f 75%)"></button>
-                <button type="button" class="preset-btn" data-bg-preset="emerald" aria-label="暗夜翡翠" title="暗夜翡翠" style="background:radial-gradient(circle at 30% 35%, #10b981, #090a0f 75%)"></button>
-                <button type="button" class="preset-btn" data-bg-preset="sunset" aria-label="日落琥珀" title="日落琥珀" style="background:radial-gradient(circle at 30% 35%, #ea580c, #090a0f 75%)"></button>
-                <button type="button" class="preset-btn" data-bg-preset="minimal" aria-label="纯净暗黑" title="纯净暗黑" style="background:#08090c"></button>
+            <div class="bcp-group">
+              <div class="bcp-group-title">背景</div>
+
+              <div class="bcp-row">
+                <div class="bcp-row-head"><span>预设光影主题</span><strong class="mono" id="val-preset">—</strong></div>
+                <div class="preset-swatches">
+                  <button type="button" class="preset-btn active" data-bg-preset="cosmos" aria-label="深空暖金" title="深空暖金 (图2默认)" style="background:radial-gradient(circle at 30% 35%, #c48a45, #090a0f 75%)"></button>
+                  <button type="button" class="preset-btn" data-bg-preset="aurora" aria-label="极光深海" title="极光深海" style="background:radial-gradient(circle at 30% 35%, #2563eb, #090a0f 75%)"></button>
+                  <button type="button" class="preset-btn" data-bg-preset="emerald" aria-label="暗夜翡翠" title="暗夜翡翠" style="background:radial-gradient(circle at 30% 35%, #10b981, #090a0f 75%)"></button>
+                  <button type="button" class="preset-btn" data-bg-preset="sunset" aria-label="日落琥珀" title="日落琥珀" style="background:radial-gradient(circle at 30% 35%, #ea580c, #090a0f 75%)"></button>
+                  <button type="button" class="preset-btn" data-bg-preset="minimal" aria-label="纯净暗黑" title="纯净暗黑" style="background:#08090c"></button>
+                </div>
+              </div>
+
+              <div class="bcp-row">
+                <div class="bcp-row-head"><span>本地壁纸</span><strong class="mono">自动保存</strong></div>
+                <div class="bcp-inline">
+                  <label class="glass-btn primary" style="flex:1;cursor:pointer">
+                    选择本地图片...
+                    <input type="file" id="bg-file-input" accept="image/*" style="display:none" />
+                  </label>
+                  <button type="button" class="glass-btn" id="btn-clear-custom-bg">恢复默认</button>
+                </div>
+              </div>
+
+              <div class="bcp-row">
+                <div class="bcp-row-head"><label for="bg-url-input">在线壁纸 URL</label></div>
+                <div class="bcp-inline">
+                  <input type="text" class="bcp-input" id="bg-url-input" placeholder="https://example.com/wallpaper.jpg" />
+                  <button type="button" class="glass-btn" id="btn-apply-bg-url">应用</button>
+                </div>
+              </div>
+
+              <p id="wallpaper-save-status" class="bcp-save-status" role="status" aria-live="polite">壁纸保存在当前浏览器，选择图片后自动保存。</p>
+            </div>
+
+            <div class="bcp-group">
+              <div class="bcp-group-title">毛玻璃</div>
+
+              <div class="bcp-row">
+                <div class="bcp-row-head"><label for="slider-blur">毛玻璃模糊度</label><strong class="mono" id="val-blur">14px</strong></div>
+                <input type="range" class="bcp-slider" id="slider-blur" min="4" max="48" value="14" />
+              </div>
+
+              <div class="bcp-row">
+                <div class="bcp-row-head"><label for="slider-alpha">面板遮盖度（越低越透）</label><strong class="mono" id="val-alpha">48%</strong></div>
+                <input type="range" class="bcp-slider" id="slider-alpha" min="25" max="92" value="48" />
+              </div>
+
+              <div class="bcp-row">
+                <div class="bcp-row-head"><label for="slider-dimmer">背景暗化遮罩</label><strong class="mono" id="val-dimmer">22%</strong></div>
+                <input type="range" class="bcp-slider" id="slider-dimmer" min="0" max="88" value="22" />
               </div>
             </div>
 
-            <div class="bcp-row">
-              <span>2. 本地壁纸（选择后自动保存到当前浏览器）</span>
-              <div style="display:flex;gap:8px">
-                <label class="glass-btn primary" style="flex:1;cursor:pointer">
-                  选择本地图片...
-                  <input type="file" id="bg-file-input" accept="image/*" style="display:none" />
-                </label>
-                <button type="button" class="glass-btn" id="btn-clear-custom-bg">恢复默认</button>
+            <div class="bcp-group">
+              <div class="bcp-group-title">界面</div>
+
+              <div class="bcp-row">
+                <div class="bcp-row-head"><label for="slider-radius">界面圆角</label><strong class="mono" id="val-radius">100%</strong></div>
+                <input type="range" class="bcp-slider" id="slider-radius" min="0" max="200" step="10" value="100" />
               </div>
-            </div>
 
-            <div class="bcp-row">
-              <label for="bg-url-input">3. 或输入在线壁纸图片 URL</label>
-              <div style="display:flex;gap:8px">
-                <input type="text" class="bcp-input" id="bg-url-input" placeholder="https://example.com/wallpaper.jpg" />
-                <button type="button" class="glass-btn" id="btn-apply-bg-url">应用</button>
+              <div class="bcp-row">
+                <div class="bcp-row-head"><label for="select-brand-ver">版本标签</label><strong class="mono" id="val-brand-ver">跟随后端版本</strong></div>
+                <select class="bcp-input bcp-select" id="select-brand-ver" aria-label="版本标签">
+                  <option value="hidden">隐藏</option>
+                  <option value="version" selected>跟随后端版本</option>
+                  <option value="custom">自定义文字</option>
+                </select>
+                <input class="bcp-input" id="input-brand-ver" type="text" maxlength="14" placeholder="例如 v3（留空则不显示）" autocomplete="off" spellcheck="false" hidden />
               </div>
-            </div>
-
-            <p id="wallpaper-save-status" class="bcp-save-status" role="status" aria-live="polite">壁纸保存在当前浏览器，选择图片后自动保存。</p>
-
-            <div class="bcp-row">
-              <div class="bcp-row-head"><label for="slider-blur">毛玻璃模糊度</label><strong class="mono" id="val-blur">14px</strong></div>
-              <input type="range" class="bcp-slider" id="slider-blur" min="4" max="48" value="14" />
-            </div>
-
-            <div class="bcp-row">
-              <div class="bcp-row-head"><label for="slider-alpha">面板遮盖度（越低越透）</label><strong class="mono" id="val-alpha">48%</strong></div>
-              <input type="range" class="bcp-slider" id="slider-alpha" min="25" max="92" value="48" />
-            </div>
-
-            <div class="bcp-row">
-              <div class="bcp-row-head"><label for="slider-dimmer">背景暗化遮罩</label><strong class="mono" id="val-dimmer">22%</strong></div>
-              <input type="range" class="bcp-slider" id="slider-dimmer" min="0" max="88" value="22" />
             </div>
             <section class="bcp-fonts" aria-labelledby="typography-title">
               <h3 id="typography-title">字体与阅读</h3>
@@ -122,6 +150,15 @@
               <div class="font-setting"><label for="font-heading">标题字体</label><select id="font-heading"><option value="serif">Noto Serif SC · 宋体</option><option value="sans">Noto Sans SC · 黑体</option><option value="system">系统字体</option></select></div>
               <div class="font-setting"><label for="font-numeral">指标数字</label><select id="font-numeral"><option value="serif">Instrument Serif · 衬线</option><option value="sans">IBM Plex Sans · 无衬线</option><option value="mono">IBM Plex Mono · 等宽</option></select></div>
               <div class="font-setting"><label for="font-body">界面文字</label><select id="font-body"><option value="plex">IBM Plex Sans + Noto Sans SC</option><option value="noto">Noto Sans SC</option><option value="system">系统字体</option></select></div>
+              <div class="bcp-row">
+                <div class="bcp-row-head"><span>自定义字体（可选）</span><strong class="mono" id="val-font-upload" role="status" aria-live="polite">未上传</strong></div>
+                <div class="bcp-inline">
+                  <button type="button" class="glass-btn" id="btn-font-upload" disabled>上传字体文件…</button>
+                  <input type="file" id="input-font-upload" accept=".ttf,.otf,.woff,.woff2" multiple hidden />
+                </div>
+                <div class="bcp-font-list" id="font-upload-list" hidden></div>
+              </div>
+              <p class="font-note">上传仅保存在当前浏览器，可分别用于标题、数字或正文。单个文件不超过 64 MB，总量不超过 128 MB。</p>
               <p class="font-note">域名、IP、日志和配置保持等宽排版。</p>
               <p id="typography-save-status" class="bcp-save-status" role="status" aria-live="polite">字体偏好保存在当前浏览器。</p>
             </section>
@@ -150,7 +187,6 @@
 
     <nav id="mobile-nav" class="mobile-nav" aria-label="手机导航" style="display:none"></nav>
   </div>
-  </div>
 
   <div class="drawer-backdrop" id="drawer-backdrop"></div>
   <aside class="drawer" id="drawer" aria-hidden="true">
@@ -173,12 +209,14 @@
   </dialog>
 
   <div id="toast-stack" class="toast-stack" aria-live="polite"></div>
-  <script src="config.js?v=20261016-UI-1"></script>
+  <script src="config.js?v=20261016-MERGE-1"></script>
   <script src="assets/js/chart.umd.min.js"></script>
-  <script src="assets/js/console.js?v=20261016-UI-1"></script>
-  <script src="assets/js/wallpaper.js?v=20261016-UI-1"></script>
-  <script src="assets/js/app.js?v=20261016-UI-1"></script>
-  <script src="assets/js/material.js?v=20261016-UI-1"></script>
-  <script src="assets/js/navbar.js?v=20261016-UI-1"></script>
+  <script src="assets/js/console.js?v=20261016-MERGE-1"></script>
+  <script src="assets/js/wallpaper.js?v=20261016-MERGE-1"></script>
+  <script src="assets/js/font-uploads.js?v=20261016-MERGE-1"></script>
+  <script src="assets/js/topology-flow.js?v=20261016-MERGE-1"></script>
+  <script src="assets/js/app.js?v=20261016-MERGE-1"></script>
+  <script src="assets/js/material.js?v=20261016-MERGE-1"></script>
+  <script src="assets/js/navbar.js?v=20261016-MERGE-1"></script>
 </body>
 </html>

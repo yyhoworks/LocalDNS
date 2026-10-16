@@ -8,7 +8,7 @@ html{scroll-padding-top:96px}
 .navbar-content{position:relative;display:grid;grid-template-columns:196px minmax(0,1fr);gap:20px;align-items:center;height:100%;padding-inline:var(--navbar-gutter);pointer-events:auto}
 .navbar-content .brand-box{padding:0;gap:10px}
 .navbar-content .top-main-bar{min-width:0}
-.navbar-content .cmd-search-bar{width:340px;min-height:38px;padding:8px 12px;background:rgba(255,255,255,.045);border-color:rgba(255,255,255,.035);border-radius:10px;box-shadow:none;backdrop-filter:none;-webkit-backdrop-filter:none}
+.navbar-content .cmd-search-bar{width:340px;min-height:38px;padding:8px 12px;background:rgba(255,255,255,.045);border-color:rgba(255,255,255,.035);border-radius: calc(10px * var(--radius-scale));box-shadow:none;backdrop-filter:none;-webkit-backdrop-filter:none}
 .navbar-content #global-search-input{padding:0;height:auto;min-height:0;border:0;border-radius:0;background:transparent;box-shadow:none}
 .navbar-content .glass-action-capsule{padding:3px 0;gap:4px;border:0;background:transparent;backdrop-filter:none;-webkit-backdrop-filter:none;box-shadow:none}
 .navbar-content .icon-action-btn{min-width:38px;min-height:38px;padding:8px 10px}

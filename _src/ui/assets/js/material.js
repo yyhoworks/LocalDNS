@@ -1,5 +1,55 @@
 (() => {
   'use strict';
+  /* 玻璃、圆角、版本标签沿用 localdns-material-v2；字体由 appearance.js 独立管理。 */
+  let saved={};try{saved=JSON.parse(localStorage.getItem('localdns-material-v2')||'{}');}catch{}
+  if(!saved||typeof saved!=='object'||Array.isArray(saved))saved={};
+  const store=patch=>{saved={...saved,...patch};try{localStorage.setItem('localdns-material-v2',JSON.stringify(saved));}catch{};};
+
+  /* 版本标签：品牌区保留原有后端版本显示；隐藏或自定义由用户选择。
+     app.js 会在状态轮询里把后端版本写进 #brand-version-tag，所以这里用 html[data-brand-ver-mode] 标记模式。 */
+  const BRAND_VER_MODES=['hidden','version','custom'];
+  const BRAND_VER_LABELS={hidden:'隐藏',version:'跟随版本',custom:'自定义'};
+  const brandVerMode=()=>BRAND_VER_MODES.includes(saved.brandVer)?saved.brandVer:'version';
+  function applyBrand(){
+    const mode=brandVerMode();
+    const custom=String(saved.brandVerText||'').trim();
+    document.documentElement.dataset.brandVerMode=mode;
+    const tag=document.querySelector('#brand-version-tag');
+    if(tag){
+      const visible=mode==='version'||(mode==='custom'&&!!custom);
+      tag.style.display=visible?'':'none';
+      if(mode==='custom')tag.textContent=custom;
+      else if(mode==='version')tag.textContent=tag.dataset.backendVersion || 'FJG4O';
+    }
+    const verVal=document.querySelector('#val-brand-ver');if(verVal)verVal.textContent=BRAND_VER_LABELS[mode];
+    const sel=document.querySelector('#select-brand-ver');if(sel&&sel.value!==mode)sel.value=mode;
+    const verInput=document.querySelector('#input-brand-ver');
+    if(verInput){verInput.hidden=mode!=='custom';if(verInput.value!==custom)verInput.value=custom;}
+  }
+  function initBrand(){
+    const verSel=document.querySelector('#select-brand-ver');
+    if(verSel)verSel.addEventListener('change',()=>{store({brandVer:verSel.value});applyBrand();});
+    const verInput=document.querySelector('#input-brand-ver');
+    if(verInput)verInput.addEventListener('input',()=>{store({brandVerText:verInput.value});applyBrand();});
+    applyBrand();
+  }
+
+  /* 外观面板「预设光影主题」右侧显示当前预设名（.wallpaper-layer[data-preset] 由 wallpaper.js 维护） */
+  function syncPresetLabel(){
+    const el=document.querySelector('#val-preset');if(!el)return;
+    const wall=document.querySelector('#wallpaper-layer');
+    const preset=wall&&wall.dataset.preset?wall.dataset.preset:'cosmos';
+    const btn=document.querySelector(`[data-bg-preset="${preset}"]`);
+    el.textContent=btn?String(btn.getAttribute('aria-label')||preset).replace(/\s*[（(].*$/,''):'自定义壁纸';
+  }
+  {
+    const wall=document.querySelector('#wallpaper-layer');
+    if(wall)new MutationObserver(syncPresetLabel).observe(wall,{attributes:true,attributeFilter:['data-preset']});
+    syncPresetLabel();
+  }
+
+  applyBrand(); // 解析阶段先落地版本标签状态，避免闪烁
+
   const init=()=>{
     const wall=document.querySelector('#wallpaper-layer');if(!wall)return;
     const canvas=document.createElement('canvas');canvas.id='ambient-orbit';canvas.setAttribute('aria-hidden','true');wall.append(canvas);
@@ -35,14 +85,23 @@
     }
     const schedule=()=>{if(!scheduled){scheduled=true;requestAnimationFrame(draw);}};
     window.addEventListener('resize',schedule,{passive:true});new MutationObserver(schedule).observe(document.documentElement,{attributes:true,attributeFilter:['data-theme']});draw();
-    let saved={};try{saved=JSON.parse(localStorage.getItem('localdns-material-v2')||'{}');}catch{}
-    const defaults={blur:14,alpha:48,dimmer:22},units={blur:'px',alpha:'%',dimmer:'%'};
-    for(const name of ['blur','alpha','dimmer']){
+    function applyMaterial(name,value){
+      const root=document.documentElement.style;
+      if(name==='dimmer')root.setProperty('--bg-dimmer',(value/100).toFixed(2));
+      else if(name==='radius')root.setProperty('--radius-scale',(value/100).toFixed(2));
+      else root.setProperty('--glass-'+name,name==='blur'?value+'px':(value/100).toFixed(2));
+    }
+    const defaults={blur:14,alpha:48,dimmer:22,radius:100},units={blur:'px',alpha:'%',dimmer:'%',radius:'%'};
+    for(const name of ['blur','alpha','dimmer','radius']){
       const input=document.querySelector('#slider-'+name),label=document.querySelector('#val-'+name);if(!input)continue;
       const value=Math.min(+input.max,Math.max(+input.min,Number.isFinite(+saved[name])?+saved[name]:defaults[name]));input.value=value;
-      document.documentElement.style.setProperty(name==='dimmer'?'--bg-dimmer':'--glass-'+name,name==='blur'?value+'px':(value/100).toFixed(2));if(label)label.textContent=value+units[name];
-      input.addEventListener('input',()=>{const values=Object.fromEntries(['blur','alpha','dimmer'].map(k=>[k,+document.querySelector('#slider-'+k).value]));try{localStorage.setItem('localdns-material-v2',JSON.stringify(values));}catch{}});
+      applyMaterial(name,value);if(label)label.textContent=value+units[name];
+      input.addEventListener('input',()=>{const v=+input.value;applyMaterial(name,v);if(label)label.textContent=v+units[name];store({[name]:v});});
     }
+
   };
-  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init,{once:true});else init();
+  // initBrand 需在 app.js 初始化之后再落地一次（app.js 会在 init 里写 document.title 与侧栏状态行）
+  const initAll=()=>{initBrand();syncPresetLabel();};
+  if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded',init,{once:true});document.addEventListener('DOMContentLoaded',initAll,{once:true});}
+  else{init();initAll();}
 })();

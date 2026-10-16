@@ -5,6 +5,7 @@
     apiBase: '', title: 'LocalDNS 控制台', refreshInterval: 30,
     requestTimeout: 10000, demoOnApiFailure: false
   }, window.LOCALDNS_UI_CONFIG || {});
+  const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)');
   const API_BASE = String(CONFIG.apiBase || '').replace(/\/$/, '');
   const $ = (s, root = document) => root.querySelector(s);
   const $$ = (s, root = document) => [...root.querySelectorAll(s)];
@@ -128,13 +129,69 @@
 
 
   function toast(message, type='success', detail='') {
-    const el=document.createElement('div'); el.className=`toast ${type}`;
+    const el=document.createElement('div'); el.className=`toast ${type} toast-enter`;
     el.innerHTML=`<span>${icon(type==='error'?'warning':type==='success'?'check':'info')}</span><div><strong>${esc(message)}</strong>${detail?`<div class="toast-info">${esc(detail)}</div>`:''}</div>`;
-    $('#toast-stack').appendChild(el); setTimeout(()=>el.remove(),4200);
+    $('#toast-stack').appendChild(el);
+    void el.offsetWidth; el.classList.remove('toast-enter');
+    setTimeout(()=>{el.classList.add('toast-leave');setTimeout(()=>el.remove(),280)},3920);
+  }
+  // ── 动效工具：视图错峰入场 / 数字滚动 / 分段滑块 / 复制反馈 ──
+  function playViewEnter(){
+    if(reduceMotion.matches)return;
+    page.classList.remove('view-enter');
+    void page.offsetWidth;
+    page.classList.add('view-enter');
+    setTimeout(()=>page.classList.remove('view-enter'),1050);
+  }
+  function animateCountUps(root){
+    if(reduceMotion.matches)return;
+    root.querySelectorAll('.sk-val .display-number').forEach(el=>{
+      const raw=el.textContent.trim();
+      const m=raw.match(/^([^0-9]*)([0-9][0-9,]*(?:\.[0-9]+)?)(.*)$/);
+      if(!m)return;
+      if(/[-−]/.test(m[1]))return; // 负数（数据未就绪时的瞬时值）不参与滚动
+      const target=parseFloat(m[2].replace(/,/g,''));
+      if(!isFinite(target)||target<=0)return;
+      const decimals=(m[2].split('.')[1]||'').length, grouped=m[2].includes(',');
+      const fmt=v=>{
+        const num=decimals?Number(v.toFixed(decimals)):Math.round(v);
+        const body=grouped?num.toLocaleString('en-US',{minimumFractionDigits:decimals,maximumFractionDigits:decimals}):num.toFixed(decimals);
+        return m[1]+body+m[3];
+      };
+      const t0=performance.now(),dur=560;
+      const step=now=>{
+        if(!el.isConnected)return;
+        if(reduceMotion.matches){el.textContent=raw;return;}
+        const k=Math.min(1,(now-t0)/dur),e=1-Math.pow(1-k,3);
+        el.textContent=fmt(target*e);
+        if(k<1)requestAnimationFrame(step);
+        else{el.textContent=raw;el.classList.add('is-bumping');setTimeout(()=>el.classList.remove('is-bumping'),520)}
+      };
+      el.textContent=fmt(0);
+      requestAnimationFrame(step);
+    });
+  }
+  function syncSegThumb(group){
+    const active=group.querySelector('.seg-item.active');
+    let thumb=group.querySelector(':scope > .seg-thumb');
+    if(!active){if(thumb)thumb.remove();return}
+    if(!thumb){thumb=document.createElement('span');thumb.className='seg-thumb';thumb.setAttribute('aria-hidden','true');group.prepend(thumb)}
+    thumb.style.width=active.offsetWidth+'px';
+    thumb.style.height=active.offsetHeight+'px';
+    thumb.style.transform=`translate(${active.offsetLeft}px, ${active.offsetTop}px)`;
+  }
+  function syncAllSegThumbs(){document.querySelectorAll('.seg-group').forEach(syncSegThumb)}
+  async function copyToClipboard(text){
+    try{ if(navigator.clipboard?.writeText){ await navigator.clipboard.writeText(text); return true; } }catch{}
+    // 无剪贴板权限（或非安全上下文）时退回 execCommand
+    try{
+      const ta=document.createElement('textarea');ta.value=text;ta.style.position='fixed';ta.style.opacity='0';
+      document.body.appendChild(ta);ta.select();const ok=document.execCommand('copy');ta.remove();return ok;
+    }catch{return false}
   }
   function setApiStatus(ok, text) {
     const box=$('#sidebar-status'), dot=$('.status-dot',box), strong=$('strong',box);
-    dot.className=`status-dot ${ok?'online':'offline'}`; strong.textContent=ok?'LocalDNS 运行正常':'LocalDNS 连接异常';
+      dot.className=`status-dot ${ok?'online':'offline'}`; strong.textContent=ok?'LocalDNS 运行正常':'LocalDNS 连接异常';
     $('#api-endpoint-label').textContent=text || (API_BASE || location.host);
     window.LocalDNSInterface?.connection(ok, text);
   }
@@ -341,17 +398,22 @@
       }
     }
 
-    // 3. 粒子开关与全局搜索
-    state.particles = storage.get('localdns_particles') !== 'false';
+    // 3. 保留既有粒子偏好；系统减少动画设置始终优先
+    state.particles = (storage.get('localdns_particles') ?? storage.get('localdns_particles_v2')) !== 'false';
     const partBtn = $('#btn-toggle-particles');
     if (partBtn) {
       partBtn.classList.toggle('active', state.particles);
+      partBtn.setAttribute('aria-pressed', String(state.particles));
       partBtn.onclick = () => {
         state.particles = !state.particles;
         storage.set('localdns_particles', String(state.particles));
         partBtn.classList.toggle('active', state.particles);
+        partBtn.setAttribute('aria-pressed', String(state.particles));
         const wrap = $('#topo-stage-wrap');
-        if (wrap) wrap.classList.toggle('no-particles', !state.particles);
+        if (wrap) {
+          wrap.classList.toggle('no-particles', !state.particles);
+          window.LocalDNSTopologyFlow?.sync();
+        }
       };
     }
 
@@ -383,7 +445,56 @@
     };
     const savedTheme=storage.get('localdnsTheme');
     document.documentElement.dataset.theme=(savedTheme==='light-glass')?'light-glass':'cosmos-glass';
-    $('#drawer-close').onclick=closeDrawer; $('#drawer-backdrop').onclick=closeDrawer; $('#modal-close').onclick=modalClose; $('#modal').addEventListener('close',()=>{closeSlowTypePopover();$('#modal').classList.remove('overview-detail-modal')});
+    $('#drawer-close').onclick=closeDrawer; $('#drawer-backdrop').onclick=closeDrawer; $('#modal-close').onclick=modalClose;
+    $('#modal').addEventListener('close',()=>{closeSlowTypePopover();$('#modal').classList.remove('overview-detail-modal')});
+    // 现代弹窗交互：点击遮罩空白关闭（必须在遮罩上按下再抬起，避免框内拖选误触）
+    {
+      const modal=$('#modal');let backdropPress=false;
+      modal.addEventListener('pointerdown',e=>{backdropPress=e.target===modal});
+      modal.addEventListener('click',e=>{if(backdropPress&&e.target===modal)modalClose();backdropPress=false});
+      // ESC：统一走 modalClose（含详情样式的清理）；浮层打开时先让浮层自己处理
+      modal.addEventListener('cancel',e=>{e.preventDefault();if(!$('#slow-type-popover')&&!$('#upstream-error-popover'))modalClose()});
+    }
+    // ESC 关侧板；Ctrl/⌘+K 或 / 聚焦全局搜索
+    // 滚动条宽度补偿：弹窗/侧板打开时 html 会 overflow:hidden，用 --sbw 顶住内容避免横跳
+    {
+      const updateSbw=()=>{
+        if(document.querySelector('dialog[open]')||document.querySelector('#drawer.open'))return;
+        document.documentElement.style.setProperty('--sbw',Math.max(0,window.innerWidth-document.documentElement.clientWidth)+'px');
+      };
+      updateSbw();window.addEventListener('resize',updateSbw);
+    }
+    document.addEventListener('keydown',e=>{
+      if(e.key==='Escape'&&$('#drawer')&&$('#drawer').classList.contains('open')){closeDrawer();return}
+      const ae=document.activeElement;
+      const typing=!!ae&&(/^(INPUT|TEXTAREA|SELECT)$/.test(ae.tagName)||ae.isContentEditable);
+      if((!typing&&e.key==='/')||((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='k')){
+        const s=$('#global-search-input');
+        if(s){e.preventDefault();s.focus();s.select()}
+      }
+    });
+    {
+      const s=$('#global-search-input');
+      if(s)s.addEventListener('keydown',e=>{if(e.key==='Escape'){e.stopPropagation();if(s.value)s.value='';else s.blur()}});
+    }
+    document.addEventListener('keydown',e=>{
+      if((e.key==='Enter'||e.key===' ')&&e.target.matches('[data-copy]')){e.preventDefault();e.target.click();}
+    });
+    // 动效与微交互：点击后同步分段控件滑块；点击带 data-copy 的内容复制并给行内反馈
+    document.addEventListener('click',e=>{
+      requestAnimationFrame(syncAllSegThumbs);
+      const node=e.target.closest('[data-copy]');
+      if(!node)return;
+      const text=node.dataset.copy||node.textContent.trim();
+      copyToClipboard(text).then(ok=>{
+        if(!ok){toast('复制失败','error');return}
+        node.classList.add('is-copied');
+        setTimeout(()=>node.classList.remove('is-copied'),900);
+        toast('已复制','success',text);
+      });
+    });
+    syncAllSegThumbs();
+    window.addEventListener('resize',()=>requestAnimationFrame(syncAllSegThumbs));
     window.addEventListener('hashchange',()=>navigate((location.hash.replace(/^#\/?/,'')||'overview'),false));
     window.addEventListener('resize',()=>{if(state.route==='rules')requestAnimationFrame(fitRuleLayoutHeight)});
     window.addEventListener('unhandledrejection',e=>{const msg=e?.reason?.message||String(e?.reason||'未知错误');toast('操作失败','error',msg);e.preventDefault()});
@@ -438,6 +549,7 @@
   async function renderRoute(force=false,silent=false){
     window.LocalDNSInterface?.rememberDraft();
     cleanupRouteUi();
+    window.LocalDNSTopologyFlow?.stop();
     closeUpstreamErrorPopover();
     const seq=(state.renderSeq||0)+1;state.renderSeq=seq;
     if(state.routeController)state.routeController.abort();
@@ -454,6 +566,8 @@
       await fn(force);
       if(seq!==state.renderSeq)return;
       window.LocalDNSInterface?.apply();
+      if(!silent){playViewEnter();animateCountUps(page)}
+      syncAllSegThumbs();
       state.silent=false;
       viewRestore(snap);
       setApiStatus(true);
@@ -641,141 +755,76 @@
     return map[type] || map.monitor;
   }
 
-  function drawTopoCurves(edges, inspectorCtx) {
+  function drawTopoCurves(edges) {
     const wrap = document.getElementById('topo-stage-wrap');
     const svg = document.getElementById('topo-svg');
     if (!wrap || !svg) return;
+    window.LocalDNSTopologyFlow?.stop();
 
     const wrapRect = wrap.getBoundingClientRect();
     if (!wrapRect.width || !wrapRect.height) return;
     svg.setAttribute('viewBox', `0 0 ${wrapRect.width} ${wrapRect.height}`);
 
-    const normEdges = edges.map(e => Array.isArray(e)
-      ? { from: e[0], to: e[1], color: e[2] || '#3B82F6', weight: 1.6, muted: false, rY1: 0.5, rY2: 0.5, preset: '' }
-      : e
-    );
+    let pathsHtml = '', dotsHtml = '';
+    const dotSet = new Set();
+    const addDot = (x, y, color) => {
+      const key = `${Math.round(x)},${Math.round(y)}`;
+      if (dotSet.has(key)) return;
+      dotSet.add(key);
+      dotsHtml += `<circle class="topo-dot-halo" cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="4" fill="${color}" /><circle class="topo-dot" cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="2.8" fill="${color}" />`;
+    };
 
-    let pathsHtml = '';
-    normEdges.forEach((edge, i) => {
+    // Keep the release's center-to-center geometry; the glow is a separate visual layer.
+    edges.forEach((edge, i) => {
       const fromEl = wrap.querySelector(`[data-node-id="${edge.from}"]`);
       const toEl = wrap.querySelector(`[data-node-id="${edge.to}"]`);
       if (!fromEl || !toEl) return;
-
-      const r1 = fromEl.getBoundingClientRect();
-      const r2 = toEl.getBoundingClientRect();
-
-      const x1 = r1.right - wrapRect.left;
-      const y1 = r1.top + r1.height * (edge.rY1 ?? 0.5) - wrapRect.top;
-      const x2 = r2.left - wrapRect.left;
-      const y2 = r2.top + r2.height * (edge.rY2 ?? 0.5) - wrapRect.top;
-
-      const dx = Math.max(16, (x2 - x1) * 0.54);
+      const r1 = fromEl.getBoundingClientRect(), r2 = toEl.getBoundingClientRect();
+      const x1 = r1.right - wrapRect.left, y1 = r1.top + r1.height / 2 - wrapRect.top;
+      const x2 = r2.left - wrapRect.left, y2 = r2.top + r2.height / 2 - wrapRect.top;
+      const dx = (x2 - x1) * 0.54;
       const d = `M ${x1.toFixed(1)} ${y1.toFixed(1)} C ${(x1 + dx).toFixed(1)} ${y1.toFixed(1)}, ${(x2 - dx).toFixed(1)} ${y2.toFixed(1)}, ${x2.toFixed(1)} ${y2.toFixed(1)}`;
-      const w = edge.weight || 1.6;
-      const baseOp = edge.muted ? 0.22 : (w > 2.8 ? 0.62 : 0.45);
-
-      pathsHtml += `<path class="topo-edge ${edge.muted ? 'is-muted' : ''}" data-edge-idx="${i}" d="${d}" stroke="${edge.color}" style="stroke-width:${w}px;stroke-opacity:${baseOp}" />`;
       if (!edge.muted) {
-        pathsHtml += `<path class="topo-particle" data-part-idx="${i}" d="${d}" stroke="${edge.color}" style="stroke-width:${Math.max(1.5, +(w * 0.72).toFixed(2))}px" />`;
+        pathsHtml += `<path class="topo-halo" data-edge-idx="${i}" d="${d}" stroke="${edge.color}" /><path class="topo-glow" data-edge-idx="${i}" d="${d}" stroke="${edge.color}" />`;
+        pathsHtml += `<path class="topo-particle" data-part-idx="${i}" d="${d}" stroke="${edge.color}" />`;
       }
+      pathsHtml += `<path class="topo-edge ${edge.muted ? 'is-muted' : ''}" data-edge-idx="${i}" d="${d}" stroke="${edge.color}" />`;
+      addDot(x1, y1, edge.color);
+      addDot(x2, y2, edge.color);
     });
-
-    svg.innerHTML = pathsHtml;
+    svg.innerHTML = pathsHtml + dotsHtml;
 
     const nodes = wrap.querySelectorAll('.t-node');
-    const stepsEl = document.getElementById('topo-insp-steps');
-    const rttEl = document.getElementById('topo-insp-rtt');
-
-    const renderInspector = info => {
-      if (!info || !stepsEl || !rttEl) return;
-      stepsEl.innerHTML = info.steps.map((s, idx) =>
-        `${idx > 0 ? '<span class="topo-insp-sep" aria-hidden="true">›</span>' : ''}<span class="topo-insp-chip" ${s.accent ? `style="border-color:${s.accent}"` : ''}><small>${esc(s.stage)}</small><strong ${s.color ? `style="color:${s.color}"` : ''}>${esc(s.label)}</strong></span>`
-      ).join('');
-      rttEl.textContent = info.summary || '';
-    };
-
-    const applyTraceState = (hoveredId = null) => {
-      const presetKey = state.topoPreset || 'all';
-      if (hoveredId) {
-        const activeNodes = new Set([hoveredId]);
-        const activeEdges = new Set();
-
-        const qUp = [hoveredId];
-        while (qUp.length) {
-          const cur = qUp.shift();
-          normEdges.forEach((edge, idx) => {
-            if (edge.to === cur) {
-              activeEdges.add(idx);
-              if (!activeNodes.has(edge.from)) { activeNodes.add(edge.from); qUp.push(edge.from); }
-            }
-          });
-        }
-        const qDown = [hoveredId];
-        while (qDown.length) {
-          const cur = qDown.shift();
-          normEdges.forEach((edge, idx) => {
-            if (edge.from === cur) {
-              activeEdges.add(idx);
-              if (!activeNodes.has(edge.to)) { activeNodes.add(edge.to); qDown.push(edge.to); }
-            }
-          });
-        }
-
-        wrap.classList.add('has-hover');
-        nodes.forEach(n => n.classList.toggle('is-active', activeNodes.has(n.dataset.nodeId)));
-        svg.querySelectorAll('.topo-edge').forEach(el => el.classList.toggle('is-active', activeEdges.has(+el.dataset.edgeIdx)));
-        svg.querySelectorAll('.topo-particle').forEach(el => el.classList.toggle('is-active', activeEdges.has(+el.dataset.partIdx)));
-        if (inspectorCtx?.forNode) renderInspector(inspectorCtx.forNode(hoveredId, activeNodes));
-        return;
-      }
-
-      if (presetKey !== 'all' && inspectorCtx?.presets?.[presetKey]) {
-        const presetInfo = inspectorCtx.presets[presetKey];
-        const activeNodes = new Set(presetInfo.nodes || []);
-        const activeEdges = new Set();
-        normEdges.forEach((edge, idx) => {
-          const tags = String(edge.preset || '').split(',');
-          if (tags.includes(presetKey) && activeNodes.has(edge.from) && activeNodes.has(edge.to)) {
+    const applyTraceState = (startId = null) => {
+      const activeNodes = new Set(startId ? [startId] : []);
+      const activeEdges = new Set();
+      // Walk each direction independently so a selected branch doesn't light up its siblings.
+      for (const upstream of [true, false]) {
+        const queue = startId ? [startId] : [];
+        while (queue.length) {
+          const cur = queue.shift();
+          edges.forEach((edge, idx) => {
+            if ((upstream ? edge.to : edge.from) !== cur) return;
+            const next = upstream ? edge.from : edge.to;
             activeEdges.add(idx);
-          }
-        });
-        wrap.classList.add('has-hover');
-        nodes.forEach(n => n.classList.toggle('is-active', activeNodes.has(n.dataset.nodeId)));
-        svg.querySelectorAll('.topo-edge').forEach(el => el.classList.toggle('is-active', activeEdges.has(+el.dataset.edgeIdx)));
-        svg.querySelectorAll('.topo-particle').forEach(el => el.classList.toggle('is-active', activeEdges.has(+el.dataset.partIdx)));
-        renderInspector(presetInfo);
-        return;
+            if (!activeNodes.has(next)) { activeNodes.add(next); queue.push(next); }
+          });
+        }
       }
-
-      wrap.classList.remove('has-hover');
-      nodes.forEach(n => n.classList.remove('is-active'));
-      svg.querySelectorAll('.is-active').forEach(el => el.classList.remove('is-active'));
-      if (inspectorCtx?.presets?.all) renderInspector(inspectorCtx.presets.all);
+      wrap.classList.toggle('has-hover', Boolean(startId));
+      nodes.forEach(n => n.classList.toggle('is-active', activeNodes.has(n.dataset.nodeId)));
+      svg.querySelectorAll('[data-edge-idx]').forEach(el => el.classList.toggle('is-active', activeEdges.has(+el.dataset.edgeIdx)));
+      svg.querySelectorAll('[data-part-idx]').forEach(el => el.classList.toggle('is-active', activeEdges.has(+el.dataset.partIdx)));
     };
-
+    const focusedId = () => wrap.contains(document.activeElement) ? document.activeElement.closest('.t-node')?.dataset.nodeId : null;
     nodes.forEach(node => {
       node.onmouseenter = () => applyTraceState(node.dataset.nodeId);
-      node.onmouseleave = () => applyTraceState(null);
+      node.onmouseleave = () => applyTraceState(focusedId());
+      node.onfocus = () => applyTraceState(node.dataset.nodeId);
+      node.onblur = event => applyTraceState(event.relatedTarget?.closest('.t-node')?.dataset.nodeId || wrap.querySelector('.t-node:hover')?.dataset.nodeId);
     });
-
-    const cardEl = wrap.closest('.topology-glass-card');
-    if (cardEl) {
-      cardEl.querySelectorAll('[data-topo-preset]').forEach(btn => {
-        btn.onclick = e => {
-          e.stopPropagation();
-          const nextPreset = btn.dataset.topoPreset || 'all';
-          state.topoPreset = state.topoPreset === nextPreset && nextPreset !== 'all' ? 'all' : nextPreset;
-          cardEl.querySelectorAll('[data-topo-preset]').forEach(b => {
-            const isSel = b.dataset.topoPreset === (state.topoPreset || 'all');
-            b.classList.toggle('active', isSel);
-            b.setAttribute('aria-pressed', String(isSel));
-          });
-          applyTraceState(null);
-        };
-      });
-    }
-
-    applyTraceState(null);
+    applyTraceState(focusedId() || wrap.querySelector('.t-node:hover')?.dataset.nodeId);
+    window.LocalDNSTopologyFlow?.start(wrap, svg, edges);
   }
 
   async function renderOverview(){
@@ -796,7 +845,9 @@
     const enabledCount = Object.values(sw).filter(v => v === 'A').length;
 
     const metrics = parseProm(metricsRaw), sys = parseSystem(metrics), caches = parseCaches(metrics);
-    if (sys.version && $('#brand-version-tag')) $('#brand-version-tag').textContent = sys.version;
+    // 品牌区版本标签按外观设置显示（hidden/custom 时不覆盖用户选择）
+    if (sys.version && $('#brand-version-tag')) $('#brand-version-tag').dataset.backendVersion = sys.version;
+    if (sys.version && $('#brand-version-tag') && (document.documentElement.dataset.brandVerMode || 'version') === 'version') $('#brand-version-tag').textContent = sys.version;
 
     // 更新右下角实时状态胶囊
     if ($('#float-stat-top')) $('#float-stat-top').textContent = `↑ 累计 ${compactNum(stats.total_queries)} 次`;
@@ -832,20 +883,8 @@
     // 客户端分流策略状态（对应真实 switch2 / switch12）
     const clientMode = sw.switch2 === 'A' ? 'fakeip' : (sw.switch12 === 'A' ? 'realip' : 'all');
 
-    // === 构造五阶段全链路拓扑真实数据（方案 A 加权拓扑 + 方案 D 实时链路公式栏） ===
+    // === 构造五阶段全链路拓扑真实数据 ===
     const totalQ = Math.max(1, +stats.total_queries || 0);
-    const shortUpstreamAddr = raw => {
-      const s = String(raw || '').trim();
-      if (!s) return '—';
-      return s.replace(/^[a-z0-9+.-]+:\/\//i, '').replace(/\/dns-query\/?$/i, '').replace(/:53$/, '');
-    };
-    const protoLabel = rawProto => {
-      const p = String(rawProto || 'udp').toLowerCase();
-      if (p === 'https' || p === 'doh') return 'DoH';
-      if (p === 'tls' || p === 'dot') return 'DoT';
-      return p.toUpperCase();
-    };
-
     // 01 客户端来源（5 节点：真实客户端排名前 4 + 其余客户端汇总/去重补位）
     const top4Clients = (clients || []).slice(0, 4);
     const restClients = (clients || []).slice(4);
@@ -856,78 +895,54 @@
     for (let i = 0; i < 4; i++) {
       const c = top4Clients[i];
       if (c) {
-        const cnt = +c.count || 0;
-        const sharePct = Math.round(cnt / totalQ * 100);
-        const hasAlias = Boolean(state.aliases[c.key] && state.aliases[c.key] !== c.key);
+        const sharePct = Math.round((+c.count || 0) / totalQ * 100);
         topoClients.push({
           id: `c${i+1}`,
           ip: c.key,
-          name: hasAlias ? state.aliases[c.key] : c.key,
-          sub: hasAlias ? c.key : (i === 0 ? '活跃主终端' : '局域网终端'),
+          muted: !(+c.count > 0),
+          name: state.aliases[c.key] || c.key,
+          sub: `${c.key} · ${compactNum(c.count)} 次`,
           val: `${sharePct}%`,
-          valSub: `${compactNum(cnt)}次`,
-          valColor: cnt === 0 ? 'var(--text-3)' : (i === 0 ? '#93C5FD' : 'var(--text-1)'),
-          barPct: cnt > 0 ? Math.max(5, sharePct) : 0,
-          barColor: i === 0 ? '#3B82F6' : '#14B8A6',
-          icon: i === 0 ? 'monitor' : (hasAlias ? 'server' : 'monitor'),
-          iconColor: i === 0 ? '#60A5FA' : (cnt > 0 ? '#2DD4BF' : '#94A3B8'),
-          count: cnt,
-          muted: cnt === 0
+          valColor: i === 0 ? '#93C5FD' : 'var(--text-1)',
+          icon: i === 3 ? 'server' : 'monitor'
         });
       } else {
-        const fb = unusedAliases[unusedAliasIdx++];
+        const unusedAlias = unusedAliases[unusedAliasIdx++];
+        const fallback = unusedAlias || [`终端槽位 #${i+1}`, '等待 DNS 请求接入'];
         topoClients.push({
           id: `c${i+1}`,
-          ip: fb ? fb[0] : '',
-          name: fb ? (fb[1] || fb[0]) : `预留槽位 #${i+1}`,
-          sub: fb ? fb[0] : '等待终端接入',
-          val: fb ? '0%' : '待机',
-          valSub: '0次',
+          ip: unusedAlias?.[0] || '',
+          muted: true,
+          name: fallback[1] || fallback[0],
+          sub: `${fallback[0]} · 0 次`,
+          val: '0%',
           valColor: 'var(--text-3)',
-          barPct: 0,
-          barColor: '#64748B',
-          icon: 'monitor',
-          iconColor: '#64748B',
-          count: 0,
-          muted: true
+          icon: 'monitor'
         });
       }
     }
     const restSum = restClients.reduce((s, x) => s + (+x.count || 0), 0);
-    const restShare = restClients.length ? Math.round(restSum / totalQ * 100) : 0;
     topoClients.push({
       id: 'c5',
+      muted: restSum === 0,
       ip: '',
       name: restClients.length ? `其余 ${restClients.length} 台设备` : '局域网其余终端',
-      sub: restClients.length ? `LAN 活跃终端` : 'LAN 监听 (:53)',
-      val: restClients.length ? `${restShare}%` : '就绪',
-      valSub: restClients.length ? `${compactNum(restSum)}次` : '在线',
-      valColor: restClients.length ? 'var(--text-1)' : '#34D399',
-      barPct: restSum > 0 ? Math.max(4, restShare) : 0,
-      barColor: '#64748B',
-      icon: 'dots',
-      iconColor: '#94A3B8',
-      count: restSum,
-      muted: false
+      sub: restClients.length ? `LAN 活跃终端 · ${compactNum(restSum)} 次` : 'LAN 子网监听中 (:53)',
+      val: restClients.length ? `${Math.round(restSum / totalQ * 100)}%` : '就绪',
+      valColor: 'var(--text-2)',
+      icon: 'dots'
     });
 
     // 03 分流规则集（6 节点：对应真实 /api/v1/status rules 与 stats）
     const rRules = engineStatus?.rules || {};
     const eStats = engineStatus?.stats || {};
-    const domHits = +eStats.domestic || 0;
-    const forHits = (+eStats.foreign || 0) + (+eStats.foreign_ecs || 0);
-    const fakeHits = +eStats.fakeip || 0;
-    const blkHits = +eStats.blocked || 0;
-    const maxRuleHit = Math.max(1, domHits, forHits, fakeHits, adguardBlocked, blkHits);
-    const totalRulesCount = (+rRules.geosite_cn || 0) + (+rRules.force_domestic || 0) + (+rRules.geosite_non_cn || 0) + (+rRules.force_foreign_fakeip || 0) + (+engineStatus?.adguard_rules || 0) + (+rRules.block || 0);
-
     const topoRules = [
-      { id: 'r1', tab: 'diversion', name: '国内域名', sub: `${compactNum(rRules.geosite_cn || 0)} 条 · 大陆直连`, val: compactNum(domHits), valSub: '次命中', valColor: 'var(--text-1)', barPct: domHits > 0 ? Math.max(6, Math.round(domHits / maxRuleHit * 100)) : 0, iconColor: '#10B981', icon: 'globe', count: domHits, muted: false },
-      { id: 'r2', tab: 'lists', name: '白名单与自定义', sub: `${num(rRules.force_domestic || 0)} 条强制国内直连`, val: `${num(rRules.force_domestic || 0)} 条`, valSub: '常驻生效', valColor: '#60A5FA', barPct: (+rRules.force_domestic || 0) > 0 ? 14 : 0, iconColor: '#60A5FA', icon: 'check', count: +rRules.force_domestic || 0, muted: (+rRules.force_domestic || 0) === 0 },
-      { id: 'r3', tab: 'diversion', name: '海外域名', sub: `${compactNum(rRules.geosite_non_cn || 0)} 条 · 海外分流`, val: compactNum(forHits), valSub: '次命中', valColor: 'var(--text-1)', barPct: forHits > 0 ? Math.max(6, Math.round(forHits / maxRuleHit * 100)) : 0, iconColor: '#14B8A6', icon: 'split', count: forHits, muted: false },
-      { id: 'r4', tab: 'lists', name: 'FakeIP 与灰名单', sub: `${num(rRules.force_foreign_fakeip || 0)} 条 · 代理映射`, val: compactNum(fakeHits), valSub: fakeHits >= maxRuleHit && fakeHits > 0 ? '最高频' : '次命中', valColor: '#FBBF24', barPct: fakeHits > 0 ? Math.max(6, Math.round(fakeHits / maxRuleHit * 100)) : 0, iconColor: '#F59E0B', icon: 'spark', count: fakeHits, muted: false },
-      { id: 'r5', tab: 'adguard', name: '广告与追踪拦截', sub: `AdGuard · ${compactNum(engineStatus?.adguard_rules || 0)} 条`, val: compactNum(adguardBlocked), valSub: adguardBlocked > 0 ? '已拦截' : '未触发', valColor: adguardBlocked > 0 ? '#F87171' : 'var(--text-3)', barPct: adguardBlocked > 0 ? Math.max(6, Math.round(adguardBlocked / maxRuleHit * 100)) : 0, iconColor: '#EF4444', icon: 'shield', count: adguardBlocked, muted: adguardBlocked === 0 },
-      { id: 'r6', tab: 'lists', name: '黑名单与类型过滤', sub: `${num(rRules.block || 0)} 条 · 类型抑制`, val: compactNum(blkHits), valSub: '已拦截', valColor: blkHits > 0 ? '#F87171' : 'var(--text-2)', barPct: blkHits > 0 ? Math.max(6, Math.round(blkHits / maxRuleHit * 100)) : 0, iconColor: '#94A3B8', icon: 'sliders', count: blkHits, muted: blkHits === 0 && (+rRules.block || 0) === 0 }
+      { id: 'r1', tab: 'diversion', name: 'geosite_cn', sub: `国内大陆域名直连 · ${num(rRules.geosite_cn || 0)} 条规则`, val: compactNum(eStats.domestic || 0), iconColor: '#10B981', icon: 'globe' },
+      { id: 'r2', tab: 'lists', name: 'whitelist / custom_cn', sub: `白名单与自定义国内 · ${num(rRules.force_domestic || 0)} 条规则`, val: `${num(rRules.force_domestic || 0)} 条`, iconColor: '#60A5FA', icon: 'check' },
+      { id: 'r3', tab: 'diversion', name: 'geosite_non_cn', sub: `海外无污染分流 · ${num(rRules.geosite_non_cn || 0)} 条规则`, val: compactNum((+eStats.foreign || 0) + (+eStats.foreign_ecs || 0)), iconColor: '#14B8A6', icon: 'split' },
+      { id: 'r4', tab: 'lists', name: 'force_fakeip / 灰名单', sub: `FakeIP 分流映射 · ${num(rRules.force_foreign_fakeip || 0)} 条规则`, val: compactNum(eStats.fakeip || 0), iconColor: '#F59E0B', icon: 'spark' },
+      { id: 'r5', tab: 'adguard', name: 'adguard_block', sub: `广告与追踪器拦截 · ${num(engineStatus?.adguard_rules || 0)} 条规则`, val: compactNum(adguardBlocked), iconColor: '#EF4444', icon: 'shield' },
+      { id: 'r6', tab: 'lists', name: 'block / 特殊类型清洗', sub: `黑名单与类型抑制 · ${num(rRules.block || 0)} 条规则`, val: compactNum(eStats.blocked || 0), iconColor: '#94A3B8', icon: 'sliders' }
     ];
 
     // 提取真实配置的上游列表及性能指标
@@ -945,11 +960,11 @@
 
     // 04 上游策略组（5 节点：对应真实 domestic / foreign / foreign_ecs / proxy / 拦截）
     const topoGroups = [
-      { id: 'g1', code: 'CN', codeColor: '#34D399', codeBg: 'rgba(16,185,129,0.15)', name: '国内解析组', sub: `并发竞速 · ${compactNum(domHits)}`, val: groupAvgMs('domestic'), valSub: '平均耗时' },
-      { id: 'g2', code: 'GL', codeColor: '#2DD4BF', codeBg: 'rgba(20,184,166,0.15)', name: '海外解析组', sub: `无污染 · ${compactNum(eStats.foreign || 0)}`, val: groupAvgMs('foreign'), valSub: '平均耗时' },
-      { id: 'g3', code: 'ECS', codeColor: '#93C5FD', codeBg: 'rgba(59,130,246,0.16)', name: '海外 ECS 组', sub: `ECS 子网 · ${compactNum(eStats.foreign_ecs || 0)}`, val: groupAvgMs('foreign_ecs'), valSub: '平均耗时' },
-      { id: 'g4', code: 'PX', codeColor: '#FBBF24', codeBg: 'rgba(245,158,11,0.16)', name: '代理解析组', sub: `远端代理 · ${compactNum(fakeHits)}`, val: groupAvgMs('proxy'), valSub: '极速响应' },
-      { id: 'g5', code: 'BLK', codeColor: '#F87171', codeBg: 'rgba(239,68,68,0.16)', name: '本地拦截', sub: 'NXDOMAIN 阻断', val: compactNum(blkHits + adguardBlocked), valSub: '0.0 ms' }
+      { id: 'g1', code: 'CN', codeColor: '#34D399', codeBg: 'rgba(16,185,129,0.14)', name: '国内组 (domestic)', sub: `并发竞速 · ${groupAvgMs('domestic')} · ${num(eStats.domestic || 0)} 次` },
+      { id: 'g2', code: 'GL', codeColor: '#2DD4BF', codeBg: 'rgba(20,184,166,0.14)', name: '国外组 (foreign)', sub: `无污染解析 · ${groupAvgMs('foreign')} · ${num(eStats.foreign || 0)} 次` },
+      { id: 'g3', code: 'ECS', codeColor: '#93C5FD', codeBg: 'rgba(59,130,246,0.16)', name: '国外 ECS (foreign_ecs)', sub: `EDNS 子网 · ${groupAvgMs('foreign_ecs')} · ${num(eStats.foreign_ecs || 0)} 次` },
+      { id: 'g4', code: 'PX', codeColor: '#FBBF24', codeBg: 'rgba(245,158,11,0.15)', name: '代理组 (proxy)', sub: `远端解析 · ${groupAvgMs('proxy')} · ${num(eStats.fakeip || 0)} 次` },
+      { id: 'g5', code: 'BLK', codeColor: '#F87171', codeBg: 'rgba(239,68,68,0.15)', name: '本地拦截黑洞', sub: `0.0.0.0 / NXDOMAIN · ${num(eStats.blocked || 0)} 拦截` }
     ];
 
     // 05 上游 DNS 节点（6 节点：5 个真实上游 DNS + 第 6 个拦截直接响应节点）
@@ -960,6 +975,7 @@
       ...(groupUpstreams.proxy || [])
     ].sort((a, b) => Number(b.u.enabled !== false) - Number(a.u.enabled !== false) || (b.m.win - a.m.win));
 
+    // 优先保证国内、国外、ECS、代理各选代表节点展示在拓扑第 05 列
     const pickedUps = [];
     const pickFrom = (g, count) => {
       const candidates = (groupUpstreams[g] || []).slice().sort((a,b)=>Number(b.u.enabled!==false)-Number(a.u.enabled!==false)||(b.m.win-a.m.win));
@@ -975,7 +991,7 @@
     const topoServers = pickedUps.map((item, idx) => {
       const { g, u, m } = item;
       const latTxt = m.latency > 0 ? `${m.latency.toFixed(1)} ms` : (u.enabled !== false ? '在线' : '未启用');
-      const badgeTxt = m.q > 0 ? `${Math.round(m.adoption)}% 采纳` : protoLabel(u.protocol);
+      const badgeTxt = m.q > 0 ? `${Math.round(m.adoption)}% 采纳` : (u.protocol || 'UDP').toUpperCase();
       const colorMap = {
         domestic: ['#34D399', 'rgba(16,185,129,0.15)'],
         foreign: ['#2DD4BF', 'rgba(20,184,166,0.15)'],
@@ -983,20 +999,15 @@
         proxy: ['#FBBF24', 'rgba(245,158,11,0.16)']
       };
       const [badgeColor, badgeBg] = colorMap[g] || ['#CBD5E1', 'rgba(148,163,184,0.14)'];
-      const rawAddr = u.addr || u.server_addr || '—';
       return {
         id: `s${idx+1}`,
         groupNode: groupToNodeId[g] || 'g1',
         name: u.tag || `Upstream-${idx+1}`,
-        protoTag: protoLabel(u.protocol),
-        sub: shortUpstreamAddr(rawAddr),
-        valSub: latTxt,
-        fullTitle: `${u.tag || ''} · ${rawAddr} · ${latTxt}`,
+        sub: `${u.addr || u.server_addr || '—'} · ${latTxt}`,
         badge: badgeTxt,
         badgeColor,
         badgeBg,
         icon: 'server',
-        iconColor: badgeColor,
         muted: u.enabled === false
       };
     });
@@ -1004,157 +1015,40 @@
       id: 's6',
       groupNode: 'g5',
       name: '拦截直接响应',
-      protoTag: '',
-      sub: '零上游消耗',
-      valSub: '立即阻断',
-      fullTitle: '拦截直接响应 · 0.0.0.0 / NXDOMAIN',
-      badge: `${compactNum(blkHits + adguardBlocked)} 阻断`,
+      sub: '零上游消耗 · 立即阻断',
+      badge: `${compactNum(eStats.blocked || 0)} 阻断`,
       badgeColor: '#F87171',
       badgeBg: 'rgba(239,68,68,0.16)',
-      icon: 'shieldRed',
-      iconColor: '#F87171',
-      muted: (blkHits + adguardBlocked) === 0
+      icon: 'shieldRed'
     });
 
-    const calcEdgeWeight = (cnt, maxRef, minW = 1.4, maxW = 4.0) => {
-      if (!cnt || cnt <= 0) return 1.1;
-      const ratio = Math.min(1, Math.sqrt(cnt / Math.max(1, maxRef)));
-      return +(minW + ratio * (maxW - minW)).toFixed(2);
-    };
-    const cMax = Math.max(1, ...topoClients.map(c => c.count || 0));
-    const activeClientNodeIds = topoClients.filter((c, idx) => c.count > 0 || idx === 0).map(c => c.id);
-
     const topoEdges = [
-      ...topoClients.map((c, idx) => ({
-        from: c.id,
-        to: 'e_core',
-        color: idx === 0 ? '#60A5FA' : (c.count > 0 ? '#2DD4BF' : '#94A3B8'),
-        weight: idx === 0 && c.count > 0 ? 4.0 : calcEdgeWeight(c.count, cMax, 1.4, 3.4),
-        muted: c.muted,
-        rY1: 0.5,
-        rY2: [0.14, 0.32, 0.50, 0.68, 0.86][idx] || 0.5,
-        preset: (c.count > 0 || idx === 0) ? 'px,cn,ecs,blk' : ''
-      })),
+      ['c1', 'e_core', '#3B82F6'],
+      ['c2', 'e_core', '#3B82F6'],
+      ['c3', 'e_core', '#3B82F6'],
+      ['c4', 'e_core', '#3B82F6'],
+      ['c5', 'e_core', '#3B82F6'],
 
-      { from: 'e_core', to: 'r1', color: '#34D399', weight: calcEdgeWeight(domHits, maxRuleHit, 1.8, 3.8), muted: topoRules[0].muted, rY1: 0.12, rY2: 0.5, preset: 'cn' },
-      { from: 'e_core', to: 'r2', color: '#60A5FA', weight: 1.5, muted: topoRules[1].muted, rY1: 0.27, rY2: 0.5, preset: 'cn' },
-      { from: 'e_core', to: 'r3', color: '#2DD4BF', weight: calcEdgeWeight(forHits, maxRuleHit, 1.7, 3.4), muted: topoRules[2].muted, rY1: 0.43, rY2: 0.5, preset: 'ecs' },
-      { from: 'e_core', to: 'r4', color: '#FBBF24', weight: calcEdgeWeight(fakeHits, maxRuleHit, 2.0, 4.0), muted: topoRules[3].muted, rY1: 0.60, rY2: 0.5, preset: 'px' },
-      { from: 'e_core', to: 'r5', color: '#F87171', weight: calcEdgeWeight(adguardBlocked, maxRuleHit, 1.4, 3.0), muted: topoRules[4].muted, rY1: 0.76, rY2: 0.5, preset: 'blk' },
-      { from: 'e_core', to: 'r6', color: '#F87171', weight: calcEdgeWeight(blkHits, maxRuleHit, 1.8, 3.4), muted: topoRules[5].muted, rY1: 0.90, rY2: 0.5, preset: 'blk' },
+      ['e_core', 'r1', '#14B8A6'],
+      ['e_core', 'r2', '#3B82F6'],
+      ['e_core', 'r3', '#14B8A6'],
+      ['e_core', 'r4', '#F59E0B'],
+      ['e_core', 'r5', '#14B8A6'],
+      ['e_core', 'r6', '#14B8A6'],
 
-      { from: 'r1', to: 'g1', color: '#34D399', weight: calcEdgeWeight(domHits, maxRuleHit, 1.8, 3.8), muted: topoRules[0].muted, rY1: 0.5, rY2: 0.42, preset: 'cn' },
-      { from: 'r2', to: 'g1', color: '#60A5FA', weight: 1.5, muted: topoRules[1].muted, rY1: 0.5, rY2: 0.62, preset: 'cn' },
-      { from: 'r3', to: 'g2', color: '#2DD4BF', weight: calcEdgeWeight(+eStats.foreign || 0, maxRuleHit, 1.6, 3.0), muted: (+eStats.foreign || 0) === 0 && forHits === 0, rY1: 0.42, rY2: 0.5, preset: 'ecs' },
-      { from: 'r3', to: 'g3', color: '#60A5FA', weight: calcEdgeWeight(+eStats.foreign_ecs || 0, maxRuleHit, 1.6, 3.0), muted: (+eStats.foreign_ecs || 0) === 0 && forHits === 0, rY1: 0.58, rY2: 0.5, preset: 'ecs' },
-      { from: 'r4', to: 'g4', color: '#FBBF24', weight: calcEdgeWeight(fakeHits, maxRuleHit, 2.0, 4.0), muted: topoRules[3].muted, rY1: 0.5, rY2: 0.5, preset: 'px' },
-      { from: 'r5', to: 'g5', color: '#F87171', weight: calcEdgeWeight(adguardBlocked, maxRuleHit, 1.4, 3.0), muted: topoRules[4].muted, rY1: 0.5, rY2: 0.38, preset: 'blk' },
-      { from: 'r6', to: 'g5', color: '#F87171', weight: calcEdgeWeight(blkHits, maxRuleHit, 1.8, 3.4), muted: topoRules[5].muted, rY1: 0.5, rY2: 0.58, preset: 'blk' },
+      ['r1', 'g1', '#14B8A6'],
+      ['r2', 'g1', '#14B8A6'],
+      ['r3', 'g2', '#14B8A6'],
+      ['r3', 'g3', '#3B82F6'],
+      ['r4', 'g4', '#F59E0B'],
+      ['r5', 'g5', '#14B8A6'],
+      ['r6', 'g5', '#14B8A6'],
 
-      ...topoServers.map((s, idx) => {
-        const presetMap = { g1: 'cn', g2: 'ecs', g3: 'ecs', g4: 'px', g5: 'blk' };
-        const wMap = { g1: 2.2, g2: 1.8, g3: 1.7, g4: calcEdgeWeight(fakeHits, maxRuleHit, 2.0, 4.0), g5: calcEdgeWeight(blkHits + adguardBlocked, maxRuleHit, 1.8, 3.2) };
-        return {
-          from: s.groupNode,
-          to: s.id,
-          color: s.badgeColor,
-          weight: s.muted ? 1.1 : (wMap[s.groupNode] || 2.0),
-          muted: s.muted,
-          rY1: s.groupNode === 'g1' ? (idx === 0 ? 0.4 : 0.6) : 0.5,
-          rY2: 0.5,
-          preset: presetMap[s.groupNode] || 'cn'
-        };
-      })
-    ];
-
-    // 方案 D 顶部实时链路公式栏上下文数据
-    const topRuleNode = [...topoRules].sort((a, b) => (b.count || 0) - (a.count || 0))[0] || topoRules[0];
-    const pxServer = topoServers.find(s => s.groupNode === 'g4') || topoServers[0];
-    const cnServers = topoServers.filter(s => s.groupNode === 'g1');
-    const ecsServers = topoServers.filter(s => s.groupNode === 'g2' || s.groupNode === 'g3');
-    const curTopoPreset = state.topoPreset || 'all';
-
-    const topoInspectorCtx = {
-      presets: {
-        all: {
-          nodes: [],
-          summary: `总查询 ${compactNum(stats.total_queries)} · 平均 ${ms(stats.average_duration_ms)}`,
-          steps: [
-            { stage: '01', label: `${topoClients[0].name} (${topoClients[0].val})` },
-            { stage: '02', label: cacheDisabled ? '缓存已关闭' : `多级缓存 ${overallHitRate.toFixed(1)}%` },
-            { stage: '03', label: `${topRuleNode.name} (${topRuleNode.val})`, accent: 'rgba(96,165,250,0.35)' },
-            { stage: '04', label: '5 组并发调度' },
-            { stage: '05', label: `${topoServers.filter(s => !s.muted).length} 节点在线`, color: '#34D399' }
-          ]
-        },
-        px: {
-          nodes: [...activeClientNodeIds, 'e_core', 'r4', 'g4', ...topoServers.filter(s => s.groupNode === 'g4').map(s => s.id)],
-          summary: `代理耗时 ≈ ${groupAvgMs('proxy')}`,
-          steps: [
-            { stage: '01', label: `${topoClients[0].name} (${topoClients[0].val})` },
-            { stage: '02', label: '穿透规则分流' },
-            { stage: '03', label: `FakeIP (${compactNum(fakeHits)})`, accent: 'rgba(251,191,36,0.4)' },
-            { stage: '04', label: `PX 代理组 (${groupAvgMs('proxy')})`, accent: 'rgba(251,191,36,0.4)' },
-            { stage: '05', label: pxServer ? `${pxServer.name} (${pxServer.badge})` : '代理节点', color: '#FBBF24' }
-          ]
-        },
-        cn: {
-          nodes: [...activeClientNodeIds, 'e_core', 'r1', 'r2', 'g1', ...cnServers.map(s => s.id)],
-          summary: `竞速耗时 ≈ ${groupAvgMs('domestic')}`,
-          steps: [
-            { stage: '01', label: `${topoClients[0].name}` },
-            { stage: '02', label: `国内池 ${cDom.hit.toFixed(1)}%` },
-            { stage: '03', label: `国内 (${compactNum(domHits)}) + 白名单 (${num(rRules.force_domestic || 0)})`, accent: 'rgba(52,211,153,0.4)' },
-            { stage: '04', label: `CN 国内组 (${groupAvgMs('domestic')})`, accent: 'rgba(52,211,153,0.4)' },
-            { stage: '05', label: cnServers.length ? cnServers.map(s => s.name).join(' / ') : '国内上游', color: '#34D399' }
-          ]
-        },
-        ecs: {
-          nodes: [...activeClientNodeIds, 'e_core', 'r3', 'g2', 'g3', ...ecsServers.map(s => s.id)],
-          summary: `海外耗时 ≈ ${groupAvgMs('foreign')}`,
-          steps: [
-            { stage: '01', label: `${topoClients[0].name}` },
-            { stage: '02', label: `国外池 ${cFor.hit.toFixed(1)}% / ECS ${cEcs.hit.toFixed(1)}%` },
-            { stage: '03', label: `海外域名 (${compactNum(forHits)})`, accent: 'rgba(45,212,191,0.4)' },
-            { stage: '04', label: `GL (${compactNum(eStats.foreign || 0)}) & ECS (${compactNum(eStats.foreign_ecs || 0)})`, accent: 'rgba(45,212,191,0.4)' },
-            { stage: '05', label: ecsServers.length ? ecsServers.map(s => s.name).join(' / ') : '海外上游', color: '#2DD4BF' }
-          ]
-        },
-        blk: {
-          nodes: [...activeClientNodeIds, 'e_core', 'r5', 'r6', 'g5', 's6'],
-          summary: '本地阻断 ≈ 0.0 ms',
-          steps: [
-            { stage: '01', label: `${topoClients[0].name}` },
-            { stage: '02', label: '前置安全过滤' },
-            { stage: '03', label: `黑名单 (${compactNum(blkHits)}) + AdGuard (${compactNum(adguardBlocked)})`, accent: 'rgba(248,113,113,0.4)' },
-            { stage: '04', label: 'BLK 本地拦截', accent: 'rgba(248,113,113,0.4)' },
-            { stage: '05', label: `NXDOMAIN (${compactNum(blkHits + adguardBlocked)})`, color: '#F87171' }
-          ]
-        }
-      },
-      forNode(hoveredId, activeSet) {
-        const cNode = topoClients.find(c => c.id === hoveredId) || topoClients.find(c => activeSet.has(c.id)) || topoClients[0];
-        const rList = topoRules.filter(r => activeSet.has(r.id));
-        const gList = topoGroups.filter(g => activeSet.has(g.id));
-        const sList = topoServers.filter(s => activeSet.has(s.id));
-        const rLabel = rList.length === 1 ? `${rList[0].name} (${rList[0].val})` : (rList.length > 1 ? `${rList[0].name} 等 ${rList.length} 项` : `${topRuleNode.name}`);
-        const gLabel = gList.length === 1 ? `${gList[0].code} ${gList[0].name} (${gList[0].val})` : (gList.length > 1 ? gList.map(g => g.code).join('/') + ' 策略组' : '多策略协同');
-        const sLabel = sList.length === 1 ? `${sList[0].name} (${sList[0].badge})` : (sList.length > 1 ? `${sList.slice(0, 2).map(s => s.name).join(' / ')}` : '上游节点');
-        const cacheStageLabel = gList.length === 1
-          ? ({ g1: `国内池 ${cDom.hit.toFixed(1)}%`, g2: `国外池 ${cFor.hit.toFixed(1)}%`, g3: `ECS池 ${cEcs.hit.toFixed(1)}%`, g4: `主缓存 ${cMain.hit.toFixed(1)}%`, g5: '前置阻断' }[gList[0].id] || `主缓存 ${overallHitRate.toFixed(1)}%`)
-          : `多级缓存 ${overallHitRate.toFixed(1)}%`;
-        return {
-          summary: gList.length === 1 ? `链路耗时 ≈ ${gList[0].val}` : `总查询 ${compactNum(stats.total_queries)} · 命中 ${overallHitRate.toFixed(1)}%`,
-          steps: [
-            { stage: '01', label: `${cNode.name} (${cNode.val})` },
-            { stage: '02', label: cacheStageLabel },
-            { stage: '03', label: rLabel, accent: 'rgba(96,165,250,0.38)' },
-            { stage: '04', label: gLabel, accent: 'rgba(96,165,250,0.38)' },
-            { stage: '05', label: sLabel, color: sList[0]?.badgeColor || '#34D399' }
-          ]
-        };
-      }
-    };
+      ...topoServers.map(s => [s.groupNode, s.id, '#10B981'])
+    ].map(([from, to, color]) => ({
+      from, to, color,
+      muted: Boolean(topoClients.find(c => c.id === from)?.muted || topoServers.find(s => s.id === to)?.muted)
+    }));
 
     // 分流结果占比环形图数据（基于真实 domain_set 排行 ds）
     const dsTotal = Math.max(1, ds.reduce((n, x) => n + (+x.count || 0), 0));
@@ -1248,201 +1142,132 @@
       <!-- 第二层：6 张等宽微趋势指标卡 (2 × 6 = 12列)，100% 对应 LocalDNS 6 大真实指标 -->
       <div class="col-2">
         <div class="glass-card spark-kpi-card" data-route="logs">
-          <div class="sk-top"><span class="sk-title"><svg viewBox="0 0 24 24" fill="none" stroke="#3B82F6" stroke-width="2" aria-hidden="true"><path d="M12 3v14m0 0-4-4m4 4 4-4M4 21h16"/></svg>累计请求</span></div>
+          <div class="sk-top"><span class="sk-title">累计请求</span><svg viewBox="0 0 24 24" fill="none" stroke="#3B82F6" stroke-width="2" aria-hidden="true"><path d="M12 3v14m0 0-4-4m4 4 4-4M4 21h16"/></svg></div>
           <div class="sk-bottom">
             <div class="sk-val tabular">${num(stats.total_queries)}</div>
             <svg class="sk-chart" viewBox="0 0 100 34" fill="none" aria-hidden="true"></svg>
           </div>
+          <div class="sk-note">${cacheDisabled ? '缓存已关闭' : '缓存命中占 ' + pct(overallHitRate)}</div>
         </div>
       </div>
 
       <div class="col-2">
         <div class="glass-card spark-kpi-card" data-route="management">
-          <div class="sk-top"><span class="sk-title"><svg viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2" aria-hidden="true"><path d="M12 21V7m0 0-4 4m4-4 4 4M4 3h16"/></svg>缓存命中</span></div>
+          <div class="sk-top"><span class="sk-title">缓存命中</span><svg viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2" aria-hidden="true"><path d="M12 21V7m0 0-4 4m4-4 4 4M4 3h16"/></svg></div>
           <div class="sk-bottom">
             <div class="sk-val tabular">${cacheValue}</div>
             <svg class="sk-chart" viewBox="0 0 100 34" fill="none" aria-hidden="true"></svg>
           </div>
+          <div class="sk-note">${caches.filter(c => (+c.q || 0) > 0).length} 个活跃缓存池</div>
         </div>
       </div>
 
       <div class="col-2">
         <div class="glass-card spark-kpi-card" id="kpi-card-clients">
-          <div class="sk-top"><span class="sk-title"><svg viewBox="0 0 24 24" fill="none" stroke="#14B8A6" stroke-width="2" aria-hidden="true"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>客户端数</span></div>
+          <div class="sk-top"><span class="sk-title">客户端数</span><svg viewBox="0 0 24 24" fill="none" stroke="#14B8A6" stroke-width="2" aria-hidden="true"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></div>
           <div class="sk-bottom">
             <div class="sk-val tabular">${clientCount}</div>
             <svg class="sk-chart" viewBox="0 0 100 34" fill="none" aria-hidden="true"></svg>
           </div>
+          <div class="sk-note">活跃来源 IP</div>
         </div>
       </div>
 
       <div class="col-2">
         <div class="glass-card spark-kpi-card" data-route="rules">
-          <div class="sk-top"><span class="sk-title"><svg viewBox="0 0 24 24" fill="none" stroke="#EF4444" stroke-width="2" aria-hidden="true"><path d="M12 3 4 7v5c0 5 3.4 9.3 8 10 4.6-.7 8-5 8-10V7l-8-4Z"/></svg>拦截请求</span></div>
+          <div class="sk-top"><span class="sk-title">拦截请求</span><svg viewBox="0 0 24 24" fill="none" stroke="#EF4444" stroke-width="2" aria-hidden="true"><path d="M12 3 4 7v5c0 5 3.4 9.3 8 10 4.6-.7 8-5 8-10V7l-8-4Z"/></svg></div>
           <div class="sk-bottom">
             <div class="sk-val tabular">${fullNum(adguardBlocked)}</div>
             <svg class="sk-chart" viewBox="0 0 100 34" fill="none" aria-hidden="true"></svg>
           </div>
+          <div class="sk-note">${pct(totalQ > 0 ? (adguardBlocked / totalQ) * 100 : 0)} 的请求被拦截</div>
         </div>
       </div>
 
       <div class="col-2">
         <div class="glass-card spark-kpi-card" data-route="upstreams">
-          <div class="sk-top"><span class="sk-title"><svg viewBox="0 0 24 24" fill="none" stroke="#60A5FA" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg>平均响应</span></div>
+          <div class="sk-top"><span class="sk-title">平均响应</span><svg viewBox="0 0 24 24" fill="none" stroke="#60A5FA" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg></div>
           <div class="sk-bottom">
             <div class="sk-val tabular" style="color:#F59E0B">${ms(stats.average_duration_ms)}</div>
             <svg class="sk-chart" viewBox="0 0 100 34" fill="none" aria-hidden="true"></svg>
           </div>
+          <div class="sk-note">当前浏览器会话采样</div>
         </div>
       </div>
 
       <div class="col-2">
         <div class="glass-card spark-kpi-card" id="kpi-card-domains">
-          <div class="sk-top"><span class="sk-title"><svg viewBox="0 0 24 24" fill="none" stroke="#10B981" stroke-width="2" aria-hidden="true"><rect x="4" y="4" width="16" height="16" rx="2"/><rect x="9" y="9" width="6" height="6"/></svg>域名统计</span></div>
+          <div class="sk-top"><span class="sk-title">域名统计</span><svg viewBox="0 0 24 24" fill="none" stroke="#10B981" stroke-width="2" aria-hidden="true"><rect x="4" y="4" width="16" height="16" rx="2"/><rect x="9" y="9" width="6" height="6"/></svg></div>
           <div class="sk-bottom">
             <div class="sk-val tabular">${domainCount}</div>
             <svg class="sk-chart" viewBox="0 0 100 34" fill="none" aria-hidden="true"></svg>
           </div>
+          <div class="sk-note">去重域名数</div>
         </div>
       </div>
 
-      <!-- 第三层：方案 A 加权全高拓扑 + 方案 D 顶部实时链路公式栏 -->
+      <!-- 第三层：UI 2026.10.16.1 的五阶段 DNS 解析路径布局 -->
       <div class="col-12">
-        <section class="glass-card topology-glass-card" aria-label="实时 DNS 解析与分流全链路拓扑">
-          <div class="console-topology-heading">
-            <div class="topo-heading-left">
-              <div class="console-section-title">
-                <h2>DNS 解析路径</h2>
-                <p>终端来源、多级缓存、规则分流、策略组与上游节点实时链路</p>
-              </div>
-            </div>
-            <div class="topo-heading-right">
-              <div class="topo-legend-inline" aria-label="链路图例">
-                <span><i style="background:#3B82F6"></i>高频主干</span>
-                <span><i style="background:#10B981"></i>国内直连</span>
-                <span><i style="background:#14B8A6"></i>海外净网</span>
-                <span><i style="background:#F59E0B"></i>FakeIP代理</span>
-                <span><i style="background:#EF4444"></i>安全阻断</span>
-              </div>
-              <div class="topo-preset-group" role="group" aria-label="预设链路追踪">
-                <button type="button" class="topo-preset-btn ${curTopoPreset==='all'?'active':''}" data-topo-preset="all">全部主干</button>
-                <button type="button" class="topo-preset-btn ${curTopoPreset==='px'?'active':''}" data-topo-preset="px"><i style="background:#F59E0B"></i>FakeIP 代理</button>
-                <button type="button" class="topo-preset-btn ${curTopoPreset==='cn'?'active':''}" data-topo-preset="cn"><i style="background:#10B981"></i>国内竞速</button>
-                <button type="button" class="topo-preset-btn ${curTopoPreset==='ecs'?'active':''}" data-topo-preset="ecs"><i style="background:#14B8A6"></i>海外净网</button>
-                <button type="button" class="topo-preset-btn ${curTopoPreset==='blk'?'active':''}" data-topo-preset="blk"><i style="background:#EF4444"></i>安全阻断</button>
-              </div>
-            </div>
-          </div>
-
-          <div class="topo-inspector-bar" id="topo-inspector-bar">
-            <div class="topo-insp-label"><i class="topo-insp-pulse"></i>实时链路</div>
-            <div class="topo-insp-steps" id="topo-insp-steps"></div>
-            <div class="topo-insp-rtt mono" id="topo-insp-rtt"></div>
-          </div>
-
+        <section class="glass-card topology-glass-card" aria-label="实时 DNS 解析与分流全链路拓扑" title="流光仅示意拓扑路径，不代表单条 DNS 查询记录">
           <div class="topo-stage-wrap ${state.particles === false ? 'no-particles' : ''}" id="topo-stage-wrap">
             <svg class="topo-svg-overlay" id="topo-svg" aria-hidden="true"></svg>
 
             <div class="topo-grid">
               <div class="topo-col" data-col="1">
-                <div class="topo-col-title">
-                  <div class="topo-col-title-left"><span>01</span>客户端来源</div>
-                  <em class="topo-col-summary">活跃 ${clients.length || 1} 终端</em>
-                </div>
+                <div class="topo-col-title"><span>01</span>客户端来源</div>
                 <div class="topo-col-body">
                   ${topoClients.map(c => `
-                    <div class="t-node ${c.muted ? 'is-muted' : ''}" data-node-id="${c.id}" data-client-ip="${esc(c.ip)}" title="${esc(c.name)}${c.ip ? ` · ${esc(c.ip)}` : ''}">
-                      <i class="tn-port-r" style="background:${c.barColor}"></i>
-                      <div class="tn-row">
-                        <div class="tn-left">
-                          <div class="tn-icon-box">${getNodeIcon(c.icon, c.iconColor)}</div>
-                          <div class="tn-meta">
-                            <div class="tn-name"><span class="tn-name-text">${esc(c.name)}</span></div>
-                            <div class="tn-sub">${esc(c.sub)}</div>
-                          </div>
-                        </div>
-                        <div class="tn-metric">
-                          <span class="tn-val tabular" style="color:${c.valColor}">${esc(c.val)}</span>
-                          <span class="tn-val-sub">${esc(c.valSub)}</span>
+                    <div class="t-node" data-node-id="${c.id}" data-client-ip="${esc(c.ip)}">
+                      <div class="tn-left">
+                        <div class="tn-icon-box">${getNodeIcon(c.icon, '#94A3B8')}</div>
+                        <div class="tn-meta">
+                          <div class="tn-name">${esc(c.name)}</div>
+                          <div class="tn-sub">${esc(c.sub)}</div>
                         </div>
                       </div>
-                      ${c.barPct > 0 ? `<div class="tn-micro-bar"><i style="width:${c.barPct}%;background:${c.barColor}"></i></div>` : ''}
+                      <span class="tn-val" style="color:${c.valColor}">${esc(c.val)}</span>
                     </div>
                   `).join('')}
                 </div>
               </div>
 
               <div class="topo-col" data-col="2">
-                <div class="topo-col-title">
-                  <div class="topo-col-title-left"><span>02</span>引擎与多级缓存</div>
-                  <em class="topo-col-summary">${cacheDisabled ? '已关闭' : '4 池并发'}</em>
-                </div>
+                <div class="topo-col-title"><span>02</span>引擎与多级缓存</div>
                 <div class="topo-col-body">
                   <div class="t-node t-engine-card" data-node-id="e_core" data-route="management">
-                    <i class="tn-port-l" style="background:#3B82F6"></i>
-                    <i class="tn-port-r" style="background:#10B981"></i>
-                    <div class="tec-hero">
-                      <div>
-                        <div class="tec-top">
-                          <span class="tec-big tabular">${cacheDisabled ? '0.0%' : `${overallHitRate.toFixed(1)}%`}</span>
-                          <span class="tec-badge">${compactNum(stats.total_queries)} 请求</span>
-                        </div>
-                        <div class="tec-desc">${cacheDisabled ? '核心缓存已关闭 · 直通规则分流' : `内存命中 ${compactNum(cMain.q > 0 ? cMain.h : totalCacheH)} · 穿透 ${compactNum(Math.max(0, (+stats.total_queries || 0) - (cMain.q > 0 ? cMain.h : totalCacheH)))}`}</div>
+                    <div>
+                      <div class="tec-top">
+                        <span class="tec-big tabular">${cacheDisabled ? '—' : overallHitRate.toFixed(1) + '%'}</span>
+                        <span class="tec-badge">${compactNum(stats.total_queries)} 请求</span>
                       </div>
-                      <div class="tec-split-bar" title="蓝: 缓存直接命中 (${overallHitRate.toFixed(1)}%) / 青: 穿透进入规则分流 (${Math.max(0, 100 - overallHitRate).toFixed(1)}%)">
-                        <div class="tec-split-hit" style="width:${cacheDisabled ? 0 : Math.max(4, Math.min(96, overallHitRate)).toFixed(1)}%"></div>
-                        <div class="tec-split-miss" style="width:${cacheDisabled ? 100 : Math.max(4, 100 - overallHitRate).toFixed(1)}%"></div>
-                      </div>
+                      <div class="tec-desc">多级内存缓存命中 · ${cacheDisabled ? '核心缓存已关闭' : '4 个活跃缓存池'}</div>
                     </div>
 
                     <div class="tec-bars">
-                      <div class="tec-pool-head">
-                        <span>多级缓存池命中率</span>
-                        <span>累计 ${compactNum(cMain.size + cDom.size + cFor.size + cEcs.size)} 条</span>
-                      </div>
                       <div class="tec-bar-row">
                         <span class="tec-bar-name">主缓存</span>
-                        <div class="tec-bar-track"><div class="tec-bar-fill" style="width:${Math.max(4, cMain.hit)}%;background:linear-gradient(90deg,#3B82F6,#60A5FA)"></div></div>
+                        <div class="tec-bar-track"><div class="tec-bar-fill" style="width:${Math.max(4, cMain.hit)}%"></div></div>
                         <span class="tec-bar-pct">${cMain.hit.toFixed(1)}%</span>
                       </div>
                       <div class="tec-bar-row">
                         <span class="tec-bar-name">国内池</span>
-                        <div class="tec-bar-track"><div class="tec-bar-fill" style="width:${Math.max(4, cDom.hit)}%;background:linear-gradient(90deg,#10B981,#34D399)"></div></div>
+                        <div class="tec-bar-track"><div class="tec-bar-fill" style="width:${Math.max(4, cDom.hit)}%"></div></div>
                         <span class="tec-bar-pct">${cDom.hit.toFixed(1)}%</span>
                       </div>
                       <div class="tec-bar-row">
                         <span class="tec-bar-name">国外池</span>
-                        <div class="tec-bar-track"><div class="tec-bar-fill" style="width:${Math.max(4, cFor.hit)}%;background:linear-gradient(90deg,#14B8A6,#2DD4BF)"></div></div>
+                        <div class="tec-bar-track"><div class="tec-bar-fill" style="width:${Math.max(4, cFor.hit)}%"></div></div>
                         <span class="tec-bar-pct">${cFor.hit.toFixed(1)}%</span>
                       </div>
                       <div class="tec-bar-row">
                         <span class="tec-bar-name">ECS 池</span>
-                        <div class="tec-bar-track"><div class="tec-bar-fill" style="width:${Math.max(4, cEcs.hit)}%;background:linear-gradient(90deg,#6366F1,#818CF8)"></div></div>
+                        <div class="tec-bar-track"><div class="tec-bar-fill" style="width:${Math.max(4, cEcs.hit)}%"></div></div>
                         <span class="tec-bar-pct">${cEcs.hit.toFixed(1)}%</span>
                       </div>
                       <div class="tec-bar-row">
                         <span class="tec-bar-name">乐观过期</span>
-                        <div class="tec-bar-track"><div class="tec-bar-fill" style="width:${Math.max(4, Math.max(cMain.lazy, cDom.lazy))}%;background:linear-gradient(90deg,#F59E0B,#FBBF24)"></div></div>
+                        <div class="tec-bar-track"><div class="tec-bar-fill" style="width:${Math.max(4, Math.max(cMain.lazy, cDom.lazy))}%;background:#F59E0B"></div></div>
                         <span class="tec-bar-pct">${Math.max(cMain.lazy, cDom.lazy).toFixed(1)}%</span>
-                      </div>
-                    </div>
-
-                    <div class="tec-ports-grid">
-                      <div class="tec-port-item">
-                        <span class="tec-port-label"><i style="background:#10B981"></i>国内直连</span>
-                        <span class="tec-port-val" style="color:#34D399">${compactNum(domHits)}</span>
-                      </div>
-                      <div class="tec-port-item">
-                        <span class="tec-port-label"><i style="background:#14B8A6"></i>海外净网</span>
-                        <span class="tec-port-val" style="color:#2DD4BF">${compactNum(forHits)}</span>
-                      </div>
-                      <div class="tec-port-item">
-                        <span class="tec-port-label"><i style="background:#F59E0B"></i>FakeIP</span>
-                        <span class="tec-port-val" style="color:#FBBF24">${compactNum(fakeHits)}</span>
-                      </div>
-                      <div class="tec-port-item">
-                        <span class="tec-port-label"><i style="background:#EF4444"></i>安全阻断</span>
-                        <span class="tec-port-val" style="color:#F87171">${compactNum(blkHits + adguardBlocked)}</span>
                       </div>
                     </div>
                   </div>
@@ -1450,55 +1275,33 @@
               </div>
 
               <div class="topo-col" data-col="3">
-                <div class="topo-col-title">
-                  <div class="topo-col-title-left"><span>03</span>分流规则集</div>
-                  <em class="topo-col-summary">${compactNum(totalRulesCount)} 规则</em>
-                </div>
+                <div class="topo-col-title"><span>03</span>分流规则集</div>
                 <div class="topo-col-body">
                   ${topoRules.map(r => `
-                    <div class="t-node ${r.muted ? 'is-muted' : ''}" data-node-id="${r.id}" data-rule-jump="${r.tab}">
-                      <i class="tn-port-l" style="background:${r.iconColor}"></i>
-                      <i class="tn-port-r" style="background:${r.iconColor}"></i>
-                      <div class="tn-row">
-                        <div class="tn-left">
-                          <div class="tn-icon-box">${getNodeIcon(r.icon, r.iconColor)}</div>
-                          <div class="tn-meta">
-                            <div class="tn-name"><span class="tn-name-text">${esc(r.name)}</span></div>
-                            <div class="tn-sub">${esc(r.sub)}</div>
-                          </div>
-                        </div>
-                        <div class="tn-metric">
-                          <span class="tn-val tabular" style="color:${r.valColor}">${esc(r.val)}</span>
-                          <span class="tn-val-sub">${esc(r.valSub)}</span>
+                    <div class="t-node" data-node-id="${r.id}" data-rule-jump="${r.tab}">
+                      <div class="tn-left">
+                        <div class="tn-icon-box">${getNodeIcon(r.icon, r.iconColor)}</div>
+                        <div class="tn-meta">
+                          <div class="tn-name">${esc(r.name)}</div>
+                          <div class="tn-sub">${esc(r.sub)}</div>
                         </div>
                       </div>
-                      ${r.barPct > 0 ? `<div class="tn-micro-bar"><i style="width:${r.barPct}%;background:${r.iconColor}"></i></div>` : ''}
+                      <span class="tn-val">${esc(r.val)}</span>
                     </div>
                   `).join('')}
                 </div>
               </div>
 
               <div class="topo-col" data-col="4">
-                <div class="topo-col-title">
-                  <div class="topo-col-title-left"><span>04</span>上游策略组</div>
-                  <em class="topo-col-summary">5 组并发</em>
-                </div>
+                <div class="topo-col-title"><span>04</span>上游策略组</div>
                 <div class="topo-col-body">
                   ${topoGroups.map(g => `
                     <div class="t-node" data-node-id="${g.id}" data-route="upstreams">
-                      <i class="tn-port-l" style="background:${g.codeColor}"></i>
-                      <i class="tn-port-r" style="background:${g.codeColor}"></i>
-                      <div class="tn-row">
-                        <div class="tn-left">
-                          <div class="tn-icon-box" style="color:${g.codeColor};background:${g.codeBg};border-color:${g.codeColor}33">${esc(g.code)}</div>
-                          <div class="tn-meta">
-                            <div class="tn-name"><span class="tn-name-text">${esc(g.name)}</span></div>
-                            <div class="tn-sub">${esc(g.sub)}</div>
-                          </div>
-                        </div>
-                        <div class="tn-metric">
-                          <span class="tn-val tabular" style="color:${g.codeColor}">${esc(g.val)}</span>
-                          <span class="tn-val-sub">${esc(g.valSub)}</span>
+                      <div class="tn-left">
+                        <div class="tn-icon-box" style="color:${g.codeColor};background:${g.codeBg};border-color:${g.codeColor}33">${esc(g.code)}</div>
+                        <div class="tn-meta">
+                          <div class="tn-name">${esc(g.name)}</div>
+                          <div class="tn-sub">${esc(g.sub)}</div>
                         </div>
                       </div>
                     </div>
@@ -1507,27 +1310,18 @@
               </div>
 
               <div class="topo-col" data-col="5">
-                <div class="topo-col-title">
-                  <div class="topo-col-title-left"><span>05</span>上游 DNS 节点</div>
-                  <em class="topo-col-summary">${topoServers.filter(s => !s.muted).length} 在线</em>
-                </div>
+                <div class="topo-col-title"><span>05</span>上游 DNS 节点</div>
                 <div class="topo-col-body">
                   ${topoServers.map(s => `
-                    <div class="t-node ${s.muted ? 'is-muted' : ''}" data-node-id="${s.id}" data-route="upstreams" title="${esc(s.fullTitle)}">
-                      <i class="tn-port-l" style="background:${s.badgeColor}"></i>
-                      <div class="tn-row">
-                        <div class="tn-left">
-                          <div class="tn-icon-box">${getNodeIcon(s.icon, s.iconColor)}</div>
-                          <div class="tn-meta">
-                            <div class="tn-name"><span class="tn-name-text">${esc(s.name)}</span>${s.protoTag ? `<span class="tn-proto-tag" style="color:${s.badgeColor}">${esc(s.protoTag)}</span>` : ''}</div>
-                            <div class="tn-sub">${esc(s.sub)}</div>
-                          </div>
-                        </div>
-                        <div class="tn-metric">
-                          <span class="tn-pill" style="color:${s.badgeColor};background:${s.badgeBg}">${esc(s.badge)}</span>
-                          <span class="tn-val-sub">${esc(s.valSub)}</span>
+                    <div class="t-node" data-node-id="${s.id}" data-route="upstreams">
+                      <div class="tn-left">
+                        <div class="tn-icon-box">${getNodeIcon(s.icon, '#94A3B8')}</div>
+                        <div class="tn-meta">
+                          <div class="tn-name">${esc(s.name)}</div>
+                          <div class="tn-sub">${esc(s.sub)}</div>
                         </div>
                       </div>
+                      <span class="tn-pill" style="color:${s.badgeColor};background:${s.badgeBg}">${esc(s.badge)}</span>
                     </div>
                   `).join('')}
                 </div>
@@ -1597,7 +1391,10 @@
       <div class="col-4">
         <div class="glass-card">
           <div class="gc-head">
-            <div class="gc-title">请求排行</div>
+            <div>
+              <div class="gc-title">请求排行</div>
+              <p class="gc-sub">共 ${num((rankTab === 'client' ? clients : domains).length)} 条 · 展示前 ${rankItems.length} · 占总请求 ${totalQ > 0 ? (rankItems.reduce((s, x) => s + (+x.count || 0), 0) / totalQ * 100).toFixed(1) : '0.0'}%</p>
+            </div>
             <div style="display:flex;gap:6px;align-items:center">
               <div class="seg-group" role="group" aria-label="请求排行维度">
                 <button type="button" class="seg-item ${rankTab==='client'?'active':''}" data-rank-tab="client">客户端</button>
@@ -1606,6 +1403,7 @@
               <button type="button" class="glass-btn" id="domain-detail-button">详情</button>
             </div>
           </div>
+          <div class="rank-col-hint"><span>${rankTab === 'client' ? '客户端' : '域名'}</span><span>请求数 · 占总请求</span></div>
           <div class="uniform-4rows">
             ${rankItems.length ? rankItems.map(x => {
               const label = rankTab === 'client' ? (state.aliases[x.key] ? `${x.key} (${state.aliases[x.key]})` : x.key) : x.key;
@@ -1629,6 +1427,7 @@
             <div class="gc-title">多级缓存池状态</div>
             <span class="gc-sub" style="cursor:pointer" data-route="management">缓存管理 ›</span>
           </div>
+          <div class="rank-col-hint"><span>缓存池</span><span>命中率 · 条目数</span></div>
           <div class="uniform-4rows">
             ${[
               ['全部缓存 (cache_main)', cMain],
@@ -1672,9 +1471,11 @@
       </div>
     `;
 
-    // 绘制五阶段拓扑连线、预设联动与实时公式栏
-    requestAnimationFrame(() => requestAnimationFrame(() => drawTopoCurves(topoEdges, topoInspectorCtx)));
-    const onResize = () => requestAnimationFrame(() => drawTopoCurves(topoEdges, topoInspectorCtx));
+    // 绘制发布版五阶段拓扑连线，并叠加可停止的流光示意。
+    const topologyWrap = $('#topo-stage-wrap');
+    const redraw = () => { if (topologyWrap?.isConnected && $('#topo-stage-wrap') === topologyWrap) drawTopoCurves(topoEdges); };
+    requestAnimationFrame(() => requestAnimationFrame(redraw));
+    const onResize = () => requestAnimationFrame(redraw);
     window.addEventListener('resize', onResize, { passive: true });
     trackRouteCleanup(() => window.removeEventListener('resize', onResize));
 
@@ -1779,7 +1580,7 @@
   }
 
   function logBadge(set){const s=String(set||'未分类');let cls='primary';if(/黑|BAN|BLOCK|拒绝/i.test(s))cls='danger';else if(/白|直连|国内|REAL/i.test(s))cls='success';else if(/灰|代理|订阅/i.test(s))cls='pink';else if(/FAKE/i.test(s))cls='cyan';return `<span class="badge ${cls}">${esc(s)}</span>`;}
-  function logRow(x){const ans=(x.answers||[]).map(a=>a.data||a.value).filter(Boolean).join(', ')||x.response_code||'—';return `<tr data-log='${esc(JSON.stringify(x))}'><td>${fmtDate(x.query_time)}</td><td><strong>${esc(x.query_name)}</strong><div style="color:var(--muted);font-size:11px;max-width:360px;overflow:hidden;text-overflow:ellipsis">${esc(ans)}</div></td><td>${esc(x.query_type)}</td><td>${logBadge(x.domain_set)}</td><td>${ms(x.duration_ms)}</td><td>${esc(state.aliases[x.client_ip]||x.client_ip)}</td><td><span class="badge ${x.response_code==='NOERROR'?'success':'danger'}">${esc(x.response_code)}</span></td><td><button class="button small log-detail">详情</button></td></tr>`;}
+  function logRow(x){const ans=(x.answers||[]).map(a=>a.data||a.value).filter(Boolean).join(', ')||x.response_code||'—';return `<tr data-log='${esc(JSON.stringify(x))}'><td>${fmtDate(x.query_time)}</td><td class="td-domain" data-qtype="${esc(String(x.query_type||'').toUpperCase())}" data-qtype-short="${({AAAA:'6',A:'A',CNAME:'C',PTR:'P',HTTPS:'H',TXT:'T',MX:'M',NS:'N',SRV:'S'})[String(x.query_type||'').toUpperCase()]||(String(x.query_type||'')[0]||'?')}" data-blocked="${/黑|BAN|BLOCK|拒绝|拦截/i.test(String(x.domain_set||''))?1:0}"><strong class="copyable" role="button" tabindex="0" data-copy="${esc(x.query_name)}" title="点击复制域名">${esc(x.query_name)}</strong><div style="color:var(--muted);font-size:11px;max-width:360px;overflow:hidden;text-overflow:ellipsis">${esc(ans)}</div></td><td>${esc(x.query_type)}</td><td>${logBadge(x.domain_set)}</td><td>${ms(x.duration_ms)}</td><td><span class="copyable value-chip" role="button" tabindex="0" data-copy="${esc(x.client_ip)}" title="点击复制客户端 IP">${esc(state.aliases[x.client_ip]||x.client_ip)}</span></td><td><span class="badge ${x.response_code==='NOERROR'?'success':'danger'}">${esc(x.response_code)}</span></td><td><button class="icon-button row-action log-detail" type="button" aria-label="查看查询详情" title="查看详情"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M2 12s3.6-6 10-6 10 6 10 6-3.6 6-10 6-10-6-10-6Z"/><circle cx="12" cy="12" r="2.6"/></svg></button></td></tr>`;}
   async function renderLogs(){
     const p=state.logs; const data=await api.logs({page:p.page,limit:p.limit,q:p.q,exact:p.exact,query_type:p.type,domain_set:p.set,response_code:p.code,client_contains:p.client}); const rows=data.logs||[];
     const filterData=data.filters||{};
@@ -1790,10 +1591,13 @@
       <div style="display:flex;align-items:baseline;gap:12px"><h1>查询日志</h1><span class="gc-sub">共 ${num(data.pagination?.total_items||0)} 条 DNS 查询记录</span></div>
       <div style="display:flex;gap:8px"><button type="button" class="glass-btn" id="audit-control">审计控制</button><button type="button" class="glass-btn" id="alias-control">客户端别名</button></div>
     </div>
-    ${card('查询与过滤日志',`<div class="log-filter-grid"><div class="field log-filter-search"><label>全局搜索</label><div class="search-input"><span class="search-icon">${icon('search')}</span><input id="log-q" value="${esc(p.q)}" placeholder='域名、IP；使用精确匹配可查完整值'></div></div><div class="field log-filter-type"><label>请求类型</label><select id="log-type"><option value="">全部</option>${types.map(x=>`<option ${p.type===x?'selected':''}>${esc(x)}</option>`).join('')}</select></div><div class="field log-filter-set"><label>分流结果</label><select id="log-set"><option value="">全部</option>${sets.map(x=>`<option ${p.set===x?'selected':''}>${esc(x)}</option>`).join('')}</select></div><div class="field log-filter-code"><label>状态</label><select id="log-code"><option value="">全部</option>${codes.map(x=>`<option ${p.code===x?'selected':''}>${esc(x)}</option>`).join('')}</select></div><div class="field log-filter-client"><label>客户端</label><input id="log-client" value="${esc(p.client)}" placeholder="IP"></div><div class="log-filter-exact"><label class="switch"><input id="log-exact" type="checkbox" ${p.exact?'checked':''}><span class="switch-track"><span class="switch-thumb"></span></span><span class="switch-label">精确匹配</span></label></div><button class="button primary log-filter-submit" id="log-search">${icon('search')}查询</button></div>`,{iconName:'logs'})}
+    ${card('查询与过滤日志',`<div class="log-filter-bar"><div class="lf-search"><span class="search-icon">${icon('search')}</span><input id="log-q" value="${esc(p.q)}" placeholder="域名、IP、响应值" aria-label="全局搜索"></div><select id="log-type" aria-label="请求类型"><option value="">全部类型</option>${types.map(x=>`<option ${p.type===x?'selected':''}>${esc(x)}</option>`).join('')}</select><select id="log-set" aria-label="分流结果"><option value="">全部分流</option>${sets.map(x=>`<option ${p.set===x?'selected':''}>${esc(x)}</option>`).join('')}</select><button type="button" class="lf-more" id="lf-more" aria-expanded="false" aria-controls="log-filter-more">更多筛选</button><span class="lf-count">匹配 ${num(data.pagination?.total_items||0)} 条</span><button type="button" class="lf-reset" id="lf-reset">重置</button><button class="button primary log-filter-submit" id="log-search">${icon('search')}查询</button></div><div class="log-filter-more" id="log-filter-more"${(p.code||p.client||p.exact)?'':' hidden'}><div class="field"><label>状态</label><select id="log-code"><option value="">全部</option>${codes.map(x=>`<option ${p.code===x?'selected':''}>${esc(x)}</option>`).join('')}</select></div><div class="field"><label>客户端</label><input id="log-client" value="${esc(p.client)}" placeholder="IP 或别名"></div><div class="log-filter-exact"><label class="switch"><input id="log-exact" type="checkbox" ${p.exact?'checked':''}><span class="switch-track"><span class="switch-thumb"></span></span><span class="switch-label">精确匹配</span></label></div></div>`, {iconName:'logs'})}
     ${card('实时 DNS 请求记录',`<div class="table-wrap"><table><thead><tr><th>时间</th><th>域名 / 响应</th><th>类型</th><th>分流</th><th>耗时</th><th>客户端</th><th>状态</th><th>操作</th></tr></thead><tbody>${rows.length?rows.map(logRow).join(''):`<tr><td colspan="8" class="table-empty">没有符合条件的日志</td></tr>`}</tbody></table></div>${paginationHtml(data.pagination)}`,{iconName:'logs',subtitle:`第 ${num(data.pagination?.current_page||1)} / ${num(data.pagination?.total_pages||1)} 页`})}`;
     $('#log-search').onclick=()=>{Object.assign(state.logs,{page:1,q:$('#log-q').value.trim(),exact:$('#log-exact').checked,type:$('#log-type').value,set:$('#log-set').value,code:$('#log-code').value,client:$('#log-client').value.trim()});renderRoute(true)};
     $('#log-q').onkeydown=e=>{if(e.key==='Enter')$('#log-search').click()};
+    $('#lf-more').onclick=()=>{const box=$('#log-filter-more');const willOpen=box.hasAttribute('hidden');box.toggleAttribute('hidden',!willOpen);$('#lf-more').setAttribute('aria-expanded',String(willOpen));$('#lf-more').classList.toggle('is-open',willOpen)};
+    if(!$('#log-filter-more').hasAttribute('hidden'))$('#lf-more').classList.add('is-open');
+    $('#lf-reset').onclick=()=>{Object.assign(state.logs,{page:1,q:'',exact:false,type:'',set:'',code:'',client:''});renderRoute(true)};
     $$('.log-detail').forEach(b=>b.onclick=()=>{const x=JSON.parse(b.closest('tr').dataset.log);openDrawer('查询详情',x.query_name,logDetailHtml(x))});
     $$('.pagination button[data-page]').forEach(b=>b.onclick=()=>{state.logs.page=+b.dataset.page;renderRoute(true)});
     $('#audit-control').onclick=openAuditModal; $('#alias-control').onclick=openAliasModal;
@@ -1899,7 +1703,7 @@
       $$('[data-rule-tag]').forEach(x=>x.onclick=()=>{state.ruleTag=x.dataset.ruleTag;renderListRules(body)});$('#rule-retry').onclick=()=>renderListRules(body);requestAnimationFrame(fitRuleLayoutHeight);return;
     }
     const trimmed=String(text).trim();
-    body.innerHTML=`<section class="card"><div class="rule-layout">${menu}<div class="rule-editor"><div class="section-header"><div><h2>${profile[1]}</h2><p>一行一条；完整读取后才允许保存</p></div><button class="button primary" id="rule-save">${icon('save')}保存</button></div><textarea id="rule-text" class="rule-textarea" spellcheck="false">${esc(trimmed)}</textarea><div class="rule-editor-footer"><span id="rule-lines">共 ${trimmed?trimmed.split('\n').length:0} 行</span><button class="button small" id="rule-download">${icon('download')}下载列表</button></div></div></div></section>`;
+    body.innerHTML=`<section class="card"><div class="rule-layout">${menu}<div class="rule-editor"><div class="section-header"><div><h2>${profile[1]}</h2><p>一行一条；完整读取后才允许保存</p></div><div class="section-header-actions"><button class="button small" id="rule-download">${icon('download')}下载列表</button><button class="button primary" id="rule-save">${icon('save')}保存</button></div></div><textarea id="rule-text" class="rule-textarea" spellcheck="false">${esc(trimmed)}</textarea><div class="rule-editor-footer"><span id="rule-lines">共 ${trimmed?trimmed.split('\n').length:0} 行</span></div></div></div></section>`;
     $$('[data-rule-tag]').forEach(x=>x.onclick=()=>{state.ruleTag=x.dataset.ruleTag;renderListRules(body)});
     $('#rule-text').oninput=()=>$('#rule-lines').textContent=`共 ${$('#rule-text').value.split('\n').filter(Boolean).length} 行`;
     $('#rule-save').onclick=async()=>{const button=$('#rule-save'),value=$('#rule-text').value;const values=value.split('\n').map(x=>x.trim()).filter(Boolean);button.disabled=true;try{await api.json(`/plugins/${tag}/post`,'POST',{values});window.LocalDNSInterface?.ruleSaved(tag,value);toast(`${profile[1]}已保存`)}catch(e){toast('保存失败','error',e.message)}finally{if(button.isConnected)button.disabled=false}};
@@ -2087,8 +1891,9 @@
     const lastRun=s.last_run_end_time||s.last_run_start_time||s.last_run?.finished_at||s.last_run?.started_at;
     const lastCount=s.last_run_domain_count;
     const tile=(k,v)=>`<div class="mg-tile"><span>${k}</span><strong>${v}</strong></div>`;
-    const actions=`<span class="mg-chip"><span class="mg-lab">当前状态</span><span class="badge ${stateClass}">${stateText}</span></span><span class="mg-chip"><span class="mg-lab">定时任务</span><span class="badge ${c?.scheduler?.enabled?'success':''}">${c?.scheduler?.enabled?'已启用':'未启用'}</span></span><button class="button small" id="requery-scheduler" title="定时任务设置">定时任务</button>${running?'<button class="button small danger" id="requery-cancel">取消任务</button>':'<button class="button small primary" id="requery-trigger" title="开始全新任务">全新任务</button>'}`;
-    const body=`<div class="mg-tiles">${tile('进度',hasProgress?`${num(pr.processed??0)} / ${num(pr.total??0)}`:'—')}${tile('上次处理域名',lastCount===undefined||lastCount===null?'—':num(lastCount)+' 条')}${tile('上次运行',fmtDate(lastRun))}${tile('下次执行',fmtDate(s.next_run_time))}${tile('间隔',c?.scheduler?.interval_minutes?num(c.scheduler.interval_minutes)+' 分钟':'—')}</div>`;
+    const statusRow=`<div class="rq-status"><span class="mg-chip"><span class="mg-lab">当前状态</span><span class="badge ${stateClass}">${stateText}</span></span><span class="mg-chip"><span class="mg-lab">定时任务</span><span class="badge ${c?.scheduler?.enabled?'success':''}">${c?.scheduler?.enabled?'已启用':'未启用'}</span></span></div>`;
+    const actions=`<button class="button small" id="requery-scheduler" title="定时任务设置"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M4 8h9M18 8h2M4 16h4M13 16h7"/><circle cx="15.5" cy="8" r="2"/><circle cx="10.5" cy="16" r="2"/></svg>定时设置</button>${running?'<button class="button small danger" id="requery-cancel">取消任务</button>':'<button class="button small primary" id="requery-trigger" title="开始全新任务"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M7 4.5 19 12 7 19.5Z"/></svg>全新任务</button>'}`;
+    const body=statusRow+`<div class="mg-tiles">${tile('进度',hasProgress?`${num(pr.processed??0)} / ${num(pr.total??0)}`:'—')}${tile('上次处理域名',lastCount===undefined||lastCount===null?'—':num(lastCount)+' 条')}${tile('上次运行',fmtDate(lastRun))}${tile('下次执行',fmtDate(s.next_run_time))}${tile('间隔',c?.scheduler?.interval_minutes?num(c.scheduler.interval_minutes)+' 分钟':'—')}</div>`;
     return {actions,body};
   }
   function openRequeryScheduler(c){
