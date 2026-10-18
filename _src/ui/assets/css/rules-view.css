@@ -1,0 +1,256 @@
+/* ===========================================================
+   名单管理 · 列表视图（rules-view）
+   说明：底层仍然是原来的 <textarea id="rule-text">，本视图只是它的
+   可视化外壳；保存/下载按钮、接口、校验逻辑全部沿用原实现。
+   规则行格式与线上一致：domain: / full: / keyword: / regexp:，
+   以 # 开头表示停用（注释）。
+   =========================================================== */
+.rv{display:flex;flex-direction:column;gap:10px;flex:1;min-height:0}
+.rv-toolbar{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.rv-search{display:flex;align-items:center;gap:8px;flex:1 1 220px;max-width:360px;height:38px;padding:0 12px;
+  background:var(--glass-pill);border:1px solid var(--border-glass);border-radius:calc(8px * var(--radius-scale));box-shadow:var(--inner-specular)}
+.rv-search svg{flex:0 0 auto;opacity:.6}
+.rv-search input{flex:1;min-width:0;border:0;background:transparent;outline:none;color:var(--text-1);font-size:13px}
+.rv-search input::placeholder{color:var(--text-3)}
+.rv-search:focus-within{border-color:var(--border-highlight)}
+/* 站内通用 input 规则（input:not([type=checkbox])…）权重更高，会把内边距/边框塞进来，
+   这里用 #rv-root 提权，把搜索框内部的输入复位干净 */
+#rv-root .rv-search input{width:100%;height:100%;min-height:0;padding:0;margin:0;
+  border:0;border-radius:0;background:transparent;box-shadow:none;line-height:1.2}
+.rv-stat{margin-left:auto;font-size:12px;color:var(--text-3);white-space:nowrap}
+.rv-toolbar .section-header-actions{display:flex;align-items:center;gap:8px}
+/* 工具条只留控件：右边交给站点的「导出 / 保存」 */
+.rv-toolbar .section-header-actions{margin-left:auto}
+.rv-new-wrap{position:relative;display:inline-flex;flex:0 0 auto}
+.rv-caret{width:0;height:0;margin-left:5px;border-left:4px solid transparent;border-right:4px solid transparent;border-top:5px solid currentColor;opacity:.55}
+/* 「+ 新增」下拉：三条动作收进一个按钮 */
+.rv-menu-pop{position:absolute;top:calc(100% + 6px);left:0;z-index:40;min-width:216px;padding:6px;
+  display:flex;flex-direction:column;gap:2px;background:var(--glass-bg-strong);border:1px solid var(--border-glass);
+  border-radius:calc(11px * var(--radius-scale));box-shadow:0 24px 50px -30px rgba(0,0,0,.95);
+  backdrop-filter:var(--blur-filter);-webkit-backdrop-filter:var(--blur-filter)}
+.rv-menu-pop[hidden]{display:none}
+.rv-menu-pop button{appearance:none;display:flex;flex-direction:column;align-items:flex-start;gap:2px;width:100%;
+  padding:8px 10px;border:0;border-radius:calc(7px * var(--radius-scale));background:transparent;color:var(--text-1);
+  font-size:12.5px;text-align:left;cursor:pointer}
+.rv-menu-pop button:hover,.rv-menu-pop button:focus-visible{background:rgba(255,255,255,.07);outline:none}
+.rv-menu-pop .k{font-size:10.5px;color:var(--text-3)}
+/* 行上弹出的分组/角色菜单：浮在页面上，靠右侧对齐到触发按钮 */
+.rv-menu-float{position:fixed;z-index:90;max-height:min(60vh,420px);overflow:auto;min-width:240px;max-width:320px}
+.rv-menu-pop .rv-menu-cap{padding:6px 10px 8px;font-size:11px;color:var(--text-3);letter-spacing:.02em}
+.rv-menu-pop button.active{background:rgba(37,99,235,.16)}
+.rv-menu-pop button.active .k{color:#BFDBFE}
+.rv-ib.on{color:#BFDBFE}
+/* 次要动作（全选 / 原文 / 导出）走幽灵键，工具条上只留「保存」一个实心按钮 */
+.button.ghost,.rv-ghost{background:transparent!important;border-color:transparent!important;box-shadow:none!important;color:var(--text-2)}
+.button.ghost:hover,.rv-ghost:hover{background:rgba(255,255,255,.07)!important;color:var(--text-1)}
+/* 搜索框里的清空按钮 */
+.rv-search-x{appearance:none;flex:0 0 auto;width:18px;height:18px;border:0;border-radius:50%;background:rgba(255,255,255,.08);
+  color:var(--text-2);font-size:10px;line-height:1;cursor:pointer;display:inline-flex;align-items:center;justify-content:center}
+.rv-search-x[hidden]{display:none}
+.rv-search-x:hover{background:rgba(255,255,255,.16);color:var(--text-1)}
+/* 有未保存修改：保存按钮右上角亮一个琥珀点（只有站点真存成功才会灭） */
+#rule-save.rv-has-dirty{position:relative}
+#rule-save.rv-has-dirty::after{content:"";position:absolute;top:-2px;right:-2px;width:8px;height:8px;border-radius:50%;
+  background:var(--amber);box-shadow:0 0 0 2px rgba(13,14,17,.85)}
+/* 统计挪到列表下方页脚，和「共 N 行」并排 */
+.rule-editor-footer .rv-stat{margin-left:auto}
+/* 真禁用态不要再给 hover 高亮骗点击 */
+.rv-toolbar .button[disabled]{opacity:.4;pointer-events:none}
+.rv-na{display:block;text-align:center;color:var(--text-3);font-size:12px;opacity:.55}
+/* 原文模式：只藏列表相关部件，工具条与「列表」按钮留着，随时能切回来 */
+.rv.raw .rv-search,.rv.raw .rv-list,.rv.raw .rv-selbar,
+.rv.raw .rv-new-wrap,.rv.raw #rv-all{display:none}
+/* console.js 的「当前内容已保存」常驻文案撤掉，改用工具条里按需出现的状态 */
+.console-rule-state{display:none!important}
+/* 规则页不留页面底部留白，整页收进一屏，避免出现窗口滚动条 */
+body:has(#rv-root) .dashboard-12grid{padding-bottom:0}
+body:has(#rv-root) .master-container{padding-bottom:0}
+.rv-stat b{color:var(--text-2);font-family:var(--font-mono);font-weight:600}
+/* 列表 */
+.rv-row{display:grid;grid-template-columns:18px 24px 84px minmax(0,1fr) 52px 92px;gap:12px;align-items:center;padding:0 12px}
+.rv-list{border:1px solid var(--border-glass);border-radius:calc(12px * var(--radius-scale));overflow:auto;
+  overscroll-behavior:contain;background:rgba(255,255,255,.012);
+  /* 让整页正好一屏：列表自己滚、页面不出现滚动条 */
+  height:calc(100vh - 470px);min-height:220px;max-height:660px;
+  scrollbar-width:none;-ms-overflow-style:none}
+.rv-list::-webkit-scrollbar{width:0;height:0;display:none}
+.rv-row{min-height:46px;border-bottom:1px solid rgba(255,255,255,.05);transition:background .14s ease}
+.rv-row:last-child{border-bottom:0}
+.rv-row:hover{background:rgba(255,255,255,.035)}
+.rv-row.sel{background:rgba(37,99,235,.13)}
+.rv-row.off .rv-value{color:var(--text-3);text-decoration:line-through;text-decoration-color:rgba(255,255,255,.25)}
+/* PCDN 这类名单里 # 行是分组说明（"# 腾讯CDN …"），不是被停用的规则：
+   去掉删除线、换成更弱的层级，说明文字用正文字体而不是等宽 */
+.rv-row.cmt{background:rgba(255,255,255,.012)}
+.rv-row.cmt .rv-value{color:var(--text-3);font-family:inherit;font-size:12px;letter-spacing:.01em}
+.rv-row.cmt:hover{background:rgba(255,255,255,.035)}
+.rv-row.blank{min-height:12px;border-bottom:0;background:repeating-linear-gradient(90deg,rgba(255,255,255,.05) 0 6px,transparent 6px 14px);opacity:.5}
+/* # 分组分隔线：看上去是一条细虚线，表示线以上的规则不归下一个标题 */
+.rv-row.sep{position:relative;min-height:14px;border-bottom:0;background:none;opacity:1}
+.rv-row.sep::after{content:"";position:absolute;left:12px;right:12px;top:50%;border-top:1px dashed rgba(255,255,255,.18)}
+.rv-handle{color:var(--text-3);cursor:grab;user-select:none;text-align:center;font-size:13px;line-height:1}
+.rv-handle:active{cursor:grabbing}
+.rv-row.dragging{opacity:.45}
+.rv-row.over{box-shadow:inset 0 2px 0 0 var(--primary)}
+.rv-row.grp.over{box-shadow:none;outline:2px dashed rgba(96,165,250,.6);outline-offset:-2px;background:rgba(37,99,235,.10)}
+.rv-ck{appearance:none;width:16px;height:16px;margin:0;border:1.5px solid rgba(255,255,255,.28);border-radius:5px;background:transparent;cursor:pointer;position:relative}
+.rv-ck:checked{background:var(--primary);border-color:transparent}
+.rv-ck:checked::after{content:"";position:absolute;left:4px;top:1px;width:4px;height:8px;border:solid #fff;border-width:0 2px 2px 0;transform:rotate(42deg)}
+.rv-ck:focus-visible{outline:2px solid var(--primary-light);outline-offset:2px}
+.rv-ck-na{display:block;text-align:center;color:var(--text-3);font-size:11px;opacity:.4}
+.rv-type{font-size:11px;color:var(--text-2);background:rgba(255,255,255,.06);border:1px solid var(--border-glass);
+  border-radius:6px;padding:2px 6px;text-align:center;white-space:nowrap}
+.rv-type.t-domain{color:#BFDBFE}
+.rv-type.t-full{color:#C7F0DC}
+.rv-type.t-keyword{color:#FDE3B0}
+.rv-type.t-regexp{color:#FBCFE8}
+.rv-type.t-comment,.rv-type.t-raw{color:var(--text-3)}
+/* 「# 备注：…」是挂在规则上的备注，比普通注释再亮一档，和标题块区分开 */
+.rv-type.role-note{color:#C7D2FE;background:rgba(199,210,254,.08);border-color:rgba(199,210,254,.18)}
+.rv-value{font-family:var(--font-mono);font-size:12.5px;color:var(--text-1);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:text}
+.rv-value:hover{color:var(--primary-light)}
+/* 长正则不再被单行截断：最多两行，足够完整读完一条 PCDN 规则 */
+.rv-value.wrap{white-space:normal;overflow-wrap:anywhere;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;line-height:1.5;padding:6px 0}
+.rv-row.cmt .rv-value.wrap{padding:0}
+.rv-ops{display:flex;gap:2px;justify-content:flex-end;opacity:.5;transition:opacity .15s ease}
+.rv-row:hover .rv-ops,.rv-row.sel .rv-ops{opacity:1}
+.rv-ib{appearance:none;width:28px;height:28px;border:0;border-radius:7px;background:transparent;color:var(--text-2);cursor:pointer;
+  display:inline-flex;align-items:center;justify-content:center;transition:background .14s ease,color .14s ease}
+.rv-ib:hover{background:rgba(255,255,255,.08);color:var(--text-1)}
+.rv-ib.del:hover{background:rgba(239,68,68,.14);color:#FCA5A5}
+.rv-empty{padding:46px 20px;text-align:center;color:var(--text-3);font-size:13px}
+.rv-empty b{display:block;color:var(--text-2);font-size:14px;margin-bottom:6px;font-weight:600}
+/* 底部批量条：贴在视口底部，选了行不用往回滚 */
+.rv-selbar{position:sticky;bottom:10px;z-index:6;
+  display:flex;align-items:center;gap:8px;padding:9px 12px;border-radius:calc(11px * var(--radius-scale));
+  background:var(--glass-bg-strong);border:1px solid var(--border-highlight);box-shadow:0 18px 44px -26px rgba(0,0,0,.9)}
+.rv-selbar[hidden]{display:none}
+.rv-selbar .n{font-size:12.5px;color:var(--text-2)}
+.rv-selbar .n b{color:var(--primary-light);font-family:var(--font-mono)}
+.rv-selbar .grow{flex:1}
+/* 原文模式提示 */
+.rv-raw-note{font-size:12px;color:var(--text-3)}
+/* 编辑悬浮窗 */
+.rv-scrim{position:fixed;inset:0;z-index:70;background:rgba(3,4,7,.52);backdrop-filter:blur(8px) saturate(120%);
+  -webkit-backdrop-filter:blur(8px) saturate(120%);opacity:0;pointer-events:none;transition:opacity .24s var(--ease,ease)}
+.rv-scrim.show{opacity:1;pointer-events:auto}
+.rv-sheet{position:fixed;top:0;right:0;bottom:0;width:min(480px,100%);z-index:71;display:flex;flex-direction:column;overflow-y:auto;
+  background:var(--glass-bg-strong);backdrop-filter:var(--blur-filter);-webkit-backdrop-filter:var(--blur-filter);
+  border-left:1px solid var(--border-glass);border-radius:calc(16px * var(--radius-scale)) 0 0 calc(16px * var(--radius-scale));
+  box-shadow:-60px 0 110px -60px rgba(0,0,0,.95),var(--inner-specular);
+  transform:translateX(24px);opacity:0;pointer-events:none;transition:transform .32s var(--ease,ease),opacity .26s var(--ease,ease)}
+.rv-sheet.show{transform:none;opacity:1;pointer-events:auto}
+.rv-sheet-head{display:flex;align-items:flex-start;gap:10px;padding:22px 24px 18px;border-bottom:1px solid var(--border-glass)}
+.rv-sheet-head h2{font-size:18px;font-weight:700;margin:0}
+.rv-sub{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--text-3);margin-top:5px}
+.rv-sep{width:3px;height:3px;border-radius:50%;background:var(--text-3);opacity:.8}
+.rv-dot{width:6px;height:6px;border-radius:50%;background:var(--amber);display:none}
+.rv-sheet.dirty .rv-dot{display:block}
+.rv-sheet-tools{margin-left:auto;display:flex;gap:2px}
+.rv-x{width:34px;height:34px;border:0;border-radius:10px;background:transparent;color:var(--text-2);cursor:pointer;
+  display:inline-flex;align-items:center;justify-content:center;font-size:15px;transition:background .15s ease,color .15s ease}
+.rv-x:hover{background:rgba(255,255,255,.07);color:var(--text-1)}
+.rv-x.del:hover{background:rgba(239,68,68,.14);color:#FCA5A5}
+.rv-fields{flex:1;display:flex;flex-direction:column;gap:22px;padding:22px 24px 26px}
+.rv-field label{display:block;font-size:14px;font-weight:600;color:var(--text-1);margin-bottom:10px}
+.rv-lh{font-weight:400;font-size:12px;color:var(--text-3);margin-left:8px}
+.rv-inp{width:100%;height:46px;padding:0 14px;border-radius:calc(10px * var(--radius-scale));font-family:var(--font-mono);font-size:13.5px;
+  color:var(--text-1);background:rgba(6,8,12,.42);border:1px solid var(--border-glass);outline:none;
+  transition:border-color .16s ease,background .16s ease,box-shadow .2s ease}
+.rv-inp::placeholder{color:var(--text-3)}
+.rv-inp:focus{border-color:rgba(96,165,250,.5);background:rgba(6,8,12,.6);box-shadow:0 0 0 3px rgba(37,99,235,.16)}
+.rv-inp.bad{border-color:rgba(239,68,68,.55);box-shadow:0 0 0 3px rgba(239,68,68,.12)}
+/* 分组下拉：跟输入框同一套外观，只是多一个自绘的小箭头 */
+select.rv-inp{appearance:none;-webkit-appearance:none;cursor:pointer;font-family:inherit;font-size:13.5px;padding-right:36px;
+  background-image:linear-gradient(45deg,transparent 50%,currentColor 50%),linear-gradient(135deg,currentColor 50%,transparent 50%);
+  background-position:calc(100% - 19px) 21px,calc(100% - 14px) 21px;background-size:5px 5px,5px 5px;background-repeat:no-repeat}
+select.rv-inp:disabled{cursor:default;opacity:.6}
+select.rv-inp option{background:#14161c;color:var(--text-1)}
+.rv-hint{font-size:12px;color:var(--text-3);margin-top:10px;line-height:1.6}
+.rv-hint .mono{color:var(--primary-light);font-family:var(--font-mono)}
+.rv-hint.bad{color:#FCA5A5}
+.rv-hint.hit{color:var(--green)}
+.rv-seg{display:flex;gap:4px;flex-wrap:wrap}
+.rv-seg button{appearance:none;height:36px;padding:0 14px;border-radius:calc(9px * var(--radius-scale));
+  background:var(--glass-pill);border:1px solid var(--border-glass);color:var(--text-2);font-size:13px;cursor:pointer;
+  transition:background .15s ease,color .15s ease,border-color .15s ease}
+.rv-seg button:hover{color:var(--text-1)}
+.rv-seg button.on{background:rgba(37,99,235,.2);border-color:rgba(96,165,250,.42);color:#BFDBFE;font-weight:600}
+.rv-seg button.pop{animation:rvpop .32s ease}
+@keyframes rvpop{0%{transform:none}40%{transform:scale(1.08)}100%{transform:none}}
+.rv-foot{position:sticky;bottom:0;display:flex;align-items:center;gap:10px;padding:14px 24px;border-top:1px solid var(--border-glass);
+  background:var(--glass-bg-strong);backdrop-filter:blur(12px)}
+.rv-img{display:none}
+/* 窄屏：列表收成两行 */
+@media(max-width:600px){
+  .rv-head{display:none}
+  .rv-row{grid-template-columns:16px 22px 72px minmax(0,1fr) 46px;min-height:52px;gap:8px;padding:0 10px}
+  .rv-row .rv-ops{display:none}
+  .rv-search{max-width:none}
+  .rv-sheet{border-radius:0}
+  .rv-list{max-height:64vh}
+  /* 站内原样式在窄屏把名单菜单藏了、又没给下拉框，等于手机上换不了名单：这里放回来 */
+  .rule-menu{display:flex!important;flex-wrap:nowrap;overflow-x:auto;padding-bottom:10px}
+  .rule-menu::-webkit-scrollbar{display:none}
+}
+@media(prefers-reduced-motion:reduce){.rv-sheet,.rv-scrim,.rv-seg button{transition:none!important;animation:none!important}}
+
+/* ===========================================================
+   与定稿一致的外层版式：
+   · 名单切换从左侧竖排改成横排胶囊（带条数），和稿子一样
+   · 页面级操作按钮（批量粘贴 / 导出 / 保存）收在标题右侧
+   =========================================================== */
+.rule-layout{display:block;min-height:0}
+/* 名单胶囊：直接换行铺开，不做横向滚动（横向滚动条不好看，11 个名单两行放得下） */
+.rule-menu{display:flex;flex-direction:row;flex-wrap:wrap;gap:6px;overflow:visible;
+  border-right:0;border-bottom:1px solid var(--border-glass);padding:0 0 12px;margin-bottom:14px;
+  scrollbar-width:none;-ms-overflow-style:none}
+.rule-menu::-webkit-scrollbar{display:none;width:0;height:0}
+.rule-menu button{display:inline-flex;align-items:center;gap:7px;white-space:nowrap;padding:6px 12px;
+  background:var(--glass-pill);border:1px solid var(--border-glass);box-shadow:var(--inner-specular);
+  transition:none!important;transform:none!important}
+.rule-menu button:active,.rule-menu button:focus,.rule-menu button:focus-visible{transform:none!important}
+.rule-menu button:hover{background:var(--glass-pill-active)}
+.rule-menu button.active{background:var(--glass-pill-active);border-color:var(--border-highlight)}
+/* 胶囊后面原本跟着条数（白名单 87）：用户觉得鸡肋，撤掉 */
+.rule-menu button .rule-count{display:none}
+.rule-editor{height:auto;min-height:0}
+/* 批量粘贴面板 */
+.rp-wrap{position:fixed;inset:0;z-index:80;display:flex;align-items:center;justify-content:center;padding:20px}
+.rp-wrap[hidden]{display:none}
+.rp-panel{width:min(560px,100%);background:var(--glass-bg-strong);border:1px solid var(--border-glass);
+  border-radius:calc(16px * var(--radius-scale));box-shadow:0 30px 70px -40px rgba(0,0,0,.95),var(--inner-specular);
+  backdrop-filter:var(--blur-filter);-webkit-backdrop-filter:var(--blur-filter);padding:20px 22px;display:flex;flex-direction:column;gap:14px}
+.rp-panel h2{margin:0;font-size:17px;font-weight:700}
+.rp-panel p{margin:0;font-size:12px;color:var(--text-3);line-height:1.6}
+.rp-panel textarea{width:100%;min-height:190px;padding:12px 14px;border-radius:calc(10px * var(--radius-scale));
+  background:rgba(6,8,12,.42);border:1px solid var(--border-glass);color:var(--text-1);
+  font-family:var(--font-mono);font-size:12.5px;line-height:1.6;outline:none;resize:vertical}
+.rp-panel textarea:focus{border-color:rgba(96,165,250,.5);box-shadow:0 0 0 3px rgba(37,99,235,.16)}
+.rp-foot{display:flex;align-items:center;gap:8px}
+.rp-foot .grow{flex:1}
+
+/* 标题（分组）：名单里的 # 行当标题，第一行是标题、其余是注释，下面的规则缩进挂在它下面 */
+.rv-row{position:relative}
+.rv-row.grp{grid-template-columns:18px minmax(0,1fr) auto 66px;min-height:44px;background:rgba(255,255,255,.03);
+  border-bottom:1px solid var(--border-glass);cursor:pointer}
+.rv-row.grp:hover{background:rgba(255,255,255,.05)}
+.rv-row.grp .rv-mark{color:var(--primary-light);font-family:var(--font-mono);font-size:12px;text-align:center;opacity:.75}
+.rv-row.grp .rv-mark{cursor:grab}   /* 标题行整块拖，但只有按 # 才能拖起来 */
+.rv-row.grp .rv-mark:active{cursor:grabbing}
+.rv-row.grp .rv-grp-main{min-width:0;display:flex;flex-direction:column;gap:3px;padding:9px 0}
+.rv-row.grp .rv-grp-title{font-size:13.5px;font-weight:600;color:var(--text-1);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rv-row.grp .rv-grp-notes{font-size:11.5px;color:var(--text-3);line-height:1.55}
+.rv-row.grp .rv-grp-empty{font-size:11.5px;color:var(--text-3);opacity:.75;line-height:1.55}
+.rv-row.grp .rv-grp-count{justify-self:end;font-family:var(--font-mono);font-size:11px;color:var(--text-3);
+  background:rgba(255,255,255,.05);border:1px solid var(--border-glass);border-radius:20px;padding:2px 8px;white-space:nowrap}
+.rv-row.child{padding-left:30px}
+.rv-row.child::before{content:"";position:absolute;left:20px;top:0;bottom:0;width:1px;background:rgba(255,255,255,.09)}
+.rv-row.child:last-child::before{bottom:50%}
+.rv-area{height:auto;min-height:76px;padding:10px 12px;line-height:1.6;resize:vertical;
+  font-family:var(--font-mono);font-size:12.5px}
+
+/* hidden 属性要压过 .rv-fields{display:flex}，否则标题面板里会连规则字段一起露出来 */
+.rv-fields[hidden]{display:none!important}
+/* 「编辑说明」时只留一行文字，注释字段整块收起 */
+.rv-field[hidden]{display:none!important}
