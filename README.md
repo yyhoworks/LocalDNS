@@ -6,9 +6,9 @@
 
 **DNS 核心主要由折腾日记交流群里的 R 大使用 Rust 编写；[yyhoworks](https://github.com/yyhoworks) 负责 UI 设计。**
 
-当前版本：**[后端 FJGA7 / UI 2026.10.18.4](https://github.com/yyhoworks/LocalDNS/releases/tag/fjga7-ui-v2026.10.18.4)**，提供完整包、UI 升级包和 SHA-256 校验文件。
+当前版本：**[后端 FJGAC / UI 2026.10.18.5](https://github.com/yyhoworks/LocalDNS/releases/tag/fjgac-ui-v2026.10.18.5)**，提供完整包、UI 升级包和 SHA-256 校验文件。
 
-本版为在线规则、广告订阅、DNS 上游、日志、缓存与功能开关增加独立的卡片 / 列表切换，保留筛选和当前页。内核继续使用 FJGA7，保留横向 / 纵向导航、三栏排行、单次请求解析路径摘要，以及「人文羊皮纸」与「流光毛玻璃」双皮肤。首页首排为服务状态与核心指标，排行位于趋势图和解析拓扑之后。
+本版为在线规则、广告订阅、DNS 上游、日志、缓存与功能开关增加独立的卡片 / 列表切换，保留筛选和当前页。内核更新为 FJGAC，排行平均延时按请求日志计算并标明样本范围，保留横向 / 纵向导航、三栏排行、单次请求解析路径摘要，以及「人文羊皮纸」与「流光毛玻璃」双皮肤。首页首排为服务状态与核心指标，排行位于趋势图和解析拓扑之后。
 
 [产品图集](docs/SCREENSHOTS.md) · [功能指南](docs/FEATURES.md) · [安装说明](INSTALL.md) · [下载 Releases](https://github.com/yyhoworks/LocalDNS/releases) · [作者与分工](AUTHORS.md) · [开发说明](docs/DEVELOPMENT.md) · [近期更新](CHANGELOG.md)
 
@@ -124,7 +124,7 @@
 
 ## 快速安装
 
-1. 在 [Releases](https://github.com/yyhoworks/LocalDNS/releases/tag/fjga7-ui-v2026.10.18.4) 下载完整包或 UI 升级包，并核对同页的 `SHA256SUMS.txt`。**升级 FJGA7 内核必须从完整包选择对应架构的程序；UI 升级包不含内核。**
+1. 在 [Releases](https://github.com/yyhoworks/LocalDNS/releases/tag/fjgac-ui-v2026.10.18.5) 下载完整包或 UI 升级包，并核对同页的 `SHA256SUMS.txt`。**升级 FJGAC 内核必须从完整包选择对应架构的程序；UI 升级包不含内核。**
 2. 已有 LocalDNS 服务时，解压 UI 升级包并运行：
 
    ```sh
@@ -148,7 +148,7 @@ VERSION.json          UI 与后端版号
 
 安装 ZIP 和后端预编译程序放在 Releases。部署凭据、设备配置、运行日志、临时截图和历史工作文件不进入 Git。
 
-**当前仓库包含 UI 源码；当前工作目录未提供 Rust DNS 核心源码，DNS 核心通过 FJGA7 预编译发行包提供。**
+**当前仓库包含 UI 源码；当前工作目录未提供 Rust DNS 核心源码，DNS 核心通过 FJGAC 预编译发行包提供。**
 
 ## 开发与打包
 

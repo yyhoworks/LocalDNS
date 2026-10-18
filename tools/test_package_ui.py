@@ -42,6 +42,18 @@ class KernelBundleTests(unittest.TestCase):
         source['LocalDNS_FJGA7/localdns/ui/index.html'] = b'old-ui'
         self.assertEqual(self.read(source), self.read(self.payload()))
 
+    def test_nested_binaries_and_two_installation_variants(self):
+        source = self.payload('LocalDNS_FJGA7/')
+        nested = {key.replace('Binaries/localdns-', 'Binaries/localdns-FJGA7/localdns-'): value
+                  for key, value in source.items() if not key.endswith('/bin/localdns')}
+        default = source['LocalDNS_FJGA7/localdns/bin/localdns']
+        for variant in ['保留原设置', '不保留原设置']:
+            nested['LocalDNS_FJGA7/' + variant + '/localdns/bin/localdns'] = default
+        self.assertEqual(self.read(nested), self.read(source))
+        nested['LocalDNS_FJGA7/不保留原设置/localdns/bin/localdns'] = b'wrong'
+        with self.assertRaisesRegex(ValueError, 'Default binary'):
+            self.read(nested)
+
     def test_ambiguous_binary_directories_are_rejected(self):
         with self.assertRaisesRegex(ValueError, 'exactly one'):
             self.read(dict(self.payload(), **self.payload('wrapper/')))

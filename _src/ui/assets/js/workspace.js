@@ -34,17 +34,56 @@
     root.querySelector('#log-export').onclick=()=>ctx.downloadText('LocalDNS-query-page-'+ctx.state.logs.page+'.json',JSON.stringify(rows,null,2));
     root.querySelector('#log-pause').onclick=()=>{ctx.state.logsPaused=!ctx.state.logsPaused;root.querySelector('#log-pause').textContent=ctx.state.logsPaused?'继续刷新':'暂停刷新';root.querySelector('#log-pause').setAttribute('aria-pressed',String(ctx.state.logsPaused));root.querySelector('#log-live-state').textContent=ctx.state.logsPaused?'刷新已暂停':'自动刷新已开启';};
   }
-  const latency = row => row.average_duration_ms !== undefined && row.average_duration_ms !== null && Number.isFinite(Number(row.average_duration_ms)) ? ctx.ms(row.average_duration_ms) : '—';
+  let rankLatency;
+  const latency = row => row.average_duration_ms !== undefined && row.average_duration_ms !== null && row.average_duration_ms !== '' && Number.isFinite(Number(row.average_duration_ms)) ? ctx.ms(row.average_duration_ms) : null;
+  function latencyCell(kind, item) {
+    const provided = latency(item);
+    return `<td data-rank-latency-kind="${kind}" data-rank-latency-key="${esc(item.key)}"${provided ? ' data-latency-ready="true" title="后端排行统计"' : ''}>${provided || '<button type="button" class="workspace-text-button" data-load-rank-latency>查看延时</button>'}</td>`;
+  }
+  function hydrateRankLatency(root) {
+    const cells = [...root.querySelectorAll('[data-rank-latency-kind]:not([data-latency-ready])')];
+    if (!cells.length) return;
+    rankLatency ||= window.LocalDNSRankLatency.create(options => ctx.loadLogs(options));
+    const observer = new IntersectionObserver(entries => entries.forEach(entry => {
+      if (entry.isIntersecting) { observer.unobserve(entry.target); load(entry.target); }
+    }), {rootMargin:'120px'});
+    async function load(cell) {
+      if (cell.dataset.latencyReady || cell.dataset.latencyLoading) return;
+      cell.dataset.latencyLoading = 'true';
+      cell.textContent = '统计中…';
+      try {
+        const result = await rankLatency.get(cell.dataset.rankLatencyKind, cell.dataset.rankLatencyKey, () => cell.isConnected);
+        if (!cell.isConnected) return;
+        cell.dataset.latencyReady = 'true';
+        cell.textContent = result.average === null ? '暂无样本' : ctx.ms(result.average);
+        cell.title = result.average === null ? '该分类暂无有效请求耗时，未用 0 代替缺失数据' : `${result.partial ? '近期' : '当前保留'} ${number(result.samples)} 条有效请求的平均耗时；含缓存与本地应答`;
+        if (result.partial && result.samples) {
+          const note = document.createElement('span');
+          note.className = 'workspace-subline';
+          note.textContent = `近 ${number(result.samples)} 条`;
+          cell.append(note);
+        }
+      } catch (error) {
+        if (cell.isConnected && error.name !== 'AbortError') {
+          cell.innerHTML = '<button type="button" class="workspace-text-button" data-load-rank-latency>重试</button>';
+          cell.title = '请求耗时读取失败，点击重试';
+        }
+      } finally { delete cell.dataset.latencyLoading; }
+    }
+    cells.forEach(cell => { observer.observe(cell); cell.onclick = event => { if (event.target.closest('[data-load-rank-latency]')) load(cell); }; });
+    ctx.trackRouteCleanup(() => observer.disconnect());
+  }
   function rankTable(kind, items, aliases = {}, limit = 8) {
-    return `<div class="table-wrap"><table class="workspace-rank-table"><thead><tr><th>${{domain:'域名',client:'客户端',set:'解析去向'}[kind]}</th><th>请求数</th><th>平均延迟</th></tr></thead><tbody>${items.slice(0,limit).map(item=>`<tr><td><button type="button" class="workspace-text-button" data-rank-kind="${kind}" data-rank-key="${esc(item.key)}">${esc(kind==='client' ? aliases[item.key] || item.key : item.key)}</button>${kind==='client'&&aliases[item.key]?`<span class="workspace-subline mono">${esc(item.key)}</span>`:''}</td><td>${number(item.count)}</td><td title="${latency(item)==='—'?'接口未提供该项平均延迟':''}">${latency(item)}</td></tr>`).join('')||'<tr><td colspan="3" class="table-empty">暂无记录</td></tr>'}</tbody></table></div>`;
+    return `<div class="table-wrap"><table class="workspace-rank-table"><thead><tr><th>${{domain:'域名',client:'客户端',set:'解析去向'}[kind]}</th><th>请求数</th><th>平均延时</th></tr></thead><tbody>${items.slice(0,limit).map(item=>`<tr><td><button type="button" class="workspace-text-button" data-rank-kind="${kind}" data-rank-key="${esc(item.key)}">${esc(kind==='client' ? aliases[item.key] || item.key : item.key)}</button>${kind==='client'&&aliases[item.key]?`<span class="workspace-subline mono">${esc(item.key)}</span>`:''}</td><td>${number(item.count)}</td>${latencyCell(kind,item)}</tr>`).join('')||'<tr><td colspan="3" class="table-empty">暂无记录</td></tr>'}</tbody></table></div>`;
   }
   function rankings({domains,clients,sets,total,aliases}) {
-    return `<div class="workspace-rank-period"><span>当前审计保留记录</span><span>总请求 ${number(total)}</span></div><div class="workspace-rank-grid">${[['domain','TOP 域名',domains],['client','TOP 客户端',clients],['set','解析去向',sets]].map(([kind,name,items])=>`<section class="glass-card workspace-rank-card"><header class="gc-head"><div><h2 class="gc-title">${name}</h2><p class="workspace-subline">显示前 ${Math.min(8,items.length)} · ${percent(items.slice(0,8).reduce((n,r)=>n+Number(r.count||0),0),total)}</p></div><button type="button" class="workspace-text-button" data-rank-all="${kind}">更多</button></header>${rankTable(kind,items,aliases)}</section>`).join('')}</div><details class="workspace-note"><summary>统计口径</summary><p>统计范围为当前审计保留记录。平均延迟仅展示接口明确提供的值；“—”表示暂无统计。解析去向按最终分类展示，包含缓存和本地应答。</p></details>`;
+    return `<div class="workspace-rank-period"><span>当前审计保留记录</span><span>总请求 ${number(total)}</span></div><div class="workspace-rank-grid">${[['domain','TOP 域名',domains],['client','TOP 客户端',clients],['set','解析去向',sets]].map(([kind,name,items])=>`<section class="glass-card workspace-rank-card"><header class="gc-head"><div><h2 class="gc-title">${name}</h2><p class="workspace-subline">显示前 ${Math.min(8,items.length)} · ${percent(items.slice(0,8).reduce((n,r)=>n+Number(r.count||0),0),total)}</p></div><button type="button" class="workspace-text-button" data-rank-all="${kind}">更多</button></header>${rankTable(kind,items,aliases)}</section>`).join('')}</div><details class="workspace-note"><summary>统计口径</summary><p>请求数来自当前审计保留记录。平均延时优先使用后端统计；未提供时，按每项最近最多 1,000 条请求日志计算，超过范围时标注样本数，结果缓存 60 秒。含缓存命中与本地应答的真实请求耗时，不等同于上游响应时间；0.00 ms 表示请求日志记录为 0 毫秒。</p></details>`;
   }
   function rankNavigate(kind,key) {Object.assign(ctx.state.logs,{page:1,q:'',client:'',set:'',code:'',type:'',exact:false},kind==='client'?{client:key,q:key,exact:true}:kind==='set'?{set:key}:{q:key,exact:true});ctx.navigate('logs');}
   function bindRanks(root,data) {
+    hydrateRankLatency(root);
     root.querySelectorAll('[data-rank-kind]').forEach(b=>b.onclick=()=>rankNavigate(b.dataset.rankKind,b.dataset.rankKey));
-    root.querySelectorAll('[data-rank-all]').forEach(b=>b.onclick=()=>{const kind=b.dataset.rankAll,items=({domain:data.domains,client:data.clients,set:data.sets})[kind];ctx.openDrawer(({domain:'域名排行',client:'客户端排行',set:'解析去向'})[kind],'当前审计保留记录 · 最多 '+items.length+' 项',rankTable(kind,items,data.aliases,items.length));document.querySelectorAll('#drawer [data-rank-kind]').forEach(button=>button.onclick=()=>{ctx.closeDrawer();rankNavigate(button.dataset.rankKind,button.dataset.rankKey);});});
+    root.querySelectorAll('[data-rank-all]').forEach(b=>b.onclick=()=>{const kind=b.dataset.rankAll,items=({domain:data.domains,client:data.clients,set:data.sets})[kind];ctx.openDrawer(({domain:'域名排行',client:'客户端排行',set:'解析去向'})[kind],'当前审计保留记录 · 最多 '+items.length+' 项',rankTable(kind,items,data.aliases,items.length));hydrateRankLatency(document.querySelector('#drawer'));document.querySelectorAll('#drawer [data-rank-kind]').forEach(button=>button.onclick=()=>{ctx.closeDrawer();rankNavigate(button.dataset.rankKind,button.dataset.rankKey);});});
   }
   function upstreams(rows,groups) {
     const total=rows.reduce((n,r)=>n+Number(r.m.q||0),0);

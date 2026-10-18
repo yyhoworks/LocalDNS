@@ -1,15 +1,15 @@
 # 安装与更新
 
-当前发行版本：**后端 FJGA7 / UI 2026.10.18.4**。本次恢复合并前的功能开关结构，支持可折叠垂直导航与居中水平导航，整合排行、日志路径摘要、规则分组与上游质量展示，保留双皮肤、五列 DNS 解析拓扑与贡献署名。
+当前发行版本：**后端 FJGAC / UI 2026.10.18.5**。本次恢复合并前的功能开关结构，支持可折叠垂直导航与居中水平导航，整合排行、日志路径摘要、规则分组与上游质量展示，保留双皮肤、五列 DNS 解析拓扑与贡献署名。
 
 ## 选择下载包
 
-从 [本版 Releases](https://github.com/yyhoworks/LocalDNS/releases/tag/fjga7-ui-v2026.10.18.4) 下载；本地构建位于 `dist/fjga7-ui-v2026.10.18.4/`。配套包为：
+从 [本版 Releases](https://github.com/yyhoworks/LocalDNS/releases/tag/fjgac-ui-v2026.10.18.5) 下载；本地构建位于 `dist/fjgac-ui-v2026.10.18.5/`。配套包为：
 
 | 文件 | 用途 |
 |---|---|
-| `LocalDNS_FJGA7_UI_2026.10.18.4_Full.zip` | 新安装或提取新内核：FJGA7 程序、上一正式版已清理的默认配置与规则、当前双皮肤 UI |
-| `LocalDNS_UI_2026.10.18.4_Update.zip` | 已安装环境更新界面 |
+| `LocalDNS_FJGAC_UI_2026.10.18.5_Full.zip` | 新安装或提取新内核：FJGAC 程序、上一正式版已清理的默认配置与规则、当前双皮肤 UI |
+| `LocalDNS_UI_2026.10.18.5_Update.zip` | 已安装环境更新界面 |
 | `SHA256SUMS.txt` | 两个发行包的 SHA-256 校验值 |
 
 在同一目录核对：
@@ -34,7 +34,7 @@ sh install-ui.sh /opt/localdns
 
 ## 已安装环境升级后端
 
-**UI 升级包只更新界面，不包含后端程序。** 升级 FJGA7 时，从完整包的 `LocalDNS_FJGA7_Binaries/` 选择对应架构的 `localdns` 程序。先备份后端、配置、规则与 UI，在隔离目录及独立端口验证兼容性，停止服务后替换 `/opt/localdns/bin/localdns`，恢复可执行权限并启动服务，再检查 TCP / UDP DNS 查询、管理接口与 `/metrics` 中的 `FJGA7` 版本。切换内核需要短暂中断 DNS 服务。
+**UI 升级包只更新界面，不包含后端程序。** 升级 FJGAC 时，从完整包的 `LocalDNS_FJGAC_Binaries/` 选择对应架构的 `localdns` 程序。先备份后端、配置、规则与 UI，在隔离目录及独立端口验证兼容性，停止服务后替换 `/opt/localdns/bin/localdns`，恢复可执行权限并启动服务，再检查 TCP / UDP DNS 查询、管理接口与 `/metrics` 中的 `FJGAC` 版本。切换内核需要短暂中断 DNS 服务。
 
 保留已有 `config/`、`rules/`、`generated/`、`cache/` 和 `ui/`，不要用完整包目录覆盖已有安装。上游内核 ZIP 附带的旧 UI、客户端别名和配置不作为升级来源。验证失败时停止新服务，恢复备份的旧内核及必要的数据，再启动旧服务。
 
@@ -42,7 +42,7 @@ sh install-ui.sh /opt/localdns
 
 ## 新安装
 
-完整包中的 `localdns/` 放到 `/opt/localdns`。默认程序为 **amd64-v3**；其他二进制位于 `LocalDNS_FJGA7_Binaries/`，按设备架构选择。
+完整包中的 `localdns/` 放到 `/opt/localdns`。默认程序为 **amd64-v3**；其他二进制位于 `LocalDNS_FJGAC_Binaries/`，按设备架构选择。
 
 | 文件 | 平台 |
 |---|---|
@@ -57,9 +57,9 @@ chmod +x /opt/localdns/bin/localdns
 /opt/localdns/bin/localdns --root /opt/localdns --config /opt/localdns/config/localdns.json
 ```
 
-监听地址和端口由 `localdns/config/localdns.json` 决定。完整包沿用上一正式版基于 FJG4O 整理的默认配置与规则，已清理客户端别名、任务历史，并将私有上游地址改为本机示例；本次只引入 FJGA7 内核，需按实际环境调整配置。
+监听地址和端口由 `localdns/config/localdns.json` 决定。完整包沿用上一正式版基于 FJG4O 整理的默认配置与规则，已清理客户端别名、任务历史，并将私有上游地址改为本机示例；本次只引入 FJGAC 内核，需按实际环境调整配置。
 
-`localdns.service` 是 systemd 服务示例。Alpine/OpenRC 使用对应的服务启动方式，并保留原有兼容库和环境变量。FJGA7 为上游预编译程序，本仓库不保证其在所有发行版或 CPU 上均可直接运行。
+`localdns.service` 是 systemd 服务示例。Alpine/OpenRC 使用对应的服务启动方式，并保留原有兼容库和环境变量。FJGAC 为上游预编译程序，本仓库不保证其在所有发行版或 CPU 上均可直接运行。
 
 ## 回退 UI
 

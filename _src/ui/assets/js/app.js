@@ -2037,7 +2037,7 @@
   async function safeResult(fn){try{return{ok:true,data:await fn()}}catch(error){return{ok:false,error}}}
   async function safe(fn,fallback){try{return await fn()}catch{return fallback}}
 
-  window.LocalDNSWorkspace.setup({state,apiBase:API_BASE,navigate,renderRoute,modalOpen,openDrawer,closeDrawer,downloadText,toast,ms,pct,fmtDate,groupName,trackRouteCleanup});
+  window.LocalDNSWorkspace.setup({state,apiBase:API_BASE,loadLogs:options=>api.logs(options),navigate,renderRoute,modalOpen,openDrawer,closeDrawer,downloadText,toast,ms,pct,fmtDate,groupName,trackRouteCleanup});
   window.LocalDNSCollections.setup({apiBase:API_BASE,toast});
   window.addEventListener('localdns:collectionlayoutchange',closeUpstreamErrorPopover);
   initShell(); CONFIG.refreshInterval=Math.min(300,Math.max(5,Number(CONFIG.refreshInterval)||30)); window.LocalDNSInterface?.setup({apiBase:API_BASE,refreshInterval:CONFIG.refreshInterval}); loadAliases().catch(()=>{}); navigate(location.hash.replace(/^#\/?/,'')||'overview',false);

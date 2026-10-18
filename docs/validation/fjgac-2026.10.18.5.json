@@ -1,0 +1,478 @@
+{
+  "releaseTag": "fjgac-ui-v2026.10.18.5",
+  "backendVersion": "FJGAC",
+  "uiVersion": "2026.10.18.5",
+  "date": "2026-10-18",
+  "kernel": {
+    "inputArchiveSha256": "208d5d021f1468410f29c3cb4a605a714c375f4d232ceabdedd17497a86c4041",
+    "amd64V3Sha256": "a4ad9e136f19d01bae2ecc1b1de80337f8f3e491db8e6254469003755d1d7a98",
+    "runtimeVerified": "amd64-v3 on Alpine/OpenRC",
+    "otherArchitectures": "ELF and hashes only"
+  },
+  "isolatedBackend": {
+    "passed": 82,
+    "productionConfigurationAndUiUnchanged": true,
+    "checks": [
+      {
+        "name": "isolated DNS A",
+        "passed": true
+      },
+      {
+        "name": "read /metrics",
+        "passed": true
+      },
+      {
+        "name": "read /api/v1/status",
+        "passed": true
+      },
+      {
+        "name": "read /api/v1/audit/status",
+        "passed": true
+      },
+      {
+        "name": "read /api/v1/audit/capacity",
+        "passed": true
+      },
+      {
+        "name": "read /api/v2/audit/stats",
+        "passed": true
+      },
+      {
+        "name": "read /api/v2/audit/logs?limit=5",
+        "passed": true
+      },
+      {
+        "name": "read /api/v1/upstream/config",
+        "passed": true
+      },
+      {
+        "name": "read /api/v1/upstream/tags",
+        "passed": true
+      },
+      {
+        "name": "read /api/v1/upstream/ecs",
+        "passed": true
+      },
+      {
+        "name": "read /plugins/client_name",
+        "passed": true
+      },
+      {
+        "name": "read /plugins/adguard/rules",
+        "passed": true
+      },
+      {
+        "name": "read /plugins/requery/status",
+        "passed": true
+      },
+      {
+        "name": "read /plugins/requery/scheduler/config",
+        "passed": true
+      },
+      {
+        "name": "read /plugins/requery/stats/source_file_counts",
+        "passed": true
+      },
+      {
+        "name": "read /api/v2/audit/rank/domain?limit=10",
+        "passed": true
+      },
+      {
+        "name": "read /api/v2/audit/rank/client?limit=10",
+        "passed": true
+      },
+      {
+        "name": "read /api/v2/audit/rank/domain_set?limit=10",
+        "passed": true
+      },
+      {
+        "name": "read /api/v2/audit/rank/slowest?limit=10",
+        "passed": true
+      },
+      {
+        "name": "read /plugins/whitelist/show?all=1",
+        "passed": true
+      },
+      {
+        "name": "read /plugins/blocklist/show?all=1",
+        "passed": true
+      },
+      {
+        "name": "read /plugins/greylist/show?all=1",
+        "passed": true
+      },
+      {
+        "name": "read /plugins/force_realip/show?all=1",
+        "passed": true
+      },
+      {
+        "name": "read /plugins/ddns_domains/show?all=1",
+        "passed": true
+      },
+      {
+        "name": "read /plugins/pcdn_domains/show?all=1",
+        "passed": true
+      },
+      {
+        "name": "read /plugins/pcdn_regex_v4/show?all=1",
+        "passed": true
+      },
+      {
+        "name": "read /plugins/pcdn_regex_v6/show?all=1",
+        "passed": true
+      },
+      {
+        "name": "read /plugins/client_ip/show?all=1",
+        "passed": true
+      },
+      {
+        "name": "read /plugins/direct_ip/show?all=1",
+        "passed": true
+      },
+      {
+        "name": "read /plugins/rewrite/show?all=1",
+        "passed": true
+      },
+      {
+        "name": "read /plugins/custom_cn/config",
+        "passed": true
+      },
+      {
+        "name": "read /plugins/custom_non_cn/config",
+        "passed": true
+      },
+      {
+        "name": "read /plugins/geoip_cn/config",
+        "passed": true
+      },
+      {
+        "name": "read /plugins/geosite_cn/config",
+        "passed": true
+      },
+      {
+        "name": "read /plugins/geosite_non_cn/config",
+        "passed": true
+      },
+      {
+        "name": "read /plugins/cache_main/show",
+        "passed": true
+      },
+      {
+        "name": "read /plugins/cache_domestic/show",
+        "passed": true
+      },
+      {
+        "name": "read /plugins/cache_foreign/show",
+        "passed": true
+      },
+      {
+        "name": "read /plugins/cache_foreign_ecs/show",
+        "passed": true
+      },
+      {
+        "name": "filter /api/v2/audit/logs?limit=2&q=example.com&exact=true",
+        "passed": true
+      },
+      {
+        "name": "filter /api/v2/audit/logs?limit=2&query_type=A",
+        "passed": true
+      },
+      {
+        "name": "filter /api/v2/audit/logs?limit=2&response_code=NOERROR",
+        "passed": true
+      },
+      {
+        "name": "filter /api/v2/audit/logs?limit=1&page=2",
+        "passed": true
+      },
+      {
+        "name": "switch roundtrip switch1",
+        "passed": true
+      },
+      {
+        "name": "switch roundtrip switch5",
+        "passed": true
+      },
+      {
+        "name": "switch roundtrip switch7",
+        "passed": true
+      },
+      {
+        "name": "switch roundtrip switch6",
+        "passed": true
+      },
+      {
+        "name": "switch roundtrip switch13",
+        "passed": true
+      },
+      {
+        "name": "switch roundtrip switch4",
+        "passed": true
+      },
+      {
+        "name": "switch roundtrip switch2",
+        "passed": true
+      },
+      {
+        "name": "switch roundtrip switch12",
+        "passed": true
+      },
+      {
+        "name": "manual save roundtrip whitelist",
+        "passed": true
+      },
+      {
+        "name": "manual save roundtrip blocklist",
+        "passed": true
+      },
+      {
+        "name": "manual save roundtrip greylist",
+        "passed": true
+      },
+      {
+        "name": "manual save roundtrip force_realip",
+        "passed": true
+      },
+      {
+        "name": "manual save roundtrip ddns_domains",
+        "passed": true
+      },
+      {
+        "name": "manual save roundtrip pcdn_domains",
+        "passed": true
+      },
+      {
+        "name": "manual save roundtrip pcdn_regex_v4",
+        "passed": true
+      },
+      {
+        "name": "manual save roundtrip pcdn_regex_v6",
+        "passed": true
+      },
+      {
+        "name": "manual save roundtrip client_ip",
+        "passed": true
+      },
+      {
+        "name": "manual save roundtrip direct_ip",
+        "passed": true
+      },
+      {
+        "name": "manual save roundtrip rewrite",
+        "passed": true
+      },
+      {
+        "name": "client aliases CRUD",
+        "passed": true
+      },
+      {
+        "name": "upstream add edit delete",
+        "passed": true
+      },
+      {
+        "name": "subscription CRUD custom_cn",
+        "passed": true
+      },
+      {
+        "name": "subscription CRUD custom_non_cn",
+        "passed": true
+      },
+      {
+        "name": "subscription CRUD geoip_cn",
+        "passed": true
+      },
+      {
+        "name": "subscription CRUD geosite_cn",
+        "passed": true
+      },
+      {
+        "name": "subscription CRUD geosite_non_cn",
+        "passed": true
+      },
+      {
+        "name": "adguard subscription CRUD",
+        "passed": true
+      },
+      {
+        "name": "scheduler save",
+        "passed": true
+      },
+      {
+        "name": "cache flush cache_main",
+        "passed": true
+      },
+      {
+        "name": "cache flush cache_domestic",
+        "passed": true
+      },
+      {
+        "name": "cache flush cache_foreign",
+        "passed": true
+      },
+      {
+        "name": "cache flush cache_foreign_ecs",
+        "passed": true
+      },
+      {
+        "name": "audit stop",
+        "passed": true
+      },
+      {
+        "name": "audit start",
+        "passed": true
+      },
+      {
+        "name": "audit capacity save",
+        "passed": true
+      },
+      {
+        "name": "audit clear",
+        "passed": true
+      },
+      {
+        "name": "requery trigger",
+        "passed": true
+      },
+      {
+        "name": "requery cancel",
+        "passed": true
+      },
+      {
+        "name": "requery reset",
+        "passed": true
+      }
+    ]
+  },
+  "browserVerification": {
+    "browser": "Codex in-app browser",
+    "widths": [
+      1280,
+      390
+    ],
+    "backendWritesBlockedByPreview": true,
+    "passed": 17,
+    "checks": [
+      {
+        "name": "日志暂停、未提交筛选跨排列保留",
+        "passed": true
+      },
+      {
+        "name": "日志 DNS 路径详情",
+        "passed": true
+      },
+      {
+        "name": "DNS 上游分组与统计加载",
+        "passed": true
+      },
+      {
+        "name": "上游列表切换、添加表单",
+        "passed": true
+      },
+      {
+        "name": "上游空表单校验",
+        "passed": true
+      },
+      {
+        "name": "规则管理与名单读取",
+        "passed": true
+      },
+      {
+        "name": "广告订阅读取和排列入口",
+        "passed": true
+      },
+      {
+        "name": "在线规则卡片、列表与筛选入口",
+        "passed": true
+      },
+      {
+        "name": "在线规则筛选跨排列保留",
+        "passed": true
+      },
+      {
+        "name": "在线规则详情抽屉",
+        "passed": true
+      },
+      {
+        "name": "系统管理、缓存、开关、定时任务",
+        "passed": true
+      },
+      {
+        "name": "缓存内容抽屉、缓存与开关排列切换",
+        "passed": true
+      },
+      {
+        "name": "水平导航与羊皮纸皮肤切换",
+        "passed": true
+      },
+      {
+        "name": "390px 手机缓存管理布局",
+        "passed": true
+      },
+      {
+        "name": "手机排行延时加载",
+        "passed": true
+      },
+      {
+        "name": "深浅主题切换后概览保持可用",
+        "passed": true
+      },
+      {
+        "name": "正式站更多排行平均延时",
+        "passed": true
+      }
+    ],
+    "limitations": [
+      "Viewport override is not physical mobile hardware",
+      "Wallpaper/font upload persistence and every third-party subscription URL were not retested",
+      "Browser console/network instrumentation was not used in this pass; page behavior, assets and API checks provide the recorded evidence"
+    ]
+  },
+  "deployment": {
+    "status": "deployed",
+    "kernelReadySeconds": 4.11,
+    "kernelRollbackWatchdogUsed": true,
+    "configurationAndManualRulesPreserved": true,
+    "uiFilesVerified": 50,
+    "uiDeploymentDnsProcessUnchanged": true,
+    "tcp53Passed": true,
+    "udp53Passed": true
+  },
+  "latency": {
+    "source": "backend average_duration_ms when present, otherwise filtered request duration_ms",
+    "perCategoryLimit": 1000,
+    "cacheSeconds": 60,
+    "maxConcurrency": 4,
+    "lazyVisibleRows": true,
+    "zeroIsPreserved": true,
+    "missingIsNotZero": true,
+    "overlappingClassificationLabelsFilteredExactly": true
+  },
+  "packageValidation": {
+    "zipCrcPassed": true,
+    "allFileManifestPassed": true,
+    "sourceUiMatches": true,
+    "protectedBaseFilesByteIdentical": 62,
+    "publishedBase": "fjga7-ui-v2026.10.18.4",
+    "publishedBaseSha256": "f057b47a279876e94d92e5f9a3bbe308ab7a6a1178a3a14f7b552ef18c3b6464",
+    "kernelBundleTestsPassed": 8,
+    "rankLatencyRegressionPassed": true,
+    "queryPathAssertionsPassed": 10,
+    "countupRegressionPassed": true
+  },
+  "uiDesignScan": {
+    "newModulesFindings": 0,
+    "existingWarnings": 3,
+    "review": "Existing 11px meta text, approved parchment palette and approved glass glow are outside this data fix; no visual redesign"
+  },
+  "packages": {
+    "LocalDNS_FJGAC_UI_2026.10.18.5_Full.zip": {
+      "bytes": 14478899,
+      "sha256": "0d99f8f1812c3e6188fc5d5f3fb5d3cfa01cf9a3ab62fd403332181893c812a8"
+    },
+    "LocalDNS_UI_2026.10.18.5_Update.zip": {
+      "bytes": 1399445,
+      "sha256": "72ef66f4a162d73115a40835db3fc2bfd694a73c3e3fb915f2babed91c113e30"
+    }
+  },
+  "privacy": "Device configuration, audit logs, screenshots, SSH credentials and deployment scripts are excluded from Git and packages"
+}

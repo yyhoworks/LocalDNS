@@ -34,20 +34,26 @@ def read_kernel_bundle(archive, backend):
         if (info.external_attr >> 16) & 0o170000 == 0o120000:
             raise ValueError('Symlinks not allowed in kernel archive')
     prefix = f'LocalDNS_{backend}_Binaries/'
-    suffix = prefix + 'localdns-amd64-v3'
-    anchors = [name for name in names if name == suffix or name.endswith('/' + suffix)]
+    layouts = [prefix, prefix + f'localdns-{backend}/']
+    anchors = [(name, directory) for directory in layouts for name in names
+               if name == directory + 'localdns-amd64-v3' or name.endswith('/' + directory + 'localdns-amd64-v3')]
     if len(anchors) != 1:
         raise ValueError('Expected exactly one kernel binary directory')
-    wrapper = anchors[0][:-len(suffix)]
+    anchor, directory = anchors[0]
+    wrapper = anchor[:-len(directory + 'localdns-amd64-v3')]
+    suffix = prefix + 'localdns-amd64-v3'
     kernels = {}
     for platform, machine in [('amd64-v1', 62), ('amd64-v3', 62), ('arm64', 183)]:
         name = prefix + 'localdns-' + platform
-        data = archive.read(wrapper + name)
+        data = archive.read(wrapper + directory + 'localdns-' + platform)
         if len(data) < 64 or data[:6] != b'\x7fELF\x02\x01' or struct.unpack_from('<H', data, 18)[0] != machine:
             raise ValueError('Unexpected ELF architecture: ' + platform)
         kernels[name] = data
-    defaults = [name for name in [wrapper + f'LocalDNS_{backend}/localdns/bin/localdns',
-                                  wrapper + 'localdns/bin/localdns'] if name in names]
+    default_paths = [wrapper + f'LocalDNS_{backend}/localdns/bin/localdns',
+                     wrapper + 'localdns/bin/localdns',
+                     wrapper + '保留原设置/localdns/bin/localdns',
+                     wrapper + '不保留原设置/localdns/bin/localdns']
+    defaults = [name for name in default_paths if name in names]
     if not defaults or any(archive.read(name) != kernels[suffix] for name in defaults):
         raise ValueError('Default binary differs from amd64-v3 or is missing')
     return kernels
