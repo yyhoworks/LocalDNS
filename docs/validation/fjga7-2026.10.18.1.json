@@ -1,0 +1,82 @@
+{
+  "releaseTag": "fjga7-ui-v2026.10.18.1",
+  "backendVersion": "FJGA7",
+  "uiVersion": "2026.10.18.1",
+  "date": "2026-10-18",
+  "timezone": "Asia/Shanghai",
+  "kernelSource": {
+    "archive": "LocalDNS_FJGA7.zip",
+    "sha256": "ee7fb00126edf9700e70c890f6aea413b2af7f4c70fb6d468186fd408d8f7289",
+    "importedContent": "amd64-v1, amd64-v3 and arm64 ELF binaries only; upstream UI and configuration excluded"
+  },
+  "runtime": {
+    "testedPlatform": "amd64-v3, Alpine Linux 3.23.3 with existing compatibility library",
+    "reportedVersion": "FJGA7",
+    "isolatedLoopbackApiChecksPassed": 7,
+    "isolatedDnsUdpPassed": true,
+    "productionDnsTcp53Passed": true,
+    "productionDnsUdp53Passed": true,
+    "backupArchiveVerified": true,
+    "restartReadySeconds": 3.51,
+    "protectedConfigAndManualRuleFiles": 30,
+    "configurationPreserved": true,
+    "requeryRuntimeStatusExcludedFromSemanticComparison": true,
+    "uiFilesVerifiedBySha256": 44,
+    "siteUiConfigPreserved": true,
+    "uiDeploymentDidNotRestartDns": true
+  },
+  "browserRegression": {
+    "browser": "Microsoft Edge via Playwright",
+    "backend": "FJGA7 through allowlisted read-only proxy; deployed site smoke check",
+    "viewports": [
+      1440,
+      1024,
+      390
+    ],
+    "skins": [
+      "claude",
+      "glass"
+    ],
+    "pages": [
+      "overview",
+      "logs",
+      "upstreams",
+      "rules",
+      "management"
+    ],
+    "passedChecks": [
+      "vertical collapse and reload persistence",
+      "centered top layout, search shortcut, route state and unchanged rule draft",
+      "pre-merge feature card structure and horizontal preference persistence",
+      "topology recalculates while preserving the five-stage layout",
+      "both skins, 1024px top navigation, 390px mobile and desktop restoration",
+      "zero runtime errors, failed resources or backend writes"
+    ],
+    "runtimeErrors": 0,
+    "failedLocalResources": 0,
+    "backendWrites": 0,
+    "deployedSitePassed": true,
+    "kernelBundleTestsPassed": 7,
+    "countUpBoundaryTestsPassed": true
+  },
+  "packageValidation": {
+    "zipCrcPassed": true,
+    "perFileManifestPassed": true,
+    "platformElfHeadersChecked": true,
+    "executablePermissionsChecked": true,
+    "protectedBaseFilesByteIdentical": 61,
+    "serviceFileUnchangedFromPublishedBase": true,
+    "publishedBaseRelease": "fjg4z-ui-v2026.10.16.3",
+    "publishedBaseSha256": "7c12fc2d54cff7207b73c3d35501f398ca9c0091c14aef7bbcb549e8639a39b2",
+    "sha256": {
+      "LocalDNS_FJGA7_UI_2026.10.18.1_Full.zip": "5b781729b0b89db98e5cfb0476feef7e87f5d8b171b3878b272d05ae19663ac1",
+      "LocalDNS_UI_2026.10.18.1_Update.zip": "8e776518b1b7b11b893146b8adff7a130f453526199a256b4c9074b35fa2e724"
+    }
+  },
+  "limitations": [
+    "amd64-v1 and arm64 binaries were not executed",
+    "No physical mobile-device or cross-browser coverage",
+    "Existing skin contrast and typography findings were outside the requested navigation changes; the new navigation module had no detector findings",
+    "Private device settings, credentials and screenshots are excluded from this record"
+  ]
+}

@@ -10,10 +10,12 @@ INSTALL_DIR=$(CDPATH= cd -- "$INSTALL_DIR" && pwd -P)
 [ -f "$PACKAGE_DIR/ui/index.html" ] || { echo "升级包不完整" >&2; exit 1; }
 cd "$PACKAGE_DIR"
 sha256sum -c MANIFEST.sha256
+UI_VERSION=$(sed -n 's/^LocalDNS UI //p' VERSION.txt)
+case "$UI_VERSION" in ''|*[!A-Za-z0-9._-]*) echo "UI 版本信息无效" >&2; exit 1;; esac
 STAMP=$(date +%Y%m%d-%H%M%S)
-BACKUP="$INSTALL_DIR/ui-backup-2026.10.16.4-$STAMP-$$.tar.gz"
-STAGE="$INSTALL_DIR/.ui-stage-2026.10.16.4-$STAMP-$$"
-PREVIOUS="$INSTALL_DIR/ui.previous-2026.10.16.4-$STAMP-$$"
+BACKUP="$INSTALL_DIR/ui-backup-$UI_VERSION-$STAMP-$$.tar.gz"
+STAGE="$INSTALL_DIR/.ui-stage-$UI_VERSION-$STAMP-$$"
+PREVIOUS="$INSTALL_DIR/ui.previous-$UI_VERSION-$STAMP-$$"
 tar -C "$INSTALL_DIR" -czf "$BACKUP" ui
 cp -a "$PACKAGE_DIR/ui" "$STAGE"
 ROLLBACK=0
@@ -28,4 +30,4 @@ ROLLBACK=1
 mv "$INSTALL_DIR/ui" "$PREVIOUS"
 mv "$STAGE" "$INSTALL_DIR/ui"
 ROLLBACK=0
-printf '%s\n' "LocalDNS UI 2026.10.16.4 已安装" "备份：$BACKUP" "上一版目录：$PREVIOUS"
+printf '%s\n' "LocalDNS UI $UI_VERSION 已安装" "备份：$BACKUP" "上一版目录：$PREVIOUS"

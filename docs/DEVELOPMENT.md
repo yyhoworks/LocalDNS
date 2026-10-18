@@ -3,7 +3,7 @@
 ## 源码范围
 
 本仓库提供当前 Web UI 的 HTML、CSS、JavaScript、Logo 和本地字体。
-DNS 核心主要由折腾日记交流群的 R 大使用 Rust 编写；当前工作目录没有提供核心 Rust 源码，当前发行版使用 FJG4Z 预编译程序。
+DNS 核心主要由折腾日记交流群的 R 大使用 Rust 编写；当前工作目录没有提供核心 Rust 源码，当前工作版本使用 FJGA7 预编译程序。
 
 ## 主要文件
 
@@ -15,6 +15,8 @@ DNS 核心主要由折腾日记交流群的 R 大使用 Rust 编写；当前工�
 | `_src/ui/assets/js/console.js` | 布局、真实采样、草稿、语义与数字排版 |
 | `_src/ui/assets/js/material.js` | 外观参数与静态背景光影 |
 | `_src/ui/assets/js/navbar.js` | 顶部滚动联动 |
+| `_src/ui/assets/js/navigation.js` | 垂直 / 水平导航与折叠偏好；布局换位不重建业务页面 |
+| `_src/ui/assets/css/navigation.css` | 两种导航布局、外观面板布局选项与手机回退 |
 | `_src/ui/assets/js/appearance.js` | 字体偏好提前恢复、组合选择与输入方式识别 |
 | `_src/ui/assets/js/skin.js` | 人文羊皮纸（Claude）与流光毛玻璃双皮肤切换、纸张色调预设与每套皮肤独立偏好恢复 |
 | `_src/ui/assets/js/font-uploads.js` | 浏览器本地字体上传、事务确认与分项字体选择 |
@@ -56,6 +58,8 @@ python tools/package_ui.py --full-base /path/to/published-full.zip --base-sha256
 
 PR #1 回归可运行 `node tools/test_countup.cjs` 及 `node tools/verify_ui_merge.cjs`。后者需要 Playwright、Edge 和 `LOCALDNS_PREVIEW_BACKEND`；设置 `LOCALDNS_EXPECT_BACKEND=FJG4Z` 时额外断言真实运行版本。只读代理阻止后端写入，报告与截图留在忽略的 `dist/`。详见 [整合记录](PR1-INTEGRATION.md) 与 [FJG4Z 验证记录](validation/fjg4z-2026.10.16.3.json)。
 
+2026.10.18.1 的导航回归为 `node tools/verify_navigation.cjs`，同样使用 Playwright、Edge 和 `LOCALDNS_PREVIEW_BACKEND`，只读连接真实后端；报告位于 `dist/navigation-20261018/`。运行 `python tools/test_package_ui.py` 验证根目录 / 额外目录内核 ZIP、路径、重复条目与 ELF 架构约束。FJGA7 的公开核验摘要见 [本版验证记录](validation/fjga7-2026.10.18.1.json)。
+
 ## 已核验范围
 
 - 桌面 1440px、手机 390px 的页面显示与横向溢出。
@@ -71,3 +75,16 @@ PR #1 回归可运行 `node tools/test_countup.cjs` 及 `node tools/verify_ui_me
 
 
 UI 2026.10.16.1 / FJG4O 增加字体选择、状态文字居中和单层焦点；新后端经过独立端口兼容性检查后部署，DNS 查询及配置保留验证见 [本版验证记录](validation/ui-2026.10.16.1.json)。
+
+
+## UI 2026.10.18.2
+
+- `workspace.js` / `workspace.css` 提供已确认的信息组织、筛选偏好、订阅草稿、分组与拓扑锁定；API 写入继续由 `app.js` 的原有处理器执行。
+- `query-path.js` 只组织请求自身字段，未知的阶段与应答元数据不补造。运行 `node tools/test_query_path.cjs` 核验缓存证据、0 ms、NXDOMAIN、缺失 RR 元数据及转义。
+- 常用筛选按 API 地址区分保存在当前浏览器，订阅草稿按 API 地址和订阅标识保存在当前会话。
+
+本版已完成部署后文件哈希核对、真实请求路径查看和定向检查，范围及数据边界见 [UI 2026.10.18.2 验证记录](validation/fjga7-2026.10.18.2.json)。
+
+## UI 2026.10.18.3
+
+修复首页排行缺少 `order` 而排在首位的问题。服务概览、快捷控制、趋势与分流占比、拓扑、排行、缓存与慢查询依次显示；同一顺序适用于两种皮肤。发布包和定向验证见 [本版验证记录](validation/fjga7-2026.10.18.3.json)。

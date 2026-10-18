@@ -1,0 +1,53 @@
+{
+  "releaseTag": "fjga7-ui-v2026.10.18.2",
+  "backendVersion": "FJGA7",
+  "uiVersion": "2026.10.18.2",
+  "date": "2026-10-18",
+  "timezone": "Asia/Shanghai",
+  "deployment": {
+    "status": "deployed",
+    "source": "verified-working-tree",
+    "versionEndpointMatched": true,
+    "metricsReportedFJGA7": true,
+    "sourceAndDeployedFilesMatchedBySha256": 46,
+    "siteConfigPreserved": true,
+    "configurationRulesAndKernelUnchangedDuringUiDeployment": true,
+    "dnsProcessIdentityUnchangedDuringUiDeployment": true,
+    "deploymentDnsTcp53Passed": true,
+    "deploymentDnsUdp53Passed": true,
+    "deploymentApiChecksPassed": 3,
+    "backupArchiveVerified": true
+  },
+  "browserVerification": {
+    "browser": "Codex in-app browser",
+    "target": "deployed site",
+    "observedPages": ["management", "overview", "logs"],
+    "verified": [
+      "Feature switches retain the restored title, description and footer arrangement",
+      "Overview displays domain, client and final-route rankings, topology controls, cache pools and slow queries",
+      "Logs expose saved filters, column preferences, pause and export controls",
+      "A real query opens a matching request-path summary and original-log disclosure",
+      "A recorded total duration of zero remains 0 ms; missing stage duration, trace ID and RR metadata remain unknown"
+    ],
+    "scope": "Focused visual and interaction smoke check at the existing browser size; no new full viewport or cross-browser regression claimed"
+  },
+  "targetedChecks": {
+    "queryPathAssertionsPassed": 10,
+    "queryPathScope": ["cache evidence", "zero duration", "missing RR metadata", "negative replies", "HTML escaping"],
+    "newUiModuleDesignDetectorFindings": 0
+  },
+  "package": {
+    "name": "LocalDNS_UI_2026.10.18.2_Update.zip",
+    "bytes": 1391874,
+    "sha256": "6c5e9ca7e65b2620b83e8dcbf5e5f9bd304b49519ee33cd6835fed881fb0e28d",
+    "zipCrcPassed": true,
+    "uiVersionMatched": true,
+    "type": "ui-update"
+  },
+  "limitations": [
+    "FJGA7 does not expose a complete per-request execution trace; this UI organizes fields actually recorded for that request",
+    "Ranking latency is unknown when omitted by the backend; the retention scope is not presented as an hourly window",
+    "This UI release does not execute another kernel upgrade; kernel and navigation regression evidence remains in fjga7-2026.10.18.1.json",
+    "Device credentials, private deployment records and screenshots are excluded from this public validation record"
+  ]
+}

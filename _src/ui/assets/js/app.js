@@ -238,7 +238,7 @@
     const lastErrorNames=['localdns_upstream_upstream_last_error_unixtime_seconds'];
     let lastError=0; for(const name of lastErrorNames){lastError=metricFind(metrics,name,labels);if(lastError)break;}
     const ok=metricFind(metrics,'localdns_upstream_success_total',labels);
-    return {q,err,win,latency:count?sum/count:0,success:(ok+err)?ok/(ok+err)*100:100,adoption:q?win/q*100:0,reasons,lastError,reasonSupported:reasonRows.length>0};
+    return {q,err,win,latencySamples:count,latency:count?sum/count:0,success:(ok+err)?ok/(ok+err)*100:null,adoption:q?win/q*100:0,reasons,lastError,reasonSupported:reasonRows.length>0};
   }
   function upstreamErrorTime(ts){
     if(!ts)return'';
@@ -499,6 +499,7 @@
     window.addEventListener('resize',()=>requestAnimationFrame(syncAllSegThumbs));
     window.addEventListener('hashchange',()=>navigate((location.hash.replace(/^#\/?/,'')||'overview'),false));
     window.addEventListener('resize',()=>{if(state.route==='rules')requestAnimationFrame(fitRuleLayoutHeight)});
+    window.addEventListener('localdns:layoutchange',()=>{if(state.route==='rules')requestAnimationFrame(fitRuleLayoutHeight)});
     window.addEventListener('unhandledrejection',e=>{const msg=e?.reason?.message||String(e?.reason||'未知错误');toast('操作失败','error',msg);e.preventDefault()});
   }
   function navigate(id,write=true){ if(id==='data'||id==='features')id='management';if(!routeDefs.some(x=>x.id===id))id='overview';state.route=id;if(write&&location.hash!==`#/${id}`)history.pushState(null,'',`#/${id}`);renderRoute(); }
@@ -568,6 +569,7 @@
       await fn(force);
       if(seq!==state.renderSeq)return;
       window.LocalDNSInterface?.apply();
+      window.LocalDNSWorkspace.finish(page);
       if(!silent){playViewEnter();animateCountUps(page)}
       syncAllSegThumbs();
       state.silent=false;
@@ -586,7 +588,7 @@
     state.silent=false;
     if(silent)setTimeout(()=>{if(seq===state.renderSeq)page.style.minHeight=''},1500);
     if(!silent)restoreScroll();
-    if(['logs','overview'].includes(state.route)){state.refreshTimer=setInterval(()=>{if(document.visibilityState==='visible'&&!busyViewing())renderRoute(true,true)},CONFIG.refreshInterval*1000)}
+    if(['logs','overview'].includes(state.route)){state.refreshTimer=setInterval(()=>{if(document.visibilityState==='visible'&&!busyViewing()&&!(state.route==='logs'&&state.logsPaused))renderRoute(true,true)},CONFIG.refreshInterval*1000)}
   }
   // 正在输入、弹窗或抽屉打开时不自动刷新
   function busyViewing(){
@@ -798,6 +800,7 @@
 
     const nodes = wrap.querySelectorAll('.t-node');
     const applyTraceState = (startId = null) => {
+      startId = state.overviewTopoLock || startId;
       const activeNodes = new Set(startId ? [startId] : []);
       const activeEdges = new Set();
       // Walk each direction independently so a selected branch doesn't light up its siblings.
@@ -1401,41 +1404,10 @@
         </div>
       </div>
 
-      <!-- 第五层：4列客户端与域名排行 + 4列多级缓存池状态 + 4列最慢查询 = 12列 -->
-      <div class="col-4">
-        <div class="glass-card">
-          <div class="gc-head">
-            <div>
-              <div class="gc-title">请求排行</div>
-              <p class="gc-sub">共 ${num((rankTab === 'client' ? clients : domains).length)} 条 · 展示前 ${rankItems.length} · 占总请求 ${totalQ > 0 ? (rankItems.reduce((s, x) => s + (+x.count || 0), 0) / totalQ * 100).toFixed(1) : '0.0'}%</p>
-            </div>
-            <div style="display:flex;gap:6px;align-items:center">
-              <div class="seg-group" role="group" aria-label="请求排行维度">
-                <button type="button" class="seg-item ${rankTab==='client'?'active':''}" data-rank-tab="client">客户端</button>
-                <button type="button" class="seg-item ${rankTab==='domain'?'active':''}" data-rank-tab="domain">域名</button>
-              </div>
-              <button type="button" class="glass-btn" id="domain-detail-button">详情</button>
-            </div>
-          </div>
-          <div class="rank-col-hint"><span>${rankTab === 'client' ? '客户端' : '域名'}</span><span>请求数 · 占总请求</span></div>
-          <div class="uniform-4rows">
-            ${rankItems.length ? rankItems.map(x => {
-              const label = rankTab === 'client' ? (state.aliases[x.key] ? `${x.key} (${state.aliases[x.key]})` : x.key) : x.key;
-              const w = Math.max(4, Math.min(100, (+x.count || 0) / rankMax * 100));
-              const pctShare = ((+x.count || 0) / totalQ * 100).toFixed(1);
-              return `<div class="u-row-bar">
-                <div class="urb-head">
-                  <span style="color:var(--text-1);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:210px" title="${esc(label)}">${esc(label)}</span>
-                  <span style="color:var(--text-2)">${num(x.count)} · ${pctShare}%</span>
-                </div>
-                <div class="urb-track"><div class="urb-fill" style="width:${w.toFixed(1)}%"></div></div>
-              </div>`;
-            }).join('') : `<div style="color:var(--text-3);font-size:12px;padding:12px 0">暂无排行记录</div>`}
-          </div>
-        </div>
+      <div class="col-12 workspace-rankings">
+        ${window.LocalDNSWorkspace.rankings({domains:domains||[],clients:clients||[],sets:sets||[],total:stats.total_queries,aliases:state.aliases})}
       </div>
-
-      <div class="col-4">
+      <div class="col-4 workspace-lower">
         <div class="glass-card">
           <div class="gc-head">
             <div class="gc-title">多级缓存池状态</div>
@@ -1461,7 +1433,7 @@
         </div>
       </div>
 
-      <div class="col-4">
+      <div class="col-4 workspace-lower">
         <div class="glass-card">
           <div class="gc-head">
             <div class="gc-title">最慢查询与耗时监控</div>
@@ -1491,7 +1463,11 @@
     requestAnimationFrame(() => requestAnimationFrame(redraw));
     const onResize = () => requestAnimationFrame(redraw);
     window.addEventListener('resize', onResize, { passive: true });
-    trackRouteCleanup(() => window.removeEventListener('resize', onResize));
+    window.addEventListener('localdns:layoutchange', onResize);
+    trackRouteCleanup(() => {
+      window.removeEventListener('resize', onResize);
+      window.removeEventListener('localdns:layoutchange', onResize);
+    });
 
     // 绑定拓扑节点点击事件
     $$('[data-client-ip]', page).forEach(el => {
@@ -1574,6 +1550,7 @@
       };
     }
 
+    window.LocalDNSWorkspace.bindRanks(page,{domains:domains||[],clients:clients||[],sets:sets||[],aliases:state.aliases});
     // 绑定排行维度切换与详情弹窗
     $$('[data-rank-tab]', page).forEach(btn => {
       btn.onclick = () => {
@@ -1591,51 +1568,45 @@
       };
     }
     if ($('#slow-detail-button')) $('#slow-detail-button').onclick = () => openSlowDetailModal(slowGroups);
+    window.LocalDNSWorkspace.topology(page,redraw,sets);
   }
 
   function logBadge(set){const s=String(set||'未分类');let cls='primary';if(/黑|BAN|BLOCK|拒绝/i.test(s))cls='danger';else if(/白|直连|国内|REAL/i.test(s))cls='success';else if(/灰|代理|订阅/i.test(s))cls='pink';else if(/FAKE/i.test(s))cls='cyan';return `<span class="badge ${cls}">${esc(s)}</span>`;}
   function logRow(x){const ans=(x.answers||[]).map(a=>a.data||a.value).filter(Boolean).join(', ')||x.response_code||'—';return `<tr data-log='${esc(JSON.stringify(x))}'><td>${fmtDate(x.query_time)}</td><td class="td-domain" data-qtype="${esc(String(x.query_type||'').toUpperCase())}" data-qtype-short="${({AAAA:'6',A:'A',CNAME:'C',PTR:'P',HTTPS:'H',TXT:'T',MX:'M',NS:'N',SRV:'S'})[String(x.query_type||'').toUpperCase()]||(String(x.query_type||'')[0]||'?')}" data-blocked="${/黑|BAN|BLOCK|拒绝|拦截/i.test(String(x.domain_set||''))?1:0}"><strong class="copyable" role="button" tabindex="0" data-copy="${esc(x.query_name)}" title="点击复制域名">${esc(x.query_name)}</strong><div style="color:var(--muted);font-size:11px;max-width:360px;overflow:hidden;text-overflow:ellipsis">${esc(ans)}</div></td><td>${esc(x.query_type)}</td><td>${logBadge(x.domain_set)}</td><td>${ms(x.duration_ms)}</td><td><span class="copyable value-chip" role="button" tabindex="0" data-copy="${esc(x.client_ip)}" title="点击复制客户端 IP">${esc(state.aliases[x.client_ip]||x.client_ip)}</span></td><td><span class="badge ${x.response_code==='NOERROR'?'success':'danger'}">${esc(x.response_code)}</span></td><td><button class="icon-button row-action log-detail" type="button" aria-label="查看查询详情" title="查看详情"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M2 12s3.6-6 10-6 10 6 10 6-3.6 6-10 6-10-6-10-6Z"/><circle cx="12" cy="12" r="2.6"/></svg></button></td></tr>`;}
   async function renderLogs(){
-    const p=state.logs; const data=await api.logs({page:p.page,limit:p.limit,q:p.q,exact:p.exact,query_type:p.type,domain_set:p.set,response_code:p.code,client_contains:p.client}); const rows=data.logs||[];
-    const filterData=data.filters||{};
-    const withSelected=(items,selected)=>{const out=[...new Set((items||[]).filter(Boolean))];if(selected&&!out.includes(selected))out.push(selected);return out.sort()};
-    const types=withSelected(filterData.query_types,p.type),sets=withSelected(filterData.domain_sets,p.set),codes=withSelected(filterData.response_codes,p.code);
-    page.innerHTML=`
-    <div class="view-title-row">
-      <div style="display:flex;align-items:baseline;gap:12px"><h1>查询日志</h1><span class="gc-sub">共 ${num(data.pagination?.total_items||0)} 条 DNS 查询记录</span></div>
-      <div style="display:flex;gap:8px"><button type="button" class="glass-btn" id="audit-control">审计控制</button><button type="button" class="glass-btn" id="alias-control">客户端别名</button></div>
-    </div>
-    ${card('查询与过滤日志',`<div class="log-filter-bar"><div class="lf-search"><span class="search-icon">${icon('search')}</span><input id="log-q" value="${esc(p.q)}" placeholder="域名、IP、响应值" aria-label="全局搜索"></div><select id="log-type" aria-label="请求类型"><option value="">全部类型</option>${types.map(x=>`<option ${p.type===x?'selected':''}>${esc(x)}</option>`).join('')}</select><select id="log-set" aria-label="分流结果"><option value="">全部分流</option>${sets.map(x=>`<option ${p.set===x?'selected':''}>${esc(x)}</option>`).join('')}</select><button type="button" class="lf-more" id="lf-more" aria-expanded="false" aria-controls="log-filter-more">更多筛选</button><span class="lf-count">匹配 ${num(data.pagination?.total_items||0)} 条</span><button type="button" class="lf-reset" id="lf-reset">重置</button><button class="button primary log-filter-submit" id="log-search">${icon('search')}查询</button></div><div class="log-filter-more" id="log-filter-more"${(p.code||p.client||p.exact)?'':' hidden'}><div class="field"><label>状态</label><select id="log-code"><option value="">全部</option>${codes.map(x=>`<option ${p.code===x?'selected':''}>${esc(x)}</option>`).join('')}</select></div><div class="field"><label>客户端</label><input id="log-client" value="${esc(p.client)}" placeholder="IP 或别名"></div><div class="log-filter-exact"><label class="switch"><input id="log-exact" type="checkbox" ${p.exact?'checked':''}><span class="switch-track"><span class="switch-thumb"></span></span><span class="switch-label">精确匹配</span></label></div></div>`, {iconName:'logs'})}
-    ${card('实时 DNS 请求记录',`<div class="table-wrap"><table><thead><tr><th>时间</th><th>域名 / 响应</th><th>类型</th><th>分流</th><th>耗时</th><th>客户端</th><th>状态</th><th>操作</th></tr></thead><tbody>${rows.length?rows.map(logRow).join(''):`<tr><td colspan="8" class="table-empty">没有符合条件的日志</td></tr>`}</tbody></table></div>${paginationHtml(data.pagination)}`,{iconName:'logs',subtitle:`第 ${num(data.pagination?.current_page||1)} / ${num(data.pagination?.total_pages||1)} 页`})}`;
-    $('#log-search').onclick=()=>{Object.assign(state.logs,{page:1,q:$('#log-q').value.trim(),exact:$('#log-exact').checked,type:$('#log-type').value,set:$('#log-set').value,code:$('#log-code').value,client:$('#log-client').value.trim()});renderRoute(true)};
-    $('#log-q').onkeydown=e=>{if(e.key==='Enter')$('#log-search').click()};
-    $('#lf-more').onclick=()=>{const box=$('#log-filter-more');const willOpen=box.hasAttribute('hidden');box.toggleAttribute('hidden',!willOpen);$('#lf-more').setAttribute('aria-expanded',String(willOpen));$('#lf-more').classList.toggle('is-open',willOpen)};
-    if(!$('#log-filter-more').hasAttribute('hidden'))$('#lf-more').classList.add('is-open');
-    $('#lf-reset').onclick=()=>{Object.assign(state.logs,{page:1,q:'',exact:false,type:'',set:'',code:'',client:''});renderRoute(true)};
-    $$('.log-detail').forEach(b=>b.onclick=()=>{const x=JSON.parse(b.closest('tr').dataset.log);openDrawer('查询详情',x.query_name,logDetailHtml(x))});
-    $$('.pagination button[data-page]').forEach(b=>b.onclick=()=>{state.logs.page=+b.dataset.page;renderRoute(true)});
-    $('#audit-control').onclick=openAuditModal; $('#alias-control').onclick=openAliasModal;
+    const p=state.logs;
+    const data=await api.logs({page:p.page,limit:p.limit,q:p.q,exact:p.exact,query_type:p.type,domain_set:p.set,response_code:p.code,client_contains:p.client});
+    const rows=data.logs||[],filters=data.filters||{};
+    const choices=(items,selected)=>[...new Set([...(items||[]),selected].filter(Boolean))].sort();
+    const options=(items,value,label)=>`<option value="">${label}</option>${choices(items,value).map(v=>`<option value="${esc(v)}" ${v===value?'selected':''}>${esc(v)}</option>`).join('')}`;
+    page.innerHTML=`<div class="view-title-row"><div><h1>查询日志</h1></div><div class="workspace-actions"><button type="button" class="glass-btn" id="log-pause" aria-pressed="${!!state.logsPaused}">${state.logsPaused?'继续刷新':'暂停刷新'}</button><button type="button" class="glass-btn" id="audit-control">审计控制</button><button type="button" class="glass-btn" id="alias-control">客户端别名</button></div></div>
+    ${card('查询与过滤',`<div class="log-filter-bar"><div class="lf-search"><span class="search-icon">${icon('search')}</span><input id="log-q" value="${esc(p.q)}" placeholder="域名、IP、响应值" aria-label="搜索查询"></div><select id="log-type" aria-label="请求类型">${options(filters.query_types,p.type,'全部类型')}</select><select id="log-set" aria-label="分流结果">${options(filters.domain_sets,p.set,'全部分流')}</select><button type="button" class="lf-more" id="lf-more" aria-expanded="${!!(p.code||p.client||p.exact)}" aria-controls="log-filter-more">更多筛选</button><button type="button" class="lf-reset" id="lf-reset">重置</button><button type="button" class="button primary" id="log-search">查询</button></div><div class="log-filter-more" id="log-filter-more" ${p.code||p.client||p.exact?'':'hidden'}><div class="field"><label for="log-code">响应码</label><select id="log-code">${options(filters.response_codes,p.code,'全部响应码')}</select></div><div class="field"><label for="log-client">客户端</label><input id="log-client" value="${esc(p.client)}" placeholder="客户端 IP"></div><label class="switch"><input id="log-exact" type="checkbox" ${p.exact?'checked':''}><span class="switch-track"><span class="switch-thumb"></span></span><span class="switch-label">精确匹配</span></label></div>${window.LocalDNSWorkspace.logTools(p)}`,{iconName:'logs'})}
+    ${card('DNS 请求记录',`<div class="table-wrap"><table class="workspace-log-table"><thead><tr><th>时间</th><th>域名 / 响应</th><th>类型</th><th>分流</th><th>耗时</th><th>客户端</th><th>状态</th><th>操作</th></tr></thead><tbody>${rows.length?rows.map(logRow).join(''):'<tr><td colspan="8" class="table-empty">没有符合条件的记录</td></tr>'}</tbody></table></div>${paginationHtml(data.pagination)}`,{iconName:'logs',subtitle:`共 ${num(data.pagination?.total_items||0)} 条 · 第 ${num(data.pagination?.current_page||1)} / ${num(data.pagination?.total_pages||1)} 页`})}`;
+    $('#log-search').onclick=()=>{Object.assign(p,{page:1,q:$('#log-q').value.trim(),type:$('#log-type').value,set:$('#log-set').value,code:$('#log-code').value,client:$('#log-client').value.trim(),exact:$('#log-exact').checked});renderRoute(true);};
+    $('#log-q').onkeydown=e=>{if(e.key==='Enter')$('#log-search').click();};
+    $('#lf-more').onclick=()=>{const box=$('#log-filter-more');box.hidden=!box.hidden;$('#lf-more').setAttribute('aria-expanded',String(!box.hidden));};
+    $('#lf-reset').onclick=()=>{Object.assign(p,{page:1,q:'',type:'',set:'',code:'',client:'',exact:false});renderRoute(true);};
+    $$('.log-detail',page).forEach(b=>b.onclick=()=>openLogPath(JSON.parse(b.closest('tr').dataset.log)));
+    $$('.pagination button[data-page]',page).forEach(b=>b.onclick=()=>{p.page=+b.dataset.page;renderRoute(true);});
+    $('#audit-control').onclick=openAuditModal;$('#alias-control').onclick=openAliasModal;
+    window.LocalDNSWorkspace.bindLogs(page,rows);
   }
+  function openLogPath(record){openDrawer('解析路径',record.query_name,logDetailHtml(record));window.LocalDNSQueryPath.bind($('#drawer-content'),record,state.aliases);}
   function paginationHtml(p){if(!p||p.total_pages<=1)return'';const cur=p.current_page,total=p.total_pages;let arr=[];for(let i=Math.max(1,cur-2);i<=Math.min(total,cur+2);i++)arr.push(i);return `<div class="pagination"><button data-page="${cur-1}" ${cur<=1?'disabled':''}>‹</button>${arr.map(i=>`<button data-page="${i}" class="${i===cur?'active':''}">${i}</button>`).join('')}<button data-page="${cur+1}" ${cur>=total?'disabled':''}>›</button></div>`;}
-  function logDetailHtml(x){const answers=(x.answers||[]).length?`<pre>${esc(JSON.stringify(x.answers,null,2))}</pre>`:'暂无响应记录';return `<div class="kv-list"><div class="kv-row"><span class="kv-key">查询时间</span><span class="kv-value">${fmtDate(x.query_time)}</span></div><div class="kv-row"><span class="kv-key">客户端</span><span class="kv-value">${esc(state.aliases[x.client_ip]||x.client_ip)}</span></div><div class="kv-row"><span class="kv-key">类型 / 类别</span><span class="kv-value">${esc(x.query_type)} / ${esc(x.query_class)}</span></div><div class="kv-row"><span class="kv-key">分流结果</span><span class="kv-value">${logBadge(x.domain_set)}</span></div><div class="kv-row"><span class="kv-key">响应码</span><span class="kv-value">${esc(x.response_code)}</span></div><div class="kv-row"><span class="kv-key">耗时</span><span class="kv-value">${ms(x.duration_ms)}</span></div><div class="kv-row"><span class="kv-key">Trace ID</span><span class="kv-value">${esc(x.trace_id||'—')}</span></div></div><h3>响应内容</h3>${answers}`;}
+  function logDetailHtml(record){return window.LocalDNSQueryPath.html(record,state.aliases);}
 
   async function renderUpstreams(){
-    const [cfg,tags,metricsRaw,ecsInfo]=await Promise.all([api.request('/api/v1/upstream/config'),api.request('/api/v1/upstream/tags'),api.metrics(),api.request('/api/v1/upstream/ecs')]);state.upstreamConfig=cfg;state.upstreamEcs=(ecsInfo&&ecsInfo.ecs)||'';const metrics=parseProm(metricsRaw);
-    const groups=(tags||Object.keys(cfg||{})); const rows=[];groups.forEach(g=>(cfg[g]||[]).forEach((u,i)=>rows.push({g,u,i,m:upstreamMetrics(metrics,g,u.tag)})));
-    // Enabled entries stay at the top; disabled entries are grouped at the bottom.
-    // Array#sort is stable in modern browsers, so the original order is preserved inside each group.
+    const [cfg,tags,metricsRaw,ecsInfo]=await Promise.all([api.request('/api/v1/upstream/config'),api.request('/api/v1/upstream/tags'),api.metrics(),api.request('/api/v1/upstream/ecs')]);
+    state.upstreamConfig=cfg;state.upstreamEcs=ecsInfo?.ecs||'';
+    const metrics=parseProm(metricsRaw),groups=Array.isArray(tags)?tags:Object.keys(cfg||{}),rows=[];
+    groups.forEach(g=>(cfg[g]||[]).forEach((u,i)=>rows.push({g,u,i,m:upstreamMetrics(metrics,g,u.tag)})));
     rows.sort((a,b)=>Number(b.u.enabled!==false)-Number(a.u.enabled!==false));
-    page.innerHTML=`
-    <div class="view-title-row">
-      <div style="display:flex;align-items:baseline;gap:12px"><h1>DNS 管理</h1><span class="gc-sub">查看上游健康度、响应耗时与错误详情</span></div>
-      <button type="button" class="glass-btn primary" id="up-add">＋ 添加上游节点</button>
-    </div>
-    ${card('上游 DNS 节点与并发采纳统计',`<div class="table-wrap upstream-table-wrap mobile-card-table"><table class="upstream-rules-table upstream-card-table"><colgroup><col class="col-enabled"><col class="col-group"><col class="col-name"><col class="col-protocol"><col class="col-address"><col class="col-latency"><col class="col-query"><col class="col-win"><col class="col-error"><col class="col-success"><col class="col-actions"></colgroup><thead><tr><th>启用</th><th>所属组</th><th>名称</th><th>协议</th><th>地址</th><th>平均响应</th><th>请求数</th><th>采纳数</th><th>错误数</th><th>成功率</th><th>操作</th></tr></thead><tbody>${rows.length?rows.map(({g,u,i,m})=>`<tr data-group="${esc(g)}" data-index="${i}"><td class="up-enabled-cell mobile-toggle-cell"><label class="switch"><input class="up-toggle" type="checkbox" ${u.enabled!==false?'checked':''}><span class="switch-track"><span class="switch-thumb"></span></span></label></td><td class="up-group-cell mobile-group-cell" data-label="所属组">${esc(groupName(g))}</td><td class="up-name-cell mobile-name-cell" title="${esc(u.tag)}"><strong>${esc(u.tag)}</strong></td><td class="up-protocol-cell mobile-protocol-cell" data-label="协议"><span class="badge primary">${esc(u.protocol)}</span></td><td class="up-address-cell mobile-address-cell" data-label="地址" title="${esc(u.addr||u.server_addr||'')}"><span class="table-ellipsis mobile-ellipsis">${esc(u.addr||u.server_addr||'—')}</span></td><td class="up-latency-cell mobile-latency-cell" data-label="平均响应">${ms(m.latency)}</td><td class="up-query-cell mobile-query-cell" data-label="请求数">${num(m.q)}</td><td class="up-win-cell mobile-win-cell" data-label="采纳数">${num(m.win)}</td><td class="up-error-cell mobile-error-cell" data-label="错误数">${m.err?`<button type="button" class="up-error-detail-trigger" data-group="${esc(g)}" data-index="${i}" aria-label="查看 ${esc(u.tag)} 的 ${num(m.err)} 个错误详情">${num(m.err)}</button>`:`<span class="up-error-zero">${num(m.err)}</span>`}</td><td class="up-success-cell mobile-success-cell" data-label="成功率">${pct(m.success)}</td><td class="up-actions-cell mobile-actions-cell"><div class="table-row-actions card-actions"><button class="button small up-edit">${icon('edit')}编辑</button><button class="button small danger up-delete">${icon('trash')}删除</button></div></td></tr>`).join(''):`<tr><td colspan="11" class="table-empty">暂无上游 DNS</td></tr>`}</tbody></table></div>`,{iconName:'upstream'})}`;
-    $$('.up-toggle').forEach(x=>x.onchange=()=>toggleUpstream(x.closest('tr'),x.checked));
-    $$('.up-edit').forEach(x=>x.onclick=()=>openUpstreamModal(x.closest('tr')));
-    $$('.up-delete').forEach(x=>x.onclick=()=>deleteUpstream(x.closest('tr')));
-    $$('.up-error-detail-trigger').forEach(x=>x.onclick=e=>{e.stopPropagation();const row=rows.find(r=>r.g===x.dataset.group&&String(r.i)===x.dataset.index);if(row)openUpstreamErrorPopover(x,row)});
-    const upWrap=$('.upstream-table-wrap'); if(upWrap)upWrap.addEventListener('scroll',closeUpstreamErrorPopover,{passive:true});
+    page.innerHTML=`<div class="view-title-row"><div><h1>DNS 管理</h1></div><button type="button" class="glass-btn primary" id="up-add">添加上游节点</button></div><div class="col-12">${window.LocalDNSWorkspace.upstreams(rows,groups)}</div>`;
+    $$('.up-toggle',page).forEach(x=>x.onchange=()=>toggleUpstream(x.closest('tr'),x.checked));
+    $$('.up-edit',page).forEach(x=>x.onclick=()=>openUpstreamModal(x.closest('tr')));
+    $$('.up-delete',page).forEach(x=>x.onclick=()=>deleteUpstream(x.closest('tr')));
+    $$('.up-error-detail-trigger',page).forEach(x=>x.onclick=e=>{e.stopPropagation();const row=rows.find(r=>r.g===x.dataset.group&&String(r.i)===x.dataset.index);if(row)openUpstreamErrorPopover(x,row);});
+    $$('.workspace-upstream-group .table-wrap',page).forEach(w=>w.addEventListener('scroll',closeUpstreamErrorPopover,{passive:true}));
     $('#up-add').onclick=()=>openUpstreamModal();
   }
   async function saveUpstreamCandidate(group,candidate,ecs){const body={plugin_tag:group,upstreams:candidate||[]};if(group==='foreign_ecs'&&typeof ecs==='string')body.ecs=ecs;return api.json('/api/v1/upstream/config','POST',body);}
@@ -1839,12 +1810,14 @@
       auto_update:Boolean(i.auto_update),update_interval_hours:+i.update_interval_hours||24
     })));
     rows.sort((a,b)=>Number(b.enabled)-Number(a.enabled));
-    body.innerHTML=card('在线分流规则',`${errors.length?`<div class="error-panel">规则源读取失败：${errors.map(x=>`${esc(x.def.label)}：${esc(x.error?.message||'未知错误')}`).join('；')}</div>`:''}<div class="table-wrap diversion-table-wrap"><table class="diversion-rules-table"><colgroup><col class="col-enabled"><col class="col-type"><col class="col-name"><col><col class="col-url"><col class="col-count"><col class="col-auto"><col class="col-updated"><col class="col-actions"></colgroup><thead><tr><th>启用</th><th>类型</th><th>名称</th><th>格式</th><th>订阅地址</th><th>规则数</th><th>自动更新</th><th>上次更新</th><th>操作</th></tr></thead><tbody>${rows.length?rows.map(r=>{const source=r.url||r.files||r.path||'—';return `<tr data-tag="${esc(r.tag)}" data-name="${esc(r.name)}"><td class="rule-enabled-cell"><label class="switch"><input class="div-enable" type="checkbox" ${r.enabled?'checked':''}><span class="switch-track"><span class="switch-thumb"></span></span></label></td><td class="rule-type-cell">${esc(r.group)}</td><td class="rule-name-cell">${esc(r.name)}</td><td>${esc(diversionFormatLabel(r))}</td><td class="rule-url-cell" title="${esc(source)}"><span class="rule-url-text">${esc(source)}</span></td><td class="rule-count-cell">${num(r.rule_count||r.count||0)}</td><td class="rule-auto-cell">${r.auto_update?'是':'否'}</td><td class="rule-date-cell">${fmtDate(r.last_updated||r.updated_at)}</td><td class="rule-actions-cell"><div class="rule-row-actions"><button class="button small div-update">更新</button><button class="button small div-edit">编辑</button><button class="button small danger div-delete">删除</button></div></td></tr>`}).join(''):`<tr><td colspan="9" class="table-empty">暂无在线规则或插件未启用</td></tr>`}</tbody></table></div>`,{iconName:'rules',actions:'<button class="button" id="div-update-all">更新全部</button><button class="button primary" id="div-add">'+icon('plus')+'添加规则</button>'});
+    body.innerHTML=card('在线分流规则',window.LocalDNSWorkspace.diversion(rows,errors,diversionFormatLabel),{iconName:'rules',actions:'<button class="button" id="div-update-all">更新全部</button><button class="button primary" id="div-add">'+icon('plus')+'添加规则</button>'});
+    window.LocalDNSWorkspace.bindDiversion(body);
+    $$('.div-detail',body).forEach(button=>button.onclick=()=>{const el=button.closest('[data-tag][data-name]'),r=rows.find(r=>r.tag===el.dataset.tag&&String(r.name)===el.dataset.name);if(r)window.LocalDNSWorkspace.ruleDetails(r,()=>openDiversionModal(r,body),diversionFormatLabel);});
     const findRow=tr=>rows.find(r=>r.tag===tr.dataset.tag&&String(r.name)===tr.dataset.name);
-    $$('.div-enable').forEach(x=>x.onchange=async()=>{const tr=x.closest('tr'),rule=findRow(tr);if(!rule)return;x.disabled=true;try{const next={...rule,enabled:x.checked};await saveDiversionRule(next,rule);rule.enabled=x.checked;toast(`规则“${rule.name}”已${x.checked?'启用':'关闭'}，配置已保存`);await renderDiversion(body)}catch(e){x.checked=!x.checked;toast('状态保存失败','error',e.message)}finally{x.disabled=false}});
-    $$('.div-update').forEach(x=>x.onclick=async()=>{const rule=findRow(x.closest('tr'));if(!rule)return;x.disabled=true;try{await updateDiversionRule(rule,body)}catch(e){toast('更新失败','error',e.message)}finally{x.disabled=false}});
-    $$('.div-edit').forEach(x=>x.onclick=()=>{const rule=findRow(x.closest('tr'));if(rule)openDiversionModal(rule,body)});
-    $$('.div-delete').forEach(x=>x.onclick=async()=>{if(!confirm('确定删除此在线规则？配置文件中的对应项目也会被删除。'))return;const tr=x.closest('tr');x.disabled=true;try{await api.request(`/plugins/${tr.dataset.tag}/config/${encodeURIComponent(tr.dataset.name)}`,{method:'DELETE'});toast('规则及对应配置已删除');await renderDiversion(body)}catch(e){toast('删除失败','error',e.message)}finally{x.disabled=false}});
+    $$('.div-enable').forEach(x=>x.onchange=async()=>{const tr=x.closest('[data-tag][data-name]'),rule=findRow(tr);if(!rule)return;x.disabled=true;try{const next={...rule,enabled:x.checked};await saveDiversionRule(next,rule);rule.enabled=x.checked;toast(`规则“${rule.name}”已${x.checked?'启用':'关闭'}，配置已保存`);await renderDiversion(body)}catch(e){x.checked=!x.checked;toast('状态保存失败','error',e.message)}finally{x.disabled=false}});
+    $$('.div-update').forEach(x=>x.onclick=async()=>{const rule=findRow(x.closest('[data-tag][data-name]'));if(!rule)return;x.disabled=true;try{await updateDiversionRule(rule,body)}catch(e){toast('更新失败','error',e.message)}finally{x.disabled=false}});
+    $$('.div-edit').forEach(x=>x.onclick=()=>{const rule=findRow(x.closest('[data-tag][data-name]'));if(rule)openDiversionModal(rule,body)});
+    $$('.div-delete').forEach(x=>x.onclick=async()=>{if(!confirm('确定删除此在线规则？配置文件中的对应项目也会被删除。'))return;const tr=x.closest('[data-tag][data-name]');x.disabled=true;try{await api.request(`/plugins/${tr.dataset.tag}/config/${encodeURIComponent(tr.dataset.name)}`,{method:'DELETE'});toast('规则及对应配置已删除');await renderDiversion(body)}catch(e){toast('删除失败','error',e.message)}finally{x.disabled=false}});
     $('#div-add').onclick=()=>openDiversionModal(null,body);
     $('#div-update-all').onclick=async()=>{
       const targets=rows.filter(r=>r.enabled&&r.url);
@@ -1890,7 +1863,8 @@
     const original=rule?{...rule}:null;
     rule=rule||{name:'',type:'custom_cn',url:'',files:'',enabled:true,dataset:'',auto_update:true,update_interval_hours:24};
     rule.dataset=String(rule.dataset||'');
-    modalOpen(original?'编辑在线分流规则':'添加在线分流规则','远程规则由后端按内容自动识别，并统一转换为 SRS；无需手工选择源格式或匹配方式。',`<div class="stack"><div class="grid grid-2"><div class="field"><label>名称</label><input id="div-name" value="${esc(rule.name)}" placeholder="例如：direct_tld_cn"></div><div class="field"><label>规则类型</label><select id="div-type">${diversionDefs.map(d=>`<option value="${d.type}" ${d.type===rule.type?'selected':''}>${esc(d.label)}</option>`).join('')}</select></div></div><div class="field"><label>订阅地址</label><input id="div-url" value="${esc(rule.url||'')}" placeholder="https://example.com/rules"></div><div class="field"><label>源缓存文件（可选）</label><input id="div-files" value="${esc(rule.files||'')}" placeholder="留空时自动生成"><p class="form-note">每个订阅源下载后统一转换为 SRS，存放在 rules/online/规则组/；同组来源合并去重后生成 rules/compiled/规则组.srs，运行时只加载这个文件。</p></div><div class="grid grid-2"><label class="switch"><input id="div-enabled" type="checkbox" ${rule.enabled!==false?'checked':''}><span class="switch-track"><span class="switch-thumb"></span></span><span class="switch-label">启用</span></label><label class="switch"><input id="div-auto" type="checkbox" ${rule.auto_update?'checked':''}><span class="switch-track"><span class="switch-thumb"></span></span><span class="switch-label">自动更新</span></label></div><div class="field"><label>更新间隔（小时）</label><input id="div-hours" type="number" min="1" value="${rule.update_interval_hours||24}"></div><p class="form-note">支持的来源按内容自动识别；只有多数据集 DAT 才会在更新时要求选择一次数据集。所有成功识别的来源最终统一转换为 SRS 后加载。</p></div>`,async()=>{const payload={name:$('#div-name').value.trim(),type:$('#div-type').value,url:$('#div-url').value.trim(),files:$('#div-files').value.trim(),dataset:rule.dataset,enabled:$('#div-enabled').checked,auto_update:$('#div-auto').checked,update_interval_hours:+$('#div-hours').value||24};const saved=await saveDiversionRule(payload,original);toast(`在线分流规则已${original?'更新':'添加'}，源缓存路径：${saved?.files||payload.files||'自动生成'}`);await renderDiversion(body);});
+    modalOpen(original?'编辑在线分流规则':'添加在线分流规则','远程规则由后端按内容自动识别，并统一转换为 SRS；无需手工选择源格式或匹配方式。',`<div class="stack"><div class="grid grid-2"><div class="field"><label>名称</label><input id="div-name" value="${esc(rule.name)}" placeholder="例如：direct_tld_cn"></div><div class="field"><label>规则类型</label><select id="div-type">${diversionDefs.map(d=>`<option value="${d.type}" ${d.type===rule.type?'selected':''}>${esc(d.label)}</option>`).join('')}</select></div></div><div class="field"><label>订阅地址</label><input id="div-url" value="${esc(rule.url||'')}" placeholder="https://example.com/rules"></div><div class="field"><label>源缓存文件（可选）</label><input id="div-files" value="${esc(rule.files||'')}" placeholder="留空时自动生成"><p class="form-note">每个订阅源下载后统一转换为 SRS，存放在 rules/online/规则组/；同组来源合并去重后生成 rules/compiled/规则组.srs，运行时只加载这个文件。</p></div><div class="grid grid-2"><label class="switch"><input id="div-enabled" type="checkbox" ${rule.enabled!==false?'checked':''}><span class="switch-track"><span class="switch-thumb"></span></span><span class="switch-label">启用</span></label><label class="switch"><input id="div-auto" type="checkbox" ${rule.auto_update?'checked':''}><span class="switch-track"><span class="switch-thumb"></span></span><span class="switch-label">自动更新</span></label></div><div class="field"><label>更新间隔（小时）</label><input id="div-hours" type="number" min="1" value="${rule.update_interval_hours||24}"></div><p class="form-note">支持的来源按内容自动识别；只有多数据集 DAT 才会在更新时要求选择一次数据集。所有成功识别的来源最终统一转换为 SRS 后加载。</p></div>`,async()=>{const payload={name:$('#div-name').value.trim(),type:$('#div-type').value,url:$('#div-url').value.trim(),files:$('#div-files').value.trim(),dataset:rule.dataset,enabled:$('#div-enabled').checked,auto_update:$('#div-auto').checked,update_interval_hours:+$('#div-hours').value||24};const saved=await saveDiversionRule(payload,original);window.LocalDNSWorkspace.clearRuleDraft(original);toast(`在线分流规则已${original?'更新':'添加'}，源缓存路径：${saved?.files||payload.files||'自动生成'}`);await renderDiversion(body);});
+    window.LocalDNSWorkspace.trackRuleDraft(original);
   }
 
   const cacheName=t=>({cache_main:'全部缓存',cache_domestic:'国内缓存',cache_foreign:'国外缓存',cache_foreign_ecs:'国外 ECS 缓存'})[t]||t;
@@ -2054,14 +2028,15 @@
   async function loadAliases(){try{state.aliases=await api.request('/plugins/client_name')||{}}catch{state.aliases={}}}
   async function openAliasModal(){await loadAliases();const clients=await api.rank('client',200);modalOpen('客户端别名','别名保存在 config/settings/client_names.json',`<div class="stack" id="alias-list">${clients.length?clients.map(x=>`<div class="grid grid-2"><div class="field"><label>客户端 IP</label><input value="${esc(x.key)}" disabled></div><div class="field"><label>别名</label><input data-alias-ip="${esc(x.key)}" value="${esc(state.aliases[x.key]||'')}"></div></div>`).join(''):empty('日志中暂无客户端')}</div>`,async()=>{const next={...state.aliases};$$('[data-alias-ip]').forEach(x=>{const v=x.value.trim();if(v)next[x.dataset.aliasIp]=v;else delete next[x.dataset.aliasIp]});await api.json('/plugins/client_name','PUT',next);state.aliases=next;toast('客户端别名已保存');renderRoute(true)});}
 
-  function openDrawer(title,subtitle,html){$('#drawer-title').textContent=title;$('#drawer-subtitle').textContent=subtitle;$('#drawer-content').innerHTML=html;$('#drawer').classList.add('open');$('#drawer').setAttribute('aria-hidden','false');$('#drawer-backdrop').classList.add('open');window.LocalDNSInterface?.drawerOpened()}
+  function openDrawer(title,subtitle,html){const wasOpen=$('#drawer').classList.contains('open');$('#drawer-title').textContent=title;$('#drawer-subtitle').textContent=subtitle;$('#drawer-content').innerHTML=html;$('#drawer').classList.add('open');$('#drawer').setAttribute('aria-hidden','false');$('#drawer-backdrop').classList.add('open');if(!wasOpen)window.LocalDNSInterface?.drawerOpened()}
   function closeDrawer(){$('#drawer').classList.remove('open');$('#drawer').setAttribute('aria-hidden','true');$('#drawer-backdrop').classList.remove('open');window.LocalDNSInterface?.drawerClosed()}
-  function modalOpen(title,subtitle,html,onSave,showActions=true){$('#modal-title').textContent=title;$('#modal-subtitle').textContent=subtitle||'';$('#modal-content').innerHTML=html;$('#modal-actions').innerHTML=showActions?`<button class="button" id="modal-cancel" type="button" value="cancel">取消</button><button class="button primary" id="modal-save" type="button">保存</button>`:'';const d=$('#modal');window.LocalDNSInterface?.semantics(d);d.showModal();const cancel=$('#modal-cancel');if(cancel)cancel.onclick=modalClose;if(onSave&&showActions)$('#modal-save').onclick=async()=>{if(!$('#modal-form').reportValidity())return;const b=$('#modal-save');b.disabled=true;$('#modal-error')?.remove();try{await onSave();modalClose()}catch(e){window.LocalDNSInterface?.formError(e.message);toast('操作失败','error',e.message)}finally{b.disabled=false}};}
-  function modalClose(){closeSlowTypePopover();const d=$('#modal');d.classList.remove('overview-detail-modal');if(d.open)d.close()}
+  function modalOpen(title,subtitle,html,onSave,showActions=true){window.LocalDNSWorkspace.modalChanging();$('#modal-title').textContent=title;$('#modal-subtitle').textContent=subtitle||'';$('#modal-content').innerHTML=html;$('#modal-actions').innerHTML=showActions?`<button class="button" id="modal-cancel" type="button" value="cancel">取消</button><button class="button primary" id="modal-save" type="button">保存</button>`:'';const d=$('#modal');window.LocalDNSInterface?.semantics(d);d.showModal();const cancel=$('#modal-cancel');if(cancel)cancel.onclick=modalClose;if(onSave&&showActions)$('#modal-save').onclick=async()=>{if(!$('#modal-form').reportValidity())return;const b=$('#modal-save');b.disabled=true;$('#modal-error')?.remove();try{await onSave();modalClose()}catch(e){window.LocalDNSInterface?.formError(e.message);toast('操作失败','error',e.message)}finally{b.disabled=false}};}
+  function modalClose(){window.LocalDNSWorkspace.modalChanging();closeSlowTypePopover();const d=$('#modal');d.classList.remove('overview-detail-modal');if(d.open)d.close()}
   function downloadBlob(name,blob){const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},100)}
   function downloadText(name,text){downloadBlob(name,new Blob([text],{type:'text/plain;charset=utf-8'}))}
   async function safeResult(fn){try{return{ok:true,data:await fn()}}catch(error){return{ok:false,error}}}
   async function safe(fn,fallback){try{return await fn()}catch{return fallback}}
 
+  window.LocalDNSWorkspace.setup({state,apiBase:API_BASE,navigate,renderRoute,modalOpen,openDrawer,closeDrawer,downloadText,toast,ms,pct,fmtDate,groupName,trackRouteCleanup});
   initShell(); CONFIG.refreshInterval=Math.min(300,Math.max(5,Number(CONFIG.refreshInterval)||30)); window.LocalDNSInterface?.setup({apiBase:API_BASE,refreshInterval:CONFIG.refreshInterval}); loadAliases().catch(()=>{}); navigate(location.hash.replace(/^#\/?/,'')||'overview',false);
 })();

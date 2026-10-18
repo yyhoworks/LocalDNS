@@ -1,0 +1,59 @@
+{
+  "releaseTag": "fjga7-ui-v2026.10.18.3",
+  "uiVersion": "2026.10.18.3",
+  "backendVersion": "FJGA7",
+  "date": "2026-10-18",
+  "change": "Home rankings follow trends and topology, before cache and slow queries",
+  "priorValidation": [
+    "fjga7-2026.10.18.1.json",
+    "fjga7-2026.10.18.2.json"
+  ],
+  "focusedBrowserCheck": {
+    "target": "read-only preview and deployed site",
+    "observedSectionOrders": {
+      "service": 1,
+      "shortcuts": 2,
+      "trendAndDistribution": 3,
+      "topology": 4,
+      "rankings": 5,
+      "cacheAndSlowQueries": 5
+    },
+    "passed": true,
+    "newFullViewportRegressionClaimed": false
+  },
+  "deployment": {
+    "uiFilesVerifiedBySha256": 47,
+    "dnsProcessUnchanged": true,
+    "protectedFilesUnchanged": true,
+    "dnsTcp53Passed": true,
+    "dnsUdp53Passed": true
+  },
+  "releaseChecks": {
+    "kernelBundleTestsPassed": 7,
+    "queryPathAssertionsPassed": 10,
+    "javascriptSyntaxPassed": true,
+    "zipCrcAndAllFileManifestsPassed": true,
+    "allPackagedUiFilesMatchSource": true,
+    "protectedBaseFilesByteIdentical": 62,
+    "kernelArchitectures": [
+      "amd64-v1",
+      "amd64-v3",
+      "arm64"
+    ],
+    "newKernelExecutionClaimed": false
+  },
+  "packages": {
+    "LocalDNS_FJGA7_UI_2026.10.18.3_Full.zip": {
+      "bytes": 13963278,
+      "sha256": "aeb7746a61ddf8fc89625100d33a79f6f9cd3d0965c7e5cd68a9cea7b598982b"
+    },
+    "LocalDNS_UI_2026.10.18.3_Update.zip": {
+      "bytes": 1392504,
+      "sha256": "2df2bb2014c7694184fafc57cc41b35157e0043bbe930e4604eb4e100541b4a0"
+    }
+  },
+  "limitations": [
+    "Only the existing amd64-v3 deployment has runtime kernel evidence",
+    "Request-path summaries cannot supply execution events omitted by FJGA7"
+  ]
+}

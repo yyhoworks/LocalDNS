@@ -1,0 +1,22 @@
+// A request summary must not manufacture missing execution history or RR metadata.
+const fs = require('node:fs');
+const vm = require('node:vm');
+const assert = require('node:assert/strict');
+const context = {window:{}};
+vm.runInNewContext(fs.readFileSync(require('node:path').join(__dirname,'../_src/ui/assets/js/query-path.js'),'utf8'),context);
+const {model,html} = context.window.LocalDNSQueryPath;
+const partial = {client_ip:'192.0.2.1',query_name:'example.test',query_type:'AAAA',query_class:'IN',domain_set:'client_direct',response_code:'NOERROR',duration_ms:0,cache:false,learning:'none evidence=cache',upstream_attempt:'',trace_id:'',answers:[{data:'2001:db8::1'}]};
+const result = model(partial);
+assert.equal(result.steps.find(s=>s.name==='缓存记录').result,'未标记命中');
+assert(!result.steps.some(s=>s.name==='上游解析'));
+assert(!result.steps.some(s=>s.duration_ms!==undefined));
+assert(html(partial).includes('0 ms'));
+assert(html(partial).includes('<td>未记录</td>'));
+assert(!html(partial).includes('<td>AAAA</td>'));
+assert(!html(partial).includes('主缓存命中'));
+assert(model({...partial,cache:true,domain_set:'cache_main'}).conclusion.startsWith('主缓存命中'));
+assert(!model({...partial,response_code:'NXDOMAIN',domain_set:'',answers:[]}).conclusion.includes('拦截'));
+const hostile = '<img src=x onerror=alert(1)>';
+assert(!html({...partial,query_name:hostile,domain_set:hostile,answers:[{data:hostile}]}).includes(hostile));
+assert(html({...partial,answers:[{type:'CNAME',data:'target.example.test',ttl:0}]}).includes('<td>0 s</td>'));
+console.log(JSON.stringify({checks:10,status:'passed',scope:'evidence,zero-time,RR metadata,negative replies,escaping'}));

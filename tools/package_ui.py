@@ -19,6 +19,40 @@ def json_bytes(value):
     return (json.dumps(value, ensure_ascii=False, indent=2) + '\n').encode('utf-8')
 
 
+def read_kernel_bundle(archive, backend):
+    """Read only known ELF binaries, with or without the upstream wrapper directory."""
+    names = archive.namelist()
+    if archive.testzip() is not None or len(names) != len(set(names)):
+        raise ValueError('Invalid upstream kernel archive')
+    for info in archive.infolist():
+        path = PurePosixPath(info.filename)
+        # ZipInfo may legitimately replace a legacy name via the Unicode Path extra field.
+        if '\0' in info.orig_filename or (info.filename != info.orig_filename and info.orig_filename.replace(chr(92), '/') == info.filename):
+            raise ValueError('Unsafe upstream kernel archive path')
+        if path.is_absolute() or '..' in path.parts or ':' in info.filename or '\\' in info.filename:
+            raise ValueError('Unsafe upstream kernel archive path')
+        if (info.external_attr >> 16) & 0o170000 == 0o120000:
+            raise ValueError('Symlinks not allowed in kernel archive')
+    prefix = f'LocalDNS_{backend}_Binaries/'
+    suffix = prefix + 'localdns-amd64-v3'
+    anchors = [name for name in names if name == suffix or name.endswith('/' + suffix)]
+    if len(anchors) != 1:
+        raise ValueError('Expected exactly one kernel binary directory')
+    wrapper = anchors[0][:-len(suffix)]
+    kernels = {}
+    for platform, machine in [('amd64-v1', 62), ('amd64-v3', 62), ('arm64', 183)]:
+        name = prefix + 'localdns-' + platform
+        data = archive.read(wrapper + name)
+        if len(data) < 64 or data[:6] != b'\x7fELF\x02\x01' or struct.unpack_from('<H', data, 18)[0] != machine:
+            raise ValueError('Unexpected ELF architecture: ' + platform)
+        kernels[name] = data
+    defaults = [name for name in [wrapper + f'LocalDNS_{backend}/localdns/bin/localdns',
+                                  wrapper + 'localdns/bin/localdns'] if name in names]
+    if not defaults or any(archive.read(name) != kernels[suffix] for name in defaults):
+        raise ValueError('Default binary differs from amd64-v3 or is missing')
+    return kernels
+
+
 def verify_manifest(payload):
     manifest = dict(line.split('  ', 1)[::-1]
                     for line in payload['MANIFEST.sha256'].decode().splitlines())
@@ -110,6 +144,8 @@ def main():
                 raise ValueError('Duplicate base archive paths')
             for info in archive.infolist():
                 path = PurePosixPath(info.filename)
+                if '\0' in info.orig_filename or (info.filename != info.orig_filename and info.orig_filename.replace(chr(92), '/') == info.filename):
+                    raise ValueError('Unsafe base archive path')
                 if path.is_absolute() or '..' in path.parts or ':' in info.filename or '\\' in info.filename:
                     raise ValueError('Unsafe base archive path')
                 if (info.external_attr >> 16) & 0o170000 == 0o120000:
@@ -131,18 +167,8 @@ def main():
             if not re.fullmatch(r'FJG[A-Z0-9]+', backend):
                 raise ValueError('Invalid kernel version')
             kernel_prefix = f'LocalDNS_{backend}_Binaries/'
-            kernels = {}
             with ZipFile(args.kernel_archive) as archive:
-                if archive.testzip() is not None or len(archive.namelist()) != len(set(archive.namelist())):
-                    raise ValueError('Invalid upstream kernel archive')
-                for platform, machine in [('amd64-v1', 62), ('amd64-v3', 62), ('arm64', 183)]:
-                    name = kernel_prefix + 'localdns-' + platform
-                    data = archive.read(name)
-                    if data[:6] != b'\x7fELF\x02\x01' or struct.unpack_from('<H', data, 18)[0] != machine:
-                        raise ValueError('Unexpected ELF architecture: ' + platform)
-                    kernels[name] = data
-                if archive.read(f'LocalDNS_{backend}/localdns/bin/localdns') != kernels[kernel_prefix + 'localdns-amd64-v3']:
-                    raise ValueError('Default binary differs from amd64-v3')
+                kernels = read_kernel_bundle(archive, backend)
             # Do not import upstream UI, personal settings, subscriptions or rules.
             full = {name: data for name, data in full.items()
                     if not re.match(r'LocalDNS_[A-Z0-9]+_Binaries/', name)}
