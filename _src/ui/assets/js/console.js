@@ -2,7 +2,7 @@
   'use strict';
   const $=(s,r=document)=>r.querySelector(s),$$=(s,r=document)=>[...r.querySelectorAll(s)];
   const drafts=new Map(),series=[];
-  let connected=null,lastSuccess=null,lastFocus=null,historyKey='',draftKey='',observer=null,scheduled=false,shortcutsOpen=false;
+  let connected=null,lastSuccess=null,lastFocus=null,historyKey='',draftKey='',observer=null,scheduled=false,shortcutsOpen=false,trafficRange=30,trafficResize=null;
   const route=()=>location.hash.replace(/^#\/?/,'')||'overview';
   const escape=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const labels={r1:'国内域名',r2:'白名单与自定义',r3:'海外域名',r4:'FakeIP 与灰名单',r5:'广告与追踪拦截',r6:'黑名单与类型过滤',g1:'国内解析组',g2:'海外解析组',g3:'海外 ECS 组',g4:'代理解析组',g5:'本地拦截'};
@@ -27,34 +27,11 @@
     const health=$('.console-service-health');if(health){health.classList.toggle('offline',connected===false);$('#service-summary-title',health).textContent=connected===false?'DNS 服务连接已断开':connected===true?'DNS 服务运行中':'正在读取服务状态';$('.service-connection',health).textContent=connected===null?'连接中':connected?'已连接':'已断开';$('[data-service-check]',health).setAttribute('d',connected===false?'m8 8 8 8m0-8-8 8':'m7 12 3 3 7-7');}
   }
   function recordMetrics(sample){
-    const now=Date.now(),previous=series.at(-1);
-    const total=Number(sample.total);
-    if(!Number.isFinite(total)||total<0)return;
-    if(previous&&((sample.start&&previous.start&&sample.start!==previous.start)||total<previous.total))series.length=0;
-    const last=series.at(-1);
-    if(last&&now-last.time<1500)return;
-    const gap=last?(now-last.time)/1000:null;
-    const qps=last&&gap>0&&gap<=120?Math.max(0,(total-last.total)/gap):null;
-    series.push({time:now,start:Number(sample.start)||0,total,qps,latency:Number.isFinite(+sample.latency)?+sample.latency:null,cache:sample.cacheEnabled&&Number.isFinite(+sample.cache)?+sample.cache:null,clients:+sample.clients||0,domains:+sample.domains||0,blocked:+sample.blocked||0});
-    while(series.length>240||series[0]?.time<now-7200000)series.shift();
-    try{sessionStorage.setItem(historyKey,JSON.stringify(series));}catch{}
+    if(window.LocalDNSTraffic.record(series,sample))try{sessionStorage.setItem(historyKey,JSON.stringify(series));}catch{}
   }
   function tinyPath(values,width=100,height=32){const min=Math.min(...values),max=Math.max(...values),span=max-min||1;return values.map((v,i)=>`${i?'L':'M'}${(i/(values.length-1)*(width-4)+2).toFixed(1)},${(height-4-(v-min)/span*(height-10)).toFixed(1)}`).join(' ');}
-  function chartSVG(points){
-    const w=660,h=164,left=36,right=10,top=12,bottom=25;
-    const times=points.map(p=>p.time),first=Math.min(...times),last=Math.max(...times),timeSpan=last-first||1;
-    const max=Math.max(1,Math.ceil(Math.max(...points.map(p=>p.qps))/5)*5),innerH=h-top-bottom;
-    const parts=[];let part=[];
-    for(const sample of points){if(sample.qps===null){if(part.length)parts.push(part);part=[];continue;}part.push([left+(sample.time-first)/timeSpan*(w-left-right),top+(1-sample.qps/max)*innerH]);}if(part.length)parts.push(part);
-    const paths=parts.filter(p=>p.length).map(ps=>`<path d="${ps.map(([x,y],i)=>`${i?'L':'M'}${x.toFixed(1)} ${y.toFixed(1)}`).join(' ')}" fill="none" stroke="var(--console-line)" stroke-width="2" stroke-linejoin="round"/>`).join('');
-    const grids=[0,max/2,max].map(v=>{const y=top+(1-v/max)*innerH;return `<line x1="${left}" x2="${w-right}" y1="${y}" y2="${y}" stroke="var(--border-glass)" stroke-dasharray="3 5"/><text x="${left-8}" y="${y+3}" text-anchor="end" fill="var(--text-3)" font-size="10">${v>=10?Math.round(v):v.toFixed(1)}</text>`;}).join('');
-    const time=v=>new Date(v).toLocaleTimeString('zh-CN',{hour12:false,hour:'2-digit',minute:'2-digit'});
-    return `<svg class="console-chart" viewBox="0 0 ${w} ${h}" role="img" aria-label="DNS 查询吞吐量，从 ${time(first)} 到 ${time(last)}，单位每秒请求数"><title>当前浏览器会话采样 · QPS</title>${grids}${paths}<text x="${left}" y="${h-5}" fill="var(--text-3)" font-size="10">${time(first)}</text><text x="${(w+left)/2}" y="${h-5}" text-anchor="middle" fill="var(--text-3)" font-size="10">${time((first+last)/2)}</text><text x="${w-right}" y="${h-5}" text-anchor="end" fill="var(--text-3)" font-size="10">${time(last)}</text></svg>`;
-  }
-  function drawTraffic(container,minutes=30){
-    const points=series.filter(p=>p.time>=Date.now()-minutes*60000);
-    const valid=points.filter(p=>Number.isFinite(p.qps));
-    container.innerHTML=valid.length>=2?chartSVG(points):'<div class="console-chart-empty">正在积累趋势数据，至少需要三次采样。<br>切换页面不会清除本次会话的数据。</div>';
+  function drawTraffic(container,minutes=trafficRange){
+    window.LocalDNSTraffic.render(container,series,minutes);
   }
   function overview(){
     const main=$('#page-content');if($('.console-kpi',main)||!$('.spark-kpi-card',main))return;
@@ -65,9 +42,11 @@
     const service=$('.console-service-summary',main);if(service){$$('.console-kpi',main).forEach(kpi=>service.append(kpi));$('.view-title-row>div:first-child>.mono',main)?.remove();}
     const topo=$('.topology-glass-card');topo.parentElement.classList.add('console-topology');if(!$('.console-topology-heading',topo))topo.insertAdjacentHTML('afterbegin','<div class="console-topology-heading"><h2>DNS 解析路径</h2><span>选择节点查看详情 · 连线为解析路径示意</span></div>');
     const trend=$('.traffic-chart-body');trend.closest('.col-8').classList.add('console-trend');
-    const head=$('.gc-head',trend.closest('.glass-card'));$('.gc-title',head).innerHTML='查询吞吐趋势<span class="console-chart-sub">QPS · 当前浏览器会话采样</span>';
-    const range=head.lastElementChild;range.className='console-range';range.removeAttribute('style');range.innerHTML='<button type="button" data-chart-range="15" aria-pressed="false">15 分钟</button><button type="button" data-chart-range="30" aria-pressed="true">30 分钟</button>';
-    drawTraffic(trend);$$('[data-chart-range]',head).forEach(b=>b.onclick=()=>{$$('[data-chart-range]',head).forEach(x=>x.setAttribute('aria-pressed',String(x===b)));drawTraffic(trend,+b.dataset.chartRange);});
+    const head=$('.gc-head',trend.closest('.glass-card'));$('.gc-title',head).innerHTML='查询吞吐趋势<span class="console-chart-sub">每秒 DNS 请求数 · 按实际采样时段显示</span>';
+    const range=head.lastElementChild;range.className='console-range';range.removeAttribute('style');range.innerHTML=[15,30].map(m=>`<button type="button" data-chart-range="${m}" aria-pressed="${trafficRange===m}">${m} 分钟</button>`).join('');
+    drawTraffic(trend);$$('[data-chart-range]',head).forEach(b=>b.onclick=()=>{trafficRange=+b.dataset.chartRange;$$('[data-chart-range]',head).forEach(x=>x.setAttribute('aria-pressed',String(x===b)));drawTraffic(trend);});
+    trafficResize?.disconnect();let trafficWidth=trend.clientWidth;
+    const chartResize=new ResizeObserver(()=>{if(!trend.isConnected){chartResize.disconnect();return;}if(Math.abs(trend.clientWidth-trafficWidth)>1){trafficWidth=trend.clientWidth;drawTraffic(trend);}});trafficResize=chartResize;chartResize.observe(trend);
     $('.outbound-donut-body')?.closest('.col-4').classList.add('console-donut');$$('.uniform-4rows').forEach(e=>e.closest('.col-4')?.classList.add('console-lower'));
     $$('.t-node').forEach(node=>{const name=$('.tn-name',node),sub=$('.tn-sub',node);if(!node.title)node.title=[name?.textContent,sub?.textContent].filter(Boolean).join(' · ');if(labels[node.dataset.nodeId]&&!$('.tn-proto-tag',name))name.textContent=labels[node.dataset.nodeId];if(node.dataset.nodeId==='e_core')node.setAttribute('aria-label','查看多级缓存管理');});
     const names={whitelist:'白名单',greylist:'灰名单',blocklist:'黑名单'};$$('.rl-name').forEach(e=>{const t=e.lastChild;if(t?.nodeType===3)t.textContent=names[t.textContent.trim()]||t.textContent;});requestAnimationFrame(()=>window.dispatchEvent(new Event('resize')));
@@ -105,8 +84,8 @@
   function drawerClosed(){$('.master-container').inert=false;if(lastFocus?.isConnected)lastFocus.focus();lastFocus=null;}
   function formError(message){let error=$('#modal-error');if(!error){error=document.createElement('div');error.id='modal-error';error.className='form-error';error.setAttribute('role','alert');$('#modal-content').prepend(error);}error.textContent=message;}
   function setup(options={}){
-    historyKey='localdns-trends-v1:'+(options.apiBase||location.host);draftKey='localdns-drafts-v1:'+(options.apiBase||location.host);
-    try{const data=JSON.parse(sessionStorage.getItem(historyKey)||'[]');if(Array.isArray(data))series.push(...data.filter(x=>Number.isFinite(x.time)&&Number.isFinite(x.total)&&x.time>Date.now()-7200000).slice(-240));}catch{}
+    historyKey='localdns-trends-v2:'+(options.apiBase||location.host);draftKey='localdns-drafts-v1:'+(options.apiBase||location.host);
+    try{const data=JSON.parse(sessionStorage.getItem(historyKey)||'[]');if(Array.isArray(data))series.push(...data.filter(x=>Number.isFinite(x.time)&&Number.isFinite(x.total)&&x.time>Date.now()-7200000).slice(-1440));}catch{}
     try{for(const item of JSON.parse(sessionStorage.getItem(draftKey)||'[]'))if(Array.isArray(item)&&typeof item[0]==='string'&&typeof item[1]==='string')drafts.set(...item);}catch{}
     const mobileSearch=document.createElement('button');mobileSearch.type='button';mobileSearch.className='icon-action-btn console-search-button';mobileSearch.style.display='none';mobileSearch.setAttribute('aria-label','搜索域名、客户端或页面');mobileSearch.innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m16 16 4 4"/></svg>';mobileSearch.onclick=()=>{const bar=$('.cmd-search-bar');bar.classList.toggle('console-search-open');if(bar.classList.contains('console-search-open'))$('#global-search-input').focus();};$('.top-actions-dock').prepend(mobileSearch);
     const status=document.createElement('div');status.id='connection-status';status.className='console-status';status.setAttribute('role','status');status.innerHTML='<span class="status-dot"></span><span class="console-status-text"><span class="console-connection-text">连接中</span><small>正在读取运行数据</small></span>';$('#btn-open-bg-customizer').closest('.glass-action-capsule').before(status);

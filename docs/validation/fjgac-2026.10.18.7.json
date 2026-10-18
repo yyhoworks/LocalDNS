@@ -1,0 +1,83 @@
+{
+  "releaseTag": "fjgac-ui-v2026.10.18.7",
+  "backendVersion": "FJGAC",
+  "uiVersion": "2026.10.18.7",
+  "date": "2026-10-18",
+  "kernelComparison": {
+    "archiveSha256": "61bdcfb752756ef74264c1414234b8c37025b258fee717fb6ba0a0a3857d5ef7",
+    "platforms": {
+      "amd64-v1": {
+        "sha256": "4b7f792ba4d4d88f37b717c88ba01e88471f5088b8ba5dbd52057fda071a4092",
+        "matchesPublished": true
+      },
+      "amd64-v3": {
+        "sha256": "a4ad9e136f19d01bae2ecc1b1de80337f8f3e491db8e6254469003755d1d7a98",
+        "matchesPublished": true
+      },
+      "arm64": {
+        "sha256": "1a740df2b7b47981f956a4744fd01e6c69cae17f93b9c06b5c2fc23ac667196b",
+        "matchesPublished": true
+      }
+    },
+    "liveAmd64V3Matches": true
+  },
+  "conversionVerification": {
+    "isolatedFormats": [
+      "txt",
+      "clash_yaml",
+      "singbox_json",
+      "hosts",
+      "dnsmasq",
+      "dat"
+    ],
+    "htmlErrorPageRejected": true,
+    "unchangedSourceMetadataPreserved": true,
+    "datasetSelectionConverted": true,
+    "existingSourcesChecked": 25,
+    "existingSourcesHaveSrsHeader": true,
+    "productionUnaffectedByIsolatedTests": true
+  },
+  "trafficVerification": {
+    "unitTestsPassed": true,
+    "counter": "localdns_queries_total",
+    "weightedAverage": true,
+    "gapsNotInterpolated": true,
+    "counterResetHandled": true,
+    "containerWidthSvg": true
+  },
+  "browserVerification": {
+    "desktop": true,
+    "mobileWidth": 390,
+    "pageHorizontalOverflow": false,
+    "globalBlurAndAlphaFollowControls": true,
+    "lightGlass": true,
+    "parchmentNoBlur": true,
+    "consoleErrors": 0,
+    "consoleWarnings": 0
+  },
+  "designScanFindings": 0,
+  "deployment": {
+    "status": "deployed",
+    "uiFilesVerified": 53,
+    "dnsProcessUnchanged": true,
+    "configurationKernelAndManualRulesUnchanged": true,
+    "tcp53Passed": true,
+    "udp53Passed": true
+  },
+  "packages": {
+    "LocalDNS_FJGAC_UI_2026.10.18.7_Full.zip": {
+      "bytes": 14483307,
+      "sha256": "b2d4b1717a3020ced115bba546af009600ce58ba1ffeb5e1da8bd24d02de6803"
+    },
+    "LocalDNS_UI_2026.10.18.7_Update.zip": {
+      "bytes": 1403648,
+      "sha256": "4e93400b7b18c2c0e9294a88a60d092edc68d5384e581a24e428e9fed9eda1fc"
+    }
+  },
+  "limitations": [
+    "Targeted verification of these changes; not a full rerun of backend features",
+    "No physical mobile device test",
+    "Traffic history contains browser-collected samples only",
+    "Private configuration, credentials and screenshots are excluded from repository"
+  ]
+}

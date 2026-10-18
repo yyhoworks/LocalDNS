@@ -1,0 +1,33 @@
+const assert=require('node:assert/strict');
+const fs=require('node:fs');
+const vm=require('node:vm');
+const path=require('node:path');
+const context={window:{}};
+vm.runInNewContext(fs.readFileSync(path.join(__dirname,'../_src/ui/assets/js/rule-conversion.js'),'utf8'),context);
+const {label,updated,message,withMetadata}=context.window.LocalDNSRuleConversion;
+for(const [detected_format,expected] of Object.entries({srs:'SRS',clash_yaml:'YAML → SRS',txt:'TXT → SRS',singbox_json:'JSON → SRS',hosts:'Hosts → SRS',dnsmasq:'DNSMasq → SRS',dat:'DAT → SRS'}))assert.equal(label({detected_format}),expected);
+assert.equal(label({url:'https://example.com/list.srs'}),'待识别'); // A suffix is not evidence of conversion.
+assert.equal(label({detected_format:'unknown'}),'待识别');
+const raw={name:'test',detected_format:'clash_yaml',rule_count:2};
+assert.equal(updated(raw),raw);assert.equal(updated({source:raw}),raw);
+assert.equal(message(raw),'YAML → SRS · 2 条规则');
+assert.equal(message({source:raw,changed:false}),'YAML → SRS · 2 条规则');
+assert.equal(updated(null),null);
+const original={...raw,url:'https://example.com/a',files:'rules/a.srs',type:'custom_cn',last_updated:'2026-10-18T06:00:00Z'};
+const edit={name:'test',url:original.url,files:original.files,type:original.type,enabled:false};
+assert.equal(withMetadata(edit,original).detected_format,'clash_yaml');
+assert.equal(withMetadata(edit,original).rule_count,2);
+assert.equal(withMetadata({...edit,url:'https://example.com/b',...raw},original).detected_format,undefined);
+assert.equal(withMetadata({...edit,type:'custom_non_cn',...raw},original).rule_count,undefined);
+(async()=>{
+  let calls=0;
+  const refresh=async()=>{calls++;return raw;};
+  assert.equal(await context.window.LocalDNSRuleConversion.finishSave(raw,refresh),raw);
+  assert.equal(calls,0);
+  assert.equal(await context.window.LocalDNSRuleConversion.finishSave({name:'pending'},refresh),raw);
+  assert.equal(calls,1);
+  const error=Object.assign(new Error('choose dataset'),{body:{code:'dataset_required',datasets:['apple','google']}});
+  await assert.rejects(context.window.LocalDNSRuleConversion.finishSave({name:'pending'},async()=>{throw error;}),e=>e===error);
+  await assert.rejects(context.window.LocalDNSRuleConversion.finishSave({name:'pending'},async()=>({name:'pending'})),/尚未识别/);
+  console.log('PASS FJGAC responses, format metadata preservation and pending DAT dataset handoff');
+})().catch(e=>{console.error(e);process.exitCode=1;});

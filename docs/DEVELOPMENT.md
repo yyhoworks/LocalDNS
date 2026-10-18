@@ -105,3 +105,13 @@ UI 2026.10.16.1 / FJG4O 增加字体选择、状态文字居中和单层焦点�
 ## UI 2026.10.18.6
 
 解析拓扑节点与缓存卡统一读取 `--blur-filter`，`--topo-node` / `--topo-node-hover` 由 `--glass-alpha` 计算。羊皮纸皮肤的专属背景与 `backdrop-filter: none` 覆盖继续有效。壁纸存储方式未变：IndexedDB `localdns-appearance/settings/wallpaper`，小容量后备使用 localStorage。
+
+
+### 2026.10.18.7 检查结论
+
+- 吞吐量使用 `/metrics` 的 `localdns_queries_total` 增量计算，不使用可清理的审计记录总数。首个样本只建立基线；超过 90 秒的间隔不计算 QPS。区间均值按有效采样秒数加权，缺失时段不补零。
+- SVG 的 viewBox 宽度随容器测量更新，避免固定纵横比让曲线挤在中央。窗口选择保持到本次页面会话结束；历史采样保存在 sessionStorage。
+- FJGAC 的规则更新接口直接返回来源对象。PUT 同来源时可能不重新下载，因此编辑时需保留 detected_format、rule_count、last_updated；改变来源后由内核重新识别。
+- 多数据集 DAT 的 PUT 可能先返回待识别配置；前端在缺少 detected_format 时再执行更新，处理 dataset_required 并引导选择。
+- 拓扑仅外层画布使用全局 backdrop-filter；内部节点使用全局遮盖度对应的半透明底色，避免叠加模糊和固定渐变。羊皮纸皮肤保留原样。
+- `node tools/test_traffic.cjs` 与 `node tools/test_rule_conversion.cjs` 覆盖计数重置、断采、窗口边界、真实接口返回结构、元数据保留及 DAT 待识别流程。

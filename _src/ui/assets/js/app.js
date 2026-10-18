@@ -880,7 +880,7 @@
     const adguardBlocked = Math.max(0, +engineStatus?.stats?.adguard_blocked || 0);
     const clientCount = Number.isFinite(+stats?.client_count) ? fullNum(+stats.client_count) : rankCount(clients);
     const domainCount = Number.isFinite(+stats?.domain_count) ? fullNum(+stats.domain_count) : rankCount(domains);
-    window.LocalDNSInterface?.recordMetrics({total:stats.total_queries,latency:stats.average_duration_ms,cache:overallHitRate,cacheEnabled:!cacheDisabled,clients:stats.client_count??clients.length,domains:stats.domain_count??domains.length,blocked:adguardBlocked,start:sys.start});
+    window.LocalDNSInterface?.recordMetrics({total:metrics.find(x=>x.name==='localdns_queries_total')?.value,latency:stats.average_duration_ms,cache:overallHitRate,cacheEnabled:!cacheDisabled,clients:stats.client_count??clients.length,domains:stats.domain_count??domains.length,blocked:adguardBlocked,start:sys.start});
     const allSets = (sets || []).filter(x => x && x.count > 0);
     const ds = allSets.length > 4 ? [...allSets.slice(0,3), {key:'其他',count:allSets.slice(3).reduce((sum,x)=>sum+(+x.count||0),0)}] : allSets;
     const slowGroups = aggregateSlowest(slowest, Infinity);
@@ -1358,12 +1358,6 @@
               <span class="tn-pill" style="color:#34D399;background:rgba(16,185,129,0.15)">在线 ${duration(sys.uptime)}</span>
             </div>
           </div>
-          <div style="display:flex;gap:18px;font-size:12px;margin-bottom:8px;flex-wrap:wrap">
-            <span style="display:flex;align-items:center;gap:6px"><i style="width:8px;height:8px;border-radius:2px;background:#3B82F6"></i>累计请求 <strong>${num(stats.total_queries)}</strong></span>
-            <span style="display:flex;align-items:center;gap:6px"><i style="width:8px;height:8px;border-radius:2px;background:#F59E0B"></i>缓存命中 <strong>${num(cMain.q > 0 ? cMain.h : totalCacheH)}</strong></span>
-            <span style="display:flex;align-items:center;gap:6px"><i style="width:8px;height:8px;border-radius:2px;background:#10B981"></i>进程 CPU <strong>${cpuPct.toFixed(1)}%</strong></span>
-            <span style="display:flex;align-items:center;gap:6px"><i style="width:8px;height:8px;border-radius:2px;background:#60A5FA"></i>常驻内存 <strong>${fmtBytesBrief(sys.rss)}</strong></span>
-          </div>
           <div class="traffic-chart-body">
             <div class="console-chart-empty">正在积累趋势数据…</div>
             <div class="tc-metrics-side">
@@ -1735,21 +1729,7 @@
   ];
   const diversionDefByTag=tag=>diversionDefs.find(x=>x.tag===tag);
   const diversionDefByType=type=>diversionDefs.find(x=>x.type===type);
-  const diversionFormatLabel=r=>{
-    const detected=String(r.detected_format||'').trim().toLowerCase();
-    switch(detected){
-      case 'srs': return 'SRS';
-      case 'dat': return 'DAT → SRS';
-      case 'clash_yaml': return 'YAML → SRS';
-      case 'singbox_json': return 'JSON → SRS';
-      case 'txt':
-      case 'surge':
-      case 'dnsmasq':
-      case 'hosts':
-      case 'quantumult_x': return 'TXT → SRS';
-      default: return '待识别 → SRS';
-    }
-  };
+  const diversionFormatLabel=r=>window.LocalDNSRuleConversion.label(r);
   function diversionPayload(rule){
     const target=diversionDefByType(rule.type);
     const payload={
@@ -1763,34 +1743,35 @@
     if(!payload.dataset)delete payload.dataset;
     if(rule.rule_count!==undefined&&rule.rule_count!==null)payload.rule_count=+rule.rule_count||0;
     if(rule.last_updated)payload.last_updated=rule.last_updated;
+    if(rule.detected_format)payload.detected_format=rule.detected_format;
     return payload;
   }
   async function saveDiversionRule(rule,original=null){
     const target=diversionDefByType(rule.type);if(!target)throw new Error('请选择有效的规则类型');
-    const payload=diversionPayload(rule);if(!payload.name)throw new Error('名称不能为空');if(!payload.url)throw new Error('订阅地址不能为空');
-    const saved=await api.json(`/plugins/${target.tag}/config/${encodeURIComponent(payload.name)}`,'PUT',payload);
+    const payload=diversionPayload(window.LocalDNSRuleConversion.withMetadata(rule,original));if(!payload.name)throw new Error('名称不能为空');if(!payload.url)throw new Error('订阅地址不能为空');
+    const response=await api.json(`/plugins/${target.tag}/config/${encodeURIComponent(payload.name)}`,'PUT',payload);
+    const saved=await window.LocalDNSRuleConversion.finishSave(response,()=>api.request(`/plugins/${target.tag}/update/${encodeURIComponent(payload.name)}`,{method:'POST'}));
     if(original&&(original.tag!==target.tag||original.name!==payload.name)){
       await api.request(`/plugins/${original.tag}/config/${encodeURIComponent(original.name)}`,{method:'DELETE'});
     }
     return saved;
   }
-  function openDiversionDatasetPrompt(rule,datasets,body){
+  function openDiversionDatasetPrompt(rule,datasets,body,original=rule){
     const options=(Array.isArray(datasets)?datasets:[]).map(x=>String(x||'').trim()).filter(Boolean);
     if(!options.length){toast('更新失败','error','数据源要求选择数据集，但没有返回可用数据集');return;}
     modalOpen('请选择数据集 / Tag','检测到多数据集 DAT。选择一次后会作为隐藏元数据保存，后续自动更新将直接复用。',`<div class="stack"><div class="field"><label>数据集 / Tag</label><select id="div-dataset-choice">${options.map(x=>`<option value="${esc(x)}" ${x===rule.dataset?'selected':''}>${esc(x)}</option>`).join('')}</select></div><p class="form-note">此选择只在多数据集 DAT 需要时出现，不会重新加入常驻的格式或匹配设置。</p></div>`,async()=>{
       const dataset=$('#div-dataset-choice').value;
-      const saved=await saveDiversionRule({...rule,dataset},rule);
-      Object.assign(rule,saved||{dataset});
-      const result=await api.request(`/plugins/${rule.tag}/update/${encodeURIComponent(rule.name)}`,{method:'POST'});
-      toast(result?.changed?'更新完成':'规则未变化','success',dataset?`数据集：${dataset}`:'');
+      const saved=await saveDiversionRule({...rule,dataset},original);
+      window.LocalDNSWorkspace.clearRuleDraft(original);
+      toast('识别与转换完成','success',window.LocalDNSRuleConversion.message(saved));
       await renderDiversion(body);
     });
   }
   async function updateDiversionRule(rule,body){
     try{
       const result=await api.request(`/plugins/${rule.tag}/update/${encodeURIComponent(rule.name)}`,{method:'POST'});
-      if(result?.source)Object.assign(rule,result.source);
-      toast(result?.changed?'更新完成':'规则未变化');
+      const source=window.LocalDNSRuleConversion.updated(result);if(source)Object.assign(rule,source);
+      toast('规则更新完成','success',window.LocalDNSRuleConversion.message(result));
       await renderDiversion(body);
       return result;
     }catch(err){
@@ -1830,7 +1811,7 @@
         for(const [tag,group] of byTag){
           const def=diversionDefByTag(tag);
           if(def){
-            jobs.push(api.request(`/plugins/${tag}/update-all`,{method:'POST'}).then(data=>({kind:'batch',count:group.length,data})));
+            jobs.push(api.request(`/plugins/${tag}/update-all`,{method:'POST'}).then(data=>({kind:'batch',count:group.length,data}),error=>({kind:'failed',count:group.length,error})));
           }else{
             group.forEach(r=>jobs.push(api.request(`/plugins/${r.tag}/update/${encodeURIComponent(r.name)}`,{method:'POST'}).then(data=>({kind:'single',count:1,data}))));
           }
@@ -1844,7 +1825,8 @@
             details.push(x.reason?.message||'未知错误');
             return;
           }
-          const item=x.value;completed+=item.count;
+          const item=x.value;if(item.kind==='failed'){failed+=item.count;details.push(item.error?.message||'更新失败');return;}
+          completed+=item.kind==='batch'?Number(item.data?.updated||0):item.count;
           if(item.kind==='batch'){
             failed+=Number(item.data?.failed||0);
             datasetNeeded+=Number(item.data?.dataset_required||0);
@@ -1863,7 +1845,7 @@
     const original=rule?{...rule}:null;
     rule=rule||{name:'',type:'custom_cn',url:'',files:'',enabled:true,dataset:'',auto_update:true,update_interval_hours:24};
     rule.dataset=String(rule.dataset||'');
-    modalOpen(original?'编辑在线分流规则':'添加在线分流规则','远程规则由后端按内容自动识别，并统一转换为 SRS；无需手工选择源格式或匹配方式。',`<div class="stack"><div class="grid grid-2"><div class="field"><label>名称</label><input id="div-name" value="${esc(rule.name)}" placeholder="例如：direct_tld_cn"></div><div class="field"><label>规则类型</label><select id="div-type">${diversionDefs.map(d=>`<option value="${d.type}" ${d.type===rule.type?'selected':''}>${esc(d.label)}</option>`).join('')}</select></div></div><div class="field"><label>订阅地址</label><input id="div-url" value="${esc(rule.url||'')}" placeholder="https://example.com/rules"></div><div class="field"><label>源缓存文件（可选）</label><input id="div-files" value="${esc(rule.files||'')}" placeholder="留空时自动生成"><p class="form-note">每个订阅源下载后统一转换为 SRS，存放在 rules/online/规则组/；同组来源合并去重后生成 rules/compiled/规则组.srs，运行时只加载这个文件。</p></div><div class="grid grid-2"><label class="switch"><input id="div-enabled" type="checkbox" ${rule.enabled!==false?'checked':''}><span class="switch-track"><span class="switch-thumb"></span></span><span class="switch-label">启用</span></label><label class="switch"><input id="div-auto" type="checkbox" ${rule.auto_update?'checked':''}><span class="switch-track"><span class="switch-thumb"></span></span><span class="switch-label">自动更新</span></label></div><div class="field"><label>更新间隔（小时）</label><input id="div-hours" type="number" min="1" value="${rule.update_interval_hours||24}"></div><p class="form-note">支持的来源按内容自动识别；只有多数据集 DAT 才会在更新时要求选择一次数据集。所有成功识别的来源最终统一转换为 SRS 后加载。</p></div>`,async()=>{const payload={name:$('#div-name').value.trim(),type:$('#div-type').value,url:$('#div-url').value.trim(),files:$('#div-files').value.trim(),dataset:rule.dataset,enabled:$('#div-enabled').checked,auto_update:$('#div-auto').checked,update_interval_hours:+$('#div-hours').value||24};const saved=await saveDiversionRule(payload,original);window.LocalDNSWorkspace.clearRuleDraft(original);toast(`在线分流规则已${original?'更新':'添加'}，源缓存路径：${saved?.files||payload.files||'自动生成'}`);await renderDiversion(body);});
+    modalOpen(original?'编辑在线分流规则':'添加在线分流规则','远程规则由后端按内容自动识别，并统一转换为 SRS；无需手工选择源格式或匹配方式。',`<div class="stack"><div class="grid grid-2"><div class="field"><label>名称</label><input id="div-name" value="${esc(rule.name)}" placeholder="例如：direct_tld_cn"></div><div class="field"><label>规则类型</label><select id="div-type">${diversionDefs.map(d=>`<option value="${d.type}" ${d.type===rule.type?'selected':''}>${esc(d.label)}</option>`).join('')}</select></div></div><div class="field"><label>订阅地址</label><input id="div-url" value="${esc(rule.url||'')}" placeholder="https://example.com/rules"></div><div class="field"><label>源缓存文件（可选）</label><input id="div-files" value="${esc(rule.files||'')}" placeholder="留空时自动生成"><p class="form-note">每个订阅源下载后统一转换为 SRS，存放在 rules/online/规则组/；同组来源合并去重后生成 rules/compiled/规则组.srs，运行时只加载这个文件。</p></div><div class="grid grid-2"><label class="switch"><input id="div-enabled" type="checkbox" ${rule.enabled!==false?'checked':''}><span class="switch-track"><span class="switch-thumb"></span></span><span class="switch-label">启用</span></label><label class="switch"><input id="div-auto" type="checkbox" ${rule.auto_update?'checked':''}><span class="switch-track"><span class="switch-thumb"></span></span><span class="switch-label">自动更新</span></label></div><div class="field"><label>更新间隔（小时）</label><input id="div-hours" type="number" min="1" value="${rule.update_interval_hours||24}"></div><p class="form-note">支持的来源按内容自动识别；只有多数据集 DAT 才会在更新时要求选择一次数据集。所有成功识别的来源最终统一转换为 SRS 后加载。</p></div>`,async()=>{const payload={name:$('#div-name').value.trim(),type:$('#div-type').value,url:$('#div-url').value.trim(),files:$('#div-files').value.trim(),dataset:rule.dataset,enabled:$('#div-enabled').checked,auto_update:$('#div-auto').checked,update_interval_hours:+$('#div-hours').value||24};let saved;try{saved=await saveDiversionRule(payload,original);}catch(err){if(err.body?.code==='dataset_required'&&Array.isArray(err.body.datasets)){return ()=>openDiversionDatasetPrompt({...payload,tag:payload.type},err.body.datasets,body,original);}throw err;}window.LocalDNSWorkspace.clearRuleDraft(original);toast('保存与转换完成','success',window.LocalDNSRuleConversion.message(saved));await renderDiversion(body);});
     window.LocalDNSWorkspace.trackRuleDraft(original);
   }
 
@@ -2030,7 +2012,7 @@
 
   function openDrawer(title,subtitle,html){const wasOpen=$('#drawer').classList.contains('open');$('#drawer-title').textContent=title;$('#drawer-subtitle').textContent=subtitle;$('#drawer-content').innerHTML=html;$('#drawer').classList.add('open');$('#drawer').setAttribute('aria-hidden','false');$('#drawer-backdrop').classList.add('open');if(!wasOpen)window.LocalDNSInterface?.drawerOpened()}
   function closeDrawer(){$('#drawer').classList.remove('open');$('#drawer').setAttribute('aria-hidden','true');$('#drawer-backdrop').classList.remove('open');window.LocalDNSInterface?.drawerClosed()}
-  function modalOpen(title,subtitle,html,onSave,showActions=true){window.LocalDNSWorkspace.modalChanging();$('#modal-title').textContent=title;$('#modal-subtitle').textContent=subtitle||'';$('#modal-content').innerHTML=html;$('#modal-actions').innerHTML=showActions?`<button class="button" id="modal-cancel" type="button" value="cancel">取消</button><button class="button primary" id="modal-save" type="button">保存</button>`:'';const d=$('#modal');window.LocalDNSInterface?.semantics(d);d.showModal();const cancel=$('#modal-cancel');if(cancel)cancel.onclick=modalClose;if(onSave&&showActions)$('#modal-save').onclick=async()=>{if(!$('#modal-form').reportValidity())return;const b=$('#modal-save');b.disabled=true;$('#modal-error')?.remove();try{await onSave();modalClose()}catch(e){window.LocalDNSInterface?.formError(e.message);toast('操作失败','error',e.message)}finally{b.disabled=false}};}
+  function modalOpen(title,subtitle,html,onSave,showActions=true){window.LocalDNSWorkspace.modalChanging();$('#modal-title').textContent=title;$('#modal-subtitle').textContent=subtitle||'';$('#modal-content').innerHTML=html;$('#modal-actions').innerHTML=showActions?`<button class="button" id="modal-cancel" type="button" value="cancel">取消</button><button class="button primary" id="modal-save" type="button">保存</button>`:'';const d=$('#modal');window.LocalDNSInterface?.semantics(d);d.showModal();const cancel=$('#modal-cancel');if(cancel)cancel.onclick=modalClose;if(onSave&&showActions)$('#modal-save').onclick=async()=>{if(!$('#modal-form').reportValidity())return;const b=$('#modal-save');b.disabled=true;$('#modal-error')?.remove();try{const next=await onSave();modalClose();if(typeof next==='function')next()}catch(e){window.LocalDNSInterface?.formError(e.message);toast('操作失败','error',e.message)}finally{b.disabled=false}};}
   function modalClose(){window.LocalDNSWorkspace.modalChanging();closeSlowTypePopover();const d=$('#modal');d.classList.remove('overview-detail-modal');if(d.open)d.close()}
   function downloadBlob(name,blob){const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},100)}
   function downloadText(name,text){downloadBlob(name,new Blob([text],{type:'text/plain;charset=utf-8'}))}
