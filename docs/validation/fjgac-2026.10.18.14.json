@@ -1,0 +1,68 @@
+{
+  "uiVersion": "2026.10.18.14",
+  "backendVersion": "FJGAC",
+  "configurationServiceVersion": "1.1.0",
+  "accessMode": "direct local filesystem through the existing LAN UI",
+  "sshAuthentication": false,
+  "passwordInputRequired": false,
+  "cookieSessionRequired": false,
+  "backendTestsPassedOnLinuxTarget": 12,
+  "liveChecks": {
+    "readWithoutCredentials": true,
+    "nativeMihomoValidation": true,
+    "invalidYamlRejected": true,
+    "unchangedSaveWithoutCredentials": true,
+    "originalConfigurationBytesPreserved": true,
+    "unapprovedOriginsRejected": true,
+    "legacySessionEndpointRemoved": true
+  },
+  "retainedProtections": [
+    "configured Origin and Host",
+    "core configuration directory boundary",
+    "revision conflict detection",
+    "native core validation",
+    "atomic save",
+    "backups",
+    "reload failure restoration"
+  ],
+  "scope": "Verified local deployment and GitHub source/release publication",
+  "packages": {
+    "LocalDNS_FJGAC_UI_2026.10.18.14_Full.zip": {
+      "bytes": 14761596,
+      "sha256": "6ec5703080fcb44f5f20e2985a72dd69804e83a931668a93a634b30ecfe55c3b",
+      "manifestVerified": true,
+      "crcVerified": true
+    },
+    "LocalDNS_ProxyConfig_UI_2026.10.18.14_Service.zip": {
+      "bytes": 6363603,
+      "sha256": "e0725eb4b64ecf6936cc3902da25b4c4ccf602c5e1770ed25b8c33a9e25f80f4",
+      "manifestVerified": true,
+      "crcVerified": true
+    },
+    "LocalDNS_UI_2026.10.18.14_Update.zip": {
+      "bytes": 1681494,
+      "sha256": "bdeda32b116b38bcfff3ffe6c4a5e1ba8b22eff1944d0aa1df020318fb2d8002",
+      "manifestVerified": true,
+      "crcVerified": true
+    }
+  },
+  "baseArchive": {
+    "name": "LocalDNS_FJGAC_UI_2026.10.18.11_Full.zip",
+    "sha256": "25370d55875f50e981204f9424a313eb0adf701898e07905f301c30a6fe99d33",
+    "matchesPublishedAsset": true
+  },
+  "kernelConfigurationAndRulesUnchanged": true,
+  "uiFilesMatched": 62,
+  "serviceInstallerStagingChecks": 14,
+  "arm64RuntimeVerified": false,
+  "packagedAmd64ServiceVerification": {
+    "platform": "linux/amd64",
+    "packagedBinarySha256": "2e73321ee64d3f211102805f51fadea2eaa0a642b5ebafb97ef8efcb4b2f1073",
+    "isolatedPort": 19098,
+    "directReadWithoutCredentials": true,
+    "nativeMihomoValidation": true,
+    "protectedFilesUnchanged": true,
+    "activeServicesRestarted": false
+  },
+  "uiMatchesDeployedFileCount": 62
+}

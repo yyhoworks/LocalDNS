@@ -1,0 +1,36 @@
+{
+  "uiVersion": "2026.10.18.13",
+  "backendVersion": "FJGAC",
+  "platform": "Linux amd64 / Alpine OpenRC",
+  "scope": "User-authorized local deployment, not a GitHub release",
+  "backendTests": {
+    "count": 12,
+    "passedOnTarget": true,
+    "coverage": ["authentication", "origin restriction", "login rate limit", "path and symlink boundary", "read-only validation", "version conflict", "backup permissions", "save and reload", "reload failure rollback", "startup file restriction", "diagnostic redaction", "reload preflight", "sing-box command arguments", "sing-box PID ownership"]
+  },
+  "liveMihomo": {
+    "version": "v1.19.32",
+    "read": true,
+    "nativeValidation": true,
+    "invalidYamlRejected": true,
+    "staleRevisionRejected": true,
+    "commentOnlySaveAndReload": true,
+    "originalBytesRestoredThroughAPI": true,
+    "ipv4FirewallUnchanged": true,
+    "ipv6FirewallUnchanged": true
+  },
+  "singBox": {
+    "installedOnTarget": false,
+    "nativeRuntimeVerified": false,
+    "displayedAsNotInstalled": true
+  },
+  "browserManualChecks": ["device sign-in", "read actual YAML", "native validation result", "server file picker", "disabled uninstalled core", "dirty state", "modification comparison", "unsaved navigation confirmation", "discard and return to management"],
+  "configurationContentStoredInBrowserStorage": false,
+  "passwordSaved": false,
+  "uiDeployment": {
+    "protectedDnsFilesUnchanged": true,
+    "dnsProcessUnchanged": true,
+    "tcpAndUdpDnsPassed": true
+  },
+  "limitations": ["Local instance management only", "Save and reload applies to the configured startup file; other allowed files may be read and validated", "sing-box SIGHUP plus online check does not prove full configuration application", "Other CPU architectures were not runtime tested"]
+}

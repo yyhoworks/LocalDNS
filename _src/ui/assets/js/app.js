@@ -90,6 +90,7 @@
     {section:'配置', id:'upstreams', label:'DNS管理', icon:'upstream', subtitle:'管理上游 DNS 服务器并查看请求、采纳与错误统计'},
     {section:'配置', id:'rules', label:'规则管理', icon:'rules', subtitle:'统一维护名单、广告拦截与在线分流规则'},
     {section:'配置', id:'management', label:'系统管理', icon:'management', subtitle:'功能开关、缓存与运行数据管理'},
+    {section:'配置', id:'proxy-config', label:'代理配置', icon:'management', subtitle:'编辑本机 Mihomo / sing-box 配置并校验重载'},
   ];
 
   const api = {
@@ -351,6 +352,7 @@
     // 主题对应的 LocalDNS 品牌图形。
     window.LocalDNSInterface?.updateBrand();
     window.LocalDNSTypography?.setup();
+    window.LocalDNSProxyPanel?.setup({notify:toast});
 
     // 2. 背景与毛玻璃调校器
     const wpLayer = $('#wallpaper-layer');
@@ -502,8 +504,13 @@
     window.addEventListener('localdns:layoutchange',()=>{if(state.route==='rules')requestAnimationFrame(fitRuleLayoutHeight)});
     window.addEventListener('unhandledrejection',e=>{const msg=e?.reason?.message||String(e?.reason||'未知错误');toast('操作失败','error',msg);e.preventDefault()});
   }
-  function navigate(id,write=true){ if(id==='data'||id==='features')id='management';if(!routeDefs.some(x=>x.id===id))id='overview';state.route=id;if(write&&location.hash!==`#/${id}`)history.pushState(null,'',`#/${id}`);renderRoute(); }
-  function updateNav(){ const r=routeDefs.find(x=>x.id===state.route); $('#page-title').textContent=r.label;$('#page-subtitle').textContent=r.subtitle;$$('[data-route]').forEach(x=>x.classList.toggle('active',x.dataset.route===state.route)); }
+  function navigate(id,write=true,approved=false){
+    if(id==='data'||id==='features')id='management';if(!routeDefs.some(x=>x.id===id))id='overview';
+    if(state.route==='proxy-config'&&id==='proxy-config'&&window.LocalDNSProxyConfig?.isDirty())return;
+    if(!approved&&state.route==='proxy-config'&&id!==state.route&&!window.LocalDNSProxyConfig?.canLeave(()=>navigate(id,true,true))){if(location.hash!=='#/proxy-config')history.replaceState(null,'','#/proxy-config');return;}
+    state.route=id;if(write&&location.hash!==`#/${id}`)history.pushState(null,'',`#/${id}`);renderRoute();
+  }
+  function updateNav(){ const r=routeDefs.find(x=>x.id===state.route); $('#page-title').textContent=r.label;$('#page-subtitle').textContent=r.subtitle;$$('[data-route]').forEach(x=>x.classList.toggle('active',x.dataset.route===(state.route==='proxy-config'?'management':state.route))); }
   function trackRouteCleanup(fn){state.routeUiCleanup.push(fn)}
   function cleanupRouteUi(){
     const list=state.routeUiCleanup.splice(0);
@@ -549,7 +556,8 @@
     for(const t of [150,400,900])setTimeout(go,t);
     setTimeout(()=>{if(pendingScroll===want)pendingScroll=null},1200);
   }
-  async function renderRoute(force=false,silent=false){
+  async function renderRoute(force=false,silent=false,approved=false){
+    if(state.route==='proxy-config'&&!approved&&window.LocalDNSProxyConfig?.canLeave(()=>renderRoute(force,silent,true))===false)return;
     window.LocalDNSInterface?.rememberDraft();
     cleanupRouteUi();
     window.LocalDNSTopologyFlow?.stop();
@@ -565,7 +573,7 @@
     updateNav(); clearInterval(state.refreshTimer);
     if(!silent)page.innerHTML=loadingPage();
     try {
-      const fn={overview:renderOverview,logs:renderLogs,upstreams:renderUpstreams,rules:renderRules,management:renderManagement}[state.route];
+      const fn={overview:renderOverview,logs:renderLogs,upstreams:renderUpstreams,rules:renderRules,management:renderManagement,'proxy-config':renderProxyConfig}[state.route];
       await fn(force);
       if(seq!==state.renderSeq)return;
       window.LocalDNSInterface?.apply();
@@ -1876,6 +1884,12 @@
   ];
 
 
+  async function renderProxyConfig(){
+    const seq=state.renderSeq;
+    const cleanup=await window.LocalDNSProxyConfig.mount(page,{notify:toast,navigate});
+    if(seq!==state.renderSeq)cleanup();else trackRouteCleanup(cleanup);
+  }
+
   async function renderManagement(){
     const renderSeq=state.renderSeq;
     const isCurrent=()=>state.route==='management'&&state.renderSeq===renderSeq;
@@ -1887,6 +1901,12 @@
       <div style="display:flex;align-items:baseline;gap:12px"><h1>系统管理</h1><span class="gc-sub">多级缓存池、核心功能开关与 Requery 自动分流刷新管理</span></div>
     </div>
     <div class="management-stack">
+      <section class="proxy-panel-management" aria-label="代理面板设置">
+        <div><h2 data-proxy-panel-name>代理面板</h2><code data-proxy-panel-address></code></div>
+        <a class="button small" data-proxy-panel-link target="_blank" rel="noopener noreferrer">打开面板</a>
+        <button type="button" class="button small" data-route="proxy-config">编辑配置</button>
+        <button type="button" class="button small" data-proxy-panel-settings>面板设置</button>
+      </section>
       <div id="management-cache-slot" style="display:contents">${card('缓存管理',skeletonBlock(130),{iconName:'data',className:'data-cache-panel'})}</div>
       <div id="management-feature-slot" style="display:contents">${card('功能开关',skeletonBlock(300),{iconName:'features',subtitle:'常用运行功能集中管理',className:'management-feature-panel'})}</div>
       <div class="management-bottom">
@@ -1895,6 +1915,7 @@
       </div>
     </div>`;
 
+    window.LocalDNSProxyPanel?.sync();
     const switchPromise=Promise.all(tags.map(t=>safe(()=>api.request(`/plugins/${t}/show`),'error'))).then(results=>Object.fromEntries(tags.map((t,i)=>[t,String(results[i]).trim()])));
     const metricsPromise=api.metrics();
     const reqStatusPromise=safe(()=>api.request('/plugins/requery/status'),null);

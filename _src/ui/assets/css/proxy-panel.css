@@ -1,0 +1,59 @@
+/* Shared tokens keep the compact launcher consistent with both skins. */
+.proxy-launcher { display: flex; flex: none; width: 64px; height: 38px; margin-right: 4px; border: 1px solid var(--border-glass); border-radius: calc(10px * var(--radius-scale)); background: var(--glass-pill); overflow: hidden; }
+.proxy-launcher a, .proxy-launcher button { display: grid; place-items: center; padding: 0; min-width: 0; border: 0; border-radius: 0; background: transparent; color: var(--text-2); cursor: pointer; }
+.proxy-launcher a { flex: 1; }
+.proxy-launcher button { width: 24px; border-left: 1px solid var(--border-glass); }
+.proxy-launcher img { display: block; width: 22px; height: 22px; object-fit: contain; }
+.proxy-launcher svg { width: 12px; height: 12px; }
+.proxy-launcher a:hover, .proxy-launcher button:hover { background: var(--glass-pill-active); color: var(--text-1); }
+.proxy-launcher a:active, .proxy-launcher button:active { background: var(--selection-fill, var(--glass-pill-active)); }
+.proxy-launcher :focus-visible { outline: 2px solid var(--control-focus, var(--primary)); outline-offset: -3px; }
+.proxy-panel-popover[hidden] { display: none; }
+.proxy-panel-popover { position: fixed; z-index: 110; width: min(390px, calc(100vw - 24px)); padding: 22px; overflow-y: auto; border: 1px solid var(--border-glass); border-radius: calc(16px * var(--radius-scale)); background: var(--glass-bg-strong); backdrop-filter: var(--blur-filter); -webkit-backdrop-filter: var(--blur-filter); box-shadow: 0 16px 48px color-mix(in srgb, var(--text-1) 12%, transparent); color: var(--text-1); text-wrap: pretty; }
+.proxy-panel-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.proxy-panel-heading h2 { font-size: 19px; font-weight: 600; }
+.proxy-panel-heading .icon-button { min-width: 32px; width: 32px; height: 32px; min-height: 32px; }
+.proxy-panel-heading svg { width: 17px; height: 17px; }
+.proxy-panel-description, .proxy-panel-note { margin: 8px 0 20px; color: var(--text-2); font-size: 12px; line-height: 1.7; }
+.proxy-panel-types { border: 0; min-width: 0; margin: 0 0 20px; padding: 0; }
+.proxy-panel-types legend { margin-bottom: 10px; font-size: 12px; }
+.proxy-panel-options { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.proxy-panel-option { position: relative; display: flex; align-items: center; gap: 10px; padding: 12px; min-height: 58px; border: 1px solid var(--border-glass); border-radius: calc(10px * var(--radius-scale)); background: var(--glass-pill); cursor: pointer; }
+.proxy-panel-option input { position: absolute; width: 1px; height: 1px; opacity: 0; }
+.proxy-panel-option img { width: 27px; height: 27px; object-fit: contain; }
+.proxy-panel-option:has(input:checked) { border-color: var(--primary); background: var(--selection-fill, var(--glass-pill-active)); }
+.proxy-panel-option:has(input:checked)::after { content: '✓'; color: var(--primary); margin-left: auto; }
+.proxy-panel-option:has(input:focus-visible) { outline: 2px solid var(--control-focus, var(--primary)); outline-offset: 3px; }
+.proxy-panel-option:hover { background: var(--glass-pill-active); }
+.proxy-panel-popover .field { gap: 8px; }
+.proxy-panel-popover input[type="url"] { width: 100%; font-family: var(--font-mono); font-size: 13px; }
+.proxy-panel-popover input[aria-invalid="true"] { border-color: var(--red); }
+.proxy-panel-note { margin: 10px 0 0; }
+.proxy-panel-error { margin-top: 10px; color: var(--console-danger, var(--red)); font-size: 12px; line-height: 1.7; }
+.proxy-panel-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 22px; }
+.proxy-panel-management { display: flex; align-items: center; gap: 16px; padding: 16px 18px; border: 1px solid var(--border-glass); border-radius: var(--radius-card); background: var(--glass-bg); }
+.proxy-panel-management > div { flex: 1; min-width: 0; }
+.proxy-panel-management h2 { font-size: 14px; margin-bottom: 5px; }
+.proxy-panel-management code { font-size: 12px; color: var(--text-2); overflow-wrap: anywhere; }
+.proxy-panel-management a { white-space: nowrap; }
+html[data-skin="claude"] .proxy-panel-popover { backdrop-filter: none; -webkit-backdrop-filter: none; }
+@media (min-width: 901px) {
+  html[data-nav="top"] .navbar-content { grid-template-columns: minmax(36px, 1fr) auto minmax(max-content, 1fr); }
+}
+@media (max-width: 600px) {
+  .proxy-launcher { width: 62px; height: 44px; }
+  .proxy-panel-popover { padding: 20px; }
+  .proxy-panel-popover input[type="url"] { font-size: 16px; }
+  .proxy-panel-actions .button { min-height: 44px; }
+  .proxy-panel-management { flex-wrap: wrap; gap: 12px; }
+  .proxy-panel-management > div { flex-basis: 100%; }
+}
+@media (max-width: 480px) {
+  .navbar-content .brand-name { display: none; }
+  .navbar-content .icon-action-btn, .navbar-content .particle-inline-btn { min-width: 36px; padding-inline: 8px; }
+}
+@media (max-width: 350px) {
+  .navbar-content { padding-inline: 10px; }
+  .navbar-content .icon-action-btn, .navbar-content .particle-inline-btn { min-width: 32px; padding-inline: 6px; }
+  .navbar-content .brand-logo, .navbar-content .brand-logo img { width: 28px; height: 28px; }
+}

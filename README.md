@@ -6,11 +6,17 @@
 
 **DNS 核心主要由折腾日记交流群里的 R 大使用 Rust 编写；[yyhoworks](https://github.com/yyhoworks) 负责 UI 设计。**
 
-当前版本：**[后端 FJGAC / UI 2026.10.18.11](https://github.com/yyhoworks/LocalDNS/releases/tag/fjgac-ui-v2026.10.18.11)**，提供完整包、UI 升级包和 SHA-256 校验文件，见 [本次更新说明](docs/releases/fjgac-ui-v2026.10.18.11.md)。
+当前版本：**[后端 FJGAC / UI 2026.10.18.14](https://github.com/yyhoworks/LocalDNS/releases/tag/fjgac-ui-v2026.10.18.14)**，提供完整包、UI 升级包、配置服务包和 SHA-256 校验文件，见 [本次更新说明](docs/releases/fjgac-ui-v2026.10.18.14.md)。
 
-本次完善客户端别名管理，支持搜索、新增、修改和移除，并在保存前检查其他设备的修改；拓扑仅展示有实际查询的来源。按用户要求移除壁纸图库管理，保留单张本地图片、在线 URL、预设和恢复默认，兼容旧图库当前使用的壁纸。内核继续使用 FJGAC，保留双皮肤、独立卡片 / 列表排列、横向 / 纵向导航、三栏排行和单次请求解析路径摘要。
+本次增加紧凑的 Mihomo / sing-box 面板入口与本机配置编辑器。用户可选择配置文件、查看修改差异并执行核心校验，保存时自动备份与重载，失败时恢复原配置。进入编辑器直接读取本机配置，无需 SSH 登录。内核继续使用 FJGAC，保留双皮肤、卡片 / 列表排列、横向 / 纵向导航、客户端管理和单张壁纸设置。
 
 [产品图集](docs/SCREENSHOTS.md) · [功能指南](docs/FEATURES.md) · [安装说明](INSTALL.md) · [下载 Releases](https://github.com/yyhoworks/LocalDNS/releases) · [作者与分工](AUTHORS.md) · [开发说明](docs/DEVELOPMENT.md) · [近期更新](CHANGELOG.md)
+
+## 代理面板与本机配置编辑
+
+顶栏使用所选核心的 Logo，点击打开自定义面板地址。在「系统管理 → 编辑配置」中管理与 LocalDNS 同机的 Mihomo YAML / sing-box JSON，支持查找、折叠、修改对比、原生校验、备份和重载。
+
+配置编辑需要安装 Release 附带的 `LocalDNS_ProxyConfig_UI_2026.10.18.14_Service.zip`。UI 升级包只更新界面；独立服务自动选择 Linux amd64 / arm64，支持 OpenRC / systemd。详情见 [安装说明](INSTALL.md) 与 [服务说明](services/proxy-config/README.md)。文件操作限制在管理员指定的目录；保存并重载针对当前启动配置。
 
 ## 作者与分工
 
@@ -124,7 +130,7 @@
 
 ## 快速安装
 
-1. 在 [Releases](https://github.com/yyhoworks/LocalDNS/releases/tag/fjgac-ui-v2026.10.18.11) 下载完整包或 UI 升级包，并核对同页的 `SHA256SUMS.txt`。**升级 FJGAC 内核必须从完整包选择对应架构的程序；UI 升级包不含内核。**
+1. 在 [Releases](https://github.com/yyhoworks/LocalDNS/releases/tag/fjgac-ui-v2026.10.18.14) 下载完整包或 UI 升级包，并核对同页的 `SHA256SUMS.txt`。**升级 FJGAC 内核必须从完整包选择对应架构的程序；UI 升级包不含内核。**
 2. 已有 LocalDNS 服务时，解压 UI 升级包并运行：
 
    ```sh
@@ -139,7 +145,8 @@
 
 ```text
 _src/ui/              当前 Web 界面源码、本地字体与 Logo
-tools/                UI 打包工具与更新脚本
+tools/                UI / 服务打包、验证与更新脚本
+services/proxy-config/ 本机代理配置管理服务与安装器
 docs/                 开发、验证与第三方说明
 AUTHORS.md            作者署名与分工
 INSTALL.md            安装、更新与回退

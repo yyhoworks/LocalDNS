@@ -1,0 +1,64 @@
+{
+  "uiVersion": "2026.10.18.12",
+  "backendVersion": "FJGAC",
+  "scope": "local preview deployment",
+  "browser": {
+    "layoutChecks": 56,
+    "skins": [
+      "claude",
+      "glass"
+    ],
+    "themes": [
+      "light-glass",
+      "cosmos-glass"
+    ],
+    "navigation": [
+      "left",
+      "top"
+    ],
+    "widths": [
+      320,
+      360,
+      390,
+      600,
+      901,
+      1100,
+      1440
+    ],
+    "behavior": "URL validation, cancel, save/reload, logo switch, storage failure, Escape/focus, outside click, appearance handoff, new tab, management settings",
+    "pageErrors": [],
+    "badAssets": [],
+    "backendWrites": []
+  },
+  "deployment": {
+    "url": "http://192.168.1.6:9099/ui/",
+    "filesVerified": 58,
+    "protectedFileCount": 31,
+    "protectedFilesUnchanged": true,
+    "processUnchanged": true,
+    "dns": {
+      "tcp": {
+        "rcode": 0,
+        "answers": 1,
+        "port": 53
+      },
+      "udp": {
+        "rcode": 0,
+        "answers": 1,
+        "port": 53
+      }
+    },
+    "packageSha256": "0c1e2ff1b617fb35dccca136f7cd6997edf72ddc31be48d54550e76b907a48b4",
+    "status": "deployed"
+  },
+  "deployedBrowser": {
+    "url": "http://192.168.1.6:9099/ui/?v=20261018-12",
+    "uiVersion": "2026.10.18.12",
+    "desktopReady": true,
+    "mobileReady": true,
+    "logoAssetsLoaded": true,
+    "settingsPersistAfterReload": true,
+    "errors": [],
+    "badAssets": []
+  }
+}

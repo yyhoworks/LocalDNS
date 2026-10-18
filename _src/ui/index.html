@@ -25,6 +25,8 @@
   <link rel="stylesheet" href="assets/css/workspace.css?v=20261018-8" />
   <link rel="stylesheet" href="assets/css/collection-layouts.css?v=20261018-7" />
   <link rel="stylesheet" href="assets/css/dashboard.css?v=20261018-7" />
+  <link rel="stylesheet" href="assets/css/proxy-panel.css?v=20261018-12" />
+  <link rel="stylesheet" href="assets/css/proxy-config.css?v=20261018-13" />
 </head>
 <body>
 
@@ -39,7 +41,7 @@
       <div class="brand-box">
         <div class="brand-logo" id="brand-logo-slot"><img id="brand-mark" src="assets/img/logo-04-light.png?v=20261015-2" alt="" width="36" height="36" /></div>
         <span class="brand-name">LocalDNS</span>
-        <span class="brand-ver" id="brand-version-tag" data-backend-version="FJGA7">FJGA7</span>
+        <span class="brand-ver" id="brand-version-tag" data-backend-version="FJGAC">FJGAC</span>
         <button class="icon-button sidebar-collapse" id="sidebar-collapse" aria-label="折叠侧栏" style="display:none"></button>
       </div>
 
@@ -53,6 +55,11 @@
         </div>
 
         <div class="top-actions-dock">
+
+          <div class="proxy-launcher" id="proxy-launcher" role="group" aria-label="代理面板快捷入口">
+            <a data-proxy-panel-link href="http://192.168.1.7:9090/ui" target="_blank" rel="noopener noreferrer" title="打开 Mihomo 面板" aria-label="打开 Mihomo 面板（新标签页）"><img src="assets/img/mihomo.png" alt="" width="22" height="22" /></a>
+            <button type="button" aria-label="设置代理面板类型与地址" title="代理面板设置" aria-expanded="false" aria-controls="proxy-panel-popover"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button>
+          </div>
 
           <div class="glass-action-capsule" role="group" aria-label="视图与主题工具">
             <button type="button" class="icon-action-btn active" id="btn-open-bg-customizer" aria-label="外观设置" title="外观设置" aria-expanded="false" aria-controls="bg-customizer-popover">
@@ -282,6 +289,27 @@
     </form>
   </dialog>
 
+  <section id="proxy-panel-popover" class="proxy-panel-popover" role="dialog" aria-labelledby="proxy-panel-title" aria-describedby="proxy-panel-description" hidden>
+    <div class="proxy-panel-heading">
+      <h2 id="proxy-panel-title">代理面板</h2>
+      <button class="icon-button" type="button" data-proxy-panel-close aria-label="关闭代理面板设置"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="m6 6 12 12M6 18 18 6"/></svg></button>
+    </div>
+    <p id="proxy-panel-description" class="proxy-panel-description">选择面板类型，顶栏显示对应 Logo。</p>
+    <form novalidate>
+      <fieldset class="proxy-panel-types">
+        <legend>面板类型</legend>
+        <div class="proxy-panel-options">
+          <label class="proxy-panel-option"><input type="radio" name="proxy-panel-type" value="mihomo" checked /><img src="assets/img/mihomo.png" alt="" /><span>Mihomo</span></label>
+          <label class="proxy-panel-option"><input type="radio" name="proxy-panel-type" value="sing-box" /><img src="assets/img/sing-box.svg" alt="" /><span>sing-box</span></label>
+        </div>
+      </fieldset>
+      <div class="field"><label for="proxy-panel-url">面板地址</label><input type="url" id="proxy-panel-url" placeholder="http://192.168.1.7:9090/ui" inputmode="url" autocomplete="url" spellcheck="false" autocapitalize="none" required aria-describedby="proxy-panel-note proxy-panel-error" /></div>
+      <p id="proxy-panel-note" class="proxy-panel-note">点击 Logo 在新标签页打开。设置保存在当前浏览器。</p>
+      <p id="proxy-panel-error" class="proxy-panel-error" role="alert" hidden></p>
+      <div class="proxy-panel-actions"><a class="button" href="#/proxy-config" data-proxy-panel-close>编辑配置</a><button type="button" class="button" data-proxy-panel-close>取消</button><button type="submit" class="button primary">保存设置</button></div>
+    </form>
+  </section>
+
   <div id="toast-stack" class="toast-stack" aria-live="polite"></div>
   <script src="config.js?v=20261018-7"></script>
   <script src="assets/js/chart.umd.min.js"></script>
@@ -296,7 +324,9 @@
   <script src="assets/js/workspace.js?v=20261018-7"></script>
   <script src="assets/js/collection-layouts.js?v=20261018-7"></script>
   <script src="assets/js/clients.js?v=20261018-8"></script>
-  <script src="assets/js/app.js?v=20261018-8"></script>
+  <script src="assets/js/proxy-panel.js?v=20261018-12"></script>
+  <script src="assets/js/proxy-config.js?v=20261018-14"></script>
+  <script src="assets/js/app.js?v=20261018-13"></script>
   <script src="assets/js/material.js?v=20261018-7-FJGAC"></script>
   <script src="assets/js/navbar.js?v=20261018-7"></script>
 </body>

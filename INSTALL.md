@@ -1,16 +1,17 @@
 # 安装与更新
 
-当前发行版本：**后端 FJGAC / UI 2026.10.18.11**。本次完善客户端别名管理，拓扑只显示实际查询来源；移除壁纸图库管理，保留单张壁纸、在线 URL、预设与恢复默认，兼容已有当前壁纸。保留双皮肤、导航、五列 DNS 解析拓扑与贡献署名。
+当前发行版本：**后端 FJGAC / UI 2026.10.18.14**。本次增加代理面板入口和本机配置编辑器，支持文件选择、校验、差异对比、备份与保存重载。配置器不使用 SSH 登录；核心、现有 DNS 配置和规则沿用上一正式版。
 
 ## 选择下载包
 
-从 [本版 Releases](https://github.com/yyhoworks/LocalDNS/releases/tag/fjgac-ui-v2026.10.18.11) 下载；本地构建位于 `dist/fjgac-ui-v2026.10.18.11/`。配套包为：
+从 [本版 Releases](https://github.com/yyhoworks/LocalDNS/releases/tag/fjgac-ui-v2026.10.18.14) 下载；本地构建位于 `dist/fjgac-ui-v2026.10.18.14/`。配套包为：
 
 | 文件 | 用途 |
 |---|---|
-| `LocalDNS_FJGAC_UI_2026.10.18.11_Full.zip` | 新安装或提取内核：FJGAC 程序、上一正式版已清理的默认配置与规则、当前双皮肤 UI |
-| `LocalDNS_UI_2026.10.18.11_Update.zip` | 已安装环境更新界面 |
-| `SHA256SUMS.txt` | 两个发行包的 SHA-256 校验值 |
+| `LocalDNS_FJGAC_UI_2026.10.18.14_Full.zip` | 新安装或提取内核：FJGAC 程序、上一正式版已清理的默认配置与规则、当前双皮肤 UI |
+| `LocalDNS_UI_2026.10.18.14_Update.zip` | 已安装环境更新界面 |
+| `LocalDNS_ProxyConfig_UI_2026.10.18.14_Service.zip` | 配置编辑器配套服务，含 Linux amd64 / arm64 程序与 OpenRC / systemd 安装器 |
+| `SHA256SUMS.txt` | 三个发行包的 SHA-256 校验值 |
 
 在同一目录核对：
 
@@ -31,6 +32,24 @@ sh install-ui.sh /opt/localdns
 脚本先验证包内校验清单、备份原 UI，再替换界面。现有 DNS 配置、规则与后端程序保持原样，通常无需重启服务。
 
 访问 `http://服务器地址:9099/ui/`；端口以实际配置为准。更新后刷新浏览器，必要时使用强制刷新。
+
+## 安装本机配置编辑服务
+
+只使用 DNS 管理或外部面板入口时，安装 UI 包即可。需要在 UI 中读取、编辑并保存同机的 Mihomo / sing-box 配置时，再下载配套 Service 包。
+
+将 Service 包解压到临时目录，在 DNS UI 和代理核心所在设备运行：
+
+```sh
+sh install-proxy-config.sh http://服务器IP:9099
+```
+
+替换为实际 IPv4 地址或主机名与 UI 端口，不带 `/ui/` 路径。脚本验证清单、选择 CPU 架构、备份并安装服务，支持 OpenRC / systemd。已有 `/etc/localdns-proxy-config.json` 会保留，配置中的核心路径与回程规则恢复钩子也会保留。新安装会生成指定 UI Origin 与 Host，只接受该 UI 的浏览器访问。
+
+默认程序与启动文件为 `/usr/local/bin/mihomo`、`/etc/mihomo/config.yaml`，以及 `/usr/local/bin/sing-box`、`/etc/sing-box/config.json`。按设备实际安装位置修改服务配置中的 `binary`、`config`、`roots`、`pidFile` 与 `postReload`，然后重启本服务。服务默认使用同机 9098 端口，不重启 DNS。通过 HTTPS 访问 UI 时，请按 [服务说明](https://github.com/yyhoworks/LocalDNS/blob/fjgac-ui-v2026.10.18.14/services/proxy-config/README.md) 配置同源反向代理和 `proxyConfigBase`。
+
+打开「系统管理 → 编辑配置」，页面自动读取本机配置，无需输入 SSH 账号密码。文件选择仅访问指定核心目录；保存重载只应用于服务配置中的启动文件。原配置备份保存在配置目录内的 `localdns-backups/`，最多十份。
+
+当前设备的 Mihomo 已完成真实读取、校验与保存重载验证。sing-box 未在该设备安装；其命令与 PID 检查有单独测试，但不声称完成真实运行验证。Service 包的 amd64 程序经过目标 Linux 验证，arm64 只完成构建和 ELF 校验。
 
 ## 已安装环境升级后端
 

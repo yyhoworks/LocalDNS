@@ -1,0 +1,31 @@
+{
+  "listen": "127.0.0.1:9098",
+  "origins": [
+    "http://127.0.0.1:9099"
+  ],
+  "hosts": [
+    "127.0.0.1:9098"
+  ],
+  "cores": {
+    "mihomo": {
+      "binary": "/usr/local/bin/mihomo",
+      "config": "/etc/mihomo/config.yaml",
+      "directory": "/etc/mihomo",
+      "roots": [
+        "/etc/mihomo",
+        "/opt/mihomo"
+      ],
+      "postReload": []
+    },
+    "sing-box": {
+      "binary": "/usr/local/bin/sing-box",
+      "config": "/etc/sing-box/config.json",
+      "directory": "/etc/sing-box",
+      "roots": [
+        "/etc/sing-box",
+        "/opt/sing-box"
+      ],
+      "pidFile": "/run/sing-box.pid"
+    }
+  }
+}

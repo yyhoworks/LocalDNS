@@ -1,5 +1,11 @@
 # 开发说明
 
+## 代理面板入口（2026.10.18.12 本地预览）
+
+`proxy-panel.js` 与 `proxy-panel.css` 提供紧凑 Logo 外链、类型与地址设置浮层及系统管理入口。偏好键为 `localdns-proxy-panel-v1`，仅保存类型与 URL，不调用后端写入接口。保存成功后再更新链接和 Logo；损坏的偏好回退默认值。跨标签页变更通过 `storage` 事件同步。
+
+`node tools/verify_proxy_panel.cjs` 使用现有只读代理和 Edge 验证设置交互、URL 校验、存储失败、焦点、新标签页、双皮肤与水平 / 垂直布局。可用 `LOCALDNS_PREVIEW_BACKEND` 指定测试后端，或用 `LOCALDNS_VERIFY_URL` 验证实际部署地址；截图和报告写入 `dist/proxy-panel-verification/`。
+
 ## 源码范围
 
 本仓库提供当前 Web UI 的 HTML、CSS、JavaScript、Logo 和本地字体。
@@ -127,3 +133,23 @@ UI 2026.10.16.1 / FJG4O 增加字体选择、状态文字居中和单层焦点�
 - 多数据集 DAT 的 PUT 可能先返回待识别配置；前端在缺少 detected_format 时再执行更新，处理 dataset_required 并引导选择。
 - 拓扑仅外层画布使用全局 backdrop-filter；内部节点使用全局遮盖度对应的半透明底色，避免叠加模糊和固定渐变。羊皮纸皮肤保留原样。
 - `node tools/test_traffic.cjs` 与 `node tools/test_rule_conversion.cjs` 覆盖计数重置、断采、窗口边界、真实接口返回结构、元数据保留及 DAT 待识别流程。
+
+## 本机配置管理（2026.10.18.13）
+
+`proxy-config.js` / `proxy-config.css` 挂载系统管理下的 `#/proxy-config` 路由，沿用现有导航和主题。编辑器依赖按需加载，构建见 `tools/proxy-config-ui/README.md`。
+
+独立服务位于 `services/proxy-config/`，默认端口 9098，不修改 DNS 内核接口。服务配置中的 Origin、Host、核心程序、启动文件和目录需要与设备对应。浏览器凭设备 SSH 账号建立 HttpOnly 会话；正文和密码不进入浏览器持久存储。
+
+保存只应用于核心启动配置；目录内其他文件可选择、读取与检查。保存前后验证内容版本，核心检查通过后备份并原子替换；失败恢复。Mihomo 有自定义透明代理规则时，需要配置 `postReload` 恢复钩子。sing-box 的 SIGHUP 与在线检查不等价于确定的应用确认，界面采用对应文案。
+
+## 当前配置管理方式（2026.10.18.14）
+
+配置编辑器直接调用同机服务读取文件，不使用 SSH 认证和 Cookie 会话。页面初始化先读取核心元数据，再载入已选文件或默认启动配置；读取失败提供重试与错误详情。服务保留 Origin / Host 和配置目录边界，部署于现有受信局域网管理范围。历史 .13 的登录方式已被替换，核心校验与事务保存流程保持一致。
+
+## 配置服务发行包
+
+`python tools/package_proxy_config.py --go /path/to/go` 构建 Linux amd64 / arm64 服务并生成独立 ZIP，使用 `-trimpath -buildvcs=false` 保持构建与工作目录无关。先运行 UI 打包工具生成完整包 / UI 包，再运行此脚本，将第三个压缩包加入同一 `SHA256SUMS.txt`。
+
+`python tools/test_proxy_config_installer.py` 在临时 DESTDIR 中验证两个架构的文件安装、已有配置 / 钩子保留、程序备份和非法 Origin 拒绝；不会启动系统服务。Windows 可通过 `--shell` 指定 Git 的 `usr/bin/sh.exe`。
+
+`python tools/verify_proxy_config_release.py --base /path/to/published-full.zip --base-sha256 <published-sha256>` 统一验证三个压缩包的清单、UI 字节一致性以及完整包的默认配置、规则和内核保持；可加 `--write-record` 更新当前版本的公开验证摘要。
