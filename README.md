@@ -6,9 +6,11 @@
 
 **DNS 核心主要由折腾日记交流群里的 R 大使用 Rust 编写；[yyhoworks](https://github.com/yyhoworks) 负责 UI 设计。**
 
-当前版本：**[后端 FJGAC / UI 2026.10.18.7](https://github.com/yyhoworks/LocalDNS/releases/tag/fjgac-ui-v2026.10.18.7)**，提供完整包、UI 升级包和 SHA-256 校验文件。
+当前源码：**后端 FJGAC / UI 2026.10.18.11**，见 [本次更新说明](docs/releases/fjgac-ui-v2026.10.18.11.md)。
 
-本版修复解析拓扑的节点与缓存卡玻璃材质未跟随外观面板的问题。在线规则、广告订阅、DNS 上游、日志、缓存与功能开关支持独立的卡片 / 列表切换，保留筛选和当前页。内核更新为 FJGAC，排行平均延时按请求日志计算并标明样本范围，保留横向 / 纵向导航、三栏排行、单次请求解析路径摘要，以及「人文羊皮纸」与「流光毛玻璃」双皮肤。首页首排为服务状态与核心指标，排行位于趋势图和解析拓扑之后。
+最新已发布安装包：**[后端 FJGAC / UI 2026.10.18.7](https://github.com/yyhoworks/LocalDNS/releases/tag/fjgac-ui-v2026.10.18.7)**，提供完整包、UI 升级包和 SHA-256 校验文件。
+
+本次完善客户端别名管理，支持搜索、新增、修改和移除，并在保存前检查其他设备的修改；拓扑仅展示有实际查询的来源。按用户要求移除壁纸图库管理，保留单张本地图片、在线 URL、预设和恢复默认，兼容旧图库当前使用的壁纸。内核继续使用 FJGAC，保留双皮肤、独立卡片 / 列表排列、横向 / 纵向导航、三栏排行和单次请求解析路径摘要。
 
 [产品图集](docs/SCREENSHOTS.md) · [功能指南](docs/FEATURES.md) · [安装说明](INSTALL.md) · [下载 Releases](https://github.com/yyhoworks/LocalDNS/releases) · [作者与分工](AUTHORS.md) · [开发说明](docs/DEVELOPMENT.md) · [近期更新](CHANGELOG.md)
 

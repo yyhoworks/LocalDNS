@@ -1,4 +1,11 @@
 /* Translucent surfaces: light passes through the wallpaper and one frosted layer. */
+#bcp-group-glass-bg .bcp-inline{flex-wrap:wrap}
+#bcp-group-glass-bg button{min-height:44px}
+#bcp-group-glass-bg .preset-btn{min-width:44px}
+#btn-select-bg-file{flex:1}
+#btn-apply-bg-url{white-space:nowrap}
+#bg-url-input{min-height:44px}
+@media(max-width:480px){#bg-url-input{font-size:16px}}
 .bcp-save-status{font-size:12px;line-height:1.6;color:var(--text-2);overflow-wrap:anywhere}.bcp-save-status[data-state=saved]{color:var(--console-success)}.bcp-save-status[data-state=error]{color:var(--console-danger)}
 .wallpaper-layer[data-preset=cosmos]{background-image:radial-gradient(ellipse at 44% 56%,rgba(151,112,65,.085),transparent 62%),radial-gradient(ellipse at 84% 14%,rgba(47,64,88,.055),transparent 54%)}
 .wallpaper-layer[data-preset=cosmos] #ambient-orbit{display:block}

@@ -23,7 +23,7 @@ DNS 核心主要由折腾日记交流群的 R 大使用 Rust 编写；当前工�
 | `_src/ui/assets/js/topology-flow.js` | 可关闭的路径流光示意、交互暂停与切页清理 |
 | `_src/ui/assets/css/interaction.css` | 状态文字居中、柔白细边与键盘焦点 |
 | `_src/ui/assets/css/skin-claude.css` | 人文羊皮纸（Claude 风格）与流光毛玻璃双皮肤变量、宣纸噪点层与组件定制 |
-| `_src/ui/assets/js/wallpaper.js` | 壁纸验证、IndexedDB 保存、旧数据迁移与失败反馈 |
+| `_src/ui/assets/js/wallpaper.js` | 单张壁纸验证、保存、旧版当前壁纸兼容与失败反馈 |
 | `_src/ui/assets/css/overview.css` | 服务摘要与指标分组 |
 | `_src/ui/assets/css/typography.css` | 宋体标题与衬线数字 |
 | `_src/ui/assets/css/fonts.css` | 本地字体声明 |
@@ -34,6 +34,18 @@ UI 需要 LocalDNS 后端提供 `/api/`、`/plugins/`、`/metrics` 等现有接�
 将 `_src/ui/` 的内容作为后端 `/ui/` 的静态文件使用。独立静态服务仅能查看结构，完整功能需要连接实际后端。
 
 不要在公开源码的 `config.js` 中写入设备凭据或个人服务器配置。
+
+## 单张壁纸（UI 2026.10.18.11）
+
+外观面板只提供本地图片、在线图片 URL、背景预设与恢复默认；图库管理和保存范围控件已移除。壁纸保存在当前站点、当前浏览器，不上传服务器。
+
+单张记录使用 IndexedDB `localdns-appearance/settings/wallpaper`；小容量后备使用 localStorage `localdns-wallpaper-v4`。更换壁纸前先验证图片，保存成功后再显示，写入失败保留当前壁纸。
+
+兼容已取消图库的当前选中图片或预设；首次读取时保存为单张记录，原图库数据不主动删除。之后优先读取单张记录，恢复默认不会再次恢复旧图库的图片。旧版 `localdns-wallpaper-v3` 与更早的单张设置继续兼容。共享图库和 .10 原型已取消，不参与打包。
+
+运行 `node --test tools/test_wallpaper.cjs` 验证旧图库当前壁纸迁移、替换与恢复默认持久化，以及写入失败时的原图保护。测试依赖沿用忽略目录 `deployment/tools/wallpaper-test-deps/node_modules/fake-indexeddb`。
+
+首次运行测试前安装依赖：`npm install --prefix deployment/tools/wallpaper-test-deps fake-indexeddb@6.2.4`。客户端管理测试为 `node --test tools/test_clients.cjs`。
 
 ## 打包
 

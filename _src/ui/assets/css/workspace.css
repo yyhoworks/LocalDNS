@@ -31,3 +31,21 @@ html[data-skin="claude"][data-theme="light-glass"]{--text-3:#6e675e;--muted:#6e6
 html[data-skin="claude"] .button.primary,html[data-skin="claude"] .glass-btn.primary{background:#a74d32;border-color:#a74d32;color:#faf8f3}
 html[data-skin="claude"] .button.primary:hover,html[data-skin="claude"] .glass-btn.primary:hover{background:#ad5033;border-color:#ad5033}
 .skin-card-meta small,.query-path-nodes small{font-size:11px}
+
+/* Client names are edited as one explicit server save, with local cancellation. */
+.client-manager{display:grid;gap:18px;min-width:0}
+.client-manager-note{margin:0;color:var(--text-2);font-size:13px;line-height:1.7;overflow-wrap:anywhere}
+.client-manager-toolbar{display:flex;align-items:end;gap:14px;flex-wrap:wrap}
+.client-manager-toolbar .field{flex:1;min-width:160px}
+.client-manager-toolbar>span{color:var(--text-2);font-size:12px;padding-bottom:10px}
+.client-alias-list{max-height:380px;overflow:auto;min-width:0}
+.client-alias-row{display:grid;grid-template-columns:minmax(140px,1fr) minmax(140px,1fr) auto;align-items:center;gap:12px;padding:14px 0;border-bottom:1px solid var(--border-glass)}
+.client-alias-identity{min-width:0}.client-alias-identity strong{display:block;font:500 13px var(--font-mono);overflow-wrap:anywhere}
+.client-alias-identity small{display:block;font-size:12px;color:var(--text-2);line-height:1.6;margin-top:5px}
+.client-alias-row .field,.client-alias-add .field,.client-manager-toolbar .field{margin:0;min-width:0}
+.client-alias-label{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
+.client-manager input{width:100%;min-width:0;min-height:44px;box-sizing:border-box;caret-color:var(--primary-light)}
+.client-manager button{min-height:44px;white-space:nowrap}
+.client-alias-add{display:grid;grid-template-columns:minmax(140px,1fr) minmax(140px,1fr) auto;align-items:end;gap:12px;padding-top:4px}
+.client-manager :focus-visible{outline:2px solid var(--primary-light);outline-offset:3px}
+@media(max-width:760px){.client-alias-row{grid-template-columns:minmax(0,1fr) auto;gap:10px}.client-alias-identity{grid-column:1/-1}.client-alias-add{grid-template-columns:minmax(0,1fr)}.client-manager input{font-size:16px}.client-manager-toolbar{gap:6px}.client-manager-toolbar>span{padding-bottom:0}.client-alias-list{max-height:44vh}}

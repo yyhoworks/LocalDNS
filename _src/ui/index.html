@@ -14,7 +14,7 @@
   <link rel="stylesheet" href="assets/css/fonts.css?v=20261018-7" />
   <link rel="stylesheet" href="assets/css/app.css?v=20261018-7" />
   <link rel="stylesheet" href="assets/css/console.css?v=20261018-7" />
-  <link rel="stylesheet" href="assets/css/material.css?v=20261018-7" />
+  <link rel="stylesheet" href="assets/css/material.css?v=20261018-11" />
   <link rel="stylesheet" href="assets/css/navbar.css?v=20261018-7" />
   <link rel="stylesheet" href="assets/css/overview.css?v=20261018-7" />
   <link rel="stylesheet" href="assets/css/typography.css?v=20261018-7" />
@@ -22,7 +22,7 @@
   <link rel="stylesheet" href="assets/css/interaction.css?v=20261018-7" />
   <link rel="stylesheet" href="assets/css/skin-claude.css?v=20261018-7" />
   <link rel="stylesheet" href="assets/css/navigation.css?v=20261018-7" />
-  <link rel="stylesheet" href="assets/css/workspace.css?v=20261018-7" />
+  <link rel="stylesheet" href="assets/css/workspace.css?v=20261018-8" />
   <link rel="stylesheet" href="assets/css/collection-layouts.css?v=20261018-7" />
   <link rel="stylesheet" href="assets/css/dashboard.css?v=20261018-7" />
 </head>
@@ -144,7 +144,7 @@
             </div>
 
             <div class="bcp-group" id="bcp-group-glass-bg">
-              <div class="bcp-group-title">背景</div>
+              <div class="bcp-group-title">壁纸</div>
 
               <div class="bcp-row">
                 <div class="bcp-row-head"><span>预设光影主题</span><strong class="mono" id="val-preset">—</strong></div>
@@ -158,12 +158,10 @@
               </div>
 
               <div class="bcp-row">
-                <div class="bcp-row-head"><span>本地壁纸</span><strong class="mono">自动保存</strong></div>
+                <div class="bcp-row-head"><span>本地壁纸</span><strong>自动保存</strong></div>
                 <div class="bcp-inline">
-                  <label class="glass-btn primary" style="flex:1;cursor:pointer">
-                    选择本地图片...
-                    <input type="file" id="bg-file-input" accept="image/*" style="display:none" />
-                  </label>
+                  <button type="button" class="glass-btn primary" id="btn-select-bg-file">选择本地图片…</button>
+                  <input type="file" id="bg-file-input" accept="image/*" hidden />
                   <button type="button" class="glass-btn" id="btn-clear-custom-bg">恢复默认</button>
                 </div>
               </div>
@@ -176,7 +174,7 @@
                 </div>
               </div>
 
-              <p id="wallpaper-save-status" class="bcp-save-status" role="status" aria-live="polite">壁纸保存在当前浏览器，选择图片后自动保存。</p>
+              <p id="wallpaper-save-status" class="bcp-save-status" role="status" aria-live="polite">正在读取已保存壁纸…</p>
             </div>
 
             <div class="bcp-group" id="bcp-group-glass-material">
@@ -290,14 +288,15 @@
   <script src="assets/js/traffic.js?v=20261018-7"></script>
   <script src="assets/js/rule-conversion.js?v=20261018-7"></script>
   <script src="assets/js/console.js?v=20261018-7"></script>
-  <script src="assets/js/wallpaper.js?v=20261018-7"></script>
+  <script src="assets/js/wallpaper.js?v=20261018-11"></script>
   <script src="assets/js/font-uploads.js?v=20261018-7"></script>
   <script src="assets/js/topology-flow.js?v=20261018-7"></script>
   <script src="assets/js/query-path.js?v=20261018-7"></script>
   <script src="assets/js/rank-latency.js?v=20261018-7"></script>
   <script src="assets/js/workspace.js?v=20261018-7"></script>
   <script src="assets/js/collection-layouts.js?v=20261018-7"></script>
-  <script src="assets/js/app.js?v=20261018-7"></script>
+  <script src="assets/js/clients.js?v=20261018-8"></script>
+  <script src="assets/js/app.js?v=20261018-8"></script>
   <script src="assets/js/material.js?v=20261018-7-FJGAC"></script>
   <script src="assets/js/navbar.js?v=20261018-7"></script>
 </body>

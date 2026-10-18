@@ -890,53 +890,8 @@
 
     // === 构造五阶段全链路拓扑真实数据 ===
     const totalQ = Math.max(1, +stats.total_queries || 0);
-    // 01 客户端来源（5 节点：真实客户端排名前 4 + 其余客户端汇总/去重补位）
-    const top4Clients = (clients || []).slice(0, 4);
-    const restClients = (clients || []).slice(4);
-    const usedClientIps = new Set(top4Clients.map(c => c.key));
-    const unusedAliases = Object.entries(state.aliases || {}).filter(([ip]) => !usedClientIps.has(ip));
-    let unusedAliasIdx = 0;
-    const topoClients = [];
-    for (let i = 0; i < 4; i++) {
-      const c = top4Clients[i];
-      if (c) {
-        const sharePct = Math.round((+c.count || 0) / totalQ * 100);
-        topoClients.push({
-          id: `c${i+1}`,
-          ip: c.key,
-          muted: !(+c.count > 0),
-          name: state.aliases[c.key] || c.key,
-          sub: `${c.key} · ${compactNum(c.count)} 次`,
-          val: `${sharePct}%`,
-          valColor: i === 0 ? '#93C5FD' : 'var(--text-1)',
-          icon: i === 3 ? 'server' : 'monitor'
-        });
-      } else {
-        const unusedAlias = unusedAliases[unusedAliasIdx++];
-        const fallback = unusedAlias || [`终端槽位 #${i+1}`, '等待 DNS 请求接入'];
-        topoClients.push({
-          id: `c${i+1}`,
-          ip: unusedAlias?.[0] || '',
-          muted: true,
-          name: fallback[1] || fallback[0],
-          sub: `${fallback[0]} · 0 次`,
-          val: '0%',
-          valColor: 'var(--text-3)',
-          icon: 'monitor'
-        });
-      }
-    }
-    const restSum = restClients.reduce((s, x) => s + (+x.count || 0), 0);
-    topoClients.push({
-      id: 'c5',
-      muted: restSum === 0,
-      ip: '',
-      name: restClients.length ? `其余 ${restClients.length} 台设备` : '局域网其余终端',
-      sub: restClients.length ? `LAN 活跃终端 · ${compactNum(restSum)} 次` : 'LAN 子网监听中 (:53)',
-      val: restClients.length ? `${Math.round(restSum / totalQ * 100)}%` : '就绪',
-      valColor: 'var(--text-2)',
-      icon: 'dots'
-    });
+    // Aliases only name recorded clients; never add inactive aliases as topology nodes.
+    const topoClients = window.LocalDNSClients.topology(clients, state.aliases, stats.total_queries, compactNum);
 
     // 03 分流规则集（6 节点：对应真实 /api/v1/status rules 与 stats）
     const isClaude = document.documentElement.dataset.skin === 'claude';
@@ -1038,11 +993,7 @@
     const cAmber = isClaude ? '#B45309' : '#F59E0B';
     const cGreen = isClaude ? '#2D6A4F' : '#10B981';
     const topoEdges = [
-      ['c1', 'e_core', cPrimary],
-      ['c2', 'e_core', cPrimary],
-      ['c3', 'e_core', cPrimary],
-      ['c4', 'e_core', cPrimary],
-      ['c5', 'e_core', cPrimary],
+      ...topoClients.filter(c => !c.muted).map(c => [c.id, 'e_core', cPrimary]),
 
       ['e_core', 'r1', cTeal],
       ['e_core', 'r2', cPrimary],
@@ -1573,7 +1524,7 @@
     const rows=data.logs||[],filters=data.filters||{};
     const choices=(items,selected)=>[...new Set([...(items||[]),selected].filter(Boolean))].sort();
     const options=(items,value,label)=>`<option value="">${label}</option>${choices(items,value).map(v=>`<option value="${esc(v)}" ${v===value?'selected':''}>${esc(v)}</option>`).join('')}`;
-    page.innerHTML=`<div class="view-title-row"><div><h1>查询日志</h1></div><div class="workspace-actions"><button type="button" class="glass-btn" id="log-pause" aria-pressed="${!!state.logsPaused}">${state.logsPaused?'继续刷新':'暂停刷新'}</button><button type="button" class="glass-btn" id="audit-control">审计控制</button><button type="button" class="glass-btn" id="alias-control">客户端别名</button></div></div>
+    page.innerHTML=`<div class="view-title-row"><div><h1>查询日志</h1></div><div class="workspace-actions"><button type="button" class="glass-btn" id="log-pause" aria-pressed="${!!state.logsPaused}">${state.logsPaused?'继续刷新':'暂停刷新'}</button><button type="button" class="glass-btn" id="audit-control">审计控制</button><button type="button" class="glass-btn" id="alias-control">客户端管理</button></div></div>
     ${card('查询与过滤',`<div class="log-filter-bar"><div class="lf-search"><span class="search-icon">${icon('search')}</span><input id="log-q" value="${esc(p.q)}" placeholder="域名、IP、响应值" aria-label="搜索查询"></div><select id="log-type" aria-label="请求类型">${options(filters.query_types,p.type,'全部类型')}</select><select id="log-set" aria-label="分流结果">${options(filters.domain_sets,p.set,'全部分流')}</select><button type="button" class="lf-more" id="lf-more" aria-expanded="${!!(p.code||p.client||p.exact)}" aria-controls="log-filter-more">更多筛选</button><button type="button" class="lf-reset" id="lf-reset">重置</button><button type="button" class="button primary" id="log-search">查询</button></div><div class="log-filter-more" id="log-filter-more" ${p.code||p.client||p.exact?'':'hidden'}><div class="field"><label for="log-code">响应码</label><select id="log-code">${options(filters.response_codes,p.code,'全部响应码')}</select></div><div class="field"><label for="log-client">客户端</label><input id="log-client" value="${esc(p.client)}" placeholder="客户端 IP"></div><label class="switch"><input id="log-exact" type="checkbox" ${p.exact?'checked':''}><span class="switch-track"><span class="switch-thumb"></span></span><span class="switch-label">精确匹配</span></label></div>${window.LocalDNSWorkspace.logTools(p)}`,{iconName:'logs'})}
     ${card('DNS 请求记录',`<div class="table-wrap"><table class="workspace-log-table"><thead><tr><th>时间</th><th>域名 / 响应</th><th>类型</th><th>分流</th><th>耗时</th><th>客户端</th><th>状态</th><th>操作</th></tr></thead><tbody>${rows.length?rows.map(logRow).join(''):'<tr><td colspan="8" class="table-empty">没有符合条件的记录</td></tr>'}</tbody></table></div>${paginationHtml(data.pagination)}`,{iconName:'logs',subtitle:`共 ${num(data.pagination?.total_items||0)} 条 · 第 ${num(data.pagination?.current_page||1)} / ${num(data.pagination?.total_pages||1)} 页`})}`;
     $('#log-search').onclick=()=>{Object.assign(p,{page:1,q:$('#log-q').value.trim(),type:$('#log-type').value,set:$('#log-set').value,code:$('#log-code').value,client:$('#log-client').value.trim(),exact:$('#log-exact').checked});renderRoute(true);};
@@ -2008,7 +1959,15 @@
     $('#modal-audit-clear').onclick=async()=>{if(!confirm('确定清空日志？'))return;await api.request('/api/v1/audit/clear',{method:'POST'});toast('日志已清空');modalClose();renderRoute(true)};
   }
   async function loadAliases(){try{state.aliases=await api.request('/plugins/client_name')||{}}catch{state.aliases={}}}
-  async function openAliasModal(){await loadAliases();const clients=await api.rank('client',200);modalOpen('客户端别名','别名保存在 config/settings/client_names.json',`<div class="stack" id="alias-list">${clients.length?clients.map(x=>`<div class="grid grid-2"><div class="field"><label>客户端 IP</label><input value="${esc(x.key)}" disabled></div><div class="field"><label>别名</label><input data-alias-ip="${esc(x.key)}" value="${esc(state.aliases[x.key]||'')}"></div></div>`).join(''):empty('日志中暂无客户端')}</div>`,async()=>{const next={...state.aliases};$$('[data-alias-ip]').forEach(x=>{const v=x.value.trim();if(v)next[x.dataset.aliasIp]=v;else delete next[x.dataset.aliasIp]});await api.json('/plugins/client_name','PUT',next);state.aliases=next;toast('客户端别名已保存');renderRoute(true)});}
+  async function openAliasModal(){
+    try {
+      await window.LocalDNSClients.open({
+        request:(...args)=>api.request(...args), rank:(...args)=>api.rank(...args),
+        modal:modalOpen, notify:toast,
+        onSaved:next=>{state.aliases=next;renderRoute(true);}
+      });
+    } catch(error) { toast('客户端管理读取失败','error',error.message); }
+  }
 
   function openDrawer(title,subtitle,html){const wasOpen=$('#drawer').classList.contains('open');$('#drawer-title').textContent=title;$('#drawer-subtitle').textContent=subtitle;$('#drawer-content').innerHTML=html;$('#drawer').classList.add('open');$('#drawer').setAttribute('aria-hidden','false');$('#drawer-backdrop').classList.add('open');if(!wasOpen)window.LocalDNSInterface?.drawerOpened()}
   function closeDrawer(){$('#drawer').classList.remove('open');$('#drawer').setAttribute('aria-hidden','true');$('#drawer-backdrop').classList.remove('open');window.LocalDNSInterface?.drawerClosed()}
