@@ -162,6 +162,8 @@ python tools/package_ui.py
 
 ## 来源与许可
 
+顶部导航栏的玻璃质感、随滚动收拢为圆角浮动栏的设计借鉴了 [MoviePilot](https://github.com/jxxghp/MoviePilot)，感谢其项目团队的设计启发。
+
 项目作者与职责以 [AUTHORS.md](AUTHORS.md) 为准。仓库暂未指定覆盖全部项目代码的统一开源许可证。
 
 字体、Chart.js 等第三方组件遵循各自许可，见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。
