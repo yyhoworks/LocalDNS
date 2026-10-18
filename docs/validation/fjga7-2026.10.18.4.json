@@ -1,0 +1,80 @@
+{
+  "releaseTag": "fjga7-ui-v2026.10.18.4",
+  "uiVersion": "2026.10.18.4",
+  "backendVersion": "FJGA7",
+  "date": "2026-10-18",
+  "collections": [
+    "online diversion rules",
+    "AdGuard subscriptions",
+    "DNS upstreams",
+    "query logs",
+    "cache pools",
+    "feature switches"
+  ],
+  "browserVerification": {
+    "target": "read-only preview of real backend and deployed UI smoke check",
+    "browser": "Codex in-app browser",
+    "widths": [
+      1280,
+      390
+    ],
+    "skinsObserved": [
+      "claude light",
+      "glass dark"
+    ],
+    "checks": [
+      "six independent card/list controls",
+      "online rule filtering retained across layouts",
+      "subscription edit draft retained across layouts",
+      "unsubmitted log filter input retained",
+      "log path drawer opens from a card row",
+      "current log page 2, pause and hidden client column retained across layouts",
+      "management layout preferences restored after reload",
+      "explicit list stays a table on mobile without whole-page horizontal overflow",
+      "fresh-origin mobile card default returns to desktop list when no preference is saved",
+      "deployed online rules offer the expected nine-column list"
+    ],
+    "observedConsoleErrors": 0,
+    "observedConsoleWarnings": 0,
+    "backendWritesAllowedByPreview": false
+  },
+  "deployment": {
+    "status": "deployed",
+    "uiFilesVerifiedBySha256": 49,
+    "sourceFilesMatchDeploymentExcludingSiteConfig": 48,
+    "siteConfigPreserved": true,
+    "protectedConfigurationManualRulesAndKernelUnchanged": true,
+    "dnsProcessUnchanged": true,
+    "backupArchiveVerified": true,
+    "dnsTcp53Passed": true,
+    "dnsUdp53Passed": true,
+    "apiChecksPassed": 3
+  },
+  "packageValidation": {
+    "zipCrcPassed": true,
+    "allFileManifestsPassed": true,
+    "allUiFilesMatchSource": true,
+    "publishedBase": "fjga7-ui-v2026.10.18.3",
+    "publishedBaseSha256": "aeb7746a61ddf8fc89625100d33a79f6f9cd3d0965c7e5cd68a9cea7b598982b",
+    "protectedBaseFilesByteIdentical": 66,
+    "kernelBundleTestsPassed": 7,
+    "queryPathAssertionsPassed": 10,
+    "newUiModuleInitialDesignScanFindings": 0
+  },
+  "packages": {
+    "LocalDNS_FJGA7_UI_2026.10.18.4_Full.zip": {
+      "bytes": 13967726,
+      "sha256": "f057b47a279876e94d92e5f9a3bbe308ab7a6a1178a3a14f7b552ef18c3b6464"
+    },
+    "LocalDNS_UI_2026.10.18.4_Update.zip": {
+      "bytes": 1397005,
+      "sha256": "33b46ab04ab15a483eceaf95d0f48e0d0b4e9b83e09bc0948922d652b2276f40"
+    }
+  },
+  "limitations": [
+    "Viewport checks use a browser override, not physical mobile hardware",
+    "Mutating backend operations were preserved in their existing handlers and were not executed during the read-only UI checks",
+    "The existing FJGA7 binaries are unchanged; no additional architecture runtime validation is claimed",
+    "Private configuration, rule-audit snapshots, credentials and screenshots remain outside Git"
+  ]
+}
