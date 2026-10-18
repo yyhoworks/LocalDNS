@@ -1,5 +1,11 @@
 # 开发说明
 
+## 清单工作台（2026.10.18.18）
+
+`rules-view.js` 基于 clone-fan PR #3，等待 console 草稿初始化后挂载；保存回调限定名单标识，浮层与快捷键跟随页面生命周期。`rules-workbench.js` 接入已确认的双皮肤工具条；CSS 限定在 rules 路由。`rule-backups.js` 统一服务器备份、保存前核对和恢复为草稿，最终写入继续使用 DNS API。`rule_backups.go` 只保存快照与提供只读恢复，不允许指定任意文件路径。
+
+运行 `node tools/verify_rules_workbench.cjs` 检查原文保留、备份失败阻止写入、跨名单延迟保存、恢复草稿、并发修改提示、IP/CIDR 往返、批量删除撤销、空闲 DOM 及双皮肤导航适配。所有写入均为夹具。Linux Go 测试覆盖服务重启、权限、保留数量与越界路径。
+
 ## 代理面板入口（2026.10.18.12 本地预览）
 
 2026.10.18.17：`traffic-client.js` 独立读取服务器采样并自动恢复连接，不再依赖概览页刷新或 sessionStorage。后端 `traffic.go` 每 5 秒采集真实累计计数，小时分段持久化，API 按 1h / 6h / 1d / 3d / 7d 聚合。`singbox_group.go` 对整个启动输入集合做版本校验、隔离副本合并与原生检查；JSONC 分片的语法交由核心判断。`node tools/verify_server_traffic_fragments.cjs` 覆盖自动恢复、新浏览器历史、全部时间范围和分片集合版本。Linux 测试设置 `LOCALDNS_SINGBOX_TEST_BINARY` 可运行真实核心的隔离保存 / 重载 / 恢复验证。

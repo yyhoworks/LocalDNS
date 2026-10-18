@@ -1,0 +1,91 @@
+{
+  "uiVersion": "2026.10.18.18",
+  "backendVersion": "FJGAC",
+  "packages": {
+    "LocalDNS_FJGAC_UI_2026.10.18.18_Full.zip": {
+      "bytes": 14808273,
+      "sha256": "34136684772111464d2ad5d8a298579cdf92eb8aa4c249f48b24def1d2933bd7",
+      "manifestVerified": true,
+      "crcVerified": true
+    },
+    "LocalDNS_ProxyConfig_UI_2026.10.18.18_Service.zip": {
+      "bytes": 6540486,
+      "sha256": "18612b551619fe4bc0c2e5c292c7fe61b7b14b483edcd96a8d482c01bcec3371",
+      "manifestVerified": true,
+      "crcVerified": true
+    },
+    "LocalDNS_UI_2026.10.18.18_Update.zip": {
+      "bytes": 1727719,
+      "sha256": "bac2f97af0b9a494ffa536a9e95760e512c83948d41c68c2f5c2d6d5235e8b06",
+      "manifestVerified": true,
+      "crcVerified": true
+    }
+  },
+  "baseArchive": {
+    "name": "LocalDNS_FJGAC_UI_2026.10.18.14_Full.zip",
+    "sha256": "6ec5703080fcb44f5f20e2985a72dd69804e83a931668a93a634b30ecfe55c3b",
+    "matchesPublishedAsset": true
+  },
+  "kernelConfigurationAndRulesUnchanged": true,
+  "uiFilesMatched": 69,
+  "arm64RuntimeVerified": false,
+  "scope": "Verified local deployment and release archive contents",
+  "configurationServiceVersion": "1.5.0",
+  "backendTestsPassedOnLinuxTarget": 24,
+  "backendTestsSkippedOnLinuxTarget": 1,
+  "serviceInstallerStagingChecks": 14,
+  "browserAcceptance": {
+    "passed": true,
+    "backupBeforeSave": true,
+    "backupFailureStopsWrite": true,
+    "dnsFailureKeepsDraft": true,
+    "crossListSaveIsolated": true,
+    "restoreLoadsDraft": true,
+    "concurrentChangeRejected": true,
+    "rawLineRoundTrip": true,
+    "bulkDeleteUndo": true,
+    "unchangedTextPreserved": true,
+    "idleMutations": 0,
+    "views": [
+      "rules-claude-left-1440.png",
+      "rules-glass-top-1440.png",
+      "rules-claude-left-390.png",
+      "rules-glass-top-390.png"
+    ],
+    "errors": []
+  },
+  "serverTrafficAndFragmentAcceptance": {
+    "passed": true,
+    "automaticRecovery": true,
+    "serverHistoryAcrossBrowsers": true,
+    "ranges": [
+      60,
+      360,
+      1440,
+      4320,
+      10080
+    ],
+    "fragmentGroupRevisionVerified": true,
+    "jsoncFragmentSaved": true,
+    "errors": []
+  },
+  "nativeSingBoxIntegration": {
+    "thisRun": "not repeated; optional native binary absent",
+    "previouslyVerified": "1.14.3 with UI .17; sing-box implementation unchanged"
+  },
+  "liveChecks": {
+    "passed": true,
+    "version": "2026.10.18.18",
+    "realListsRendered": true,
+    "viewSwitchPreservesText": true,
+    "serverBackupsListed": 1,
+    "trafficHistoryRendered": true,
+    "errors": [],
+    "dnsWrites": 0
+  },
+  "protectedConfigurationAndManualRulesUnchanged": true,
+  "dnsProcessUnchanged": true,
+  "mihomoProcessUnchanged": true,
+  "serverTrafficHistoryPreserved": true,
+  "serverBackupsSeededForExistingLists": true
+}

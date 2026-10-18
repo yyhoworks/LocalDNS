@@ -1644,7 +1644,14 @@
     body.innerHTML=`<section class="card"><div class="rule-layout">${menu}<div class="rule-editor"><div class="section-header"><div><h2>${profile[1]}</h2><p>一行一条；完整读取后才允许保存</p></div><div class="section-header-actions"><button class="button small" id="rule-download">${icon('download')}下载列表</button><button class="button primary" id="rule-save">${icon('save')}保存</button></div></div><textarea id="rule-text" class="rule-textarea" spellcheck="false">${esc(trimmed)}</textarea><div class="rule-editor-footer"><span id="rule-lines">共 ${trimmed?trimmed.split('\n').length:0} 行</span></div></div></div></section>`;
     $$('[data-rule-tag]').forEach(x=>x.onclick=()=>{state.ruleTag=x.dataset.ruleTag;renderListRules(body)});
     $('#rule-text').oninput=()=>$('#rule-lines').textContent=`共 ${$('#rule-text').value.split('\n').filter(Boolean).length} 行`;
-    $('#rule-save').onclick=async()=>{const button=$('#rule-save'),value=$('#rule-text').value;const values=value.split('\n').map(x=>x.trim()).filter(Boolean);button.disabled=true;try{await api.json(`/plugins/${tag}/post`,'POST',{values});window.LocalDNSInterface?.ruleSaved(tag,value);toast(`${profile[1]}已保存`)}catch(e){toast('保存失败','error',e.message)}finally{if(button.isConnected)button.disabled=false}};
+    $('#rule-save').onclick=async()=>{
+      const button=$('#rule-save'),text=$('#rule-text'),value=text.value,baseline=text.dataset.original;
+      button.disabled=true;
+      try{
+        await window.LocalDNSRuleBackups.save(tag,value,baseline,()=>api.request(`/plugins/${tag}/show?all=1`),values=>api.json(`/plugins/${tag}/post`,'POST',{values}));
+        window.LocalDNSInterface?.ruleSaved(tag,value);toast(`${profile[1]}已保存，原内容已备份`);
+      }catch(e){toast('保存失败','error',e.message)}finally{if(button.isConnected)button.disabled=false}
+    };
     $('#rule-download').onclick=()=>downloadText(`${tag}.txt`,$('#rule-text').value);requestAnimationFrame(fitRuleLayoutHeight);
   }
 

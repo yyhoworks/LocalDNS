@@ -42,22 +42,24 @@ type Core struct {
 	PostReload              []string `json:"postReload,omitempty"`
 }
 type Config struct {
-	TrafficDirectory string          `json:"trafficDirectory,omitempty"`
-	MetricsURL       string          `json:"metricsURL,omitempty"`
-	InterfaceFile    string          `json:"interfaceFile,omitempty"`
-	Listen           string          `json:"listen"`
-	Origins          []string        `json:"origins"`
-	Hosts            []string        `json:"hosts"`
-	Cores            map[string]Core `json:"cores"`
+	RuleBackupDirectory string          `json:"ruleBackupDirectory,omitempty"`
+	TrafficDirectory    string          `json:"trafficDirectory,omitempty"`
+	MetricsURL          string          `json:"metricsURL,omitempty"`
+	InterfaceFile       string          `json:"interfaceFile,omitempty"`
+	Listen              string          `json:"listen"`
+	Origins             []string        `json:"origins"`
+	Hosts               []string        `json:"hosts"`
+	Cores               map[string]Core `json:"cores"`
 }
 type Server struct {
-	traffic       *trafficCollector
-	interfaceLock sync.Mutex
-	config        Config
-	operation     sync.Mutex
-	validate      func(context.Context, string, Core, string) (string, error)
-	reload        func(context.Context, string, Core, string, []byte) error
-	reloadReady   func(context.Context, string, Core, []byte, []byte) error
+	ruleBackupLock sync.Mutex
+	traffic        *trafficCollector
+	interfaceLock  sync.Mutex
+	config         Config
+	operation      sync.Mutex
+	validate       func(context.Context, string, Core, string) (string, error)
+	reload         func(context.Context, string, Core, string, []byte) error
+	reloadReady    func(context.Context, string, Core, []byte, []byte) error
 }
 type request struct {
 	GroupRevision string `json:"groupRevision,omitempty"`
@@ -131,7 +133,7 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Vary", "Origin")
 	}
 	if r.URL.Path == "/healthz" && r.Method == "GET" && origin == "" {
-		writeJSON(w, 200, map[string]any{"service": "localdns-proxy-config", "version": "1.4.0"})
+		writeJSON(w, 200, map[string]any{"service": "localdns-proxy-config", "version": "1.5.0"})
 		return
 	}
 	if !contains(s.config.Origins, origin) {
@@ -151,6 +153,8 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	path := strings.TrimPrefix(r.URL.Path, apiPrefix)
 	var err error
 	switch {
+	case path == "rule-backups":
+		err = s.ruleBackups(w, r)
 	case path == "traffic" && r.Method == "GET":
 		err = s.trafficHistory(w, r)
 	case strings.HasPrefix(path, "interface/"):

@@ -6,19 +6,19 @@
 
 **DNS 核心主要由折腾日记交流群里的 R 大使用 Rust 编写；[yyhoworks](https://github.com/yyhoworks) 负责 UI 设计。**
 
-当前版本：**[后端 FJGAC / UI 2026.10.18.14](https://github.com/yyhoworks/LocalDNS/releases/tag/fjgac-ui-v2026.10.18.14)**，提供完整包、UI 升级包、配置服务包和 SHA-256 校验文件，见 [本次更新说明](docs/releases/fjgac-ui-v2026.10.18.14.md)。
+当前版本：**[后端 FJGAC / UI 2026.10.18.18](https://github.com/yyhoworks/LocalDNS/releases/tag/fjgac-ui-v2026.10.18.18)**，提供完整包、UI 升级包、配置服务包和 SHA-256 校验文件，见 [本次更新说明](docs/releases/fjgac-ui-v2026.10.18.18.md)。
 
-本次增加紧凑的 Mihomo / sing-box 面板入口与本机配置编辑器。用户可选择配置文件、查看修改差异并执行核心校验，保存时自动备份与重载，失败时恢复原配置。进入编辑器直接读取本机配置，无需 SSH 登录。内核继续使用 FJGAC，保留双皮肤、卡片 / 列表排列、横向 / 纵向导航、客户端管理和单张壁纸设置。
+本次增加可视化名单编辑与服务器备份，并保留紧凑的代理面板入口和本机配置编辑器。用户可选择配置文件、查看修改差异并执行核心校验，保存时自动备份与重载，失败时恢复原配置。进入编辑器直接读取本机配置，无需 SSH 登录。内核继续使用 FJGAC，保留双皮肤、卡片 / 列表排列、横向 / 纵向导航、客户端管理和单张壁纸设置。
 
 [产品图集](docs/SCREENSHOTS.md) · [功能指南](docs/FEATURES.md) · [安装说明](INSTALL.md) · [下载 Releases](https://github.com/yyhoworks/LocalDNS/releases) · [作者与分工](AUTHORS.md) · [开发说明](docs/DEVELOPMENT.md) · [近期更新](CHANGELOG.md)
 
-本地待发布版本 **2026.10.18.17** 增加 sing-box 分片合并校验和服务器 7 天吞吐历史，并支持服务器保存名称 / Logo，见 [更新说明](docs/releases/fjgac-ui-v2026.10.18.17.md)。
+本版合入 clone-fan 的 [PR #3](https://github.com/yyhoworks/LocalDNS/pull/3)，增加两款皮肤共用的「清单工作台」、列表 / 原文切换与服务器名单备份；同时收录 sing-box 分片支持、7 天服务器采样及共享名称 / Logo。
 
 ## 代理面板与本机配置编辑
 
 顶栏使用所选核心的 Logo，点击打开自定义面板地址。在「系统管理 → 编辑配置」中管理与 LocalDNS 同机的 Mihomo YAML / sing-box JSON，支持查找、折叠、修改对比、原生校验、备份和重载。
 
-配置编辑需要安装 Release 附带的 `LocalDNS_ProxyConfig_UI_2026.10.18.14_Service.zip`。UI 升级包只更新界面；独立服务自动选择 Linux amd64 / arm64，支持 OpenRC / systemd。详情见 [安装说明](INSTALL.md) 与 [服务说明](services/proxy-config/README.md)。文件操作限制在管理员指定的目录；保存并重载针对当前启动配置。
+配置编辑、名单保存备份、共享名称 / Logo 与服务器采样需要安装或升级 Release 附带的 `LocalDNS_ProxyConfig_UI_2026.10.18.18_Service.zip`。UI 升级包只更新界面；独立服务自动选择 Linux amd64 / arm64，支持 OpenRC / systemd。详情见 [安装说明](INSTALL.md) 与 [服务说明](services/proxy-config/README.md)。文件操作限制在管理员指定的目录；保存并重载针对当前启动配置。
 
 ## 作者与分工
 
@@ -26,9 +26,9 @@
 |---|---|
 | **R 大（折腾日记交流群）** | **DNS 核心，主要使用 Rust 编写** |
 | **[yyhoworks](https://github.com/yyhoworks)** | **UI 设计** |
-| **[clone-fan](https://github.com/clone-fan)** | **社区 UI 贡献：玻璃视觉、动效、字体上传与交互增强（[PR #1](https://github.com/yyhoworks/LocalDNS/pull/1)）** |
+| **[clone-fan](https://github.com/clone-fan)** | **社区 UI 贡献：玻璃视觉、动效、字体上传与可视化名单编辑（[PR #1](https://github.com/yyhoworks/LocalDNS/pull/1)、[PR #3](https://github.com/yyhoworks/LocalDNS/pull/3)）** |
 
-感谢 @clone-fan 的 [PR #1](https://github.com/yyhoworks/LocalDNS/pull/1)。正式版保留贡献者的原始提交历史，完整署名见 [AUTHORS.md](AUTHORS.md)。
+感谢 @clone-fan 的 [PR #1](https://github.com/yyhoworks/LocalDNS/pull/1) 与 [PR #3](https://github.com/yyhoworks/LocalDNS/pull/3)。正式版保留贡献者的原始提交历史，完整署名见 [AUTHORS.md](AUTHORS.md)。
 
 ## 界面预览
 
@@ -36,7 +36,7 @@
 
 **集中查看 DNS 运行情况。** 服务状态与六项关键指标、查询吞吐趋势、分流占比、解析路径、请求排行和多级缓存状态集中展示。解析路径节点可点击查看详情，连线用于说明解析关系。
 
-「外观 → 导航布局」可切换垂直侧栏与居中水平导航；垂直侧栏可折叠，手机保留底部导航。双皮肤、字体与壁纸设置独立保留。界面采用可调整透明度与模糊度的玻璃材质，搭配随滚动收拢的浮动顶部导航、Noto Serif SC 宋体风格标题与 Instrument Serif 衬线数字。字体随项目本地提供，可在「外观 → 字体与阅读」切换经典宋体、清晰黑体、等宽数字，或分别选择标题、数字与正文。
+「外观 → 导航布局」可切换垂直侧栏与居中水平导航；垂直侧栏可折叠，手机保留底部导航。双皮肤、字体与壁纸设置独立保留。界面采用可调整透明度与模糊度的玻璃材质，搭配随滚动收拢的浮动顶部导航、Noto Serif SC 宋体风格标题与 Instrument Serif 衬线数字。字体随项目本地提供，可在「外观 → 字体与阅读」分别选择标题、数字与正文的字体。
 
 > 以下截图保留作历史界面参考，具体版本见 [产品图集](docs/SCREENSHOTS.md)。当前版本保留五列解析拓扑与可关闭的流光示意，并增加分支 / 节点锁定；单次请求详情仅组织该请求实际记录的字段。域名、客户端、订阅地址等使用脱敏或示例数据；图中数值不代表性能测试结果。
 
@@ -59,7 +59,7 @@
 
 ![字体组合与独立字体选择](docs/images/font-settings.jpg)
 
-经典宋体、清晰黑体、等宽数字三组组合一键切换，也可以分别选择标题、指标数字和界面文字。支持上传合法取得的 TTF / OTF / WOFF / WOFF2 字体并分别分配用途；文件和偏好只保存在当前浏览器，不上传服务器。域名、IP 与日志继续使用等宽字体。
+可分别选择标题、指标数字和界面文字的字体。支持上传合法取得的 TTF / OTF / WOFF / WOFF2 字体并分别分配用途；文件和偏好只保存在当前浏览器，不上传服务器。域名、IP 与日志继续使用等宽字体。
 
 ### 日志、上游与规则管理
 
@@ -132,7 +132,7 @@
 
 ## 快速安装
 
-1. 在 [Releases](https://github.com/yyhoworks/LocalDNS/releases/tag/fjgac-ui-v2026.10.18.14) 下载完整包或 UI 升级包，并核对同页的 `SHA256SUMS.txt`。**升级 FJGAC 内核必须从完整包选择对应架构的程序；UI 升级包不含内核。**
+1. 在 [Releases](https://github.com/yyhoworks/LocalDNS/releases/tag/fjgac-ui-v2026.10.18.18) 下载完整包或 UI 升级包，并核对同页的 `SHA256SUMS.txt`。**升级 FJGAC 内核必须从完整包选择对应架构的程序；UI 升级包不含内核。**
 2. 已有 LocalDNS 服务时，解压 UI 升级包并运行：
 
    ```sh

@@ -1,16 +1,16 @@
 # 安装与更新
 
-当前发行版本：**后端 FJGAC / UI 2026.10.18.14**。本次增加代理面板入口和本机配置编辑器，支持文件选择、校验、差异对比、备份与保存重载。配置器不使用 SSH 登录；核心、现有 DNS 配置和规则沿用上一正式版。
+当前发行版本：**后端 FJGAC / UI 2026.10.18.18**。本次增加代理面板入口和本机配置编辑器，支持文件选择、校验、差异对比、备份与保存重载。配置器不使用 SSH 登录；核心、现有 DNS 配置和规则沿用上一正式版。
 
 ## 选择下载包
 
-从 [本版 Releases](https://github.com/yyhoworks/LocalDNS/releases/tag/fjgac-ui-v2026.10.18.14) 下载；本地构建位于 `dist/fjgac-ui-v2026.10.18.14/`。配套包为：
+从 [本版 Releases](https://github.com/yyhoworks/LocalDNS/releases/tag/fjgac-ui-v2026.10.18.18) 下载；本地构建位于 `dist/fjgac-ui-v2026.10.18.18/`。配套包为：
 
 | 文件 | 用途 |
 |---|---|
-| `LocalDNS_FJGAC_UI_2026.10.18.14_Full.zip` | 新安装或提取内核：FJGAC 程序、上一正式版已清理的默认配置与规则、当前双皮肤 UI |
-| `LocalDNS_UI_2026.10.18.14_Update.zip` | 已安装环境更新界面 |
-| `LocalDNS_ProxyConfig_UI_2026.10.18.14_Service.zip` | 配置编辑器配套服务，含 Linux amd64 / arm64 程序与 OpenRC / systemd 安装器 |
+| `LocalDNS_FJGAC_UI_2026.10.18.18_Full.zip` | 新安装或提取内核：FJGAC 程序、上一正式版已清理的默认配置与规则、当前双皮肤 UI |
+| `LocalDNS_UI_2026.10.18.18_Update.zip` | 已安装环境更新界面 |
+| `LocalDNS_ProxyConfig_UI_2026.10.18.18_Service.zip` | 配置编辑器配套服务，含 Linux amd64 / arm64 程序与 OpenRC / systemd 安装器 |
 | `SHA256SUMS.txt` | 三个发行包的 SHA-256 校验值 |
 
 在同一目录核对：
@@ -45,7 +45,7 @@ sh install-proxy-config.sh http://服务器IP:9099
 
 替换为实际 IPv4 地址或主机名与 UI 端口，不带 `/ui/` 路径。脚本验证清单、选择 CPU 架构、备份并安装服务，支持 OpenRC / systemd。已有 `/etc/localdns-proxy-config.json` 会保留，配置中的核心路径与回程规则恢复钩子也会保留。新安装会生成指定 UI Origin 与 Host，只接受该 UI 的浏览器访问。
 
-默认程序与启动文件为 `/usr/local/bin/mihomo`、`/etc/mihomo/config.yaml`，以及 `/usr/local/bin/sing-box`、`/etc/sing-box/config.json`。按设备实际安装位置修改服务配置中的 `binary`、`config`、`roots`、`pidFile` 与 `postReload`，然后重启本服务。服务默认使用同机 9098 端口，不重启 DNS。通过 HTTPS 访问 UI 时，请按 [服务说明](https://github.com/yyhoworks/LocalDNS/blob/fjgac-ui-v2026.10.18.14/services/proxy-config/README.md) 配置同源反向代理和 `proxyConfigBase`。
+默认程序与启动文件为 `/usr/local/bin/mihomo`、`/etc/mihomo/config.yaml`，以及 `/usr/local/bin/sing-box`、`/etc/sing-box/config.json`。按设备实际安装位置修改服务配置中的 `binary`、`config`、`roots`、`pidFile` 与 `postReload`，然后重启本服务。服务默认使用同机 9098 端口，不重启 DNS。通过 HTTPS 访问 UI 时，请按 [服务说明](https://github.com/yyhoworks/LocalDNS/blob/fjgac-ui-v2026.10.18.18/services/proxy-config/README.md) 配置同源反向代理和 `proxyConfigBase`。
 
 打开「系统管理 → 编辑配置」，页面自动读取本机配置，无需输入 SSH 账号密码。文件选择仅访问指定核心目录；保存重载只应用于服务配置中的启动文件。原配置备份保存在配置目录内的 `localdns-backups/`，最多十份。
 
@@ -90,3 +90,7 @@ chmod +x /opt/localdns/bin/localdns
 
 保留需要的浏览器外观参数。界面版号记录在包内 `ui/version.json`。
 
+
+### 清单工作台与备份服务
+
+UI 2026.10.18.18 的名单保存需要配套配置管理服务 **1.5.0 或更新版本**。同时升级 UI 和 Service 包；原配置文件、DNS 名单和已保存的名称 / Logo 均保留。服务不可用时仍可读取与编辑名单，保存会保留草稿并提示修复备份服务。备份默认位于 `/opt/localdns-proxy-config/data/rules-backups/`。

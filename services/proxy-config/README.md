@@ -2,6 +2,14 @@
 
 独立 Go 服务，为现有 DNS UI 提供本机 Mihomo YAML / sing-box JSON 的读取、目录选择、核心校验与事务保存。DNS 核心无需重启。不依赖 ConfigFlow，不接收用户指定的程序或 shell 命令。
 
+## 名单备份（1.5.0）
+
+`POST rule-backups` 接收固定名单标识与原始文本，将快照写入 `ruleBackupDirectory`（默认 `/opt/localdns-proxy-config/data/rules-backups`）。不接受目标文件路径，不直接修改 DNS 名单。文件权限为 `0600`，写入后同步并检查内容 SHA-256；每名单最多 20 份，全部备份合计最多 64 MiB。
+
+`GET rule-backups?tag=whitelist` 返回备份元数据；附加 `id` 读取校验后的备份原文。标识限定在服务内，拒绝路径穿越与越界符号链接。恢复只载入前端草稿；用户核对并保存时，仍由原 DNS API 写入。
+
+界面保存前重新读取当前名单并核对已读取基准，先完成服务器备份，再次核对后调用 DNS API。其他客户端已修改、备份服务不可用或 DNS 保存失败时保留草稿。当前 DNS API 未提供原子比较写入，因此读写间仍有短暂并发窗口；不要将前端两次核对视为事务锁。
+
 ## 服务器采样（1.4.0）
 
 服务每 5 秒读取 `metricsURL`（默认 `http://127.0.0.1:9099/metrics`），采样文件默认保存在 `/opt/localdns-proxy-config/data/traffic/`，可通过 `trafficDirectory` 更改。按小时追加写入，自动清理过期分段；API 仅提供滚动 7 天内的记录。

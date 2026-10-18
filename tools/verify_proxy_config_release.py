@@ -82,13 +82,15 @@ def main():
         packages[name] = {'bytes': path.stat().st_size, 'sha256': sha, 'manifestVerified': True, 'crcVerified': True}
     record = {'packages': packages, 'baseArchive': {'name': args.base.name, 'sha256': base_sha,
               'matchesPublishedAsset': True}, 'kernelConfigurationAndRulesUnchanged': True,
-              'uiFilesMatched': len(source_ui), 'serviceInstallerStagingChecks': 14,
+              'uiFilesMatched': len(source_ui),
               'arm64RuntimeVerified': False}
     if args.write_record:
         target = ROOT / 'docs/validation' / ('fjgac-' + version['uiVersion'] + '.json')
-        data = json.loads(target.read_text(encoding='utf-8'))
+        target.parent.mkdir(parents=True, exist_ok=True)
+        data = json.loads(target.read_text(encoding='utf-8')) if target.exists() else {
+            'uiVersion': version['uiVersion'], 'backendVersion': version['backendVersion']}
         data.update(record)
-        data['scope'] = 'Verified local deployment and GitHub source/release publication'
+        data.setdefault('scope', 'Verified release archive contents')
         target.write_text(json.dumps(data, ensure_ascii=False, indent=2) + '\n', encoding='utf-8')
     print(json.dumps(record, ensure_ascii=False))
 
