@@ -1,6 +1,6 @@
 # LocalDNS 功能与使用指南
 
-适用版本：**后端 FJGAC / UI 2026.10.18.5**。
+适用版本：**后端 FJGAC / UI 2026.10.18.6**。
 
 [返回首页](../README.md) · [产品图集](SCREENSHOTS.md) · [安装与更新](../INSTALL.md)
 

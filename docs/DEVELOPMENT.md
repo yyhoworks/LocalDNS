@@ -101,3 +101,7 @@ UI 2026.10.16.1 / FJG4O 增加字体选择、状态文字居中和单层焦点�
 - `rank-latency.js` 使用后端日志筛选计算分类请求平均耗时；按需加载、最多 4 个并发请求、60 秒缓存，每项最多 1,000 条。无耗时样本不伪造为 0；缓存命中等真实 0 ms 保留。
 - `node tools/test_rank_latency.cjs` 验证统计、筛选、缓存、并发、取消和重试；`python tools/test_package_ui.py` 验证新内核 ZIP 的额外版本目录与两种安装模板。
 - FJGAC 在现有 amd64-v3 环境中以隔离副本测试读写接口，再备份升级；ARM64 与 amd64-v1 仅核验 ELF、哈希和包内容。
+
+## UI 2026.10.18.6
+
+解析拓扑节点与缓存卡统一读取 `--blur-filter`，`--topo-node` / `--topo-node-hover` 由 `--glass-alpha` 计算。羊皮纸皮肤的专属背景与 `backdrop-filter: none` 覆盖继续有效。壁纸存储方式未变：IndexedDB `localdns-appearance/settings/wallpaper`，小容量后备使用 localStorage。

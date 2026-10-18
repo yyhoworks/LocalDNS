@@ -4,12 +4,12 @@
   --bg-base:#08090B;--glass-alpha:.48;--glass-blur:14px;--bg-dimmer:.22;
   --glass-bg:rgba(21,22,26,var(--glass-alpha));--glass-bg-hover:rgba(30,32,37,calc(var(--glass-alpha) + .12));
   --glass-bg-strong:rgba(18,20,24,.84);--glass-pill:rgba(54,57,64,.28);--glass-pill-active:rgba(112,116,125,.32);
-  --topo-canvas:rgba(21,22,26,var(--glass-alpha));--topo-node:rgba(29,31,36,.38);--topo-node-hover:rgba(45,48,55,.58);
+  --topo-canvas:rgba(21,22,26,var(--glass-alpha));--topo-node:rgba(29,31,36,var(--glass-alpha));--topo-node-hover:rgba(45,48,55,clamp(0,calc(var(--glass-alpha) + .12),1));
   --border-glass:rgba(255,255,255,.035);--topo-border:rgba(255,255,255,.045);--blur-filter:blur(var(--glass-blur)) saturate(115%);
   --console-panel:var(--glass-bg);--console-success:#6EE7B7;--console-danger:#FCA5A5;--console-info:#93C5FD;
   --console-line:#60A5FA;--console-shadow:0 10px 26px -20px rgba(0,0,0,.3);
 }
-html[data-theme=light-glass]{--glass-bg:rgba(255,255,255,calc(var(--glass-alpha) * .68 + .28));--glass-bg-hover:rgba(255,255,255,calc(var(--glass-alpha) * .68 + .38));--glass-bg-strong:rgba(250,252,255,.88);--glass-pill:rgba(224,231,241,.34);--glass-pill-active:rgba(255,255,255,.55);--topo-node:rgba(255,255,255,.38);--topo-node-hover:rgba(255,255,255,.65);--border-glass:rgba(15,23,42,.045);--console-panel:var(--glass-bg);--console-success:#065F46;--console-danger:#B91C1C;--console-info:#1D4ED8;--console-line:#2563EB;--console-shadow:0 10px 24px -20px rgba(15,23,42,.18)}
+html[data-theme=light-glass]{--glass-bg:rgba(255,255,255,calc(var(--glass-alpha) * .68 + .28));--glass-bg-hover:rgba(255,255,255,calc(var(--glass-alpha) * .68 + .38));--glass-bg-strong:rgba(250,252,255,.88);--glass-pill:rgba(224,231,241,.34);--glass-pill-active:rgba(255,255,255,.55);--topo-node:rgba(255,255,255,var(--glass-alpha));--topo-node-hover:rgba(255,255,255,clamp(0,calc(var(--glass-alpha) + .12),1));--border-glass:rgba(15,23,42,.045);--console-panel:var(--glass-bg);--console-success:#065F46;--console-danger:#B91C1C;--console-info:#1D4ED8;--console-line:#2563EB;--console-shadow:0 10px 24px -20px rgba(15,23,42,.18)}
 html{color-scheme:dark;scroll-padding-top:82px}html[data-theme=light-glass]{color-scheme:light}
 body{overflow-x:clip;font-size:13px}::selection{background:rgba(59,130,246,.35);color:var(--text-1)}
 *{scrollbar-width:thin;scrollbar-color:var(--glass-pill-active) transparent}

@@ -1,0 +1,61 @@
+{
+  "releaseTag": "fjgac-ui-v2026.10.18.6",
+  "backendVersion": "FJGAC",
+  "uiVersion": "2026.10.18.6",
+  "date": "2026-10-18",
+  "browserVerification": {
+    "browser": "Codex in-app browser",
+    "target": "read-only preview using the real backend",
+    "nodesChecked": 23,
+    "low": {
+      "blurPx": 4,
+      "alphaPercent": 25
+    },
+    "high": {
+      "blurPx": 48,
+      "alphaPercent": 92
+    },
+    "allNodesAndEngineFollowControls": true,
+    "refreshRestoresPreferences": true,
+    "lightGlassFollowsControls": true,
+    "parchmentRetainsNoBlur": true,
+    "consoleErrors": 0,
+    "consoleWarnings": 0,
+    "screenshotsInspected": true
+  },
+  "deployment": {
+    "status": "deployed",
+    "uiFilesVerified": 50,
+    "dnsProcessUnchanged": true,
+    "configurationKernelAndManualRulesUnchanged": true,
+    "tcp53Passed": true,
+    "udp53Passed": true
+  },
+  "packageValidation": {
+    "crcAndManifestsPassed": true,
+    "uiMatchesSource": true,
+    "protectedBaseFilesByteIdentical": 66,
+    "publishedBase": "fjgac-ui-v2026.10.18.5",
+    "publishedBaseSha256": "0d99f8f1812c3e6188fc5d5f3fb5d3cfa01cf9a3ab62fd403332181893c812a8"
+  },
+  "designScan": {
+    "existingWarnings": 1,
+    "finding": "Existing width/height transition in unrelated controls; new glass changes contain no new layout animation"
+  },
+  "packages": {
+    "LocalDNS_FJGAC_UI_2026.10.18.6_Full.zip": {
+      "bytes": 14478384,
+      "sha256": "6cec2fc8f2354589d558f51b192642fb80a176705071a404a07a0268acbf9761"
+    },
+    "LocalDNS_UI_2026.10.18.6_Update.zip": {
+      "bytes": 1399120,
+      "sha256": "2376a22720046c9bd58f61b26b4b377ba31f2d8af0936ab2a27d1940c158eda8"
+    }
+  },
+  "limitations": [
+    "This change adjusts UI materials only; backend operations were not re-exercised",
+    "No physical mobile device test was performed",
+    "Wallpapers remain browser-local; no server sync was added",
+    "Private settings, client IPs, credentials and screenshots are excluded from the repository"
+  ]
+}
