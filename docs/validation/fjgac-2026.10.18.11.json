@@ -1,0 +1,51 @@
+{
+  "releaseTag": "fjgac-ui-v2026.10.18.11",
+  "backendVersion": "FJGAC",
+  "uiVersion": "2026.10.18.11",
+  "date": "2026-10-18",
+  "packages": {
+    "LocalDNS_FJGAC_UI_2026.10.18.11_Full.zip": {
+      "bytes": 14487755,
+      "sha256": "25370d55875f50e981204f9424a313eb0adf701898e07905f301c30a6fe99d33",
+      "uiFilesMatched": 54,
+      "manifestVerified": true,
+      "crcVerified": true
+    },
+    "LocalDNS_UI_2026.10.18.11_Update.zip": {
+      "bytes": 1408208,
+      "sha256": "36b5d979b48c9932d24cd9ba840dadd4a03ece3816ca1321bd0d57cc1a2421d1",
+      "uiFilesMatched": 54,
+      "manifestVerified": true,
+      "crcVerified": true
+    }
+  },
+  "baseArchive": {
+    "tag": "fjgac-ui-v2026.10.18.7",
+    "sha256": "b2d4b1717a3020ced115bba546af009600ce58ba1ffeb5e1da8bd24d02de6803",
+    "matchesPublishedAsset": true
+  },
+  "kernelConfigurationAndRulesUnchanged": true,
+  "tests": {
+    "command": "node --test tools/test_clients.cjs tools/test_wallpaper.cjs",
+    "passed": 10,
+    "failed": 0
+  },
+  "browserVerification": {
+    "environment": "local preview",
+    "desktop": true,
+    "mobileWidth": 390,
+    "pageHorizontalOverflow": false,
+    "galleryControlsRemoved": true,
+    "urlSaveAndReload": true,
+    "defaultPersistsAfterReload": true
+  },
+  "deployment": {
+    "status": "not_performed",
+    "scope": "GitHub source and release packages only"
+  },
+  "limitations": [
+    "No new kernel runtime tests",
+    "No full backend regression",
+    "No physical mobile device test"
+  ]
+}
