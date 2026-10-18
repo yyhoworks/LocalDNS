@@ -6,7 +6,7 @@
 
 **DNS 核心主要由折腾日记交流群里的 R 大使用 Rust 编写；[yyhoworks](https://github.com/yyhoworks) 负责 UI 设计。**
 
-当前版本：**[后端 FJGAC / UI 2026.10.18.18](https://github.com/yyhoworks/LocalDNS/releases/tag/fjgac-ui-v2026.10.18.18)**，提供完整包、UI 升级包、配置服务包和 SHA-256 校验文件，见 [本次更新说明](docs/releases/fjgac-ui-v2026.10.18.18.md)。
+当前版本：**[后端 FJGAC / UI 2026.10.18.19](https://github.com/yyhoworks/LocalDNS/releases/tag/fjgac-ui-v2026.10.18.19)**，提供完整包、UI 升级包、配置服务包和 SHA-256 校验文件，见 [本次更新说明](docs/releases/fjgac-ui-v2026.10.18.19.md)。
 
 本次增加可视化名单编辑与服务器备份，并保留紧凑的代理面板入口和本机配置编辑器。用户可选择配置文件、查看修改差异并执行核心校验，保存时自动备份与重载，失败时恢复原配置。进入编辑器直接读取本机配置，无需 SSH 登录。内核继续使用 FJGAC，保留双皮肤、卡片 / 列表排列、横向 / 纵向导航、客户端管理和单张壁纸设置。
 
@@ -18,7 +18,7 @@
 
 顶栏使用所选核心的 Logo，点击打开自定义面板地址。在「系统管理 → 编辑配置」中管理与 LocalDNS 同机的 Mihomo YAML / sing-box JSON，支持查找、折叠、修改对比、原生校验、备份和重载。
 
-配置编辑、名单保存备份、共享名称 / Logo 与服务器采样需要安装或升级 Release 附带的 `LocalDNS_ProxyConfig_UI_2026.10.18.18_Service.zip`。UI 升级包只更新界面；独立服务自动选择 Linux amd64 / arm64，支持 OpenRC / systemd。详情见 [安装说明](INSTALL.md) 与 [服务说明](services/proxy-config/README.md)。文件操作限制在管理员指定的目录；保存并重载针对当前启动配置。
+配置编辑、名单保存备份、共享名称 / Logo 与服务器采样需要安装或升级 Release 附带的 `LocalDNS_ProxyConfig_UI_2026.10.18.19_Service.zip`。UI 升级包只更新界面；独立服务自动选择 Linux amd64 / arm64，支持 OpenRC / systemd。详情见 [安装说明](INSTALL.md) 与 [服务说明](services/proxy-config/README.md)。文件操作限制在管理员指定的目录；保存并重载针对当前启动配置。
 
 ## 作者与分工
 
@@ -132,7 +132,7 @@
 
 ## 快速安装
 
-1. 在 [Releases](https://github.com/yyhoworks/LocalDNS/releases/tag/fjgac-ui-v2026.10.18.18) 下载完整包或 UI 升级包，并核对同页的 `SHA256SUMS.txt`。**升级 FJGAC 内核必须从完整包选择对应架构的程序；UI 升级包不含内核。**
+1. 在 [Releases](https://github.com/yyhoworks/LocalDNS/releases/tag/fjgac-ui-v2026.10.18.19) 下载完整包或 UI 升级包，并核对同页的 `SHA256SUMS.txt`。**升级 FJGAC 内核必须从完整包选择对应架构的程序；UI 升级包不含内核。**
 2. 已有 LocalDNS 服务时，解压 UI 升级包并运行：
 
    ```sh

@@ -1,7 +1,7 @@
 {
   "product": "LocalDNS",
-  "uiVersion": "2026.10.18.18",
+  "uiVersion": "2026.10.18.19",
   "backendVersion": "FJGAC",
-  "releaseTag": "fjgac-ui-v2026.10.18.18",
-  "builtAt": "2026-10-18T21:39:08+08:00"
+  "releaseTag": "fjgac-ui-v2026.10.18.19",
+  "builtAt": "2026-10-18T22:09:11+08:00"
 }

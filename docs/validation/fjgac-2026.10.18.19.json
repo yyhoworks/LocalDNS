@@ -1,0 +1,200 @@
+{
+  "uiVersion": "2026.10.18.19",
+  "backendVersion": "FJGAC",
+  "packages": {
+    "LocalDNS_FJGAC_UI_2026.10.18.19_Full.zip": {
+      "bytes": 14810470,
+      "sha256": "10e2cd6d53f04e7349683c7b63555dc6c0f3a39f3ac5d27e168c602d6b34e61d",
+      "manifestVerified": true,
+      "crcVerified": true
+    },
+    "LocalDNS_ProxyConfig_UI_2026.10.18.19_Service.zip": {
+      "bytes": 6540488,
+      "sha256": "bfd158655b3edf797cc3bdf6c3e2582a5d0c4812efae09cae83c64374b9e2cfe",
+      "manifestVerified": true,
+      "crcVerified": true
+    },
+    "LocalDNS_UI_2026.10.18.19_Update.zip": {
+      "bytes": 1729905,
+      "sha256": "eea67290c20d855d215a1c326581c822f99f9a9e25711d24c0a88ef5892c8557",
+      "manifestVerified": true,
+      "crcVerified": true
+    }
+  },
+  "baseArchive": {
+    "name": "LocalDNS_FJGAC_UI_2026.10.18.14_Full.zip",
+    "sha256": "6ec5703080fcb44f5f20e2985a72dd69804e83a931668a93a634b30ecfe55c3b",
+    "matchesPublishedAsset": true
+  },
+  "kernelConfigurationAndRulesUnchanged": true,
+  "uiFilesMatched": 69,
+  "arm64RuntimeVerified": false,
+  "scope": "UI editor regression, related feature regression, read-only live acceptance and release archives",
+  "configurationServiceVersion": "1.5.0",
+  "serviceBinaryUnchangedFromUI18": true,
+  "serviceInstallerStagingChecks": 14,
+  "editorAcceptance": {
+    "passed": true,
+    "checks": [
+      "unchanged close, explicit continue/discard, no repeated toasts, inert and keyboard entry",
+      "note/group-only dirty checks and cancelled recognition preserve original raw model",
+      "disabled prefixes, panel Ctrl+S applies draft only, invalid input and one delete confirmation",
+      "IP, CIDR and rewrite creation retain raw format; empty and duplicate creation rejected",
+      "group creation/editing, notes and moving a rule into/out of groups",
+      "paste deduplicates current list and same batch; apply/cancel/Escape retain draft boundaries",
+      "IME Enter does not apply prematurely; unload/refresh and paste navigation protect edits",
+      "route/hash/list/tab transitions protect pending panel edits and clean up overlays",
+      "drag ordering and undo preserve rule text",
+      "load failure disables save; retry, empty list and 1000-rule search work",
+      "both skins, both navigation layouts, short mobile viewport, long content and focus containment"
+    ],
+    "largeListMs": 887,
+    "views": [
+      "editor-claude-left-1440.png",
+      "editor-glass-top-1440.png",
+      "editor-claude-left-390.png",
+      "editor-glass-top-390.png"
+    ],
+    "errors": []
+  },
+  "workbenchAcceptance": {
+    "passed": true,
+    "backupBeforeSave": true,
+    "backupFailureStopsWrite": true,
+    "dnsFailureKeepsDraft": true,
+    "crossListSaveIsolated": true,
+    "restoreLoadsDraft": true,
+    "concurrentChangeRejected": true,
+    "rawLineRoundTrip": true,
+    "bulkDeleteUndo": true,
+    "unchangedTextPreserved": true,
+    "idleMutations": 0,
+    "views": [
+      "rules-claude-left-1440.png",
+      "rules-glass-top-1440.png",
+      "rules-claude-left-390.png",
+      "rules-glass-top-390.png"
+    ],
+    "errors": []
+  },
+  "serverTrafficAndFragmentAcceptance": {
+    "passed": true,
+    "automaticRecovery": true,
+    "serverHistoryAcrossBrowsers": true,
+    "ranges": [
+      60,
+      360,
+      1440,
+      4320,
+      10080
+    ],
+    "fragmentGroupRevisionVerified": true,
+    "jsoncFragmentSaved": true,
+    "errors": []
+  },
+  "identityAndDirectoryAcceptance": {
+    "errors": [],
+    "layouts": [
+      {
+        "skin": "claude",
+        "mode": "left",
+        "width": 1440,
+        "noOverflow": true
+      },
+      {
+        "skin": "claude",
+        "mode": "left",
+        "width": 390,
+        "noOverflow": true
+      },
+      {
+        "skin": "claude",
+        "mode": "top",
+        "width": 1440,
+        "noOverflow": true
+      },
+      {
+        "skin": "claude",
+        "mode": "top",
+        "width": 390,
+        "noOverflow": true
+      },
+      {
+        "skin": "glass",
+        "mode": "left",
+        "width": 1440,
+        "noOverflow": true
+      },
+      {
+        "skin": "glass",
+        "mode": "left",
+        "width": 390,
+        "noOverflow": true
+      },
+      {
+        "skin": "glass",
+        "mode": "top",
+        "width": 1440,
+        "noOverflow": true
+      },
+      {
+        "skin": "glass",
+        "mode": "top",
+        "width": 390,
+        "noOverflow": true
+      }
+    ],
+    "saves": [
+      {
+        "core": "mihomo",
+        "path": "/etc/mihomo/backup.yaml",
+        "reloaded": false
+      },
+      {
+        "core": "mihomo",
+        "path": "/etc/mihomo/config.yaml",
+        "reloaded": true
+      },
+      {
+        "core": "sing-box",
+        "path": "/etc/sing-box/backup.json",
+        "reloaded": false
+      }
+    ]
+  },
+  "liveChecks": {
+    "passed": true,
+    "version": "2026.10.18.19",
+    "routes": [
+      "overview",
+      "logs",
+      "upstreams",
+      "rules",
+      "management",
+      "proxy-config"
+    ],
+    "realListsRendered": true,
+    "dirtyCloseRepaired": true,
+    "viewSwitchPreservesText": true,
+    "serverBackupsListed": 1,
+    "localConfigurationRead": true,
+    "directoryRead": true,
+    "trafficHistoryRendered": true,
+    "readRequests": 1,
+    "dnsWrites": 0,
+    "blocked": [],
+    "errors": []
+  },
+  "impeccableDetectorFindings": [],
+  "protectedFileCount": 34,
+  "protectedConfigurationAndManualRulesUnchanged": true,
+  "dnsProcessUnchanged": true,
+  "dnsTCPVerified": true,
+  "dnsUDPVerified": true,
+  "limitations": [
+    "Edge automated desktop and small viewport coverage; no physical touch device or screen reader certification",
+    "Existing service binary unchanged; native sing-box integration previously verified in UI .17, not repeated in this UI patch",
+    "Production checks were read-only; save and failure branches used isolated fixtures",
+    "Linux arm64 archive built and checked; no arm64 runtime validation"
+  ]
+}

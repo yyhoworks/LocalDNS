@@ -30,6 +30,8 @@
   var editing = null, isNew = false, dirty = false, seq = 0, armedEnter = false;
   var hist = [], histAt = -1, histLock = false, savedText = '';      /* 撤销/重做：保存每一步的原文 */
   var dragIds = [];                                                   /* 拖动中的行（标题=整组） */
+  var sheetBaseline = '', sheetOff = false, pendingLeave = null, focusTimer = null, mainWasInert = false, ownsInert = false;
+  var rawTags = {client_ip:true,direct_ip:true,rewrite:true};
   var rawMode = false;                                /* 原件行（例如 IP/网段）保存时不加类型前缀 */
   var sheetEl = null, scrimEl = null;                 /* 面板/遮罩只认自己建的那一份 */
   var sheetBack = null;                               /* 关闭面板后把焦点还给原来的地方 */
@@ -46,7 +48,9 @@
     } catch (e) { }
     var box = document.getElementById('toast-stack');
     if (!box) return;
+    var previous=box.querySelector('[data-rv-notice]');if(previous)previous.remove();
     var el = document.createElement('div');
+    el.dataset.rvNotice='';
     el.className = 'toast';
     el.innerHTML = '<span>' + esc(msg) + '</span>';
     box.appendChild(el);
@@ -413,8 +417,10 @@
         if (row.kind === 'comment' && row.role === 'doc') openCommentSheet(row);
         else openSheet(target, false);
       };
+      host.setAttribute('role','button');host.tabIndex=0;host.setAttribute('aria-label','编辑 '+row.value);
+      host.onkeydown=function(e){if(e.key==='Enter'||e.key===' '){e.preventDefault();openRow();}};
       host.onclick = openRow;
-      host.ondblclick = openRow;
+      host.ondblclick = function(e){e.preventDefault();};
       el.querySelector('[data-act=edit]').onclick = function (e) { e.stopPropagation(); openRow(); };
       bindDrag(el, [row.id], row, null);
     });
@@ -514,9 +520,9 @@
       say(selfGroup ? '已移到「' + groupTitle(selfGroup) + '」下面' : '已调整顺序');
     });
   }
-  function dropRow(row) {
+  function dropRow(row,confirmed) {
     var pn = row.kind === 'comment' ? { idx: -1 } : prevNote(row);
-    if (!window.confirm('删除这条规则？\n' + lineOf(row) + (pn.idx >= 0 ? '\n（它上面的备注行一起删掉）' : ''))) return;
+    if (!confirmed && !window.confirm('删除这条规则？\n' + lineOf(row) + (pn.idx >= 0 ? '\n（它上面的备注行一起删掉）' : ''))) return;
     rows = rows.filter(function (r, i) { return r.id !== row.id && i !== pn.idx; });
     sel = sel.filter(function (x) { return x !== row.id; });
     writeBack(); renderList(); say('已删除 ' + row.value);
@@ -721,7 +727,7 @@
     return HOST_RE.test(v);
   }
   function errText(t) { return t === 'regexp' ? '正则写错了，检查括号或转义' : (t === 'keyword' ? '关键字不能为空' : '域名格式看起来不对'); }
-  function linePreview() { var v = sheet().querySelector('#rv-value').value.trim(); return (PREFIX[curType()] || 'domain:') + (v || '…'); }
+  function linePreview() { var v = sheet().querySelector('#rv-value').value.trim(); return (sheetOff?'# ':'')+(rawMode?'':PREFIX[curType()] || 'domain:')+(v || '…'); }
   function hint(text, cls) {
     var h = sheet().querySelector('#rv-hint');
     h.className = 'rv-hint' + (cls ? ' ' + cls : '');
@@ -735,8 +741,9 @@
     var pending = !!pm || hash;                       /* 还没按回车识别，不算错 */
     var bad = !rawMode && !pending && !!body && !valid(body, t);
     inp.classList.toggle('bad', bad);
-    sheet().querySelector('#rv-value-label').textContent = NAME[t];
-    inp.placeholder = '例如 ' + TYPE_TIP[t].ph;
+    var rawLabels={client_ip:'客户端 IP',direct_ip:'IP 或网段',rewrite:'重定向条目'};
+    sheet().querySelector('#rv-value-label').textContent = rawMode?(rawLabels[activeTag()]||'原文'):NAME[t];
+    inp.placeholder=rawMode?(activeTag()==='rewrite'?'例如 home.example.com 192.0.2.10':'例如 192.0.2.10'):'例如 '+TYPE_TIP[t].ph;
     var note = sheet().dataset.note;
     if (bad) hint(errText(t), 'bad');
     else if (pm) {
@@ -744,23 +751,32 @@
       hint('按回车识别为「' + NAME[pt] + '」 · 将写入 <span class="mono">' + esc(PREFIX[pt] + body) + '</span>' + (hash ? '（停用）' : ''), 'hit');
     } else if (hash) {
       hint('按回车按「停用」写入 <span class="mono">' + esc('# ' + PREFIX[t] + body) + '</span>', 'hit');
-    } else if (rawMode) hint('这条按「原件」写回：不加类型前缀，内容原样保存');
+    } else if (rawMode) hint('将写入 <span class="mono">'+esc(linePreview())+'</span> · '+(sheetOff?'停用':'保留原文格式'));
     else hint('将写入 <span class="mono">' + esc(linePreview()) + '</span> · ' + (note || TYPE_TIP[t].tip), note ? 'hit' : '');
     sheet().classList.toggle('dirty', isDirtySheet());
   }
-  function isDirtySheet() {
-    if (groupMode) {
-      if (groupRole !== (editingGroup && editingGroup.title && editingGroup.title.role ? editingGroup.title.role : (editingGroup && editingGroup.docOnly ? 'doc' : 'title'))) return true;
-      if (!editingGroup) return !!sheet().querySelector('#rv-grp-title').value.trim();
-      return sheet().querySelector('#rv-grp-title').value.trim() !== groupBase.title ||
-        sheet().querySelector('#rv-grp-notes').value.trim() !== groupBase.notes;
-    }
-    if (isNew) return !!sheet().querySelector('#rv-value').value.trim();
-    if (!editing) return false;
-    if (rawMode) return sheet().querySelector('#rv-value').value.trim() !== (editing.value || '');  /* 原件行没有类型可比 */
-    return sheet().querySelector('#rv-value').value.trim() !== editing.value || curType() !== editing.type
-      || sheet().querySelector('#rv-note').value.trim() !== noteBase
-      || (sheet().querySelector('#rv-group') ? sheet().querySelector('#rv-group').value !== groupSelBase : false);
+  function sheetSnapshot() {
+    var pane=sheet();if(!pane)return '';
+    if(groupMode)return JSON.stringify({role:groupRole,title:pane.querySelector('#rv-grp-title').value,notes:pane.querySelector('#rv-grp-notes').value});
+    return JSON.stringify({type:curType(),raw:rawMode,off:sheetOff,value:pane.querySelector('#rv-value').value,note:pane.querySelector('#rv-note').value,group:pane.querySelector('#rv-group').value});
+  }
+  function isDirtySheet() { return !!sheetBaseline && sheetSnapshot() !== sheetBaseline; }
+  function scheduleFocus(selector) {
+    clearTimeout(focusTimer);var pane=sheet();
+    focusTimer=setTimeout(function(){if(!pane || !pane.isConnected || !pane.classList.contains('show'))return;var input=pane.querySelector(selector);if(input){input.focus({preventScroll:true});if(input.setSelectionRange)input.setSelectionRange(input.value.length,input.value.length);}},50);
+  }
+  function showSheet() {
+    var pane=sheet(),main=document.querySelector('.master-container');
+    if(!ownsInert&&main){mainWasInert=main.inert;main.inert=true;ownsInert=true;}
+    pendingLeave=null;sheetBaseline=sheetSnapshot();
+    pane.querySelector('.rv-discard-prompt').hidden=true;
+    pane.inert=false;pane.setAttribute('aria-hidden','false');pane.classList.remove('dirty');
+    scrim().classList.add('show');pane.classList.add('show');
+  }
+  function showDiscardPrompt(next) {
+    if(typeof next==='function')pendingLeave=next;
+    var prompt=sheet().querySelector('.rv-discard-prompt');prompt.hidden=false;
+    prompt.querySelector('[data-rv-continue]').focus();
   }
   var noteBase = '';
   function openSheet(row, fresh) {
@@ -768,12 +784,14 @@
     groupMode = false; editingGroup = null; groupBase = null;
     sheet().querySelector('#rv-rulefields').hidden = false;
     sheet().querySelector('#rv-grpfields').hidden = true;
-    sheet().querySelector('#rv-sheet-tip').textContent = '回车识别类型，再回车保存';
+    sheet().querySelector('#rv-sheet-tip').textContent = '应用到名单后，点击名单页保存才生效';
     var scope = document.querySelector('.rule-menu button.active span');
     sheet().querySelector('#rv-sheet-title').textContent = fresh ? '新增规则' : '编辑规则';
     sheet().querySelector('#rv-sheet-scope').textContent = scope ? scope.textContent : '名单';
     sheet().querySelector('#rv-del').style.display = fresh ? 'none' : '';
-    rawMode = !fresh && !!row && row.kind === 'raw';
+    sheetOff=!!(row&&row.off);
+    rawMode = fresh ? !!rawTags[activeTag()] : !!row && row.kind === 'raw';
+    sheet().querySelector('#rv-type').closest('.rv-field').hidden=!!rawTags[activeTag()];
     if (rawMode) {
       /* 原件行本来就没有类型前缀，别谎报一个类型；保存时按原文写回 */
       Array.prototype.forEach.call(sheet().querySelectorAll('#rv-type button'), function (b) { b.classList.remove('on', 'pop'); });
@@ -790,9 +808,8 @@
     sheet().classList.remove('dirty');
     paint();
     sheetBack = forgetTrigger();
-    scrim().classList.add('show');
-    sheet().classList.add('show');
-    setTimeout(function () { var i = sheet().querySelector('#rv-value'); i.focus(); i.setSelectionRange(i.value.length, i.value.length); }, 160);
+    showSheet();
+    scheduleFocus('#rv-value');
   }
   /* 标题（分组）编辑器：来源就是名单里的 # 行 —— 第一行当标题，其余当注释 */
   /* 面板上的角色切换：标题 / 名单说明 / 规则备注，切换时字段跟着变 */
@@ -850,22 +867,23 @@
       paintGroupRole(b.dataset.r);
       sheet().classList.toggle('dirty', isDirtySheet());
     };
-    sheet().querySelector('#rv-grp-title').onkeydown = function (e) { if (e.key === 'Enter') { e.preventDefault(); commit(); } };
-    sheet().querySelector('#rv-grp-notes').onkeydown = function (e) { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); commit(); } };
+    sheet().querySelector('#rv-grp-title').onkeydown = function (e) { if (!e.isComposing && e.keyCode!==229 && e.key === 'Enter') { e.preventDefault(); commit(); } };
+    sheet().querySelector('#rv-grp-notes').onkeydown = function (e) { if (!e.isComposing && e.keyCode!==229 && e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); commit(); } };
     sheetBack = forgetTrigger();
-    scrim().classList.add('show');
-    sheet().classList.add('show');
-    setTimeout(function () { sheet().querySelector('#rv-grp-title').focus(); }, 160);
+    showSheet();
+    scheduleFocus('#rv-grp-title');
   }
   function closeSheet(force) {
-    if (!force && isDirtySheet()) { say('有未保存的修改，再点一次关闭放弃'); return; }
-    scrim().classList.remove('show');
-    sheet().classList.remove('show', 'dirty');
-    editing = null; isNew = false; rawMode = false;
-    groupMode = false; editingGroup = null; groupBase = null;
-    /* 焦点还给刚才点的那一行/按钮，键盘用户不会一下子找不到位置 */
-    if (sheetBack && document.body.contains(sheetBack) && sheetBack.offsetParent !== null) { try { sheetBack.focus(); } catch (e) { } }
-    sheetBack = null;
+    var pane=sheet();if(!pane)return true;
+    if(!force && isDirtySheet()){showDiscardPrompt();return false;}
+    clearTimeout(focusTimer);pendingLeave=null;sheetBaseline='';
+    if(scrim())scrim().classList.remove('show');
+    pane.classList.remove('show','dirty');pane.inert=true;pane.setAttribute('aria-hidden','true');
+    pane.querySelector('.rv-discard-prompt').hidden=true;
+    var main=document.querySelector('.master-container');if(ownsInert&&main)main.inert=mainWasInert;ownsInert=false;
+    editing=null;isNew=false;rawMode=false;sheetOff=false;groupMode=false;editingGroup=null;groupBase=null;
+    if(sheetBack&&sheetBack.isConnected&&sheetBack.offsetParent!==null){try{sheetBack.focus({preventScroll:true});}catch(e){}}
+    sheetBack=null;return true;
   }
   function closeNewMenu() {
     if (menuPop) menuPop.hidden = true;
@@ -880,12 +898,15 @@
     globalBound = true;
     document.addEventListener('keydown', function (e) {
       if (!root || !root.isConnected) return;
+      if(e.isComposing||e.keyCode===229)return;
+      var nativeDialog=document.querySelector('dialog[open]');
+      if(nativeDialog){if(nativeDialog.id==='rp-wrap'&&(e.ctrlKey||e.metaKey)&&String(e.key).toLowerCase()==='s'){e.preventDefault();doPaste();}return;}
       if (e.key === 'Escape') {
-        if (sheetEl && sheetEl.classList.contains('show')) { closeSheet(); return; }
+        if (sheetEl && sheetEl.classList.contains('show')) { e.preventDefault();e.stopPropagation();closeSheet();return; }
         if (rowMenuEl) { closeRowMenu(); return; }
         if (menuPop && !menuPop.hidden) { closeNewMenu(); return; }
         var wrap = document.getElementById('rp-wrap');
-        if (wrap && !wrap.hidden) { wrap.hidden = true; return; }
+        if (wrap && wrap.open) { e.preventDefault();closePaste();return; }
         if (sel.length) { sel = []; renderList(); return; }        /* 先取消选择 */
         var qb = root && root.querySelector('#rv-q');
         if (qb && qb.value) { q = ''; qb.value = ''; paintSearch(); renderList(); }   /* 再清搜索 */
@@ -893,7 +914,7 @@
       }
       if (!(e.ctrlKey || e.metaKey)) return;
       var k = String(e.key || '').toLowerCase();
-      if (k === 's') { e.preventDefault(); if (saveBtn) saveBtn.click(); return; }
+      if (k === 's') { e.preventDefault();if(sheetEl&&sheetEl.classList.contains('show'))commit();else if(saveBtn)saveBtn.click();return; }
       if (sheetEl && sheetEl.classList.contains('show')) return;   /* 面板里让浏览器自己撤销输入 */
       if (view === 'raw' && e.target === ta) return;               /* 原文框里同理 */
       if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA')) return;   /* 搜索框里撤销的是输入 */
@@ -918,8 +939,9 @@
   function recognize() {
     var inp = sheet().querySelector('#rv-value'), raw = inp.value, s = String(raw).replace(/[\r\n]+/g, ' ').trim();
     var off = false, hit = null, m, changed = false;
-    if (/^#\s*/.test(s)) { off = true; s = s.replace(/^#\s*/, '').trim(); changed = true; }
+    if (/^#\s*/.test(s)) { off = true;sheetOff=true;s = s.replace(/^#\s*/, '').trim();changed=true; }
     m = s.match(PREFIX_RE);
+    if(rawMode&&(!m||rawTags[activeTag()])){if(s!==raw.trim()){inp.value=s;changed=true;}paint();return changed;}
     if (m) { hit = m[1].toLowerCase(); s = s.slice(m[0].length).trim(); changed = true; rawMode = false; }
     if (s !== raw.trim()) { inp.value = s; changed = true; }
     var t = hit || curType(), notes = [];
@@ -933,12 +955,13 @@
     }
     if (t !== curType()) { setType(t, notes.join(' · ')); changed = true; }
     else if (notes.length) setType(t, notes.join(' · '));
-    if (editing && (editing.kind === 'comment' || editing.kind === 'raw') && hit) { editing.kind = 'rule'; }
+    // The original row stays untouched until commit().
     paint();
     return changed;
   }
   function commit() {
     if (groupMode) { commitGroup(); return; }
+    var input=sheet().querySelector('#rv-value').value;if(/^\s*#/.test(input)||PREFIX_RE.test(input))recognize();
     var v = sheet().querySelector('#rv-value').value.trim(), t = curType();
     var note = sheet().querySelector('#rv-note').value.trim();
     var wasRaw = rawMode;
@@ -946,13 +969,14 @@
     if (rawMode && !v) { say('内容不能为空'); sheet().querySelector('#rv-value').focus(); return; }
     var target;
     if (isNew) {
-      var dup = rows.some(function (r) { return (r.kind === 'rule' || r.kind === 'raw') && r.value === v && r.type === t; });
+      var dup = rows.some(function (r) { return (r.kind === 'rule' || r.kind === 'raw') && r.value === v && r.type === (rawMode?'raw':t); });
       if (dup) { say('列表里已经有这条：' + (PREFIX[t] || '') + v); sheet().querySelector('#rv-value').focus(); return; }
-      target = { id: 'r' + (++seq), kind: 'rule', type: t, value: v, off: false, touched: true };
+      target = { id: 'r' + (++seq), kind: rawMode?'raw':'rule', type: rawMode?'raw':t, value: v, off: sheetOff, touched: true };
       rows.push(target);
     } else if (editing) {
       if (rawMode) { editing.type = 'raw'; editing.value = v; editing.kind = 'raw'; }
       else { editing.type = t; editing.value = v; editing.kind = 'rule'; }
+      editing.off=sheetOff;
       editing.touched = true;
       target = editing;
     }
@@ -1106,13 +1130,14 @@
     });
     document.body.insertAdjacentHTML('beforeend',
       '<div class="rv-scrim" id="rv-scrim"></div>' +
-      '<aside class="rv-sheet" id="rv-sheet" role="dialog" aria-modal="true" aria-labelledby="rv-sheet-title">' +
+      '<aside class="rv-sheet" id="rv-sheet" role="dialog" aria-modal="true" aria-labelledby="rv-sheet-title" tabindex="-1">' +
         '<div class="rv-sheet-head"><div><h2 id="rv-sheet-title">编辑规则</h2>' +
           '<div class="rv-sub"><span id="rv-sheet-scope">名单</span><span class="rv-sep"></span><span id="rv-sheet-tip">回车识别类型，再回车保存</span><span class="rv-dot"></span></div></div>' +
           '<div class="rv-sheet-tools">' +
             '<button class="rv-x del" id="rv-del" title="删除这条">' + ICON.del + '</button>' +
             '<button class="rv-x" id="rv-close" title="关闭"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="m6 6 12 12M6 18 18 6"/></svg></button>' +
           '</div></div>' +
+        '<section class="rv-discard-prompt" role="alert" hidden><p>修改尚未应用到名单。要放弃这次编辑吗？</p><div><button type="button" class="button small" data-rv-continue>继续编辑</button><button type="button" class="button small" data-rv-discard>放弃修改</button></div></section>' +
         '<div class="rv-fields" id="rv-rulefields">' +
           '<div class="rv-field"><label>规则类型<span class="rv-lh">可粘贴整行，回车后自动识别</span></label>' +
             '<div class="rv-seg" id="rv-type">' +
@@ -1143,12 +1168,15 @@
             '<textarea class="rv-inp rv-area" id="rv-grp-notes" rows="3" spellcheck="false" placeholder="例如 注意: 已将长度修正为精确的 {59}"></textarea>' +
             '<div class="rv-hint" id="rv-grp-hint">保存后这一组下面已有的规则不变，仍由它们的位置决定</div></div>' +
         '</div>' +
-        '<div class="rv-foot"><button class="button primary" id="rv-ok">保存</button>' +
+        '<div class="rv-foot"><button class="button primary" id="rv-ok">应用到名单</button>' +
         '<button class="button" id="rv-cancel">取消</button></div>' +
       '</aside>');
     scrimEl = document.getElementById('rv-scrim');
     sheetEl = document.getElementById('rv-sheet');
-    var sv = sheetEl;
+    var sv = sheetEl;sv.inert=true;sv.setAttribute('aria-hidden','true');
+    sv.querySelector('#rv-value').setAttribute('aria-describedby','rv-hint');
+    sv.querySelector('[data-rv-continue]').onclick=function(){pendingLeave=null;sv.querySelector('.rv-discard-prompt').hidden=true;scheduleFocus(groupMode?'#rv-grp-title':'#rv-value');};
+    sv.querySelector('[data-rv-discard]').onclick=function(){var next=pendingLeave;closeSheet(true);if(next)next();};
     sv.querySelector('#rv-type').onclick = function (e) {
       var b = e.target.closest('button'); if (!b) return;
       rawMode = false;                                   /* 手动选了类型就按类型写 */
@@ -1158,21 +1186,23 @@
     sv.querySelector('#rv-value').addEventListener('input', function () { armedEnter = false; paint(); });
     sv.querySelector('#rv-note').addEventListener('input', function () { paint(); });
     sv.querySelector('#rv-note').addEventListener('keydown', function (e) {
+      if(e.isComposing||e.keyCode===229)return;
       if (e.key === 'Enter') { e.preventDefault(); commit(); }
     });
     sv.querySelector('#rv-value').addEventListener('keydown', function (e) {
+      if(e.isComposing||e.keyCode===229)return;
       if (e.key !== 'Enter') return;
       e.preventDefault();
       if (e.ctrlKey || e.metaKey) { commit(); return; }
       if (armedEnter || !recognize()) { armedEnter = false; commit(); }
-      else { armedEnter = true; hint('已识别为「' + NAME[curType()] + '」 · <span class="mono">' + esc(linePreview()) + '</span> · 再按一次回车保存', 'hit'); }
+      else { armedEnter = true; hint('已识别为「' + (rawMode?'原文':NAME[curType()]) + '」 · <span class="mono">' + esc(linePreview()) + '</span> · 再按一次回车应用到名单', 'hit'); }
     });
     sv.querySelector('#rv-ok').onclick = commit;
     sv.querySelector('#rv-cancel').onclick = function () { closeSheet(); };
     sv.querySelector('#rv-close').onclick = function () { closeSheet(); };
     sv.querySelector('#rv-del').onclick = function () {
       if (groupMode) { var g = editingGroup; if (!g) { closeSheet(true); return; } dropGroup(g); return; }
-      var r = editing; if (!r) return; if (!window.confirm('删除这条规则？\n' + lineOf(r))) return; closeSheet(true); dropRow(r);
+      var r = editing; if (!r) return; if (!window.confirm('删除这条规则？\n' + lineOf(r))) return; closeSheet(true); dropRow(r,true);
     };
     scrimEl.onclick = function () { closeSheet(); };
     /* 面板里 Tab 在面板内循环，不要跑回页面后面 */
@@ -1248,20 +1278,20 @@
     var wrap = document.getElementById('rp-wrap');
     if (!wrap) {
       document.body.insertAdjacentHTML('beforeend',
-        '<div class="rp-wrap" id="rp-wrap" hidden><div class="rp-panel" role="dialog" aria-modal="true" aria-label="批量粘贴">' +
+        '<dialog class="rp-wrap" id="rp-wrap" aria-label="批量粘贴"><div class="rp-panel">' +
           '<h2>批量粘贴</h2>' +
           '<p>一行一条，可直接贴线上原文（支持 domain: / full: / keyword: / regexp: 前缀，<code>#</code> 开头按停用）；与现有规则重复的会自动跳过。</p>' +
-          '<textarea id="rp-text" spellcheck="false" placeholder="domain:example.com&#10;full:stun.l.google.com&#10;keyword:kaspersky"></textarea>' +
+          '<textarea id="rp-text" aria-label="批量规则原文" spellcheck="false" placeholder="domain:example.com&#10;full:stun.l.google.com&#10;keyword:kaspersky"></textarea>' +
           '<div class="rp-foot"><button class="button primary" id="rp-ok">追加到列表</button>' +
           '<button class="button" id="rp-cancel">取消</button><span class="grow"></span>' +
-          '<span class="rp-note" id="rp-note"></span></div></div></div>');
+          '<span class="rp-note" id="rp-note"></span></div></div></dialog>');
       wrap = document.getElementById('rp-wrap');
-      wrap.addEventListener('click', function (e) { if (e.target === wrap) wrap.hidden = true; });
+      wrap.addEventListener('click', function (e) { if (e.target === wrap) closePaste(); });
       wrap.querySelector('#rp-text').addEventListener('input', pastePreview);
-      wrap.querySelector('#rp-cancel').onclick = function () { wrap.hidden = true; };
+      wrap.querySelector('#rp-cancel').onclick = closePaste;
       wrap.querySelector('#rp-ok').onclick = doPaste;
     }
-    wrap.hidden = false;
+    if(!wrap.open)wrap.showModal();
     var t = wrap.querySelector('#rp-text');
     t.value = '';
     pastePreview();
@@ -1270,28 +1300,39 @@
   function parsePaste(text) {
     return parse(text).filter(function(r){return r.kind !== 'blank';});
   }
-  function pastePreview() {
-    var wrap = document.getElementById('rp-wrap');
-    var list = parsePaste(wrap.querySelector('#rp-text').value);
-    var dup = list.filter(function (r) { return own(r); }).length;
-    wrap.querySelector('#rp-note').textContent = list.length ? ('将追加 ' + (list.length - dup) + ' 条' + (dup ? ' · 跳过重复 ' + dup + ' 条' : '')) : '';
+  function closePaste() { var wrap=document.getElementById('rp-wrap');if(wrap&&wrap.open)wrap.close(); }
+  function pastedRows() {
+    var input=document.getElementById('rp-text'),list=parsePaste(input?input.value:''),seen=new Set();
+    function key(r){return r.kind+'|'+r.type+'|'+r.value;}
+    rows.forEach(function(r){if(r.kind==='rule'||r.kind==='raw')seen.add(key(r));});
+    var unique=list.filter(function(r){if(r.kind!=='rule'&&r.kind!=='raw')return true;var k=key(r);if(seen.has(k))return false;seen.add(k);return true;});
+    return {rows:unique,duplicates:list.length-unique.length};
   }
-  function own(r) {
-    return rows.some(function (x) { return (r.kind === 'rule' || r.kind === 'raw') && x.kind === r.kind && x.value === r.value && x.type === r.type; });
+  function pastePreview() {
+    var result=pastedRows(),label=document.getElementById('rp-note');
+    label.textContent=result.rows.length||result.duplicates?'将追加 '+result.rows.length+' 行'+(result.duplicates?' · 跳过重复 '+result.duplicates+' 条规则':''):'';
   }
   function doPaste() {
-    var wrap = document.getElementById('rp-wrap');
-    var list = parsePaste(wrap.querySelector('#rp-text').value).filter(function (r) { return !own(r); });
-    if (!list.length) { wrap.hidden = true; say('没有可追加的内容'); return; }
-    rows = rows.concat(list);
-    writeBack(); renderList(); wrap.hidden = true;
-    say('已追加 ' + list.length + ' 条（记得点保存）');
+    var result=pastedRows();
+    if(!result.rows.length){closePaste();say('没有可追加的内容');return;}
+    rows=rows.concat(result.rows);writeBack();renderList();closePaste();say('已追加 '+result.rows.length+' 行（记得点保存）');
+  }
+  function canLeave(next) {
+    if(!root||!root.isConnected)return true;
+    if(sheetEl&&sheetEl.classList.contains('show')){
+      if(isDirtySheet()){showDiscardPrompt(next);return false;}
+      closeSheet(true);
+    }
+    var paste=document.getElementById('rp-wrap');
+    if(paste&&paste.open){if(paste.querySelector('#rp-text').value.trim()&&!confirm('批量粘贴尚未加入名单，放弃并离开吗？'))return false;closePaste();}
+    return true;
   }
   /* 站点重绘会把我们插进去的整个面板换掉，这时挂在 body 上的遮罩/面板要跟着收走 */
   function tick() {
     if (root && !document.body.contains(root)) {
       /* 站点把整块面板换掉了：开着的编辑面板、浮层菜单也要一起收走，别再挂着孤儿节点 */
       if (sheetEl && sheetEl.classList.contains('show')) { try { closeSheet(true); } catch (e) { } }
+      closePaste();var paste=document.getElementById('rp-wrap');if(paste)paste.remove();
       sheetEl = scrimEl = null;
       try { closeRowMenu(); closeNewMenu(); } catch (e) { }
     }
@@ -1311,7 +1352,8 @@
     if (avail > 660) avail = 660;
     if (Math.abs(avail - list.getBoundingClientRect().height) > 4) list.style.height = avail + 'px';
   }
-  window.LocalDNSRules = {refreshText:function(){
+  window.addEventListener('beforeunload',function(e){var paste=document.getElementById('rp-wrap');if((sheetEl&&sheetEl.classList.contains('show')&&isDirtySheet())||(paste&&paste.open&&paste.querySelector('#rp-text').value.trim())){e.preventDefault();e.returnValue='';}});
+  window.LocalDNSRules = {canLeave:canLeave,refreshText:function(){
     if(!ta || !ta.isConnected || !root || !root.isConnected)return;
     rows=parse(ta.value);sel=[];q='';
     var query=root.querySelector('#rv-q');if(query)query.value='';

@@ -204,8 +204,9 @@ body[data-console-route="rules"] .rule-menu button.active{background:var(--glass
 body[data-console-route="rules"] .rule-menu button .rule-count{display:none}
 body[data-console-route="rules"] .rule-editor{height:auto;min-height:0}
 
-body[data-console-route="rules"] .rp-wrap{position:fixed;inset:0;z-index:80;display:flex;align-items:center;justify-content:center;padding:20px}
-body[data-console-route="rules"] .rp-wrap[hidden]{display:none}
+body[data-console-route="rules"] .rp-wrap{position:fixed;inset:0;z-index:80;width:100%;height:100dvh;max-width:none;max-height:none;margin:0;border:0;background:transparent;color:var(--text-1);display:flex;align-items:center;justify-content:center;padding:20px}
+body[data-console-route="rules"] .rp-wrap:not([open]){display:none}
+body[data-console-route="rules"] .rp-wrap::backdrop{background:rgba(0,0,0,.48)}
 body[data-console-route="rules"] .rp-panel{width:min(560px,100%);background:var(--glass-bg-strong);border:1px solid var(--border-glass);
   border-radius:calc(16px * var(--radius-scale));box-shadow:0 30px 70px -40px rgba(0,0,0,.95),var(--inner-specular);
   backdrop-filter:var(--blur-filter);-webkit-backdrop-filter:var(--blur-filter);padding:20px 22px;display:flex;flex-direction:column;gap:14px}
@@ -355,3 +356,27 @@ html[data-skin=claude] body[data-console-route="rules"] .rv-row .rv-type{color:v
 }
 
 body[data-console-route="rules"] .wb-error{color:var(--console-danger,var(--red));font-size:12px;line-height:1.7;margin:10px 0}
+
+/* Keep close / apply reachable even in a short viewport or with a discard prompt. */
+body[data-console-route="rules"] .rv-sheet{height:100dvh;bottom:auto;overflow:hidden}
+body[data-console-route="rules"] .rv-sheet-head,body[data-console-route="rules"] .rv-foot{flex-shrink:0}
+body[data-console-route="rules"] .rv-sheet-head>div:first-child{min-width:0;flex:1}
+body[data-console-route="rules"] .rv-sub{flex-wrap:wrap;line-height:1.6}
+body[data-console-route="rules"] .rv-sheet-tools{flex-shrink:0}
+body[data-console-route="rules"] .rv-fields{min-height:0;overflow:auto;overscroll-behavior:contain}
+body[data-console-route="rules"] .rv-hint{overflow-wrap:anywhere}
+body[data-console-route="rules"] .rv-discard-prompt{flex-shrink:0;padding:12px 24px;background:var(--glass-pill-active);color:var(--text-1);border-bottom:1px solid var(--border-glass)}
+body[data-console-route="rules"] .rv-discard-prompt[hidden]{display:none}
+body[data-console-route="rules"] .rv-discard-prompt p{margin:0 0 10px;font-size:13px;line-height:1.6}
+body[data-console-route="rules"] .rv-discard-prompt>div{display:flex;gap:8px;flex-wrap:wrap}
+body[data-console-route="rules"] .rv-value[role=button]{cursor:pointer}
+body[data-console-route="rules"] .rv-sheet :focus-visible,body[data-console-route="rules"] .rp-wrap :focus-visible,body[data-console-route="rules"] .rv-value[role=button]:focus-visible{outline:2px solid var(--primary-light);outline-offset:3px}
+body[data-console-route="rules"] .rp-panel{max-height:calc(100dvh - 40px);overflow:auto}
+body[data-console-route="rules"] .rp-foot{flex-wrap:wrap}
+@media(max-width:600px){
+  body[data-console-route="rules"] .rv-sheet input,body[data-console-route="rules"] .rv-sheet select,body[data-console-route="rules"] .rv-sheet textarea,body[data-console-route="rules"] .rp-panel textarea{font-size:16px}
+  body[data-console-route="rules"] .rv-sheet button,body[data-console-route="rules"] .rp-panel button{min-height:44px}
+  body[data-console-route="rules"] .rv-sheet #rv-close,body[data-console-route="rules"] .rv-sheet #rv-del{min-width:44px;min-height:44px}
+  body[data-console-route="rules"] .rv-discard-prompt{padding:12px 20px}
+  body[data-console-route="rules"] .rv-foot{padding-bottom:max(14px,env(safe-area-inset-bottom))}
+}

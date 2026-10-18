@@ -508,6 +508,7 @@
     if(id==='data'||id==='features')id='management';if(!routeDefs.some(x=>x.id===id))id='overview';
     if(state.route==='proxy-config'&&id==='proxy-config'&&window.LocalDNSProxyConfig?.isDirty())return;
     if(!approved&&state.route==='proxy-config'&&id!==state.route&&!window.LocalDNSProxyConfig?.canLeave(()=>navigate(id,true,true))){if(location.hash!=='#/proxy-config')history.replaceState(null,'','#/proxy-config');return;}
+    if(!approved&&state.route==='rules'&&window.LocalDNSRules?.canLeave(()=>navigate(id,true,true))===false){if(location.hash!=='#/rules')history.replaceState(null,'','#/rules');return;}
     state.route=id;if(write&&location.hash!==`#/${id}`)history.pushState(null,'',`#/${id}`);renderRoute();
   }
   function updateNav(){ const r=routeDefs.find(x=>x.id===state.route); $('#page-title').textContent=r.label;$('#page-subtitle').textContent=r.subtitle;$$('[data-route]').forEach(x=>x.classList.toggle('active',x.dataset.route===(state.route==='proxy-config'?'management':state.route))); }
@@ -558,6 +559,7 @@
   }
   async function renderRoute(force=false,silent=false,approved=false){
     if(state.route==='proxy-config'&&!approved&&window.LocalDNSProxyConfig?.canLeave(()=>renderRoute(force,silent,true))===false)return;
+    if(state.route==='rules'&&!approved&&window.LocalDNSRules?.canLeave(()=>renderRoute(force,silent,true))===false)return;
     window.LocalDNSInterface?.rememberDraft();
     cleanupRouteUi();
     window.LocalDNSTopologyFlow?.stop();
@@ -1626,10 +1628,10 @@
       </div>
     </div>
     <div id="rule-tab-body" class="col-12"></div>`;
-    $$('[data-rule-tab]').forEach(x=>x.onclick=()=>{$$('[data-rule-tab]').forEach(y=>y.classList.toggle('active',y===x));renderRuleTab(x.dataset.ruleTab)});
+    $$('[data-rule-tab]').forEach(x=>x.onclick=()=>renderRuleTab(x.dataset.ruleTab));
     await renderRuleTab('lists');
   }
-  async function renderRuleTab(tab){const body=$('#rule-tab-body');body.innerHTML=loadingPage();if(tab==='lists')return renderListRules(body);if(tab==='adguard')return renderAdguard(body);return renderDiversion(body);}
+  async function renderRuleTab(tab,approved=false){if(!approved&&window.LocalDNSRules?.canLeave(()=>renderRuleTab(tab,true))===false)return;$$('[data-rule-tab]').forEach(y=>y.classList.toggle('active',y.dataset.ruleTab===tab));const body=$('#rule-tab-body');body.innerHTML=loadingPage();if(tab==='lists')return renderListRules(body);if(tab==='adguard')return renderAdguard(body);return renderDiversion(body);}
   async function renderListRules(body){
     if(!ruleProfiles.some(x=>x[0]===state.ruleTag))state.ruleTag=ruleProfiles[0][0];
     const tag=state.ruleTag,profile=ruleProfiles.find(x=>x[0]===tag)||ruleProfiles[0];
@@ -1638,11 +1640,11 @@
     const menu=`<div class="rule-menu">${ruleProfiles.map(([t,n])=>`<button data-rule-tag="${t}" class="${t===tag?'active':''}"><span>${n}</span><span class="rule-count"></span></button>`).join('')}</div>`;
     if(loadError){
       body.innerHTML=`<section class="card"><div class="rule-layout">${menu}<div class="rule-editor"><div class="section-header"><div><h2>${profile[1]}</h2><p>读取失败时禁止保存，现有规则不会被覆盖。</p></div><button class="button" id="rule-retry">${icon('refresh')}重试</button></div><div class="error-panel"><strong>规则列表加载失败</strong><p>${esc(loadError.message)}</p></div></div></div></section>`;
-      $$('[data-rule-tag]').forEach(x=>x.onclick=()=>{state.ruleTag=x.dataset.ruleTag;renderListRules(body)});$('#rule-retry').onclick=()=>renderListRules(body);requestAnimationFrame(fitRuleLayoutHeight);return;
+      $$('[data-rule-tag]').forEach(x=>x.onclick=()=>{const go=()=>{state.ruleTag=x.dataset.ruleTag;renderListRules(body)};if(window.LocalDNSRules?.canLeave(go)!==false)go();});$('#rule-retry').onclick=()=>renderListRules(body);requestAnimationFrame(fitRuleLayoutHeight);return;
     }
     const trimmed=String(text).trim();
     body.innerHTML=`<section class="card"><div class="rule-layout">${menu}<div class="rule-editor"><div class="section-header"><div><h2>${profile[1]}</h2><p>一行一条；完整读取后才允许保存</p></div><div class="section-header-actions"><button class="button small" id="rule-download">${icon('download')}下载列表</button><button class="button primary" id="rule-save">${icon('save')}保存</button></div></div><textarea id="rule-text" class="rule-textarea" spellcheck="false">${esc(trimmed)}</textarea><div class="rule-editor-footer"><span id="rule-lines">共 ${trimmed?trimmed.split('\n').length:0} 行</span></div></div></div></section>`;
-    $$('[data-rule-tag]').forEach(x=>x.onclick=()=>{state.ruleTag=x.dataset.ruleTag;renderListRules(body)});
+    $$('[data-rule-tag]').forEach(x=>x.onclick=()=>{const go=()=>{state.ruleTag=x.dataset.ruleTag;renderListRules(body)};if(window.LocalDNSRules?.canLeave(go)!==false)go();});
     $('#rule-text').oninput=()=>$('#rule-lines').textContent=`共 ${$('#rule-text').value.split('\n').filter(Boolean).length} 行`;
     $('#rule-save').onclick=async()=>{
       const button=$('#rule-save'),text=$('#rule-text'),value=text.value,baseline=text.dataset.original;
