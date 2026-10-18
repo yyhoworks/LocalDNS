@@ -25,7 +25,11 @@
         "/etc/sing-box",
         "/opt/sing-box"
       ],
-      "pidFile": "/run/sing-box.pid"
+      "pidFile": "/run/sing-box.pid",
+      "configDirectories": []
     }
-  }
+  },
+  "interfaceFile": "/opt/localdns-proxy-config/data/interface.json",
+  "trafficDirectory": "/opt/localdns-proxy-config/data/traffic",
+  "metricsURL": "http://127.0.0.1:9099/metrics"
 }

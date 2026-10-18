@@ -193,7 +193,7 @@
   }
   function setApiStatus(ok, text) {
     const box=$('#sidebar-status'), dot=$('.status-dot',box), strong=$('strong',box);
-      dot.className=`status-dot ${ok?'online':'offline'}`; strong.textContent=ok?'LocalDNS 运行正常':'LocalDNS 连接异常';
+      dot.className=`status-dot ${ok?'online':'offline'}`; strong.textContent=(window.LocalDNSIdentity?.getName()||'LocalDNS')+(ok?' 运行正常':' 连接异常');
     $('#api-endpoint-label').textContent=text || (API_BASE || location.host);
     window.LocalDNSInterface?.connection(ok, text);
   }
@@ -1967,7 +1967,7 @@
     });
   }
 
-  async function restartService(){if(!confirm('确定重启 LocalDNS？短时间内 DNS 服务会中断。'))return;await api.json('/api/v1/system/restart','POST',{delay_ms:500});toast('LocalDNS 正在重启');state.startTs=null;setTimeout(()=>renderRoute(true),4000);}
+  async function restartService(){if(!confirm(`确定重启 ${window.LocalDNSIdentity?.getName()||'LocalDNS'}？短时间内 DNS 服务会中断。`))return;await api.json('/api/v1/system/restart','POST',{delay_ms:500});toast((window.LocalDNSIdentity?.getName()||'LocalDNS')+' 正在重启');state.startTs=null;setTimeout(()=>renderRoute(true),4000);}
   async function openAuditModal(){
     const [s,c]=await Promise.all([api.status(),api.capacity()]);
     modalOpen('审计控制','控制 DNS 查询日志的记录状态与容量',`

@@ -2,6 +2,16 @@
 
 ## 代理面板入口（2026.10.18.12 本地预览）
 
+2026.10.18.17：`traffic-client.js` 独立读取服务器采样并自动恢复连接，不再依赖概览页刷新或 sessionStorage。后端 `traffic.go` 每 5 秒采集真实累计计数，小时分段持久化，API 按 1h / 6h / 1d / 3d / 7d 聚合。`singbox_group.go` 对整个启动输入集合做版本校验、隔离副本合并与原生检查；JSONC 分片的语法交由核心判断。`node tools/verify_server_traffic_fragments.cjs` 覆盖自动恢复、新浏览器历史、全部时间范围和分片集合版本。Linux 测试设置 `LOCALDNS_SINGBOX_TEST_BINARY` 可运行真实核心的隔离保存 / 重载 / 恢复验证。
+
+2026.10.18.16 更新：`identity.js` 为两类标识提供服务器读取、保存与旧浏览器偏好迁移；不再把名称 / Logo 写入浏览器存储。服务 1.3.0 将共享设置独立保存在 `interfaceFile`，使用分项 SHA-256 防止同一项被并发覆盖。`verify_identity_directory.cjs` 另核验新浏览器无本地偏好仍可读取相同名称 / 图标、迁移旧偏好和服务器保存失败。
+
+2026.10.18.15 更新：`identity.js` 统一校验显示名称与图片地址，并将上传图片转换为小尺寸 PNG。LocalDNS 标识使用 `localdns-identity-v1`；代理入口沿用 `localdns-proxy-panel-v1`，从旧结构保留 URL，显示名称与 Logo 独立配置。偏好仅保存在当前浏览器，不修改设备网络配置。
+
+配置目录工作区使用 `localdns-proxy-config-workspace-v1` 记住目录模式和目录地址；文件正文仍仅保留在内存。独立配置服务 1.2.0 支持备用完整配置的校验、备份与保存，返回 `confirmation: saved-only`；仅启动配置执行重载。
+
+运行 `node tools/verify_identity_directory.cjs` 核验名称 / 图片上传与刷新恢复、目录文件切换、未保存保护、单独保存与启动配置重载，以及双皮肤与两种导航的桌面 / 手机显示。配置写入使用隔离夹具，真实设备写入另行验证。
+
 `proxy-panel.js` 与 `proxy-panel.css` 提供紧凑 Logo 外链、类型与地址设置浮层及系统管理入口。偏好键为 `localdns-proxy-panel-v1`，仅保存类型与 URL，不调用后端写入接口。保存成功后再更新链接和 Logo；损坏的偏好回退默认值。跨标签页变更通过 `storage` 事件同步。
 
 `node tools/verify_proxy_panel.cjs` 使用现有只读代理和 Edge 验证设置交互、URL 校验、存储失败、焦点、新标签页、双皮肤与水平 / 垂直布局。可用 `LOCALDNS_PREVIEW_BACKEND` 指定测试后端，或用 `LOCALDNS_VERIFY_URL` 验证实际部署地址；截图和报告写入 `dist/proxy-panel-verification/`。

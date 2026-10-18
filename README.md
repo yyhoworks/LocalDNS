@@ -12,6 +12,8 @@
 
 [产品图集](docs/SCREENSHOTS.md) · [功能指南](docs/FEATURES.md) · [安装说明](INSTALL.md) · [下载 Releases](https://github.com/yyhoworks/LocalDNS/releases) · [作者与分工](AUTHORS.md) · [开发说明](docs/DEVELOPMENT.md) · [近期更新](CHANGELOG.md)
 
+本地待发布版本 **2026.10.18.17** 增加 sing-box 分片合并校验和服务器 7 天吞吐历史，并支持服务器保存名称 / Logo，见 [更新说明](docs/releases/fjgac-ui-v2026.10.18.17.md)。
+
 ## 代理面板与本机配置编辑
 
 顶栏使用所选核心的 Logo，点击打开自定义面板地址。在「系统管理 → 编辑配置」中管理与 LocalDNS 同机的 Mihomo YAML / sing-box JSON，支持查找、折叠、修改对比、原生校验、备份和重载。

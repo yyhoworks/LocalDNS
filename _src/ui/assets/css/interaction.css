@@ -24,13 +24,10 @@ html[data-input-modality=pointer] .switch:has(input:focus-visible) .switch-track
 .bg-customizer-popover{max-height:calc(100dvh - 100px);overflow:auto;overscroll-behavior:contain}
 .bcp-fonts{margin-top:18px;padding-top:16px;border-top:1px solid var(--border-highlight)}
 .bcp-fonts h3{font-family:var(--font-sans);font-size:13px;font-weight:500;margin:0 0 10px}
-.font-presets{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;margin-bottom:14px}
-.font-presets button{background:var(--glass-pill);border:1px solid transparent;border-radius:8px;color:var(--text-2);font:12px/1.4 var(--font-sans);padding:9px 4px;min-height:38px;cursor:pointer}
-.font-presets button[aria-pressed=true]{background:var(--selection-fill);border-color:var(--selection-edge);color:var(--text-1)}
 .font-setting{display:grid;grid-template-columns:66px minmax(0,1fr);gap:8px;align-items:center;margin-top:10px}
 .font-setting label{font-size:12px;color:var(--text-2)}
 .font-setting select{width:100%;min-width:0;min-height:38px;padding:7px 9px;border:1px solid var(--border-highlight);border-radius:8px;background:var(--glass-bg-strong);color:var(--text-1);font-size:12px}
 .font-note{font-size:12px;line-height:1.6;color:var(--text-2);margin:12px 0 0}
 html[data-numeral=sans] .display-number,html[data-numeral=mono] .display-number,html[data-numeral=sans] .overview-duration-num,html[data-numeral=mono] .overview-duration-num{font-variant-numeric:lining-nums tabular-nums;letter-spacing:0}
 html[data-numeral=mono] .console-kpi .display-number{font-size:min(34px,var(--numeral-size,34px))}
-@media(max-width:600px){.font-presets button,.font-setting select{min-height:44px}.bg-customizer-popover{max-height:calc(100dvh - 160px)}}
+@media(max-width:600px){.font-setting select{min-height:44px}.bg-customizer-popover{max-height:calc(100dvh - 160px)}}

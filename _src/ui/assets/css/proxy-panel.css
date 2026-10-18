@@ -1,4 +1,19 @@
 /* Shared tokens keep the compact launcher consistent with both skins. */
+.brand-name { max-width: 12ch; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.identity-settings { margin-bottom: 20px; font-size: 12px; }
+.identity-settings summary { cursor: pointer; padding-block: 8px; color: var(--text-1); }
+.identity-settings > label:not(.identity-upload) { display: block; margin: 14px 0 6px; }
+.identity-settings .bcp-input { width: 100%; }
+.identity-preview { display: flex; align-items: center; gap: 12px; margin: 12px 0; min-width: 0; }
+.identity-preview img { width: 36px; height: 36px; object-fit: contain; flex: none; }
+.identity-preview span, .identity-note { color: var(--text-2); font-size: 12px; line-height: 1.7; }
+.identity-upload { position: relative; cursor: pointer; margin-block: 8px; }
+.identity-upload input { position: absolute; width: 1px; height: 1px; opacity: 0; }
+.identity-upload:focus-within { outline: 2px solid var(--primary); outline-offset: 3px; }
+.identity-actions { display: flex; justify-content: flex-end; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
+.identity-note[data-state="error"] { color: var(--console-danger, var(--red)); }
+.proxy-panel-popover input[type="text"] { width: 100%; }
+.proxy-panel-popover .field + .field { margin-top: 14px; }
 .proxy-launcher { display: flex; flex: none; width: 64px; height: 38px; margin-right: 4px; border: 1px solid var(--border-glass); border-radius: calc(10px * var(--radius-scale)); background: var(--glass-pill); overflow: hidden; }
 .proxy-launcher a, .proxy-launcher button { display: grid; place-items: center; padding: 0; min-width: 0; border: 0; border-radius: 0; background: transparent; color: var(--text-2); cursor: pointer; }
 .proxy-launcher a { flex: 1; }
@@ -15,16 +30,6 @@
 .proxy-panel-heading .icon-button { min-width: 32px; width: 32px; height: 32px; min-height: 32px; }
 .proxy-panel-heading svg { width: 17px; height: 17px; }
 .proxy-panel-description, .proxy-panel-note { margin: 8px 0 20px; color: var(--text-2); font-size: 12px; line-height: 1.7; }
-.proxy-panel-types { border: 0; min-width: 0; margin: 0 0 20px; padding: 0; }
-.proxy-panel-types legend { margin-bottom: 10px; font-size: 12px; }
-.proxy-panel-options { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
-.proxy-panel-option { position: relative; display: flex; align-items: center; gap: 10px; padding: 12px; min-height: 58px; border: 1px solid var(--border-glass); border-radius: calc(10px * var(--radius-scale)); background: var(--glass-pill); cursor: pointer; }
-.proxy-panel-option input { position: absolute; width: 1px; height: 1px; opacity: 0; }
-.proxy-panel-option img { width: 27px; height: 27px; object-fit: contain; }
-.proxy-panel-option:has(input:checked) { border-color: var(--primary); background: var(--selection-fill, var(--glass-pill-active)); }
-.proxy-panel-option:has(input:checked)::after { content: '✓'; color: var(--primary); margin-left: auto; }
-.proxy-panel-option:has(input:focus-visible) { outline: 2px solid var(--control-focus, var(--primary)); outline-offset: 3px; }
-.proxy-panel-option:hover { background: var(--glass-pill-active); }
 .proxy-panel-popover .field { gap: 8px; }
 .proxy-panel-popover input[type="url"] { width: 100%; font-family: var(--font-mono); font-size: 13px; }
 .proxy-panel-popover input[aria-invalid="true"] { border-color: var(--red); }

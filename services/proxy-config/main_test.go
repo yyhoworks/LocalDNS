@@ -186,18 +186,75 @@ func TestReloadFailureRestoresAndKeepsBackup(t *testing.T) {
 		t.Fatal("missing rollback backup")
 	}
 }
-func TestInactiveFileCannotReplaceStartupConfiguration(t *testing.T) {
+func TestIndependentConfigurationSaveDoesNotReloadStartup(t *testing.T) {
 	s, path := testServer(t)
 	other := filepath.Join(filepath.Dir(path), "other.yaml")
 	before := []byte("mode: direct\n")
 	os.WriteFile(other, before, 0o640)
+	s.reloadReady = func(context.Context, string, Core, []byte, []byte) error {
+		t.Fatal("inactive save checked running controller")
+		return nil
+	}
+	s.reload = func(context.Context, string, Core, string, []byte) error {
+		t.Fatal("inactive save reloaded running core")
+		return nil
+	}
 	rr := call(s, "save", request{Core: "mihomo", Path: other, Content: "mode: global\n", Revision: digest(before)})
-	if rr.Code != 409 {
+	if rr.Code != 200 {
+		t.Fatal(rr.Body.String())
+	}
+	var result struct {
+		Saved, Reloaded, Active bool
+		Backup, Confirmation    string
+	}
+	json.Unmarshal(rr.Body.Bytes(), &result)
+	if !result.Saved || result.Reloaded || result.Active || result.Confirmation != "saved-only" {
 		t.Fatal(rr.Body.String())
 	}
 	current, _ := os.ReadFile(other)
-	if string(current) != string(before) {
-		t.Fatal("inactive file changed")
+	startup, _ := os.ReadFile(path)
+	backup, _ := os.ReadFile(result.Backup)
+	if string(current) != "mode: global\n" || string(startup) != "mode: rule\n" || string(backup) != string(before) {
+		t.Fatal("independent save changed startup or lost backup")
+	}
+}
+func TestDirectoryListsIndependentConfigsAndRejectsEscapes(t *testing.T) {
+	s, path := testServer(t)
+	dir := filepath.Dir(path)
+	for _, filename := range []string{"other.yml", "backup.json", "notes.txt", ".hidden.yaml"} {
+		os.WriteFile(filepath.Join(dir, filename), []byte("{}"), 0o600)
+	}
+	os.Mkdir(filepath.Join(dir, "profiles"), 0o700)
+	os.Mkdir(filepath.Join(dir, "localdns-backups"), 0o700)
+	outside := filepath.Join(t.TempDir(), "private.yaml")
+	os.WriteFile(outside, []byte("secret"), 0o600)
+	if err := os.Symlink(outside, filepath.Join(dir, "escape.yaml")); err != nil {
+		t.Fatal(err)
+	}
+	req := httptest.NewRequest("GET", "http://localdns.test:9098"+apiPrefix+"files?core=mihomo", nil)
+	req.Header.Set("Origin", "http://localdns.test:9099")
+	rr := httptest.NewRecorder()
+	s.ServeHTTP(rr, req)
+	if rr.Code != 200 {
+		t.Fatal(rr.Body.String())
+	}
+	var result struct {
+		Files []struct {
+			Name, Path        string
+			Directory, Active bool
+		}
+	}
+	json.Unmarshal(rr.Body.Bytes(), &result)
+	if len(result.Files) != 4 {
+		t.Fatal(rr.Body.String())
+	}
+	for _, item := range result.Files {
+		if item.Name == "config.yaml" && !item.Active {
+			t.Fatal("startup flag missing")
+		}
+		if item.Path == "" {
+			t.Fatal("file path missing")
+		}
 	}
 }
 func TestDiagnosticRedaction(t *testing.T) {

@@ -2,7 +2,7 @@
   'use strict';
   const $=(s,r=document)=>r.querySelector(s),$$=(s,r=document)=>[...r.querySelectorAll(s)];
   const drafts=new Map(),series=[];
-  let connected=null,lastSuccess=null,lastFocus=null,historyKey='',draftKey='',observer=null,scheduled=false,shortcutsOpen=false,trafficRange=30,trafficResize=null;
+  let connected=null,lastSuccess=null,lastFocus=null,draftKey='',observer=null,scheduled=false,shortcutsOpen=false,trafficRange=60,trafficResize=null;
   const route=()=>location.hash.replace(/^#\/?/,'')||'overview';
   const escape=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const labels={r1:'国内域名',r2:'白名单与自定义',r3:'海外域名',r4:'FakeIP 与灰名单',r5:'广告与追踪拦截',r6:'黑名单与类型过滤',g1:'国内解析组',g2:'海外解析组',g3:'海外 ECS 组',g4:'代理解析组',g5:'本地拦截'};
@@ -10,6 +10,7 @@
   function persistDrafts(){try{sessionStorage.setItem(draftKey,JSON.stringify([...drafts]));}catch{}}
   function rememberDraft(){const text=$('#rule-text'),tag=activeTag();if(text&&tag&&text.dataset.original!==undefined){if(text.value!==text.dataset.original)drafts.set(tag,text.value);else drafts.delete(tag);persistDrafts();}}
   function updateBrand(){
+    if(window.LocalDNSIdentity){window.LocalDNSIdentity.apply();return;}
     const light=document.documentElement.dataset.theme==='light-glass';
     const base=light?'logo-04-light':'logo-08-dark';
     const img=$('#brand-mark');if(img)img.src=`assets/img/${base}.png?v=20261015-2`;
@@ -26,12 +27,10 @@
     const mobile=$('.console-mobile-status');if(mobile){mobile.classList.toggle('offline',connected===false);mobile.textContent=(connected===null?'连接中':connected?'已连接':'连接已断开')+(time?` · ${connected===false?'最后更新':'更新于'} ${time}`:'');}
     const health=$('.console-service-health');if(health){health.classList.toggle('offline',connected===false);$('#service-summary-title',health).textContent=connected===false?'DNS 服务连接已断开':connected===true?'DNS 服务运行中':'正在读取服务状态';$('.service-connection',health).textContent=connected===null?'连接中':connected?'已连接':'已断开';$('[data-service-check]',health).setAttribute('d',connected===false?'m8 8 8 8m0-8-8 8':'m7 12 3 3 7-7');}
   }
-  function recordMetrics(sample){
-    if(window.LocalDNSTraffic.record(series,sample))try{sessionStorage.setItem(historyKey,JSON.stringify(series));}catch{}
-  }
+  function recordMetrics() { /* Throughput sampling runs on the device. */ }
   function tinyPath(values,width=100,height=32){const min=Math.min(...values),max=Math.max(...values),span=max-min||1;return values.map((v,i)=>`${i?'L':'M'}${(i/(values.length-1)*(width-4)+2).toFixed(1)},${(height-4-(v-min)/span*(height-10)).toFixed(1)}`).join(' ');}
   function drawTraffic(container,minutes=trafficRange){
-    window.LocalDNSTraffic.render(container,series,minutes);
+    window.LocalDNSTrafficClient.mount(container,minutes);
   }
   function overview(){
     const main=$('#page-content');if($('.console-kpi',main)||!$('.spark-kpi-card',main))return;
@@ -43,7 +42,7 @@
     const topo=$('.topology-glass-card');topo.parentElement.classList.add('console-topology');if(!$('.console-topology-heading',topo))topo.insertAdjacentHTML('afterbegin','<div class="console-topology-heading"><h2>DNS 解析路径</h2><span>选择节点查看详情 · 连线为解析路径示意</span></div>');
     const trend=$('.traffic-chart-body');trend.closest('.col-8').classList.add('console-trend');
     const head=$('.gc-head',trend.closest('.glass-card'));$('.gc-title',head).innerHTML='查询吞吐趋势<span class="console-chart-sub">每秒 DNS 请求数 · 按实际采样时段显示</span>';
-    const range=head.lastElementChild;range.className='console-range';range.removeAttribute('style');range.innerHTML=[15,30].map(m=>`<button type="button" data-chart-range="${m}" aria-pressed="${trafficRange===m}">${m} 分钟</button>`).join('');
+    const range=head.lastElementChild;range.className='console-range';range.removeAttribute('style');range.innerHTML=[[60,'1 小时'],[360,'6 小时'],[1440,'1 天'],[4320,'3 天'],[10080,'7 天']].map(([m,label])=>`<button type="button" data-chart-range="${m}" aria-pressed="${trafficRange===m}">${label}</button>`).join('');
     drawTraffic(trend);$$('[data-chart-range]',head).forEach(b=>b.onclick=()=>{trafficRange=+b.dataset.chartRange;$$('[data-chart-range]',head).forEach(x=>x.setAttribute('aria-pressed',String(x===b)));drawTraffic(trend);});
     trafficResize?.disconnect();let trafficWidth=trend.clientWidth;
     const chartResize=new ResizeObserver(()=>{if(!trend.isConnected){chartResize.disconnect();return;}if(Math.abs(trend.clientWidth-trafficWidth)>1){trafficWidth=trend.clientWidth;drawTraffic(trend);}});trafficResize=chartResize;chartResize.observe(trend);
@@ -84,8 +83,7 @@
   function drawerClosed(){$('.master-container').inert=false;if(lastFocus?.isConnected)lastFocus.focus();lastFocus=null;}
   function formError(message){let error=$('#modal-error');if(!error){error=document.createElement('div');error.id='modal-error';error.className='form-error';error.setAttribute('role','alert');$('#modal-content').prepend(error);}error.textContent=message;}
   function setup(options={}){
-    historyKey='localdns-trends-v2:'+(options.apiBase||location.host);draftKey='localdns-drafts-v1:'+(options.apiBase||location.host);
-    try{const data=JSON.parse(sessionStorage.getItem(historyKey)||'[]');if(Array.isArray(data))series.push(...data.filter(x=>Number.isFinite(x.time)&&Number.isFinite(x.total)&&x.time>Date.now()-7200000).slice(-1440));}catch{}
+    draftKey='localdns-drafts-v1:'+(options.apiBase||location.host);
     try{for(const item of JSON.parse(sessionStorage.getItem(draftKey)||'[]'))if(Array.isArray(item)&&typeof item[0]==='string'&&typeof item[1]==='string')drafts.set(...item);}catch{}
     const mobileSearch=document.createElement('button');mobileSearch.type='button';mobileSearch.className='icon-action-btn console-search-button';mobileSearch.style.display='none';mobileSearch.setAttribute('aria-label','搜索域名、客户端或页面');mobileSearch.innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m16 16 4 4"/></svg>';mobileSearch.onclick=()=>{const bar=$('.cmd-search-bar');bar.classList.toggle('console-search-open');if(bar.classList.contains('console-search-open'))$('#global-search-input').focus();};$('.top-actions-dock').prepend(mobileSearch);
     const status=document.createElement('div');status.id='connection-status';status.className='console-status';status.setAttribute('role','status');status.innerHTML='<span class="status-dot"></span><span class="console-status-text"><span class="console-connection-text">连接中</span><small>正在读取运行数据</small></span>';$('#btn-open-bg-customizer').closest('.glass-action-capsule').before(status);

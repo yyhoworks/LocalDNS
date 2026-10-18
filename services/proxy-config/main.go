@@ -31,31 +31,40 @@ const maxFile = 2 << 20
 const apiPrefix = "/api/proxy-config/"
 
 type Core struct {
-	Binary     string   `json:"binary"`
-	Config     string   `json:"config"`
-	Directory  string   `json:"directory"`
-	Roots      []string `json:"roots"`
-	PIDFile    string   `json:"pidFile,omitempty"`
-	PostReload []string `json:"postReload,omitempty"`
+	ConfigFiles             []string `json:"configFiles,omitempty"`
+	ConfigDirectories       []string `json:"configDirectories,omitempty"`
+	groupBefore, groupAfter []byte
+	Binary                  string   `json:"binary"`
+	Config                  string   `json:"config"`
+	Directory               string   `json:"directory"`
+	Roots                   []string `json:"roots"`
+	PIDFile                 string   `json:"pidFile,omitempty"`
+	PostReload              []string `json:"postReload,omitempty"`
 }
 type Config struct {
-	Listen  string          `json:"listen"`
-	Origins []string        `json:"origins"`
-	Hosts   []string        `json:"hosts"`
-	Cores   map[string]Core `json:"cores"`
+	TrafficDirectory string          `json:"trafficDirectory,omitempty"`
+	MetricsURL       string          `json:"metricsURL,omitempty"`
+	InterfaceFile    string          `json:"interfaceFile,omitempty"`
+	Listen           string          `json:"listen"`
+	Origins          []string        `json:"origins"`
+	Hosts            []string        `json:"hosts"`
+	Cores            map[string]Core `json:"cores"`
 }
 type Server struct {
-	config      Config
-	operation   sync.Mutex
-	validate    func(context.Context, string, Core, string) (string, error)
-	reload      func(context.Context, string, Core, string, []byte) error
-	reloadReady func(context.Context, string, Core, []byte, []byte) error
+	traffic       *trafficCollector
+	interfaceLock sync.Mutex
+	config        Config
+	operation     sync.Mutex
+	validate      func(context.Context, string, Core, string) (string, error)
+	reload        func(context.Context, string, Core, string, []byte) error
+	reloadReady   func(context.Context, string, Core, []byte, []byte) error
 }
 type request struct {
-	Core     string `json:"core"`
-	Path     string `json:"path"`
-	Content  string `json:"content"`
-	Revision string `json:"revision"`
+	GroupRevision string `json:"groupRevision,omitempty"`
+	Core          string `json:"core"`
+	Path          string `json:"path"`
+	Content       string `json:"content"`
+	Revision      string `json:"revision"`
 }
 type apiError struct {
 	Status     int
@@ -122,7 +131,7 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Vary", "Origin")
 	}
 	if r.URL.Path == "/healthz" && r.Method == "GET" && origin == "" {
-		writeJSON(w, 200, map[string]any{"service": "localdns-proxy-config", "version": "1.1.0"})
+		writeJSON(w, 200, map[string]any{"service": "localdns-proxy-config", "version": "1.4.0"})
 		return
 	}
 	if !contains(s.config.Origins, origin) {
@@ -142,6 +151,10 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	path := strings.TrimPrefix(r.URL.Path, apiPrefix)
 	var err error
 	switch {
+	case path == "traffic" && r.Method == "GET":
+		err = s.trafficHistory(w, r)
+	case strings.HasPrefix(path, "interface/"):
+		err = s.interfaceSettings(w, r, strings.TrimPrefix(path, "interface/"))
 	case path == "cores" && r.Method == "GET":
 		s.cores(w)
 	case path == "files" && r.Method == "GET":
@@ -165,6 +178,11 @@ func (s *Server) core(name string) (Core, error) {
 	if !ok || (name != "mihomo" && name != "sing-box") {
 		return Core{}, failure(400, "请选择有效的核心类型。")
 	}
+	if name == "sing-box" {
+		if runtime, err := processInputs(c); err == nil {
+			c = runtime
+		}
+	}
 	return c, nil
 }
 func binaryAvailable(c Core) bool {
@@ -174,12 +192,30 @@ func binaryAvailable(c Core) bool {
 func (s *Server) cores(w http.ResponseWriter) {
 	result := make([]map[string]any, 0, 2)
 	for _, name := range []string{"mihomo", "sing-box"} {
-		c, ok := s.config.Cores[name]
-		if !ok {
+		c, err := s.core(name)
+		if err != nil {
 			continue
 		}
-		_, err := os.Stat(c.Config)
-		result = append(result, map[string]any{"id": name, "available": binaryAvailable(c), "path": c.Config, "exists": err == nil, "roots": c.Roots})
+		path := c.Config
+		directory := filepath.Dir(path)
+		exists := false
+		mode := "file"
+		if groupMode(c) {
+			mode = "fragments"
+			if len(c.ConfigDirectories) > 0 {
+				directory = c.ConfigDirectories[0]
+			}
+			if snapshot, err := snapshotSingBox(c); err == nil {
+				exists = true
+				if path == "" {
+					path = snapshot.Inputs[0].Resolved
+				}
+			}
+		} else {
+			_, err := os.Stat(path)
+			exists = err == nil
+		}
+		result = append(result, map[string]any{"id": name, "available": binaryAvailable(c), "path": path, "exists": exists, "roots": c.Roots, "directory": directory, "mode": mode, "configDirectories": c.ConfigDirectories})
 	}
 	writeJSON(w, 200, map[string]any{"cores": result, "maxBytes": maxFile, "localOnly": true})
 }
@@ -244,7 +280,11 @@ func (s *Server) files(w http.ResponseWriter, r *http.Request) error {
 	}
 	dir := r.URL.Query().Get("path")
 	if dir == "" {
-		dir = filepath.Dir(c.Config)
+		if len(c.ConfigDirectories) > 0 {
+			dir = c.ConfigDirectories[0]
+		} else {
+			dir = filepath.Dir(c.Config)
+		}
 	}
 	dir, err = resolve(c, dir, true)
 	if err != nil {
@@ -255,25 +295,37 @@ func (s *Server) files(w http.ResponseWriter, r *http.Request) error {
 		return failure(403, "目录不可读取。")
 	}
 	items := make([]map[string]any, 0)
+	truncated := false
+	active, _ := filepath.EvalSymlinks(c.Config)
 	for _, entry := range entries {
 		if strings.HasPrefix(entry.Name(), ".") || entry.Name() == "localdns-backups" {
 			continue
 		}
-		info, err := entry.Info()
+		candidate := filepath.Join(dir, entry.Name())
+		resolved, err := filepath.EvalSymlinks(candidate)
 		if err != nil {
 			continue
 		}
-		name := strings.ToLower(entry.Name())
-		ext := filepath.Ext(name)
-		if !entry.IsDir() && ext != ".yaml" && ext != ".yml" && ext != ".json" && ext != ".conf" {
+		info, err := os.Stat(resolved)
+		if err != nil {
 			continue
 		}
-		items = append(items, map[string]any{"name": entry.Name(), "directory": entry.IsDir(), "bytes": info.Size()})
-		if len(items) >= 200 {
+		resolved, err = resolve(c, candidate, info.IsDir())
+		if err != nil {
+			continue
+		}
+		ext := strings.ToLower(filepath.Ext(entry.Name()))
+		supported := ext == ".json" || (r.URL.Query().Get("core") == "mihomo" && (ext == ".yaml" || ext == ".yml"))
+		if !info.IsDir() && !supported && resolved != active {
+			continue
+		}
+		if len(items) == 200 {
+			truncated = true
 			break
 		}
+		items = append(items, map[string]any{"name": entry.Name(), "path": resolved, "directory": info.IsDir(), "bytes": info.Size(), "active": isActiveConfig(c, resolved)})
 	}
-	writeJSON(w, 200, map[string]any{"directory": dir, "files": items})
+	writeJSON(w, 200, map[string]any{"directory": dir, "files": items, "truncated": truncated})
 	return nil
 }
 func (s *Server) read(w http.ResponseWriter, r *http.Request) error {
@@ -293,9 +345,21 @@ func (s *Server) read(w http.ResponseWriter, r *http.Request) error {
 	if err != nil {
 		return err
 	}
-	writeJSON(w, 200, map[string]any{"path": path, "content": string(b), "revision": digest(b), "core": input.Core, "active": filepath.Clean(path) == filepath.Clean(c.Config)})
+	response := map[string]any{"path": path, "content": string(b), "revision": digest(b), "core": input.Core, "active": isActiveConfig(c, path), "mode": "file"}
+	if input.Core == "sing-box" && groupMode(c) && isActiveConfig(c, path) {
+		group, err := snapshotSingBox(c)
+		if err != nil {
+			return err
+		}
+		response["groupRevision"] = group.Revision
+		response["groupCount"] = len(group.Inputs)
+		response["mode"] = "fragments"
+	}
+	writeJSON(w, 200, response)
 	return nil
 }
+func isActiveConfig(c Core, path string) bool { return activeConfig(c, path) }
+
 func (s *Server) check(w http.ResponseWriter, r *http.Request, save bool) error {
 	var input request
 	if err := decode(r, w, &input); err != nil {
@@ -337,29 +401,70 @@ func (s *Server) check(w http.ResponseWriter, r *http.Request, save bool) error 
 	defer os.Remove(stage)
 	ctx, cancel := context.WithTimeout(context.Background(), 45*time.Second)
 	defer cancel()
-	detail, err := s.validate(ctx, input.Core, c, stage)
+	var group *singBoxGroup
+	validationCore := c
+	validationPath := stage
+	if input.Core == "sing-box" && !isActiveConfig(c, path) {
+		validationCore.Config = ""
+		validationCore.ConfigFiles = nil
+		validationCore.ConfigDirectories = nil
+	}
+	if input.Core == "sing-box" && groupMode(c) && isActiveConfig(c, path) {
+		group, err = snapshotSingBox(c)
+		if err != nil {
+			return err
+		}
+		if input.GroupRevision == "" || input.GroupRevision != group.Revision {
+			return failure(409, "分片集合已变化，请重新读取并合并修改。")
+		}
+		staged, err := group.stage(c, path)
+		if err != nil {
+			return err
+		}
+		defer os.RemoveAll(staged.Root)
+		if save {
+			c.groupBefore, err = mergeSingBox(ctx, staged.Core, filepath.Join(staged.Root, "before-merged.json"))
+			if err != nil {
+				return err
+			}
+		}
+		if err := group.overlay(staged, path, []byte(input.Content)); err != nil {
+			return err
+		}
+		validationCore = staged.Core
+		validationPath = staged.Selected
+		c.groupAfter, err = mergeSingBox(ctx, staged.Core, filepath.Join(staged.Root, "after-merged.json"))
+		if err != nil {
+			return err
+		}
+		if err := validateMergedReferences(c.groupAfter); err != nil {
+			return err
+		}
+	}
+	detail, err := s.validate(ctx, input.Core, validationCore, validationPath)
 	if err != nil {
 		return &apiError{Status: 422, Message: "核心校验未通过，原配置未修改。", Detail: detail}
 	}
+	if group != nil && !group.unchanged(c) {
+		return failure(409, "校验期间分片集合已变化，请重新读取。")
+	}
+
 	if !save {
 		writeJSON(w, 200, map[string]any{"valid": true, "detail": detail, "revision": input.Revision})
 		return nil
 	}
-	// A process launched with a different -f would revert on reboot; require the startup file for durable reloads.
-	active, err := filepath.EvalSymlinks(c.Config)
-	if err != nil || active != path {
-		return failure(409, "当前文件不是核心启动配置。请读取启动配置后保存并重载；其他文件可以读取和校验。")
-	}
+	// Independent configs may be saved without changing the core's startup selection.
+	active := isActiveConfig(c, path)
 	if input.Content == string(before) {
 		writeJSON(w, 200, map[string]any{"saved": false, "unchanged": true, "revision": input.Revision})
 		return nil
 	}
-	if s.reloadReady != nil {
+	if active && s.reloadReady != nil {
 		if err := s.reloadReady(ctx, input.Core, c, before, []byte(input.Content)); err != nil {
 			return failure(422, "无法确认本机重载通道。请保留可访问的核心控制接口，并检查核心进程与 PID 文件。原配置未修改。")
 		}
 	}
-	if current, err := readFile(path); err != nil || digest(current) != input.Revision {
+	if current, err := readFile(path); err != nil || digest(current) != input.Revision || (group != nil && !group.unchanged(c)) {
 		return failure(409, "校验期间文件已变化，保存已停止，请重新读取。")
 	}
 	backupDir := filepath.Join(filepath.Dir(path), "localdns-backups")
@@ -376,7 +481,7 @@ func (s *Server) check(w http.ResponseWriter, r *http.Request, save bool) error 
 	if err := preserveFile(stage, info); err != nil {
 		return err
 	}
-	if current, err := readFile(path); err != nil || digest(current) != input.Revision {
+	if current, err := readFile(path); err != nil || digest(current) != input.Revision || (group != nil && !group.unchanged(c)) {
 		return failure(409, "写入前检测到文件变化，已停止保存，请重新读取。")
 	}
 	if err := os.Rename(stage, path); err != nil {
@@ -384,7 +489,11 @@ func (s *Server) check(w http.ResponseWriter, r *http.Request, save bool) error 
 	}
 	syncDir(filepath.Dir(path))
 	log.Printf("save core=%s file=%s backup=%s", input.Core, path, backup)
-	if err := s.reload(ctx, input.Core, c, path, before); err != nil {
+	var reloadErr error
+	if active {
+		reloadErr = s.reload(ctx, input.Core, c, path, before)
+	}
+	if reloadErr != nil {
 		restore, restoreErr := writeTemp(filepath.Dir(path), before, 0o600)
 		if restoreErr == nil {
 			restoreErr = preserveFile(restore, info)
@@ -401,18 +510,30 @@ func (s *Server) check(w http.ResponseWriter, r *http.Request, save bool) error 
 		}
 		rollbackCtx, stop := context.WithTimeout(context.Background(), 45*time.Second)
 		defer stop()
-		rollbackErr := s.reload(rollbackCtx, input.Core, c, path, []byte(input.Content))
+		rollbackCore := c
+		rollbackCore.groupBefore, rollbackCore.groupAfter = c.groupAfter, c.groupBefore
+		rollbackErr := s.reload(rollbackCtx, input.Core, rollbackCore, path, []byte(input.Content))
 		if rollbackErr != nil {
 			return &apiError{Status: 502, Message: "重载失败，原文件已恢复；核心恢复尚未确认，请检查服务。", Backup: backup, RolledBack: true}
 		}
 		return &apiError{Status: 502, Message: "重载失败，已恢复原文件并重新加载原配置。修改仍保留在编辑器。", Backup: backup, RolledBack: true}
 	}
 	trimBackups(backupDir, filepath.Base(path)+".", 10)
-	confirmation := "api"
-	if input.Core == "sing-box" {
+	confirmation := "saved-only"
+	if active {
+		confirmation = "api"
+	}
+	if active && input.Core == "sing-box" {
 		confirmation = "signal-and-health"
 	}
-	writeJSON(w, 200, map[string]any{"saved": true, "reloaded": true, "confirmation": confirmation, "revision": digest([]byte(input.Content)), "backup": backup, "detail": detail})
+	response := map[string]any{"saved": true, "active": active, "reloaded": active, "confirmation": confirmation, "revision": digest([]byte(input.Content)), "backup": backup, "detail": detail}
+	if group != nil {
+		next, err := snapshotSingBox(c)
+		if err == nil {
+			response["groupRevision"] = next.Revision
+		}
+	}
+	writeJSON(w, 200, response)
 	return nil
 }
 
@@ -510,7 +631,11 @@ func validateCore(ctx context.Context, name string, c Core, path string) (string
 	if name == "mihomo" {
 		args = []string{"-t", "-d", c.Directory, "-f", path}
 	} else {
-		args = []string{"check", "-D", c.Directory, "-c", path}
+		if groupMode(c) {
+			args = append([]string{"check"}, singBoxArguments(c, path)...)
+		} else {
+			args = []string{"check", "-D", c.Directory, "-c", path}
+		}
 	}
 	output, err := command(ctx, c.Binary, args...)
 	if err != nil {
@@ -614,28 +739,62 @@ func singBoxControl(content []byte) (string, string, error) {
 	return control(mapped)
 }
 func singBoxPID(c Core) (int, error) {
-	if c.PIDFile == "" {
-		return 0, errors.New("missing PID file")
+	var b []byte
+	var err error
+	if c.PIDFile != "" {
+		b, err = os.ReadFile(c.PIDFile)
+	} else {
+		err = os.ErrNotExist
 	}
-	b, err := os.ReadFile(c.PIDFile)
+	if errors.Is(err, os.ErrNotExist) {
+		expected, resolveErr := filepath.EvalSymlinks(c.Binary)
+		if resolveErr != nil {
+			return 0, resolveErr
+		}
+		entries, _ := os.ReadDir("/proc")
+		found := 0
+		for _, entry := range entries {
+			pid, e := strconv.Atoi(entry.Name())
+			if e != nil || pid < 2 {
+				continue
+			}
+			if matchesSingBoxProcess(pid, expected) {
+				if found != 0 {
+					return 0, errors.New("multiple matching sing-box processes; configure pidFile")
+				}
+				found = pid
+			}
+		}
+		if found == 0 {
+			return 0, errors.New("sing-box process not found")
+		}
+		return found, nil
+	}
 	if err != nil {
 		return 0, err
 	}
+
 	pid, err := strconv.Atoi(strings.TrimSpace(string(b)))
 	if err != nil || pid < 2 {
 		return 0, errors.New("invalid PID")
 	}
-	exe, err := os.Readlink(fmt.Sprintf("/proc/%d/exe", pid))
-	if err != nil {
-		return 0, err
-	}
 	expected, err := filepath.EvalSymlinks(c.Binary)
-	if err != nil || exe != expected {
+	if err != nil || !matchesSingBoxProcess(pid, expected) {
 		return 0, errors.New("PID does not belong to sing-box")
 	}
+
 	return pid, nil
 }
 func reloadReady(ctx context.Context, name string, c Core, old, new []byte) error {
+	if c.groupBefore != nil {
+		old, new = c.groupBefore, c.groupAfter
+	}
+	if name == "sing-box" && groupMode(c) {
+		actual, err := processInputs(c)
+		if err != nil || strings.Join(singBoxArguments(actual, ""), "\x00") != strings.Join(singBoxArguments(c, ""), "\x00") {
+			return errors.New("running sing-box inputs do not match the selected group")
+		}
+	}
 	var address, secret string
 	var err error
 	if name == "mihomo" {
@@ -689,25 +848,11 @@ func reloadCore(ctx context.Context, name string, c Core, path string, previous 
 		}
 		return apiCall(ctx, newAddress, newSecret, "GET", "/version", nil)
 	}
-	if c.PIDFile == "" {
-		return errors.New("sing-box PID file is not configured")
-	}
-	b, err := os.ReadFile(c.PIDFile)
+	pid, err := singBoxPID(c)
 	if err != nil {
 		return err
 	}
-	pid, err := strconv.Atoi(strings.TrimSpace(string(b)))
-	if err != nil || pid < 2 {
-		return errors.New("invalid PID")
-	}
-	exe, err := os.Readlink(fmt.Sprintf("/proc/%d/exe", pid))
-	if err != nil {
-		return err
-	}
-	expected, err := filepath.EvalSymlinks(c.Binary)
-	if err != nil || exe != expected {
-		return errors.New("PID does not belong to sing-box")
-	}
+
 	process, err := os.FindProcess(pid)
 	if err != nil {
 		return err
@@ -733,6 +878,9 @@ func reloadCore(ctx context.Context, name string, c Core, path string, previous 
 		} `json:"experimental"`
 	}
 	current, err := readFile(path)
+	if c.groupAfter != nil {
+		current, err = c.groupAfter, nil
+	}
 	if err != nil {
 		return err
 	}
@@ -765,7 +913,20 @@ func main() {
 	if config.Listen == "" || len(config.Origins) == 0 || len(config.Hosts) == 0 {
 		log.Fatal("incomplete configuration")
 	}
+	if config.InterfaceFile == "" {
+		config.InterfaceFile = "/opt/localdns-proxy-config/data/interface.json"
+	}
 	s := newServer(config)
+	if config.TrafficDirectory == "" {
+		config.TrafficDirectory = "/opt/localdns-proxy-config/data/traffic"
+	}
+	if config.MetricsURL == "" {
+		config.MetricsURL = "http://127.0.0.1:9099/metrics"
+	}
+	s.traffic = newTrafficCollector(config.TrafficDirectory, config.MetricsURL)
+	collectorContext, stopCollector := context.WithCancel(context.Background())
+	defer stopCollector()
+	go s.traffic.run(collectorContext)
 	httpServer := &http.Server{Addr: config.Listen, Handler: s, ReadHeaderTimeout: 5 * time.Second, ReadTimeout: 15 * time.Second, WriteTimeout: 110 * time.Second, IdleTimeout: 30 * time.Second, MaxHeaderBytes: 16 << 10}
 	stop := make(chan os.Signal, 1)
 	signal.Notify(stop, syscall.SIGINT, syscall.SIGTERM)
