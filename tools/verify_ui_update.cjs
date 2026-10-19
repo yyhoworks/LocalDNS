@@ -31,14 +31,11 @@ fs.mkdirSync(out,{recursive:true});
         await page.route('https://api.github.com/repos/yyhoworks/LocalDNS/releases/latest',route=>json(route,release));
         await page.route(origin+'/**',route=>{
           const request=route.request(), url=new URL(request.url()), method=request.method();
-          if(url.pathname==='/session') {
-            report.writes.push({method,path:url.pathname});
-            return json(route,request.postDataJSON().password==='fixture-password'?{token:'fixture-token'}:{error:'升级口令不正确'},request.postDataJSON().password==='fixture-password'?200:401);
-          }
+          assert.notEqual(url.pathname,'/session');
+          assert.equal(request.headers().authorization,undefined);
           if(url.pathname.startsWith('/upgrade/ui')) {
             if(mode==='unavailable')return json(route,{error:'not found'},404);
-            if(url.pathname==='/upgrade/ui'&&method==='GET')return json(route,{protocol:'localdns-ui-updater/v1',repository:'https://github.com/yyhoworks/LocalDNS',requiresAuth:true});
-            if(request.headers().authorization!=='Bearer fixture-token')return json(route,{error:'升级授权已过期'},401);
+            if(url.pathname==='/upgrade/ui'&&method==='GET')return json(route,{protocol:'localdns-ui-updater/v1',repository:'https://github.com/yyhoworks/LocalDNS',requiresAuth:false});
             if(method==='POST') {
               report.writes.push({method,path:url.pathname,body:request.postDataJSON()});
               assert(['/upgrade/ui','/upgrade/ui/rollback'].includes(url.pathname));
@@ -65,14 +62,7 @@ fs.mkdirSync(out,{recursive:true});
           await page.locator('#version-dialog').screenshot({path:path.join(out,`before-${width}-${theme}.png`)});
           await context.close();continue;
         }
-        await page.locator('#version-update-password').waitFor({state:'visible'});
-        await page.locator('#version-update-password').fill('wrong');
-        await page.locator('.version-update-auth button').click();
-        await page.getByText('升级口令不正确',{exact:true}).waitFor();
-        assert.equal(await page.locator('#version-update-password').inputValue(),'');
-        if(width===390&&theme==='light-glass')await page.locator('#version-dialog').screenshot({path:path.join(out,'authorization-mobile.png')});
-        await page.locator('#version-update-password').fill('fixture-password');
-        await page.locator('.version-update-auth button').click();
+        assert.equal(await page.locator('#version-update-password,.version-update-auth').count(),0);
         await page.locator('[data-update-start]:not([disabled])').waitFor();
         await page.locator('[data-update-start]').click();
         await page.locator('.version-update-progress:not([hidden])').waitFor();
@@ -83,21 +73,19 @@ fs.mkdirSync(out,{recursive:true});
         await page.locator('[data-update-refresh]:not([hidden])').waitFor();
         assert(await page.locator('[data-update-start]').isDisabled(),'Completed target must not be offered again');
         assert(await page.locator('[data-update-rollback]').isVisible());
-        assert(await page.locator('.version-update-auth').isHidden());
+        assert.equal(await page.locator('#version-update-password,.version-update-auth').count(),0);
         const layout=await page.locator('#version-dialog').evaluate(el=>({width:el.clientWidth,scrollWidth:el.scrollWidth,height:el.clientHeight,scrollHeight:el.scrollHeight,theme:document.documentElement.dataset.theme}));
         assert(layout.scrollWidth<=layout.width+1);
         await page.locator('#version-dialog').screenshot({path:path.join(out,`after-${width}-${theme}.png`)});
         report.layouts.push({viewport:width,...layout});
-        report.scenarios.push(`${width}/${theme}: authorization failure, upgrade, close/reopen, completion, rollback availability`);
-        // A fresh browser loses its in-memory token and reconnects to server state.
+        report.scenarios.push(`${width}/${theme}: password-free upgrade, close/reopen, completion, rollback availability`);
+        // A fresh browser connects directly to the server state.
         mode='unavailable';await page.reload();await page.locator('#version-button').click();
         await page.getByText('此服务器尚未启用网页升级。完成一次安装后即可在这里操作。',{exact:true}).waitFor();
         assert(await page.locator('[data-update-start]').isDisabled());
         report.scenarios.push(`${width}/${theme}: unsupported endpoint shows setup help`);
         mode='failed';task={state:'idle',canRollback:false,installedVersion:metadata.uiVersion};
         await page.locator('[data-update-retry]').click();
-        await page.locator('#version-update-password').fill('fixture-password');
-        await page.locator('.version-update-auth button').click();
         await page.locator('[data-update-start]:not([disabled])').waitFor();
         await page.locator('[data-update-start]').click();
         await page.getByText('安装包 SHA-256 校验失败，旧界面保持可用。',{exact:true}).waitFor();

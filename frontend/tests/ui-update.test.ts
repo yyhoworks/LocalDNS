@@ -16,21 +16,24 @@ describe('UI upgrade eligibility', () => {
 });
 
 describe('UI update requests', () => {
-  it('pins a target tag, keeps credentials in memory and clears expired authorization', async () => {
+  it('submits fixed operations directly without credentials or a session', async () => {
     const fetcher = vi.fn<typeof fetch>()
-      .mockResolvedValueOnce(json({ protocol: 'localdns-ui-updater/v1', repository: 'https://github.com/yyhoworks/LocalDNS' }))
-      .mockResolvedValueOnce(json({ token: 'test-session' }))
+      .mockResolvedValueOnce(json({ protocol: 'localdns-ui-updater/v1', repository: 'https://github.com/yyhoworks/LocalDNS', requiresAuth: false }))
+      .mockResolvedValueOnce(json({ state: 'idle', canRollback: false }))
       .mockResolvedValueOnce(json({ state: 'queued', jobId: 'test-job', canRollback: false }, 202))
-      .mockResolvedValueOnce(json({ error: 'expired' }, 401));
+      .mockResolvedValueOnce(json({ state: 'queued', canRollback: true }, 202));
     const client = new UIUpdateClient('http://dns.example:9100', 'http://dns.example:9099/ui/', fetcher);
-    await client.discover(); await client.login('test-password');
+    await client.discover();
+    expect((await client.status()).state).toBe('idle');
     expect((await client.upgrade(release.tag)).state).toBe('queued');
-    const [url, request] = fetcher.mock.calls[2];
-    expect(url).toBe('http://dns.example:9100/upgrade/ui');
-    expect(request).toMatchObject({ method: 'POST', credentials: 'omit', body: JSON.stringify({ releaseTag: release.tag }), headers: { Authorization: 'Bearer test-session' } });
-    await expect(client.status()).rejects.toMatchObject({ status: 401 });
-    expect(client.authorized).toBe(false);
-    expect(new UIUpdateClient('', 'http://dns.example:9099/ui/', fetcher).authorized).toBe(false);
+    expect((await client.rollback()).state).toBe('queued');
+    expect(fetcher.mock.calls.map(([url]) => url)).toEqual([
+      'http://dns.example:9100/upgrade/ui', 'http://dns.example:9100/upgrade/ui/status',
+      'http://dns.example:9100/upgrade/ui', 'http://dns.example:9100/upgrade/ui/rollback',
+    ]);
+    expect(fetcher.mock.calls[2][1]).toMatchObject({ method: 'POST', credentials: 'omit', body: JSON.stringify({ releaseTag: release.tag }) });
+    expect(fetcher.mock.calls[3][1]).toMatchObject({ method: 'POST', body: '{}' });
+    for (const [, request] of fetcher.mock.calls) expect(request?.headers).not.toHaveProperty('Authorization');
   });
   it('supports a same-origin reverse proxy and refuses insecure or executable addresses', async () => {
     const fetcher = vi.fn<typeof fetch>().mockResolvedValue(json({ protocol: 'localdns-ui-updater/v1', repository: 'https://github.com/yyhoworks/LocalDNS' }));

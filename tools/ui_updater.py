@@ -4,8 +4,6 @@ from __future__ import annotations
 
 import argparse
 import contextlib
-import hashlib
-import hmac
 import json
 import re
 import secrets
@@ -13,7 +11,6 @@ import shutil
 import socket
 import tempfile
 import threading
-import time
 from datetime import datetime, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -41,10 +38,6 @@ def version_parts(value):
     if not match:
         raise UpdateError('当前 UI 版本无效，请先使用安装脚本修复')
     return tuple(map(int, match[1].split('.')))
-
-
-def password_hash(password, salt):
-    return hashlib.pbkdf2_hmac('sha256', password.encode(), bytes.fromhex(salt), 210000).hex()
 
 
 def canonical_origin(value):
@@ -188,9 +181,6 @@ class UpdateServer(ThreadingHTTPServer):
         self.origins = {canonical_origin(value) for value in config['allowedOrigins']}
         self.hosts = {urlsplit(value).hostname for value in self.origins}
         self.hosts.update(config.get('allowedHosts', []))
-        self.sessions = {}
-        self.failures = {}
-        self.auth_lock = threading.Lock()
         self.connections = threading.BoundedSemaphore(24)
         if ':' in address[0]:
             self.address_family = socket.AF_INET6
@@ -221,7 +211,7 @@ class UpdateHandler(BaseHTTPRequestHandler):
         self.connection.settimeout(10)
 
     def log_message(self, *_args):
-        pass  # Passwords, tokens and request bodies are never logged.
+        pass  # Request bodies are never logged.
 
     def respond(self, status, value):
         payload = json.dumps(value, ensure_ascii=False).encode('utf-8')
@@ -235,7 +225,7 @@ class UpdateHandler(BaseHTTPRequestHandler):
         if origin in self.server.origins:
             self.send_header('Access-Control-Allow-Origin', origin)
             self.send_header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
-            self.send_header('Access-Control-Allow-Headers', 'Authorization, Content-Type')
+            self.send_header('Access-Control-Allow-Headers', 'Content-Type')
         self.end_headers()
         self.wfile.write(payload)
 
@@ -254,16 +244,6 @@ class UpdateHandler(BaseHTTPRequestHandler):
         if self.headers.get('Transfer-Encoding'):
             raise UpdateError('不支持此请求编码')
 
-    def authorized(self):
-        header = self.headers.get('Authorization', '')
-        token = header[7:] if header.startswith('Bearer ') else ''
-        key = hashlib.sha256(token.encode()).hexdigest()
-        with self.server.auth_lock:
-            expires = self.server.sessions.get(key, 0)
-            if not token or expires < time.monotonic():
-                self.server.sessions.pop(key, None)
-                raise UpdateError('升级授权已过期，请重新输入升级口令', 401)
-
     def body(self):
         if self.headers.get('Content-Type', '').split(';')[0].strip() != 'application/json':
             raise UpdateError('请求必须使用 JSON', 415)
@@ -278,29 +258,6 @@ class UpdateHandler(BaseHTTPRequestHandler):
         except (ValueError, UnicodeError):
             raise UpdateError('请求内容无效或过大') from None
 
-    def login(self, body):
-        if set(body) != {'password'} or not isinstance(body['password'], str):
-            raise UpdateError('请输入升级口令')
-        remote, clock = self.client_address[0], time.monotonic()
-        with self.server.auth_lock:
-            attempts = [stamp for stamp in self.server.failures.get(remote, []) if clock - stamp < 300]
-            if len(attempts) >= 5:
-                raise UpdateError('口令尝试过多，请 5 分钟后重试', 429)
-            # Reserve an attempt before hashing so concurrent requests cannot bypass the limit.
-            self.server.failures[remote] = attempts + [clock]
-        config = self.server.config
-        actual = password_hash(body['password'], config['passwordSalt'])
-        if not hmac.compare_digest(actual, config['passwordHash']):
-            raise UpdateError('升级口令不正确', 401)
-        token = secrets.token_urlsafe(32)
-        with self.server.auth_lock:
-            self.server.failures.pop(remote, None)
-            self.server.sessions = {key: expiry for key, expiry in self.server.sessions.items() if expiry > clock}
-            if len(self.server.sessions) >= 64:
-                self.server.sessions.pop(next(iter(self.server.sessions)))
-            self.server.sessions[hashlib.sha256(token.encode()).hexdigest()] = clock + 1800
-        return {'token': token, 'expiresIn': 1800}
-
     def handle_request(self):
         try:
             self.check_request()
@@ -310,14 +267,10 @@ class UpdateHandler(BaseHTTPRequestHandler):
                     raise UpdateError('网页来源未被允许', 403)
                 self.respond(200, {})
             elif self.command == 'GET' and path == '/upgrade/ui':
-                self.respond(200, {'protocol': PROTOCOL, 'repository': installer.REPO, 'requiresAuth': True})
-            elif self.command == 'POST' and path == '/session':
-                self.respond(200, self.login(self.body()))
+                self.respond(200, {'protocol': PROTOCOL, 'repository': installer.REPO, 'requiresAuth': False})
             elif self.command == 'GET' and path == '/upgrade/ui/status':
-                self.authorized()
                 self.respond(200, self.server.manager.status())
             elif self.command == 'POST' and path in ('/upgrade/ui', '/upgrade/ui/rollback'):
-                self.authorized()
                 body = self.body()
                 rollback = path.endswith('/rollback')
                 if set(body) != (set() if rollback else {'releaseTag'}):

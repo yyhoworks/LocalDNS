@@ -5,11 +5,6 @@ import { UIUpdateClient, upgradeTarget, type InstalledUI, type UIRelease, type U
 export function createUIUpdatePanel(container: HTMLElement) {
   setHTML(container, `<h3>在线升级 UI</h3>
     <p class="version-note" data-update-connection>正在连接服务器升级入口…</p>
-    <form class="version-update-auth" hidden>
-      <label for="version-update-password">升级口令</label>
-      <div class="version-update-unlock"><input id="version-update-password" type="password" autocomplete="current-password" required placeholder="输入安装时生成的口令"><button class="button" type="submit">授权升级</button></div>
-      <p class="version-note">授权保留 30 分钟，口令不会保存在浏览器。</p>
-    </form>
     <p class="version-note" data-update-target></p>
     <div class="version-update-progress" hidden><progress aria-label="UI 升级正在进行"></progress></div>
     <p class="version-update-result" role="status" aria-live="polite" hidden></p>
@@ -23,8 +18,7 @@ export function createUIUpdatePanel(container: HTMLElement) {
     </div>`);
   container.classList.add('version-ui-update');
   const get = <T extends HTMLElement>(selector: string) => container.querySelector<T>(selector)!;
-  const connection = get('[data-update-connection]'), form = get<HTMLFormElement>('form');
-  const password = get<HTMLInputElement>('input'), authorize = get<HTMLButtonElement>('button[type=submit]');
+  const connection = get('[data-update-connection]');
   const start = get<HTMLButtonElement>('[data-update-start]'), refresh = get<HTMLButtonElement>('[data-update-refresh]');
   const rollback = get<HTMLButtonElement>('[data-update-rollback]'), retry = get<HTMLButtonElement>('[data-update-retry]');
   const help = get<HTMLAnchorElement>('[data-update-help]'), errorNode = get('[data-update-error]');
@@ -38,20 +32,18 @@ export function createUIUpdatePanel(container: HTMLElement) {
 
   function paint() {
     const target = upgradeTarget(currentUI(), latest);
-    form.hidden = !available || Boolean(client?.authorized);
-    authorize.disabled = busy;
-    start.disabled = !available || !client?.authorized || !target.tag || busy || running();
+    start.disabled = !available || !target.tag || busy || running();
     start.textContent = running() ? '正在更新…' : latest && target.tag ? '升级至 ' + latest.version : '升级 UI';
-    rollback.hidden = !client?.authorized || !task.canRollback;
+    rollback.hidden = !available || !task.canRollback;
     rollback.disabled = busy || running();
     const needsRefresh = task.state === 'succeeded' && task.installedVersion !== installed?.uiVersion;
     refresh.hidden = !needsRefresh;
     refresh.classList.toggle('primary', needsRefresh);
     start.hidden = task.state === 'succeeded' && !target.tag;
     retry.disabled = busy;
-    retry.textContent = client?.authorized ? '刷新状态' : '重试连接';
+    retry.textContent = available ? '刷新状态' : '重试连接';
     help.hidden = available;
-    connection.textContent = available ? client?.authorized ? '已授权，升级任务由服务器执行。' : '已连接，请授权后开始升级。'
+    connection.textContent = available ? '已连接，升级任务由服务器执行。'
       : busy ? '正在连接服务器升级入口…' : '此服务器尚未启用网页升级。完成一次安装后即可在这里操作。';
     get('[data-update-target]').textContent = needsRefresh
       ? `当前页面 UI 为 ${installed?.uiVersion || '旧版'}；刷新后使用服务器上的 ${task.installedVersion}。`
@@ -64,10 +56,10 @@ export function createUIUpdatePanel(container: HTMLElement) {
   }
   function schedule() {
     clearTimeout(timer);
-    if (running() && client?.authorized) timer = setTimeout(() => void readStatus(), 1500);
+    if (running() && available) timer = setTimeout(() => void readStatus(), 1500);
   }
   async function readStatus() {
-    if (!client?.authorized || busy || reading) return;
+    if (!client || !available || busy || reading) return;
     reading = true;
     try { task = await client.status(); error = ''; }
     catch (failure) { error = describe(failure); }
@@ -76,38 +68,29 @@ export function createUIUpdatePanel(container: HTMLElement) {
   }
   async function connect() {
     if (busy) return;
-    if (client?.authorized) { await readStatus(); return; }
+    if (client && available) { await readStatus(); return; }
     busy = true; error = ''; paint();
     try {
       const config = (window as typeof window & { LOCALDNS_UI_CONFIG?: { uiUpdaterBase?: string; apiBase?: string } }).LOCALDNS_UI_CONFIG;
       client = new UIUpdateClient(config?.uiUpdaterBase || config?.apiBase || '');
-      await client.discover(); available = true;
+      await client.discover();
+      task = await client.status(); available = true;
     } catch (failure) {
       available = false;
       error = failure instanceof ApiError && failure.status === 404 ? '' : describe(failure);
-    } finally { busy = false; paint(); }
+    } finally { busy = false; paint(); schedule(); }
   }
-  form.addEventListener('submit', async event => {
-    event.preventDefault();
-    if (busy || !client || !password.value) return;
-    busy = true; error = ''; paint();
-    try { await client.login(password.value); task = await client.status(); }
-    catch (failure) { error = describe(failure); }
-    finally { password.value = ''; busy = false; paint(); schedule(); }
-  });
   async function execute(restore: boolean) {
     const target = upgradeTarget(currentUI(), latest);
-    if (!client?.authorized || busy || running() || (!restore && !target.tag)) return;
+    if (!client || !available || busy || running() || (!restore && !target.tag)) return;
     if (!window.confirm(restore ? '恢复上一版 UI？当前 Logo、字体和站点配置会保留。' : '开始升级 UI？请先保存未提交的修改。升级完成后由你手动刷新，DNS 服务继续运行。')) return;
     busy = true; error = ''; paint();
     try { task = restore ? await client.rollback() : await client.upgrade(target.tag!); }
     catch (failure) {
       error = describe(failure);
       // A timed-out POST may already have started a task. Reconcile before allowing another action.
-      if (client.authorized) {
-        try { task = await client.status(); }
-        catch { error += ' 请刷新状态核对服务器任务，避免重复提交。'; }
-      }
+      try { task = await client.status(); }
+      catch { error += ' 请刷新状态核对服务器任务，避免重复提交。'; }
     } finally { busy = false; paint(); schedule(); }
   }
   start.addEventListener('click', () => void execute(false));
@@ -115,7 +98,7 @@ export function createUIUpdatePanel(container: HTMLElement) {
   retry.addEventListener('click', () => void connect());
   refresh.addEventListener('click', () => window.location.reload());
   document.addEventListener('visibilitychange', () => {
-    if (!document.hidden && client?.authorized) void readStatus();
+    if (!document.hidden && available) void readStatus();
   });
   paint();
   return {

@@ -6,9 +6,9 @@
 
 **DNS 核心主要由折腾日记交流群里的 R 大使用 Rust 编写；[yyhoworks](https://github.com/yyhoworks) 负责 UI 设计。**
 
-当前版本：**[后端 FJGAC / UI 2026.10.19.9](https://github.com/yyhoworks/LocalDNS/releases/tag/fjgac-ui-v2026.10.19.9)**，提供完整包、UI 升级包、SHA-256 校验文件，见 [本次更新说明](docs/releases/fjgac-ui-v2026.10.19.9.md)。
+当前版本：**[后端 FJGAC / UI 2026.10.19.10](https://github.com/yyhoworks/LocalDNS/releases/tag/fjgac-ui-v2026.10.19.10)**，提供完整包、UI 升级包、SHA-256 校验文件，见 [本次更新说明](docs/releases/fjgac-ui-v2026.10.19.10.md)。
 
-本次新增网页 UI 在线升级：口令授权、后台任务、进度查看与失败恢复。可选更新执行端首次安装后即可在网页更新 UI；保留配置、Logo 和字体，DNS 核心继续使用 FJGAC。
+本次新增网页 UI 在线升级：免口令操作、后台任务、进度查看与失败恢复。可选更新执行端首次安装后即可在网页更新 UI；保留配置、Logo 和字体，DNS 核心继续使用 FJGAC。
 
 [产品图集](docs/SCREENSHOTS.md) · [功能指南](docs/FEATURES.md) · [安装说明](INSTALL.md) · [下载 Releases](https://github.com/yyhoworks/LocalDNS/releases) · [作者与分工](AUTHORS.md) · [开发说明](docs/DEVELOPMENT.md) · [近期更新](CHANGELOG.md)
 
@@ -144,11 +144,11 @@ curl -fsSL https://raw.githubusercontent.com/yyhoworks/LocalDNS/main/tools/insta
 
 支持 systemd / OpenRC；x86-64 默认选择兼容性较好的 `amd64-v1`。新装自动配置公共 DNS 上游，安装后可在 DNS 管理中调整。自定义目录、端口、离线安装与回退见 **[一键安装指南](docs/ONECLICK.md)**。
 
-包含网页升级功能的新发行包可添加 `--with-ui-updater --origin http://服务器IP:9099`，一次性安装可选的 UI 更新执行端。随后在顶部「版本与更新」中授权升级、查看进度或恢复上一版；保留配置、Logo 与字体，无需重启 DNS。安装和 HTTPS 接入见 **[网页升级指南](docs/WEB_UPDATE.md)**。
+包含网页升级功能的新发行包可添加 `--with-ui-updater --origin http://服务器IP:9099`，一次性安装可选的 UI 更新执行端。随后在顶部「版本与更新」中直接升级、查看进度或恢复上一版；保留配置、Logo 与字体，无需重启 DNS。安装和 HTTPS 接入见 **[网页升级指南](docs/WEB_UPDATE.md)**。
 
 ## 手动安装
 
-1. 在 [Releases](https://github.com/yyhoworks/LocalDNS/releases/tag/fjgac-ui-v2026.10.19.9) 下载完整包或 UI 升级包，并核对同页的 `SHA256SUMS.txt`。**升级 FJGAC 内核必须从完整包选择对应架构的程序；UI 升级包不含内核。**
+1. 在 [Releases](https://github.com/yyhoworks/LocalDNS/releases/tag/fjgac-ui-v2026.10.19.10) 下载完整包或 UI 升级包，并核对同页的 `SHA256SUMS.txt`。**升级 FJGAC 内核必须从完整包选择对应架构的程序；UI 升级包不含内核。**
 2. 已有 LocalDNS 服务时，解压 UI 升级包并运行：
 
    ```sh

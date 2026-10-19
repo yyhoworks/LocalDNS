@@ -147,11 +147,6 @@ html:has(#drawer.open) { overflow: hidden; padding-right: var(--sbw, 0px); }
 .version-dialog::backdrop{background:rgb(0 0 0 / .4)}.version-dialog h2{font:500 20px/1.4 var(--font-sans);margin:0}
 .version-ui-update{margin-top:24px;padding-top:20px;border-top:1px solid var(--border-glass)}
 .version-ui-update h3{margin:0;font:500 16px/1.5 var(--font-sans)}
-.version-update-auth{margin:16px 0}
-.version-update-auth>label{display:block;margin-bottom:8px;font-size:13px;color:var(--text-1)}
-.version-update-unlock{display:flex;align-items:stretch;gap:8px}
-.version-update-unlock input{min-width:0;flex:1}
-.version-update-unlock .button{flex-shrink:0}
 .version-update-progress{margin-top:16px}
 .version-update-progress progress{display:block;width:100%;height:6px;accent-color:var(--primary-light)}
 .version-update-result{margin:12px 0;font-size:13px;line-height:1.8;overflow-wrap:anywhere}

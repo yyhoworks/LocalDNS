@@ -1,12 +1,10 @@
-"""Exercise real update transactions and authenticated HTTP against isolated files."""
+"""Exercise real update transactions and password-free HTTP against isolated files."""
 import contextlib
 import io
 import json
-import secrets
 import subprocess
 import sys
 import threading
-import time
 import unittest
 from pathlib import Path
 from unittest.mock import patch
@@ -145,7 +143,7 @@ class UIUpdaterTests(_UpdateFixture):
         with installer.locked(self.root):
             self.assertTrue((self.root.parent / '.localdns-installer.lock').exists())
 
-    def test_setup_is_optional_and_preserves_site_settings_and_password_on_reinstall(self):
+    def test_setup_is_optional_and_removes_legacy_password_on_reinstall(self):
         output = io.StringIO()
         arguments = ['--stage-root', str(self.stage), '--origin', 'http://dns.example:9099']
         before = (self.root / 'config/localdns.json').read_bytes()
@@ -155,10 +153,15 @@ class UIUpdaterTests(_UpdateFixture):
         self.assertNotIn('password', config)
         self.assertIn('http://dns.example:9100', (self.root / 'ui/config.js').read_text())
         self.assertTrue((self.root / 'bin/ui-updater/ui_updater.py').is_file())
+        legacy = dict(config, passwordSalt='legacy-salt', passwordHash='legacy-hash')
+        installer.atomic_json(self.root / '.ui-updater/config.json', legacy)
         with contextlib.redirect_stdout(io.StringIO()):
             setup.main(arguments)
         again = json.loads((self.root / '.ui-updater/config.json').read_text())
-        self.assertEqual(config['passwordHash'], again['passwordHash'])
+        self.assertEqual(config, again)
+        self.assertNotIn('passwordSalt', again)
+        self.assertNotIn('passwordHash', again)
+        self.assertNotIn('口令', output.getvalue())
         self.assertEqual((self.root / 'ui/config.js').read_text().count(setup.START), 1)
         self.assertEqual((self.root / 'config/localdns.json').read_bytes(), before)
         with self.assertRaises(installer.InstallError):
@@ -201,12 +204,9 @@ class UIUpdaterTests(_UpdateFixture):
 class UIUpdaterHTTPTests(_UpdateFixture):
     def setUp(self):
         super().setUp()
-        self.password = 'test-only-' + secrets.token_hex(8)
-        salt = secrets.token_hex(16)
         self.origin = 'http://127.0.0.1:9099'
         self.server = updater.UpdateServer(('127.0.0.1', 0), {
-            'allowedOrigins': [self.origin], 'passwordSalt': salt,
-            'passwordHash': updater.password_hash(self.password, salt)}, self.manager)
+            'allowedOrigins': [self.origin]}, self.manager)
         self.serving = threading.Thread(target=self.server.serve_forever, daemon=True)
         self.serving.start()
         self.base_url = 'http://127.0.0.1:' + str(self.server.server_port)
@@ -218,10 +218,8 @@ class UIUpdaterHTTPTests(_UpdateFixture):
         self.serving.join(2)
         super().tearDown()
 
-    def request(self, path, body=None, token=None, origin=None, host=None):
-        headers = {'Origin': origin or self.origin, 'Content-Type': 'application/json'}
-        if token:
-            headers['Authorization'] = 'Bearer ' + token
+    def request(self, path, body=None, origin=None, host=None, content_type='application/json'):
+        headers = {'Origin': self.origin if origin is None else origin, 'Content-Type': content_type}
         if host:
             headers['Host'] = host
         request = Request(self.base_url + path, data=json.dumps(body).encode() if body is not None else None, headers=headers)
@@ -232,35 +230,33 @@ class UIUpdaterHTTPTests(_UpdateFixture):
         with response:
             return response.code, json.load(response), response.headers
 
-    def test_http_authorization_origin_host_and_expiry(self):
-        self.assertEqual(self.request('/upgrade/ui')[1]['protocol'], updater.PROTOCOL)
-        self.assertEqual(self.request('/upgrade/ui/status')[0], 401)
-        self.assertEqual(self.request('/session', {'password': self.password}, origin='https://evil.example')[0], 403)
-        self.assertEqual(self.request('/upgrade/ui', host='evil.example')[0], 403)
-        status, data, headers = self.request('/session', {'password': self.password})
+    def test_http_connects_directly_and_checks_origin_and_host(self):
+        status, data, headers = self.request('/upgrade/ui')
         self.assertEqual(status, 200)
+        self.assertEqual(data['protocol'], updater.PROTOCOL)
+        self.assertFalse(data['requiresAuth'])
         self.assertEqual(headers['Access-Control-Allow-Origin'], self.origin)
-        token = data['token']
-        self.assertEqual(self.request('/upgrade/ui/status', token=token)[0], 200)
-        for key in self.server.sessions:
-            self.server.sessions[key] = time.monotonic() - 1
-        self.assertEqual(self.request('/upgrade/ui/status', token=token)[0], 401)
+        self.assertEqual(self.request('/upgrade/ui/status')[0], 200)
+        self.assertEqual(self.request('/upgrade/ui/status', origin='https://evil.example')[0], 403)
+        self.assertEqual(self.request('/upgrade/ui', host='evil.example')[0], 403)
+        for origin in ('https://evil.example', ''):
+            self.assertEqual(self.request('/upgrade/ui', {'releaseTag': 'fjgac-ui-v2026.10.19.6'}, origin=origin)[0], 403)
+        self.assertEqual(self.request('/session', {'password': 'obsolete'})[0], 404)
 
-    def test_http_runs_real_package_update_and_rejects_arbitrary_parameters(self):
-        token = self.request('/session', {'password': self.password})[1]['token']
-        self.assertEqual(self.request('/upgrade/ui', {'releaseTag': 'fjgac-ui-v2026.10.19.6', 'url': 'https://evil.example'}, token)[0], 400)
+    def test_http_runs_update_and_rollback_without_password_and_rejects_arbitrary_parameters(self):
+        self.assertEqual(self.request('/upgrade/ui', {'releaseTag': 'fjgac-ui-v2026.10.19.6', 'url': 'https://evil.example'})[0], 400)
         with patch.object(installer, 'Packages', side_effect=self.package), patch.object(installer, 'local_json', side_effect=self.core):
-            self.assertEqual(self.request('/upgrade/ui', {'releaseTag': 'fjgac-ui-v2026.10.19.6'}, token)[0], 202)
+            self.assertEqual(self.request('/upgrade/ui', {'releaseTag': 'fjgac-ui-v2026.10.19.6'})[0], 202)
             self.assertEqual(self.finish()['state'], 'succeeded')
-        state = self.request('/upgrade/ui/status', token=token)[1]
-        self.assertEqual(state['installedVersion'], '2026.10.19.6')
+            self.assertEqual(self.request('/upgrade/ui/status')[1]['installedVersion'], '2026.10.19.6')
+            self.assertEqual(self.request('/upgrade/ui/rollback', {})[0], 202)
+            self.assertEqual(self.finish()['installedVersion'], VERSION['uiVersion'])
 
-    def test_password_rate_limit(self):
-        for _ in range(5):
-            self.assertEqual(self.request('/session', {'password': 'incorrect'})[0], 401)
-        self.assertEqual(self.request('/session', {'password': self.password})[0], 429)
+    def test_http_rejects_non_json_and_non_fixed_operations(self):
+        self.assertEqual(self.request('/upgrade/ui', {}, content_type='text/plain')[0], 415)
+        for path, body in [('/upgrade/ui', {'releaseTag': 123}), ('/upgrade/ui/rollback', {'path': '/tmp'}), ('/execute', {})]:
+            self.assertIn(self.request(path, body)[0], (400, 404))
 
 
 if __name__ == '__main__':
-    import unittest
     unittest.main()

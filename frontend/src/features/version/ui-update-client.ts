@@ -1,5 +1,4 @@
 import { HttpClient } from '../../core/api/http-client';
-import { ApiError } from '../../core/api/api-error';
 
 export interface InstalledUI { uiVersion: string; backendVersion?: string }
 export interface UIRelease { tag: string; version: string; backend: string; packages: string[] }
@@ -30,7 +29,6 @@ export function upgradeTarget(installed: InstalledUI | null, release: UIRelease 
 }
 
 export class UIUpdateClient {
-  private token = '';
   private http: HttpClient;
   constructor(base: string, pageURL = document.baseURI, fetcher?: typeof fetch) {
     const address = new URL(base || new URL(pageURL).origin, pageURL);
@@ -42,31 +40,19 @@ export class UIUpdateClient {
     }
     this.http = new HttpClient({ base: address.href.replace(/\/$/, ''), timeout: 10000, fetch: fetcher });
   }
-  get authorized() { return Boolean(this.token); }
   private async request(path: string, data?: object): Promise<unknown> {
     const headers: Record<string, string> = { Accept: 'application/json' };
-    if (this.token) headers.Authorization = 'Bearer ' + this.token;
     if (data) headers['Content-Type'] = 'application/json';
-    try {
-      return await this.http.request(path, {
+    return this.http.request(path, {
         method: data ? 'POST' : 'GET', credentials: 'omit', cache: 'no-store', headers,
         ...(data ? { body: JSON.stringify(data) } : {}),
-      });
-    } catch (error) {
-      if (error instanceof ApiError && error.status === 401) this.token = '';
-      throw error;
-    }
+    });
   }
   async discover(): Promise<void> {
     const result = await this.request('/upgrade/ui') as { protocol?: string; repository?: string };
     if (result?.protocol !== 'localdns-ui-updater/v1' || result.repository !== 'https://github.com/yyhoworks/LocalDNS') {
       throw new Error('服务器未提供兼容的 LocalDNS UI 升级接口。');
     }
-  }
-  async login(password: string): Promise<void> {
-    const result = await this.request('/session', { password }) as { token?: string };
-    if (!result || typeof result.token !== 'string' || !result.token) throw new Error('服务器未返回有效的升级授权。');
-    this.token = result.token;
   }
   private validate(value: unknown): UIUpdateStatus {
     const result = value as UIUpdateStatus;

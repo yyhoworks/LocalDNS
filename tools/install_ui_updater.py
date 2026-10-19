@@ -13,7 +13,7 @@ from pathlib import Path
 from urllib.parse import urlsplit
 
 import install_localdns as installer
-from ui_updater import UpdateError, canonical_origin, password_hash
+from ui_updater import UpdateError, canonical_origin
 
 START = '/* localdns-ui-updater:start */'
 END = '/* localdns-ui-updater:end */'
@@ -55,7 +55,6 @@ def main(argv=None):
     parser.add_argument('--listen', default='0.0.0.0')
     parser.add_argument('--port', type=installer.port_number, default=9100)
     parser.add_argument('--public-url', help='通过 HTTPS 同源代理时设置，例如 https://dns.example/_updater')
-    parser.add_argument('--reset-password', action='store_true')
     parser.add_argument('--stage-root', type=Path, help='仅准备隔离安装文件，不启停宿主服务')
     args = parser.parse_args(argv)
     stage = args.stage_root.absolute() if args.stage_root else None
@@ -87,11 +86,9 @@ def main(argv=None):
     config_path = private / 'config.json'
     installer.no_symlinks(config_path)
     existing = json.loads(config_path.read_text(encoding='utf-8')) if config_path.exists() else {}
-    password = None
-    if not existing or args.reset_password:
-        password = secrets.token_urlsafe(24)
-        salt = secrets.token_hex(16)
-        existing.update(passwordSalt=salt, passwordHash=password_hash(password, salt))
+    # Migrate installations created before password-free web updates.
+    for key in ('passwordSalt', 'passwordHash'):
+        existing.pop(key, None)
     config = dict(existing, installDir=args.dir, listenHost=args.listen, port=args.port,
                   allowedOrigins=[ui_origin], allowedHosts=[host, address.hostname, '127.0.0.1', 'localhost'])
     runtime = root / 'bin/ui-updater'
@@ -132,10 +129,6 @@ def main(argv=None):
             raise
     print('更新执行端已' + ('准备（未启动服务）' if stage else '安装') + '：' + public)
     print('刷新 ' + ui_origin + '/ui/，打开“版本与更新”即可升级 UI。')
-    if password:
-        print('升级口令（请保存，不写入网页配置）：' + password)
-    else:
-        print('沿用原升级口令；遗失时重新运行并添加 --reset-password。')
     return 0
 
 

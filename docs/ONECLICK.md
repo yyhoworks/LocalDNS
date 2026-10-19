@@ -1,6 +1,6 @@
 # 一键安装指南
 
-安装器：**1.2.0**（新增可选网页 UI 升级执行端；默认仍只安装 DNS 与静态 UI）。安装内容来自 GitHub 最新正式 Release；当前已发布版本为 **FJGAC / UI 2026.10.19.9**。安装器与 UI 独立编号，网页升级选项从 UI 2026.10.19.9 起提供。
+安装器：**1.3.0**（新增可选网页 UI 升级执行端；默认仍只安装 DNS 与静态 UI）。安装内容来自 GitHub 最新正式 Release；当前已发布版本为 **FJGAC / UI 2026.10.19.10**。安装器与 UI 独立编号，网页升级选项从 UI 2026.10.19.9 起提供，2026.10.19.10 起无需升级口令。
 
 ## 复制这一条命令
 
@@ -55,12 +55,12 @@ sh localdns-install.sh --dir /opt/mydns --dns-port 1053 --http-port 19099
 sh localdns-install.sh --origin http://192.168.1.20:9099
 
 # 安装 / 更新指定正式发行版
-sh localdns-install.sh --version fjgac-ui-v2026.10.19.9
+sh localdns-install.sh --version fjgac-ui-v2026.10.19.10
 
 # 强制要求更新已有 UI；找不到安装时停止
 sh localdns-install.sh --mode ui --dir /opt/localdns
 
-# 包含本功能的新发行版：同时启用网页 UI 升级，安装后保存输出的升级口令
+# 包含本功能的新发行版：同时启用网页 UI 升级，安装后即可直接升级
 sh localdns-install.sh --with-ui-updater --origin http://192.168.1.20:9099
 ```
 
@@ -111,4 +111,4 @@ python3 tools/install_localdns.py --stage-root /var/tmp/localdns-preview --packa
 
 隔离准备跳过宿主端口和运行环境检查；准备的目录不能代替真实机器上的安装验证。
 
-回归测试可运行 `python3 tools/test_oneclick_installer.py`。原生 Alpine x86-64 隔离验证检查 FJGAC 运行、TCP / UDP DNS 应答与 UI 文件读取；ARM64 检查安装文件与 ELF 架构，未在 ARM64 设备运行。systemd / OpenRC 启动文件及启停失败回退有自动测试。当前版本新增共享配置和字体保留检查，见 [本版记录](validation/frontend-refactor-2026.10.19.9.md)；最初安装器的验证范围见 [历史记录](validation/oneclick-installer-1.0.0.md)。
+回归测试可运行 `python3 tools/test_oneclick_installer.py`。原生 Alpine x86-64 隔离验证检查 FJGAC 运行、TCP / UDP DNS 应答与 UI 文件读取；ARM64 检查安装文件与 ELF 架构，未在 ARM64 设备运行。systemd / OpenRC 启动文件及启停失败回退有自动测试。当前版本新增共享配置和字体保留检查，见 [本版记录](validation/web-update-2026.10.19.10.md)；最初安装器的验证范围见 [历史记录](validation/oneclick-installer-1.0.0.md)。
