@@ -1,6 +1,7 @@
 import { setHTML } from '../../core/security/safe-dom.ts';
 import { assetHttp } from '../../core/api/network.ts';
 import { preferences } from '../../core/persistence/preferences.ts';
+import { createUIUpdatePanel } from './ui-update-panel';
 const versionService = (() => {
   'use strict';
   const REPO = 'https://github.com/yyhoworks/LocalDNS';
@@ -50,6 +51,9 @@ const versionService = (() => {
       const cacheKey = 'localdns-release-check-v1:' + location.origin + ':' +
         String(window.LOCALDNS_UI_CONFIG?.apiBase || '');
       let installed = null, latest = null, checkedAt = 0, lastAttemptAt = 0, error = '', metadataError = '', checking = false, pending;
+      const updateSection = document.createElement('section');
+      dialog.querySelector('.version-actions').before(updateSection);
+      const updater = createUIUpdatePanel(updateSection);
       const escape = value => String(value ?? '').replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
       const date = value => value ? new Date(value).toLocaleString('zh-CN', {hour12: false}) : '尚未检查';
       function paint() {
@@ -69,6 +73,7 @@ const versionService = (() => {
         const backend = document.querySelector('#brand-version-tag')?.dataset.backendVersion || installed?.backendVersion;
         setHTML(content, `<dl class="version-facts">${fact('当前 UI', installed?.uiVersion || '未能读取')}${fact('DNS 核心', backend || '尚未读取')}${fact('GitHub 最新正式版', latest ? latest.version + (latest.backend ? ' / ' + latest.backend : '') : '尚未读取')}${fact('上次成功检查', date(checkedAt))}</dl><p class="version-result">${escape(checking ? '正在获取 GitHub 最新正式版…' : error ? '更新检查失败，当前版本信息仍可查看。' : status?.available ? 'GitHub 已发布新版本，可查看更新说明与安装包。' : status?.local ? '当前为本地测试版，基于正式版 ' + status.baseline + '；' + (status.comparison === null ? '请在 GitHub 核对版本。' : '基准之后暂无新正式版。') : status?.comparison === 0 ? '当前 UI 已是最新正式版。' : status?.comparison < 0 ? '当前 UI 版本高于 GitHub 最新正式版。' : '点击“检查更新”获取 GitHub 最新正式版。')}</p>${latest?.packages.length ? `<p class="version-note">发布包：${escape(latest.packages.join('、'))}。UI 升级包仅更新界面；更换 DNS 核心需使用完整包。</p>` : ''}${metadataError ? `<p class="version-error" role="alert">${escape(metadataError)}</p>` : ''}${error ? `<p class="version-error" role="alert">${escape(error)} 可点击“检查更新”重试，或打开 GitHub 发布页。</p>` : ''}<p class="version-note">自动检查间隔为 6 小时；手动检查立即重新请求。</p>`);
         dialog.querySelector('#version-release-link').href = latest?.url || REPO + '/releases';
+        updater.setRelease(installed, latest);
       }
       async function fetchJSON(url) {
         const controller = new AbortController(), timeout = setTimeout(() => controller.abort(), 10000);
@@ -101,7 +106,7 @@ const versionService = (() => {
         })();
         return pending;
       }
-      button.onclick = () => { paint(); dialog.showModal(); };
+      button.onclick = () => { paint(); dialog.showModal(); updater.connect(); };
       manual.onclick = () => check(true);
       let backdrop = false;
       dialog.addEventListener('pointerdown', event => { backdrop = event.target === dialog; });

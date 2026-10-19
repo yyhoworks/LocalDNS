@@ -20,7 +20,7 @@ python tools/package_ui.py
 
 `verify:generated` 先检查源指纹和文件清单，再在系统临时目录干净重建，逐文件比较 SHA-256，最后清理临时目录。共用指纹实现为普通 `.mjs`，不要求 Node 原生加载 TypeScript。打包工具不隐式执行 npm，拒绝缺失、过期、篡改或多出文件的构建。
 
-构建的语法目标为 ES2020、Chrome/Edge 90、Safari 14.1；不引入 Web API polyfill。这不是相应旧版浏览器或 Safari 的实机兼容认证。运行时仍以 `/ui/` 为基址，读取 `config.js` 的 `LOCALDNS_UI_CONFIG`，无需 Node、CDN 或新的常驻服务。
+构建的语法目标为 ES2020、Chrome/Edge 90、Safari 14.1；不引入 Web API polyfill。这不是相应旧版浏览器或 Safari 的实机兼容认证。运行时仍以 `/ui/` 为基址，读取 `config.js` 的 `LOCALDNS_UI_CONFIG`；默认静态控制台无需 Node、CDN 或新的常驻服务。启用网页 UI 升级时，额外安装可选 Python 更新执行端，详见 [网页升级指南](WEB_UPDATE.md)。
 
 ### 本地预览
 

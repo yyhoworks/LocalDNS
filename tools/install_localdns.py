@@ -30,7 +30,7 @@ from zipfile import BadZipFile, ZipFile
 
 REPO = 'https://github.com/yyhoworks/LocalDNS'
 API = 'https://api.github.com/repos/yyhoworks/LocalDNS/releases/'
-INSTALLER_VERSION = '1.1.0'
+INSTALLER_VERSION = '1.2.0'
 ALPINE_RESOLVER_BRIDGE = '#include <resolv.h>\nint __res_init(void) { return res_init(); }\n'
 
 
@@ -61,6 +61,32 @@ def write_json(path, value, mode=0o644):
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(value, ensure_ascii=False, indent=2) + '\n', encoding='utf-8')
     path.chmod(mode)
+
+
+def atomic_json(path, value):
+    """Persist a transaction before changing live files."""
+    no_symlinks(path)
+    temporary = path.with_name(path.name + '.' + uuid.uuid4().hex + '.tmp')
+    try:
+        with temporary.open('x', encoding='utf-8') as output:
+            os.chmod(temporary, 0o600)
+            json.dump(value, output, ensure_ascii=False)
+            output.flush()
+            os.fsync(output.fileno())
+        os.replace(temporary, path)
+        sync_directory(path.parent)
+    finally:
+        with contextlib.suppress(FileNotFoundError):
+            temporary.unlink()
+
+
+def sync_directory(path):
+    if os.name != 'nt':
+        handle = os.open(str(path), os.O_RDONLY | os.O_DIRECTORY)
+        try:
+            os.fsync(handle)
+        finally:
+            os.close(handle)
 
 
 def run(arguments, **kwargs):
@@ -246,16 +272,50 @@ def install_path(value, stage=None):
 def locked(root):
     root.parent.mkdir(parents=True, exist_ok=True)
     path = root.parent / ('.' + root.name + '-installer.lock')
+    # A permanent OS lock serializes removal of locks left by a killed new installer.
+    # Older installers still participate through the original exclusive lock file.
+    guard = path.with_suffix('.guard')
+    no_symlinks(guard)
+    handle = os.open(str(guard), os.O_CREAT | os.O_RDWR, 0o600)
+    acquired = False
     try:
-        handle = os.open(str(path), os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600)
-    except FileExistsError:
-        raise InstallError('已有安装任务或遗留锁：' + str(path)) from None
-    try:
-        with os.fdopen(handle, 'w') as output:
-            output.write(str(os.getpid()) + '\n')
-        yield
+        try:
+            if os.name == 'nt':
+                import msvcrt
+                if os.fstat(handle).st_size == 0:
+                    os.write(handle, b'0')
+                os.lseek(handle, 0, os.SEEK_SET)
+                msvcrt.locking(handle, msvcrt.LK_NBLCK, 1)
+            else:
+                import fcntl
+                fcntl.flock(handle, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            acquired = True
+        except OSError:
+            raise InstallError('已有安装任务：' + str(path)) from None
+        no_symlinks(path)
+        if path.exists():
+            try:
+                stale = json.loads(path.read_text(encoding='utf-8'))
+            except (ValueError, OSError):
+                stale = None
+            if not isinstance(stale, dict) or stale.get('lockProtocol') != 1:
+                raise InstallError('已有安装任务或旧版遗留锁：' + str(path))
+            path.unlink()  # Its OS guard has been acquired, so its owner has exited.
+        lock_handle = os.open(str(path), os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600)
+        try:
+            with os.fdopen(lock_handle, 'w') as output:
+                json.dump({'lockProtocol': 1, 'pid': os.getpid()}, output)
+            yield
+        finally:
+            path.unlink()
     finally:
-        path.unlink()
+        if acquired:
+            if os.name == 'nt':
+                os.lseek(handle, 0, os.SEEK_SET)
+                msvcrt.locking(handle, msvcrt.LK_UNLCK, 1)
+            else:
+                fcntl.flock(handle, fcntl.LOCK_UN)
+        os.close(handle)
 
 
 def installed(root):
@@ -344,7 +404,36 @@ def local_json(port, path, timeout=3):
         return json.load(response)
 
 
-def update_ui(root, payload, metadata, stage=None):
+def recover_ui_update(root):
+    """Called with the installation lock held; never trust journal paths."""
+    journal = root / '.ui-update-transaction.json'
+    no_symlinks(journal)
+    if not journal.exists():
+        return False
+    value = json.loads(journal.read_text(encoding='utf-8'))
+    paths = {}
+    for key, prefix in [('previous', 'ui.previous-'), ('staging', '.ui-stage-')]:
+        name = value.get(key, '')
+        if not isinstance(name, str) or not re.fullmatch(re.escape(prefix) + r'[A-Za-z0-9._-]+', name):
+            raise InstallError('UI 更新事务路径无效，需要手动检查')
+        paths[key] = root / name
+        no_symlinks(paths[key])
+    no_symlinks(root / 'ui')
+    if value.get('verified') is not True and paths['previous'].is_dir():
+        if (root / 'ui').exists():
+            (root / 'ui').rename(root / ('ui.failed-' + uuid.uuid4().hex))
+        paths['previous'].rename(root / 'ui')
+    elif not (root / 'ui/index.html').is_file():
+        raise InstallError('UI 更新事务缺少可恢复的界面，需要手动检查')
+    if paths['staging'].exists():
+        shutil.rmtree(paths['staging'])
+    journal.unlink()
+    return True
+
+
+def update_ui(root, payload, metadata, stage=None, on_step=None):
+    report = on_step or (lambda step: None)
+    recover_ui_update(root)
     for path in (root / 'ui', root / 'ui/config.js', root / 'bin', root / 'config'):
         no_symlinks(path)
     stamp = datetime.now().strftime('%Y%m%d-%H%M%S') + '-' + uuid.uuid4().hex[:8]
@@ -364,6 +453,10 @@ def update_ui(root, payload, metadata, stage=None):
             running = True
         except (OSError, ValueError, URLError):
             pass
+    journal = root / '.ui-update-transaction.json'
+    transaction = {'previous': previous.name, 'staging': staging.name, 'verified': False}
+    atomic_json(journal, transaction)
+    report('backup')
     with tarfile.open(backup, 'w:gz', dereference=False) as archive:
         archive.add(root / 'ui', arcname='ui')
     shutil.copytree(payload / 'ui', staging)
@@ -375,25 +468,45 @@ def update_ui(root, payload, metadata, stage=None):
         if any(p.is_symlink() for p in custom.rglob('*')):
             raise InstallError('共享配置目录包含符号链接')
         shutil.copytree(custom, staging / 'custom', dirs_exist_ok=True)
+    # Keep only assets listed by the previous build, so open tabs can finish loading
+    # their lazy chunks without retaining every historical release indefinitely.
+    old_meta = root / 'ui/build-meta.json'
+    if old_meta.is_file():
+        outputs = json.loads(old_meta.read_text(encoding='utf-8')).get('files', {})
+        for name in outputs:
+            if not isinstance(name, str) or not name.startswith('assets/') or '..' in PurePosixPath(name).parts or '\\' in name:
+                continue
+            source, target = root / 'ui' / name, staging / name
+            no_symlinks(source)
+            if source.is_file() and not target.exists():
+                target.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copy2(source, target)
     moved = False
     try:
+        report('install')
         (root / 'ui').rename(previous)
         moved = True
         staging.rename(root / 'ui')
+        sync_directory(root)
+        report('verify')
         if running:
             current = local_json(port, '/ui/version.json')
             if current['uiVersion'] != version:
                 raise InstallError('更新后的 UI 版本校验失败')
             local_json(port, '/api/v1/status')
+        atomic_json(journal, dict(transaction, verified=True))
     except Exception:
         if moved:
             if (root / 'ui').exists():
                 (root / 'ui').rename(root / ('ui.failed-' + stamp))
             previous.rename(root / 'ui')
+        journal.unlink()
         raise
+    journal.unlink()
     log('UI 已更新至 ' + version + '；DNS 核心、配置与规则已保留。')
     log('备份：' + str(backup))
     log('上一版 UI：' + str(previous))
+    return {'backup': backup.name, 'previous': previous.name, 'serviceChecked': running}
 
 
 def service_files(logical_root, alpine_compat=False):
@@ -564,6 +677,8 @@ def main(argv=None):
     parser.add_argument('--dns-port', type=port_number, default=53)
     parser.add_argument('--http-port', type=port_number, default=9099)
     parser.add_argument('--without-service', action='store_true', help=argparse.SUPPRESS)
+    parser.add_argument('--with-ui-updater', action='store_true', help='同时安装可选的网页 UI 升级执行端')
+    parser.add_argument('--ui-updater-url', help='升级执行端的 HTTPS 代理入口（可选）')
     parser.add_argument('--origin', help='UI 地址，例如 http://192.168.1.2:9099')
     parser.add_argument('--package-dir', help='离线发行包目录，必须包含 SHA256SUMS.txt')
     parser.add_argument('--stage-root', type=Path, help='仅向隔离根目录准备文件，不检查宿主端口或启动服务')
@@ -580,6 +695,9 @@ def main(argv=None):
             raise InstallError('--stage-root 不能解析到文件系统根目录')
     init = manager(stage)
     root = install_path(args.dir, stage)
+    if (root / '.ui-update-transaction.json').exists():
+        with locked(root):
+            recover_ui_update(root)
     arch = choose_arch(args.arch)
     mode = 'ui' if args.mode == 'auto' and installed(root) else 'install' if args.mode == 'auto' else args.mode
     if mode == 'ui' and not installed(root):
@@ -604,16 +722,35 @@ def main(argv=None):
         ui_metadata = json.loads(ui_path.read_text(encoding='utf-8'))
         if any(ui_metadata.get(key) != metadata.get(key) for key in ('uiVersion', 'backendVersion')):
             raise InstallError('UI 与发行包的版本元数据不一致')
+        setup_names = ('install_ui_updater.py', 'ui_updater.py', 'install_localdns.py')
+        if args.with_ui_updater and not all((payload / 'ui-updater' / name).is_file() for name in setup_names):
+            raise InstallError('此发行包尚未包含网页升级执行端，请选择包含此功能的新发行版')
         log('模式：' + ('保留现有核心的 UI 更新' if mode == 'ui' else '全新安装') + '；架构：' + arch)
         if mode == 'ui':
             update_ui(root, payload, metadata, stage)
         else:
             install_new(root, PurePosixPath(args.dir), payload, metadata, arch, args.dns_port, http_port, init, stage)
+        if args.with_ui_updater:
+            setup = root / '.ui-updater/setup'
+            no_symlinks(setup)
+            setup.mkdir(parents=True, exist_ok=True)
+            for name in setup_names:
+                no_symlinks(setup / name)
+                shutil.copyfile(payload / 'ui-updater' / name, setup / name)
+                (setup / name).chmod(0o600)
         log(('隔离准备完成（未启动服务）' if stage else '安装完成') + '，UI 版本：' + metadata['uiVersion'])
         log('管理页面：' + origin_value + '/ui/')
         if mode == 'install':
             log('DNS 端口：' + str(args.dns_port) + '；请在 DNS 管理中按网络调整默认上游。')
-        return 0
+    if args.with_ui_updater:
+        arguments = [sys.executable, str(root / '.ui-updater/setup/install_ui_updater.py'),
+                     '--dir', args.dir, '--origin', origin_value]
+        if stage:
+            arguments.extend(['--stage-root', str(stage)])
+        if args.ui_updater_url:
+            arguments.extend(['--public-url', args.ui_updater_url])
+        run(arguments)
+    return 0
 
 
 if __name__ == '__main__':

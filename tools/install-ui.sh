@@ -12,6 +12,17 @@ cd "$PACKAGE_DIR"
 sha256sum -c MANIFEST.sha256
 UI_VERSION=$(sed -n 's/^LocalDNS UI //p' VERSION.txt)
 case "$UI_VERSION" in ''|*[!A-Za-z0-9._-]*) echo "UI 版本信息无效" >&2; exit 1;; esac
+LOCK_FILE="$(dirname -- "$INSTALL_DIR")/.$(basename -- "$INSTALL_DIR")-installer.lock"
+(set -C; umask 077; printf '%s\n' "$$" > "$LOCK_FILE") 2>/dev/null || { echo '已有安装任务或遗留安装锁'; exit 1; }
+ROLLBACK=0
+restore_ui() {
+  if [ "$ROLLBACK" = 1 ] && [ ! -e "$INSTALL_DIR/ui" ] && [ -d "$PREVIOUS" ]; then
+    mv "$PREVIOUS" "$INSTALL_DIR/ui"
+  fi
+  rm -f "$LOCK_FILE"
+}
+trap restore_ui 0
+trap 'exit 1' HUP INT TERM
 STAMP=$(date +%Y%m%d-%H%M%S)
 BACKUP="$INSTALL_DIR/ui-backup-$UI_VERSION-$STAMP-$$.tar.gz"
 STAGE="$INSTALL_DIR/.ui-stage-$UI_VERSION-$STAMP-$$"
@@ -26,14 +37,6 @@ if [ -e "$INSTALL_DIR/ui/custom" ]; then
   if [ -d "$STAGE/custom" ]; then rm -r "$STAGE/custom"; fi
   cp -a "$INSTALL_DIR/ui/custom" "$STAGE/custom"
 fi
-ROLLBACK=0
-restore_ui() {
-  if [ "$ROLLBACK" = 1 ] && [ ! -e "$INSTALL_DIR/ui" ] && [ -d "$PREVIOUS" ]; then
-    mv "$PREVIOUS" "$INSTALL_DIR/ui"
-  fi
-}
-trap restore_ui 0
-trap 'exit 1' HUP INT TERM
 ROLLBACK=1
 mv "$INSTALL_DIR/ui" "$PREVIOUS"
 mv "$STAGE" "$INSTALL_DIR/ui"

@@ -146,6 +146,7 @@ def write_archive(path, payload, version, modes=None):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--ui-dir', type=Path, default=ROOT / 'dist/ui', help='Verified Vite UI build directory')
+    parser.add_argument('--output-dir', type=Path, help='Optional output folder for an unpublished verification build')
     parser.add_argument('--full-base', type=Path, help='Previously published full ZIP with clean default configuration')
     parser.add_argument('--base-sha256', help='SHA-256 verified against the published Release')
     parser.add_argument('--kernel-archive', type=Path, help='Upstream kernel ZIP; import only the three platform binaries')
@@ -164,6 +165,9 @@ def main():
               ['AUTHORS.md', 'THIRD_PARTY_NOTICES.md', 'INSTALL.md', 'CHANGELOG.md']}
     common['README.md'] = common['INSTALL.md']
     common['configure-ui.py'] = (ROOT / 'tools/configure_ui.py').read_bytes()
+    for name in ['install_ui_updater.py', 'ui_updater.py', 'install_localdns.py']:
+        common['ui-updater/' + name] = (ROOT / 'tools' / name).read_bytes()
+    common['docs/WEB_UPDATE.md'] = (ROOT / 'docs/WEB_UPDATE.md').read_bytes()
     common['VERSION.txt'] = f"LocalDNS UI {version['uiVersion']}\nBackend {version['backendVersion']}\n".encode()
     for file in (ROOT / 'docs/licenses').rglob('*'):
         if file.is_file():
@@ -257,7 +261,7 @@ def main():
                 raise ValueError('Protected base content changed: ' + name)
         packages.append((f"LocalDNS_{version['backendVersion']}_UI_{version['uiVersion']}_Full.zip", full, modes))
 
-    output = ROOT / 'dist' / release_tag if 'releaseTag' in version else ROOT / 'dist'
+    output = args.output_dir or (ROOT / 'dist' / release_tag if 'releaseTag' in version else ROOT / 'dist')
     output.mkdir(parents=True, exist_ok=True)
     sums = []
     for name, payload, modes in packages:

@@ -1,6 +1,6 @@
 # 一键安装指南
 
-安装器：**1.1.0**（保留静态共享配置，移除配套服务安装）。安装内容来自 GitHub 最新正式 Release；当前为 **FJGAC / UI 2026.10.19.8**。安装器与 UI 独立编号。
+安装器：**1.2.0**（新增可选网页 UI 升级执行端；默认仍只安装 DNS 与静态 UI）。安装内容来自 GitHub 最新正式 Release；当前已发布版本为 **FJGAC / UI 2026.10.19.9**。安装器与 UI 独立编号，网页升级选项从 UI 2026.10.19.9 起提供。
 
 ## 复制这一条命令
 
@@ -55,10 +55,13 @@ sh localdns-install.sh --dir /opt/mydns --dns-port 1053 --http-port 19099
 sh localdns-install.sh --origin http://192.168.1.20:9099
 
 # 安装 / 更新指定正式发行版
-sh localdns-install.sh --version fjgac-ui-v2026.10.19.8
+sh localdns-install.sh --version fjgac-ui-v2026.10.19.9
 
 # 强制要求更新已有 UI；找不到安装时停止
 sh localdns-install.sh --mode ui --dir /opt/localdns
+
+# 包含本功能的新发行版：同时启用网页 UI 升级，安装后保存输出的升级口令
+sh localdns-install.sh --with-ui-updater --origin http://192.168.1.20:9099
 ```
 
 | 参数 | 默认值 / 说明 |
@@ -69,6 +72,8 @@ sh localdns-install.sh --mode ui --dir /opt/localdns
 | `--arch` | 自动选择 `amd64-v1` 或 `arm64`；可显式选 `amd64-v3`，需 CPU 支持 |
 | `--dns-port` / `--http-port` | 新装为 `53` / `9099`；UI 更新沿用已有 API 端口 |
 | `--origin` | 安装完成后显示的 UI 地址；默认使用探测到的本机 IPv4 和 UI 端口 |
+| `--with-ui-updater` | 可选安装网页 UI 升级执行端，默认端口 9100；需要包含对应工具的新发行包 |
+| `--ui-updater-url` | HTTPS 反向代理提供的升级入口；与 `--with-ui-updater` 配合使用 |
 | `--package-dir` | 使用本地发行包和 `SHA256SUMS.txt`，不请求 GitHub Release API |
 | `--stage-root` | 只在隔离根目录准备文件，不启动服务、不修改宿主启动项 |
 
@@ -106,4 +111,4 @@ python3 tools/install_localdns.py --stage-root /var/tmp/localdns-preview --packa
 
 隔离准备跳过宿主端口和运行环境检查；准备的目录不能代替真实机器上的安装验证。
 
-回归测试可运行 `python3 tools/test_oneclick_installer.py`。原生 Alpine x86-64 隔离验证检查 FJGAC 运行、TCP / UDP DNS 应答与 UI 文件读取；ARM64 检查安装文件与 ELF 架构，未在 ARM64 设备运行。systemd / OpenRC 启动文件及启停失败回退有自动测试。当前版本新增共享配置和字体保留检查，见 [本版记录](validation/frontend-refactor-2026.10.19.8.md)；最初安装器的验证范围见 [历史记录](validation/oneclick-installer-1.0.0.md)。
+回归测试可运行 `python3 tools/test_oneclick_installer.py`。原生 Alpine x86-64 隔离验证检查 FJGAC 运行、TCP / UDP DNS 应答与 UI 文件读取；ARM64 检查安装文件与 ELF 架构，未在 ARM64 设备运行。systemd / OpenRC 启动文件及启停失败回退有自动测试。当前版本新增共享配置和字体保留检查，见 [本版记录](validation/frontend-refactor-2026.10.19.9.md)；最初安装器的验证范围见 [历史记录](validation/oneclick-installer-1.0.0.md)。
