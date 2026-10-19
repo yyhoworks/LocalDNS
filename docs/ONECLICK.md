@@ -1,6 +1,6 @@
 # 一键安装指南
 
-安装器版本：**1.0.0**。安装内容来自 GitHub 最新正式 Release；当前为 **FJGAC / UI 2026.10.19.5**。安装器与 UI 独立编号。
+安装器：**1.1.0**（保留静态共享配置，移除配套服务安装）。安装内容来自 GitHub 最新正式 Release；当前为 **FJGAC / UI 2026.10.19.7**。安装器与 UI 独立编号。
 
 ## 复制这一条命令
 
@@ -32,14 +32,14 @@ wget -O localdns-install.sh https://raw.githubusercontent.com/yyhoworks/LocalDNS
 
 | 状态 | 默认行为 |
 |---|---|
-| `/opt/localdns` 不存在或为空 | 安装核心、UI、默认规则和配套配置服务；启用并启动 DNS 服务；检查管理 API |
-| 已有完整 LocalDNS 安装 | 只更新 UI，保留核心、DNS 配置、规则及 `ui/config.js`，不重启 DNS |
+| `/opt/localdns` 不存在或为空 | 安装核心、UI 和默认规则；启用并启动 DNS 服务；检查管理 API |
+| 已有完整 LocalDNS 安装 | 只更新 UI，保留核心、DNS 配置、规则、`ui/custom/` 及 `ui/config.js`，不重启 DNS |
 | 目录非空但无法识别为 LocalDNS | 停止，保留原文件 |
 | DNS / UI 端口被占用 | 新安装停止并提示，不自动关闭占用端口的服务 |
 
 新装的国内上游使用 AliDNS / DNSPod，国外、国外 ECS 和代理组使用 Cloudflare / Quad9 的公共 UDP DNS。安装器不会安装 Mihomo 或 sing-box；原包的本机代理上游示例会被公共上游替换。代理组初始通过公网直连，需代理转发时请配置实际的本机代理 DNS。安装后请按自己的网络调整上游、ECS 及分流策略。
 
-新装默认安装配套配置服务，使用 9098 端口，供名单备份、共享设置、服务器采样和同机代理配置编辑使用。默认仅接受安装时指定 UI Origin；面板用于可信局域网。修改访问地址或使用反向代理时，请按 [服务说明](../services/proxy-config/README.md) 调整配置。代理核心的实际路径和重载钩子仍需按设备设置。
+当前版本不安装 9098 配套服务。名称、Logo 和字体通过 [静态共享配置](SHARED_UI.md) 使用；名单直接保存到 DNS 核心，吞吐图记录当前浏览器会话。旧服务的设备文件需迁移并确认后单独清理，UI 更新不会自动删除。
 
 重复执行安装命令**不会升级已有 DNS 核心**。需要升级核心时，按 [手动升级说明](../INSTALL.md#已安装环境升级后端) 操作。
 
@@ -51,17 +51,11 @@ wget -O localdns-install.sh https://raw.githubusercontent.com/yyhoworks/LocalDNS
 # 自定义安装目录、DNS 端口与界面端口
 sh localdns-install.sh --dir /opt/mydns --dns-port 1053 --http-port 19099
 
-# 指定浏览器访问 UI 的地址，用于配置服务的 Origin / Host
+# 指定安装完成后显示的 UI 访问地址
 sh localdns-install.sh --origin http://192.168.1.20:9099
 
-# 新装时只安装 DNS 和 UI
-sh localdns-install.sh --without-service
-
-# 已安装环境同时更新 UI 与配套配置服务
-sh localdns-install.sh --with-service
-
 # 安装 / 更新指定正式发行版
-sh localdns-install.sh --version fjgac-ui-v2026.10.19.5
+sh localdns-install.sh --version fjgac-ui-v2026.10.19.7
 
 # 强制要求更新已有 UI；找不到安装时停止
 sh localdns-install.sh --mode ui --dir /opt/localdns
@@ -74,12 +68,11 @@ sh localdns-install.sh --mode ui --dir /opt/localdns
 | `--version` | GitHub 最新正式版；也可指定正式 Release 标签 |
 | `--arch` | 自动选择 `amd64-v1` 或 `arm64`；可显式选 `amd64-v3`，需 CPU 支持 |
 | `--dns-port` / `--http-port` | 新装为 `53` / `9099`；UI 更新沿用已有 API 端口 |
-| `--with-service` / `--without-service` | 新装默认安装配置服务；UI 更新默认跳过配置服务 |
-| `--origin` | 默认使用探测到的本机 IPv4 和 UI 端口；多网卡 / 反代建议明确指定 |
+| `--origin` | 安装完成后显示的 UI 地址；默认使用探测到的本机 IPv4 和 UI 端口 |
 | `--package-dir` | 使用本地发行包和 `SHA256SUMS.txt`，不请求 GitHub Release API |
 | `--stage-root` | 只在隔离根目录准备文件，不启动服务、不修改宿主启动项 |
 
-配置服务固定安装在 `/opt/localdns-proxy-config`，服务配置在 `/etc/localdns-proxy-config.json`；`--dir` 只调整 DNS 安装位置。已有服务配置、代理路径和 `postReload` 钩子保留。
+`--with-service` 已移除。旧命令中的 `--without-service` 仍可兼容使用，无需再添加。
 
 ## 下载校验和失败处理
 
@@ -87,7 +80,7 @@ sh localdns-install.sh --mode ui --dir /opt/localdns
 
 UI 更新先备份，再在同一分区暂存和替换。如果更新前管理 API 正在运行，替换后会核对 UI 版号与 API；检查失败恢复旧 UI。服务原本离线时只完成文件更新，不声称服务已恢复。新装 DNS 启动失败时停止新服务、移除本次写入的启动文件，并将安装目录改名为 `localdns.failed-时间`，供排查。
 
-如果 DNS / UI 已安装成功而配套配置服务失败，会明确报告部分完成；可排查 9098 端口、配置和日志后运行 `sh localdns-install.sh --with-service`。系统包管理器已安装的依赖不会随安装失败自动卸载。
+系统包管理器已安装的依赖不会随安装失败自动卸载。
 
 UI 备份保存在安装目录中的 `ui-backup-*.tar.gz` 和 `ui.previous-*`。回退时将当前 `ui` 改名保留，再将需要的 `ui.previous-*` 改回 `ui`，刷新浏览器。备份不自动清理，确认版本正常后可自行整理。
 
@@ -95,17 +88,17 @@ UI 备份保存在安装目录中的 `ui-backup-*.tar.gz` 和 `ui.previous-*`。
 
 ## 离线安装
 
-从同一版本下载完整包、UI 升级包、配置服务包及 `SHA256SUMS.txt` 到 `/srv/localdns-packages`。再将仓库**同一提交**的 `tools/install.sh` 与 `tools/install_localdns.py` 放在同一个目录：
+从同一版本下载完整包、UI 升级包及 `SHA256SUMS.txt` 到 `/srv/localdns-packages`。再将仓库**同一提交**的 `tools/install.sh` 与 `tools/install_localdns.py` 放在同一个目录：
 
 ```sh
 sh install.sh --package-dir /srv/localdns-packages
 ```
 
-UI 更新只需 UI 升级包；使用 `--with-service` 时还需 Service 包。离线主机需要预先安装 Python 及相应运行 / 编译依赖，否则系统包管理器仍需联网。
+UI 更新只需 UI 升级包。离线主机需要预先安装 Python 及相应运行 / 编译依赖，否则系统包管理器仍需联网。
 
 ## 隔离准备与验证范围
 
-以下命令只在 `/var/tmp/localdns-preview` 下准备安装目录及启动文件，不启动 DNS 或配置服务：
+以下命令只在 `/var/tmp/localdns-preview` 下准备安装目录及启动文件，不启动 DNS：
 
 ```sh
 python3 tools/install_localdns.py --stage-root /var/tmp/localdns-preview --package-dir /srv/localdns-packages --origin http://192.0.2.20:9099
@@ -113,4 +106,4 @@ python3 tools/install_localdns.py --stage-root /var/tmp/localdns-preview --packa
 
 隔离准备跳过宿主端口和运行环境检查；准备的目录不能代替真实机器上的安装验证。
 
-回归测试可运行 `python3 tools/test_oneclick_installer.py`。原生 Alpine x86-64 隔离验证使用正式发行包，检查 FJGAC 运行、TCP / UDP DNS 应答、UI 文件读取、更新时文件保留及配置服务安装准备；ARM64 检查安装文件与 ELF 架构，未在 ARM64 设备运行。systemd / OpenRC 启动文件及启停失败回退有自动测试，未切换现网 DNS 服务。详见 [验证记录](validation/oneclick-installer-1.0.0.md)。
+回归测试可运行 `python3 tools/test_oneclick_installer.py`。原生 Alpine x86-64 隔离验证检查 FJGAC 运行、TCP / UDP DNS 应答与 UI 文件读取；ARM64 检查安装文件与 ELF 架构，未在 ARM64 设备运行。systemd / OpenRC 启动文件及启停失败回退有自动测试。当前版本新增共享配置和字体保留检查，见 [本版记录](validation/static-ui-cleanup-2026.10.19.7.md)；最初安装器的验证范围见 [历史记录](validation/oneclick-installer-1.0.0.md)。

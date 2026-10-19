@@ -23,10 +23,11 @@
       Object.values(Chart.instances||{}).forEach(chart=>chart.update('none'));
     }
     sync();
+    window.dispatchEvent(new Event('localdns-font-selection'));
   }
   function save(){
     const status=document.querySelector('#typography-save-status');
-    try{localStorage.setItem(key,JSON.stringify(current));if(status){status.textContent='字体已保存到当前浏览器';status.dataset.state='saved';}}
+    try{localStorage.setItem(key,JSON.stringify(current));if(status){status.textContent='已应用到当前浏览器；导出共享配置后可同步到其他设备。';status.dataset.state='saved';}}
     catch{if(status){status.textContent='字体已预览，但浏览器禁止保存；刷新后将恢复原设置。';status.dataset.state='error';}}
   }
   function registerFonts(fonts){
@@ -66,5 +67,6 @@
     for(const role of Object.keys(defaults))document.querySelector('#font-'+role)?.addEventListener('change',event=>choose({...current,[role]:event.target.value}));
     window.addEventListener('storage',event=>{if(event.key===key)apply(read());});
   }
-  window.LocalDNSTypography={setup,registerFonts,forgetFont};
+  const sharedReady=window.LocalDNSShared.ready.then(config=>{let override=false;try{override=localStorage.getItem(key)!==null;}catch{}if(!override){current=normalize(config.typography);apply(current);const status=document.querySelector('#typography-save-status');if(status)status.textContent='正在使用服务器共享字体设置。';}});
+  window.LocalDNSTypography={setup,registerFonts,forgetFont,sharedReady,getSelection:()=>({...current})};
 })();

@@ -46,6 +46,7 @@
     const radius = panel.querySelector('#slider-radius')?.closest('.bcp-row'); if (radius) geometry.append(radius);
     move('#bcp-group-interface', 'brand');
     move('.bcp-fonts', 'brand');
+    move('.shared-ui-settings','brand');
 
     panel.querySelectorAll('.bcp-row:has(input[type=range])').forEach(row => {
       const label = row.querySelector('label'), slider = row.querySelector('input[type=range]'), value = row.querySelector('strong');

@@ -91,7 +91,6 @@
     {section:'配置', id:'upstreams', label:'DNS管理', icon:'upstream', subtitle:'管理上游 DNS 服务器并查看请求、采纳与错误统计'},
     {section:'配置', id:'rules', label:'规则管理', icon:'rules', subtitle:'统一维护名单、广告拦截与在线分流规则'},
     {section:'配置', id:'management', label:'系统管理', icon:'management', subtitle:'功能开关、缓存与运行数据管理'},
-    {section:'配置', id:'proxy-config', label:'代理配置', icon:'management', subtitle:'编辑本机 Mihomo / sing-box 配置并校验重载'},
   ];
 
   const api = {
@@ -507,12 +506,10 @@
   }
   function navigate(id,write=true,approved=false){
     if(id==='data'||id==='features')id='management';if(!routeDefs.some(x=>x.id===id))id='overview';
-    if(state.route==='proxy-config'&&id==='proxy-config'&&window.LocalDNSProxyConfig?.isDirty())return;
-    if(!approved&&state.route==='proxy-config'&&id!==state.route&&!window.LocalDNSProxyConfig?.canLeave(()=>navigate(id,true,true))){if(location.hash!=='#/proxy-config')history.replaceState(null,'','#/proxy-config');return;}
     if(!approved&&state.route==='rules'&&window.LocalDNSRules?.canLeave(()=>navigate(id,true,true))===false){if(location.hash!=='#/rules')history.replaceState(null,'','#/rules');return;}
     state.route=id;if(write&&location.hash!==`#/${id}`)history.pushState(null,'',`#/${id}`);renderRoute();
   }
-  function updateNav(){ const r=routeDefs.find(x=>x.id===state.route); $('#page-title').textContent=r.label;$('#page-subtitle').textContent=r.subtitle;$$('[data-route]').forEach(x=>x.classList.toggle('active',x.dataset.route===(state.route==='proxy-config'?'management':state.route))); }
+  function updateNav(){ const r=routeDefs.find(x=>x.id===state.route); $('#page-title').textContent=r.label;$('#page-subtitle').textContent=r.subtitle;$$('[data-route]').forEach(x=>x.classList.toggle('active',x.dataset.route===state.route)); }
   function trackRouteCleanup(fn){state.routeUiCleanup.push(fn)}
   function cleanupRouteUi(){
     const list=state.routeUiCleanup.splice(0);
@@ -559,7 +556,6 @@
     setTimeout(()=>{if(pendingScroll===want)pendingScroll=null},1200);
   }
   async function renderRoute(force=false,silent=false,approved=false){
-    if(state.route==='proxy-config'&&!approved&&window.LocalDNSProxyConfig?.canLeave(()=>renderRoute(force,silent,true))===false)return;
     if(state.route==='rules'&&!approved&&window.LocalDNSRules?.canLeave(()=>renderRoute(force,silent,true))===false)return;
     window.LocalDNSInterface?.rememberDraft();
     cleanupRouteUi();
@@ -576,7 +572,7 @@
     updateNav(); clearInterval(state.refreshTimer);
     if(!silent)page.innerHTML=loadingPage();
     try {
-      const fn={overview:renderOverview,logs:renderLogs,upstreams:renderUpstreams,rules:renderRules,management:renderManagement,'proxy-config':renderProxyConfig}[state.route];
+      const fn={overview:renderOverview,logs:renderLogs,upstreams:renderUpstreams,rules:renderRules,management:renderManagement}[state.route];
       await fn(force);
       if(seq!==state.renderSeq)return;
       window.LocalDNSInterface?.apply();
@@ -1739,8 +1735,8 @@
       const button=$('#rule-save'),text=$('#rule-text'),value=text.value,baseline=text.dataset.original;
       button.disabled=true;
       try{
-        await window.LocalDNSRuleBackups.save(tag,value,baseline,()=>api.request(`/plugins/${tag}/show?all=1`),values=>api.json(`/plugins/${tag}/post`,'POST',{values}));
-        window.LocalDNSInterface?.ruleSaved(tag,value);toast(`${profile[1]}已保存，原内容已备份`);
+        await window.LocalDNSRuleSave.save(tag,value,baseline,()=>api.request(`/plugins/${tag}/show?all=1`),values=>api.json(`/plugins/${tag}/post`,'POST',{values}));
+        window.LocalDNSInterface?.ruleSaved(tag,value);toast(`${profile[1]}已保存`);
       }catch(e){toast('保存失败','error',e.message)}finally{if(button.isConnected)button.disabled=false}
     };
     $('#rule-download').onclick=()=>downloadText(`${tag}.txt`,$('#rule-text').value);requestAnimationFrame(fitRuleLayoutHeight);
@@ -1982,12 +1978,6 @@
   ];
 
 
-  async function renderProxyConfig(){
-    const seq=state.renderSeq;
-    const cleanup=await window.LocalDNSProxyConfig.mount(page,{notify:toast,navigate});
-    if(seq!==state.renderSeq)cleanup();else trackRouteCleanup(cleanup);
-  }
-
   async function renderManagement(){
     const renderSeq=state.renderSeq;
     const isCurrent=()=>state.route==='management'&&state.renderSeq===renderSeq;
@@ -2002,7 +1992,6 @@
       <section class="proxy-panel-management" aria-label="代理面板设置">
         <div><h2 data-proxy-panel-name>代理面板</h2><code data-proxy-panel-address></code></div>
         <a class="button small" data-proxy-panel-link target="_blank" rel="noopener noreferrer">打开面板</a>
-        <button type="button" class="button small" data-route="proxy-config">编辑配置</button>
         <button type="button" class="button small" data-proxy-panel-settings>面板设置</button>
       </section>
       <div id="management-cache-slot" style="display:contents">${card('缓存管理',skeletonBlock(130),{iconName:'data',className:'data-cache-panel'})}</div>
@@ -2101,5 +2090,5 @@
   window.LocalDNSWorkspace.setup({state,apiBase:API_BASE,loadLogs:options=>api.logs(options),navigate,renderRoute,modalOpen,openDrawer,closeDrawer,downloadText,toast,ms,pct,fmtDate,groupName,trackRouteCleanup});
   window.LocalDNSCollections.setup({apiBase:API_BASE,toast});
   window.addEventListener('localdns:collectionlayoutchange',closeUpstreamErrorPopover);
-  initShell(); CONFIG.refreshInterval=Math.min(300,Math.max(5,Number(CONFIG.refreshInterval)||30)); window.LocalDNSInterface?.setup({apiBase:API_BASE,refreshInterval:CONFIG.refreshInterval}); loadAliases().catch(()=>{}); navigate(location.hash.replace(/^#\/?/,'')||'overview',false);
+  window.LocalDNSShared.ready.then(()=>{initShell(); CONFIG.refreshInterval=Math.min(300,Math.max(5,Number(CONFIG.refreshInterval)||30)); window.LocalDNSInterface?.setup({apiBase:API_BASE,refreshInterval:CONFIG.refreshInterval}); loadAliases().catch(()=>{}); navigate(location.hash.replace(/^#\/?/,'')||'overview',false);});
 })();

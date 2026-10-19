@@ -59,13 +59,6 @@
 .workspace-rank-table .workspace-text-button,.overview-slow-domain button { display:block; width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .workspace-rank-table td .workspace-subline { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .overview-slow-mobile-meta { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-.pc-filename>div { min-width:0; }
-.pc-filename strong { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-.pc-format { flex:none; font-size:11px; }
-.pc-path { width:100%; min-width:0; }
-.pc-path span { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; min-width:0; }
-.pc-path svg { flex:none; }
-.pc-footnote,.pc-statusbar,.pc-result-hint { font-size:11px; }
 .service-connection,.service-build { font-size:11px; }
 .console-brand-status { display:none; }
 
@@ -133,12 +126,6 @@ html[data-skin=claude]:not([data-theme=light-glass]) .overview-cache-pool[data-p
   .proxy-launcher { width:88px; min-height:44px; }
   .proxy-launcher button { min-width:44px; min-height:44px; }
   .version-button { min-width:44px!important; width:44px!important; }
-  .pc-filebar { padding:16px; gap:12px; }
-  .pc-editor-tools { flex-basis:100%; justify-content:flex-end; }
-  .pc-editor-tools .icon-button,.pc-editor-tools .button { min-width:44px; min-height:44px; }
-  .pc-filename { flex-basis:calc(100% - 40px); }
-  .pc-path { min-height:44px; font-size:12px; }
-  .pc-footnote { font-size:11px; }
 
   .workspace-log-extras>summary { display:flex; align-items:center; min-height:44px; font-size:12px; color:var(--text-2); cursor:pointer; }
   .workspace-log-extras:not([open])>*:not(summary) { display:none; }

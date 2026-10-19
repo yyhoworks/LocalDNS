@@ -122,10 +122,16 @@ def main():
     common = {name: (ROOT / name).read_bytes() for name in
               ['AUTHORS.md', 'THIRD_PARTY_NOTICES.md', 'INSTALL.md', 'CHANGELOG.md']}
     common['README.md'] = common['INSTALL.md']
+    common['configure-ui.py'] = (ROOT / 'tools/configure_ui.py').read_bytes()
     common['VERSION.txt'] = f"LocalDNS UI {version['uiVersion']}\nBackend {version['backendVersion']}\n".encode()
     for file in (ROOT / 'docs/licenses').rglob('*'):
         if file.is_file():
             common[file.relative_to(ROOT).as_posix()] = file.read_bytes()
+    for name in ['docs/SHARED_UI.md', 'docs/ONECLICK.md',
+                 'docs/validation/oneclick-installer-1.0.0.md',
+                 'docs/validation/static-ui-2026.10.19.6.md',
+                 'docs/validation/static-ui-cleanup-2026.10.19.7.md']:
+        common[name] = (ROOT / name).read_bytes()
     release_tag = version.get('releaseTag', f"ui-v{version['uiVersion']}")
     if not re.fullmatch(r'[A-Za-z0-9._-]+', release_tag):
         raise ValueError('Invalid release tag')
@@ -136,6 +142,7 @@ def main():
     update['THIRD_PARTY_NOTICES.md'] = common['THIRD_PARTY_NOTICES.md'].replace(b'%5Fsrc/ui/', b'ui/').replace(b'_src/ui/', b'ui/')
     update.update({'ui/' + name: data for name, data in ui.items()})
     update['install-ui.sh'] = (ROOT / 'tools/install-ui.sh').read_bytes()
+    update['configure-ui.py'] = (ROOT / 'tools/configure_ui.py').read_bytes()
     update['release.json'] = json_bytes(dict(version, packageType='ui-update'))
     packages = [(f"LocalDNS_UI_{version['uiVersion']}_Update.zip", update, {})]
 
@@ -190,6 +197,8 @@ def main():
         full.update(common)
         full['THIRD_PARTY_NOTICES.md'] = common['THIRD_PARTY_NOTICES.md'].replace(b'%5Fsrc/ui/', b'localdns/ui/').replace(b'_src/ui/', b'localdns/ui/')
         full.update({'localdns/ui/' + name: data for name, data in ui.items()})
+        full['localdns/bin/configure-ui.py'] = (ROOT / 'tools/configure_ui.py').read_bytes()
+        modes['localdns/bin/configure-ui.py'] = 0o100755
         full['localdns/UI-VERSION'] = (version['uiVersion'] + '\n').encode()
         full['release.json'] = json_bytes(dict(
             version, packageType='full', baseArchive=args.full_base.name,
@@ -199,7 +208,7 @@ def main():
             uiFiles={name: sha(data) for name, data in ui.items()}, **kernel_metadata))
         for name, data in base.items():
             protected = ((name.startswith('localdns/') or re.match(r'LocalDNS_[A-Z0-9]+_Binaries/', name))
-                         and not name.startswith('localdns/ui/') and name != 'localdns/UI-VERSION')
+                         and not name.startswith('localdns/ui/') and name not in ('localdns/UI-VERSION','localdns/bin/configure-ui.py'))
             if args.kernel_archive and (name == 'localdns/bin/localdns' or re.match(r'LocalDNS_[A-Z0-9]+_Binaries/', name)):
                 protected = False
             if (protected or name == 'localdns.service') and full[name] != data:

@@ -6,19 +6,19 @@
 
 **DNS 核心主要由折腾日记交流群里的 R 大使用 Rust 编写；[yyhoworks](https://github.com/yyhoworks) 负责 UI 设计。**
 
-当前版本：**[后端 FJGAC / UI 2026.10.19.5](https://github.com/yyhoworks/LocalDNS/releases/tag/fjgac-ui-v2026.10.19.5)**，提供完整包、UI 升级包、配置服务包和 SHA-256 校验文件，见 [本次更新说明](docs/releases/fjgac-ui-v2026.10.19.5.md)。
+当前版本：**[后端 FJGAC / UI 2026.10.19.7](https://github.com/yyhoworks/LocalDNS/releases/tag/fjgac-ui-v2026.10.19.7)**，提供完整包、UI 升级包、SHA-256 校验文件，见 [本次更新说明](docs/releases/fjgac-ui-v2026.10.19.7.md)。
 
-本次完善查询处理结果、慢查询与缓存状态展示，新增三栏外观面板和 GitHub 版本检查，并统一桌面 / 手机的间距、对齐与可读性。内核继续使用 FJGAC；保留名单工作台、服务器备份、代理配置编辑、双皮肤与单张壁纸设置。
+本次合并静态共享配置与清理工作：名称、Logo、字体及字体选择可通过服务器静态目录跨设备共享；代理入口自动读取面板图标；移除 9098 配置服务、代理配置编辑器和配套安装包。DNS 核心继续使用 FJGAC。
 
 [产品图集](docs/SCREENSHOTS.md) · [功能指南](docs/FEATURES.md) · [安装说明](INSTALL.md) · [下载 Releases](https://github.com/yyhoworks/LocalDNS/releases) · [作者与分工](AUTHORS.md) · [开发说明](docs/DEVELOPMENT.md) · [近期更新](CHANGELOG.md)
 
-此前已合入 clone-fan 的 [PR #3](https://github.com/yyhoworks/LocalDNS/pull/3)，增加两款皮肤共用的「清单工作台」、列表 / 原文切换与服务器名单备份；同时收录 sing-box 分片支持、7 天服务器采样及共享名称 / Logo。
+此前已合入 clone-fan 的 [PR #3](https://github.com/yyhoworks/LocalDNS/pull/3)，增加两款皮肤共用的「清单工作台」、列表 / 原文切换与服务器名单备份；共享名称与 Logo 现改用静态文件；旧版代理配置编辑与服务器采样可查阅历史 Release。
 
-## 代理面板与本机配置编辑
+## 名称、Logo、字体与代理面板
 
-顶栏使用所选核心的 Logo，点击打开自定义面板地址。在「系统管理 → 编辑配置」中管理与 LocalDNS 同机的 Mihomo YAML / sing-box JSON，支持查找、折叠、修改对比、原生校验、备份和重载。
+名称、Logo、字体文件和字体选择保存在服务器 `ui/custom/` 静态目录，其他设备刷新后读取。网页修改先在本机预览，再导出配置包，通过 `configure-ui.py` 导入服务器。详见 [共享配置指南](docs/SHARED_UI.md)。
 
-配置编辑、名单保存备份、共享名称 / Logo 与服务器采样需要安装或升级 Release 附带的 `LocalDNS_ProxyConfig_UI_2026.10.19.5_Service.zip`。UI 升级包只更新界面；独立服务自动选择 Linux amd64 / arm64，支持 OpenRC / systemd。详情见 [安装说明](INSTALL.md) 与 [服务说明](services/proxy-config/README.md)。文件操作限制在管理员指定的目录；保存并重载针对当前启动配置。
+代理入口根据面板地址自动读取网站图标，点击在新标签页打开实际面板。当前版本不需要 9098 服务。名单直接保存到 DNS 核心，吞吐图显示当前浏览器会话内的真实采样；关闭页面后不再采样。
 
 ## 作者与分工
 
@@ -36,7 +36,7 @@
 
 **集中查看 DNS 运行情况。** 服务状态与六项关键指标、查询吞吐趋势、分流占比、解析路径、请求排行和多级缓存状态集中展示。解析路径节点可点击查看详情，连线用于说明解析关系。
 
-「外观 → 导航布局」可切换垂直侧栏与居中水平导航；垂直侧栏可折叠，手机保留底部导航。双皮肤、字体与壁纸设置独立保留。界面采用可调整透明度与模糊度的玻璃材质，搭配随滚动收拢的浮动顶部导航、Noto Serif SC 宋体风格标题与 Instrument Serif 衬线数字。字体随项目本地提供，可在「外观 → 字体与阅读」分别选择标题、数字与正文的字体。
+「外观 → 材质与布局」可切换垂直侧栏与居中水平导航；垂直侧栏可折叠，手机保留底部导航。双皮肤、字体与壁纸设置独立保留。界面采用可调整透明度与模糊度的玻璃材质，搭配随滚动收拢的浮动顶部导航、Noto Serif SC 宋体风格标题与 Instrument Serif 衬线数字。字体随项目本地提供，可在「外观 → 品牌与字体」分别选择标题、数字与正文的字体。
 
 > 以下截图保留作历史界面参考，具体版本见 [产品图集](docs/SCREENSHOTS.md)。当前版本保留五列解析拓扑与可关闭的流光示意，并增加分支 / 节点锁定；单次请求详情仅组织该请求实际记录的字段。域名、客户端、订阅地址等使用脱敏或示例数据；图中数值不代表性能测试结果。
 
@@ -59,7 +59,7 @@
 
 ![字体组合与独立字体选择](docs/images/font-settings.jpg)
 
-可分别选择标题、指标数字和界面文字的字体。支持上传合法取得的 TTF / OTF / WOFF / WOFF2 字体并分别分配用途；文件和偏好只保存在当前浏览器，不上传服务器。域名、IP 与日志继续使用等宽字体。
+在「外观 → 品牌与字体」分别选择标题、指标数字和界面文字的字体。支持上传合法取得的 TTF / OTF / WOFF / WOFF2 字体并分配用途；网页修改先保存在当前浏览器，再通过导出配置包和服务器脚本共享。域名、IP 与日志继续使用等宽字体。
 
 ### 日志、上游与规则管理
 
@@ -126,9 +126,9 @@
 
 两行侧栏状态文字分别居中；输入与导航使用柔白细边，键盘操作保留清楚的单层焦点提示。
 
-壁纸、字体与外观保存在当前浏览器，不会同步到其他设备。较大的本地图片使用 IndexedDB 保存；面板会提示保存结果，在线图片地址在刷新后自动回填。
+壁纸、主题与玻璃参数保存在当前浏览器。较大的本地图片使用 IndexedDB 保存；面板会提示保存结果，在线图片地址在刷新后自动回填。名称、Logo、字体及其用途可导入服务器，作为跨设备共享默认值；已有本机覆盖时可点击「跟随服务器」。
 
-查询趋势使用当前浏览器会话的真实采样，提供 15 / 30 分钟视图；至少积累三次采样后绘图，最多保留 240 个采样点、最长两小时，不作为服务器历史报表。
+查询趋势使用当前浏览器会话的真实采样，提供 15 / 30 / 60 / 120 分钟视图；至少积累三次采样后绘图，保留最长两小时的采样，不作为服务器历史报表。
 
 ## 一键安装（Linux）
 
@@ -138,7 +138,7 @@
 curl -fsSL https://raw.githubusercontent.com/yyhoworks/LocalDNS/main/tools/install.sh -o localdns-install.sh && sh localdns-install.sh
 ```
 
-- **首次安装**：自动识别 x86-64 / ARM64，下载最新正式版，校验文件，安装 DNS、Web UI 与配套配置服务，设置开机启动。
+- **首次安装**：自动识别 x86-64 / ARM64，下载最新正式版，校验文件，安装 DNS 和 Web UI，设置开机启动。
 - **已有安装**：再次执行默认只更新 UI，备份原界面，保留内核、DNS 配置、规则及站点 API 设置，无需重启 DNS。
 - 默认目录 `/opt/localdns`，DNS 端口 `53`，管理页 `http://服务器IP:9099/ui/`；端口冲突时停止并提示。
 
@@ -146,7 +146,7 @@ curl -fsSL https://raw.githubusercontent.com/yyhoworks/LocalDNS/main/tools/insta
 
 ## 手动安装
 
-1. 在 [Releases](https://github.com/yyhoworks/LocalDNS/releases/tag/fjgac-ui-v2026.10.19.5) 下载完整包或 UI 升级包，并核对同页的 `SHA256SUMS.txt`。**升级 FJGAC 内核必须从完整包选择对应架构的程序；UI 升级包不含内核。**
+1. 在 [Releases](https://github.com/yyhoworks/LocalDNS/releases/tag/fjgac-ui-v2026.10.19.7) 下载完整包或 UI 升级包，并核对同页的 `SHA256SUMS.txt`。**升级 FJGAC 内核必须从完整包选择对应架构的程序；UI 升级包不含内核。**
 2. 已有 LocalDNS 服务时，解压 UI 升级包并运行：
 
    ```sh
@@ -162,14 +162,13 @@ curl -fsSL https://raw.githubusercontent.com/yyhoworks/LocalDNS/main/tools/insta
 ```text
 _src/ui/              当前 Web 界面源码、本地字体与 Logo
 tools/                UI / 服务打包、验证与更新脚本
-services/proxy-config/ 本机代理配置管理服务与安装器
 docs/                 开发、验证与第三方说明
 AUTHORS.md            作者署名与分工
 INSTALL.md            安装、更新与回退
 VERSION.json          UI 与后端版号
 ```
 
-安装 ZIP 和后端预编译程序放在 Releases。部署凭据、设备配置、运行日志、临时截图和历史工作文件不进入 Git。
+安装 ZIP 和后端预编译程序放在 Releases。旧版 9098 服务源码保留在 Git 历史与旧 Release 中。部署凭据、设备配置、运行日志、临时截图和历史工作文件不进入 Git。
 
 **当前仓库包含 UI 源码；当前工作目录未提供 Rust DNS 核心源码，DNS 核心通过 FJGAC 预编译发行包提供。**
 

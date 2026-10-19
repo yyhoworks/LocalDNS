@@ -13,9 +13,6 @@
 !/_src/ui/
 !/docs/
 !/tools/
-!/services/
-/services/*
-!/services/proxy-config/
 
 __pycache__/
 *.pyc

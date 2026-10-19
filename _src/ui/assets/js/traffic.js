@@ -61,11 +61,11 @@
     return `<svg class="console-chart traffic-chart" viewBox="0 0 ${w} ${h}" role="img" aria-label="DNS 查询吞吐量，${time(first,true)} 至 ${time(last,true)}，单位 QPS"><title>每秒 DNS 请求数；断采区间不连线</title>${grids}${paths}${ticks.map((t,i)=>`<text x="${left+(t-first)/span*(w-left-right)}" y="${h-7}" text-anchor="${i===0?'start':i===ticks.length-1?'end':'middle'}">${time(t,span>=43200000)}</text>`).join('')}</svg>`;
   }
   function render(container, series, minutes, now = Date.now(), state = {}) {
-    const s = summary(series, minutes, now);
+    const s=summary(series,minutes,now);
     const metric = (label, value, unit) => `<div><dt>${label}</dt><dd>${value}<small>${unit}</small></dd></div>`;
     container.innerHTML = `<dl class="traffic-summary">${metric('最近采样',rate(Object.hasOwn(state,'current')?state.current:s.current),'QPS')}${metric('区间均值',rate(s.average),'QPS')}${metric('区间峰值',rate(s.peak),'QPS')}${metric('区间请求',s.samples?s.requests.toLocaleString('zh-CN'):'—','次')}</dl>` +
-      (s.samples ? chart(s.points, container.clientWidth) : `<div class="console-chart-empty">${state.loading?'正在读取服务器采样记录…':'服务器正在建立采样基线，约 5 秒后显示吞吐量'}<br>尚未采集的时段不补零</div>`) +
-      `<div class="traffic-caption"><span>${s.stale?'采样暂时中断，服务器正在自动重试':s.samples?`已采样 ${rate(s.seconds)} 秒 · 最近间隔 ${rate(s.interval)} 秒`:'服务器每 5 秒采样 · 至少需要两次采样'}</span><span>服务器保留 7 天 · 当前 ${({60:'1 小时',360:'6 小时',1440:'1 天',4320:'3 天',10080:'7 天'})[minutes]||minutes+' 分钟'}</span></div>`;
+      (s.samples ? chart(s.points, container.clientWidth) : `<div class="console-chart-empty">正在建立当前会话采样基线，约 5 秒后显示吞吐量<br>尚未采集的时段不补零</div>`) +
+      `<div class="traffic-caption"><span>${s.stale?'采样暂时中断，正在自动重试':s.samples?`已采样 ${rate(s.seconds)} 秒 · 最近间隔 ${rate(s.interval)} 秒`:'当前页面每 5 秒采样 · 至少需要两次采样'}</span><span>仅当前会话 · 最多 2 小时 · 当前 ${({15:'15 分钟',30:'30 分钟',60:'1 小时',120:'2 小时'})[minutes]||minutes+' 分钟'}</span></div>`;
     if(state.error){const error=document.createElement('div');error.className='traffic-read-error';error.setAttribute('role','status');const message=document.createElement('span');message.textContent=state.error;const retry=document.createElement('button');retry.type='button';retry.className='button small';retry.dataset.trafficRetry='';retry.textContent='重新读取';error.append(message,retry);container.append(error);}
   }
   window.LocalDNSTraffic = {record, summary, chart, render};

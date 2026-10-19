@@ -51,9 +51,6 @@ class InstallerTests(unittest.TestCase):
             self.payload['LocalDNS_FJGAC_Binaries/localdns-' + arch] = elf(machine)
         self.archive('Full', self.payload, 'full')
         self.archive('Update', {'ui/' + k: v for k, v in self.ui.items()}, 'ui-update')
-        service = {'config.example.json': json_bytes({'listen': '127.0.0.1:9098', 'cores': {},
-                   'metricsURL': 'http://127.0.0.1:9099/metrics'}), 'install-proxy-config.sh': b'#!/bin/sh\nexit 0\n'}
-        self.archive('Service', service, 'proxy-config-service')
         self.refresh_sums()
 
     def tearDown(self):
@@ -72,9 +69,8 @@ class InstallerTests(unittest.TestCase):
 
     def install(self, *arguments):
         with contextlib.redirect_stdout(io.StringIO()):
-            service = [] if '--with-service' in arguments else ['--without-service']
             return installer.main(['--stage-root', str(self.stage), '--package-dir', str(self.packages),
-                                   '--origin', 'http://192.0.2.2:19099', *service, *arguments])
+                                   '--origin', 'http://192.0.2.2:19099', *arguments])
 
     def test_fresh_staging_selects_architecture_and_writes_units_and_ports(self):
         self.assertEqual(self.install('--arch', 'arm64', '--dns-port', '19553', '--http-port', '19099'), 0)
@@ -96,8 +92,14 @@ class InstallerTests(unittest.TestCase):
         self.install('--arch', 'amd64-v1')
         site = self.root / 'ui/config.js'
         site.write_bytes(b'private site API settings\n')
+        shared = self.root / 'ui/custom/settings.json'
+        shared.parent.mkdir()
+        shared.write_bytes(b'{"version":1,"name":"shared"}\n')
+        font = shared.parent / 'fonts/keep.woff2'
+        font.parent.mkdir()
+        font.write_bytes(b'private font bytes')
         (self.root / 'bin/localdns').write_bytes(b'existing kernel')
-        protected = {p: p.read_bytes() for p in [site, self.root / 'bin/localdns',
+        protected = {p: p.read_bytes() for p in [site, shared, font, self.root / 'bin/localdns',
                      self.root / 'config/localdns.json', self.root / 'rules/manual/whitelist.txt']}
         self.install('--arch', 'amd64-v1')
         for path, data in protected.items():
@@ -122,13 +124,6 @@ class InstallerTests(unittest.TestCase):
         self.assertFalse(self.root.exists())
         self.assertFalse(list(self.root.parent.glob('.localdns-work-*')))
 
-    def test_bad_service_package_prevents_dns_installation(self):
-        archive = next(self.packages.glob('*_Service.zip'))
-        archive.write_bytes(b'broken')
-        with self.assertRaisesRegex(installer.InstallError, 'SHA-256'):
-            self.install('--with-service', '--arch', 'amd64-v1')
-        self.assertFalse(self.root.exists())
-
     def test_nonempty_unrecognized_target_is_preserved(self):
         self.root.mkdir(parents=True)
         (self.root / 'important').write_text('keep')
@@ -152,11 +147,6 @@ class InstallerTests(unittest.TestCase):
         self.assertEqual(installer.origin('https://example.com:443', 9099), 'https://example.com')
         with self.assertRaises(installer.InstallError):
             installer.choose_arch('armv7l')
-
-    def test_service_port_cannot_be_used_by_new_dns_listener(self):
-        with self.assertRaisesRegex(installer.InstallError, 'DNS 端口不能'):
-            self.install('--with-service', '--arch', 'amd64-v1', '--dns-port', '9098')
-        self.assertFalse(self.root.exists())
 
     def test_ui_failure_restores_previous_directory(self):
         self.install('--arch', 'amd64-v1')
@@ -206,28 +196,6 @@ class InstallerTests(unittest.TestCase):
             stream.listen()
             with self.assertRaisesRegex(installer.InstallError, '端口已占用'):
                 installer.check_ports(stream.getsockname()[1], stream.getsockname()[1])
-
-    def test_service_config_and_hooks_are_preserved(self):
-        out = self.base / 'service'
-        installer.extract_verified(next(self.packages.glob('*_Service.zip')), out)
-        config = self.stage / 'etc/localdns-proxy-config.json'
-        config.parent.mkdir(parents=True)
-        original = b'{"cores":{"mihomo":{"postReload":["/keep/hook"]}}}\n'
-        config.write_bytes(original)
-        with patch.object(installer, 'run') as run, contextlib.redirect_stdout(io.StringIO()):
-            installer.install_service(out, 'http://192.0.2.4:19099', 19099, 'amd64-v1', self.stage)
-        self.assertEqual(config.read_bytes(), original)
-        self.assertEqual(run.call_args.kwargs['env']['DESTDIR'], str(self.stage))
-
-    def test_new_service_config_uses_requested_ui_origin_and_port(self):
-        out = self.base / 'service'
-        installer.extract_verified(next(self.packages.glob('*_Service.zip')), out)
-        with patch.object(installer, 'run'), contextlib.redirect_stdout(io.StringIO()):
-            installer.install_service(out, 'http://192.0.2.4:19099', 19099, 'arm64', self.stage)
-        config = json.loads((self.stage / 'etc/localdns-proxy-config.json').read_text())
-        self.assertEqual(config['origins'], ['http://192.0.2.4:19099'])
-        self.assertEqual(config['metricsURL'], 'http://127.0.0.1:19099/metrics')
-        self.assertEqual(config['listen'], '0.0.0.0:9098')
 
     def test_unsafe_and_unlisted_zip_entries_are_rejected(self):
         for name, mode in [('../outside', 0o100644), ('/absolute', 0o100644),

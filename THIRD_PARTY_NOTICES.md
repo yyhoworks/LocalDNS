@@ -13,16 +13,8 @@
 
 以上组件及其作者保留各自版权。项目 DNS 核心与界面作者见 [AUTHORS.md](AUTHORS.md)。
 
-## 代理面板标识
+## 外部面板图标
 
-- Mihomo Logo：来自 [MetaCubeX/mihomo 官方仓库](https://raw.githubusercontent.com/MetaCubeX/mihomo/Meta/Meta.png)，原文件保存在 `_src/ui/assets/img/mihomo.png`，SHA-256 为 `0dc1c7df03c02ac34ea60b7b169020648abdc6e199627c2e1276d337249289c8`。
-- sing-box Logo：来自 [sing-box 官方网站](https://sing-box.sagernet.org/assets/icon.svg)，原文件保存在 `_src/ui/assets/img/sing-box.svg`，SHA-256 为 `e59b482bb4793e5f7c8d1e347c42e035babeb40ccea91748788d1da4e32c574b`。
+代理入口直接加载用户配置的面板站点图标，不再随安装包分发 Mihomo / sing-box 标识。图标与商标权利归对应项目及权利人所有。
 
-标识仅用于辨认用户选择的外部面板，作品和商标权利归各自项目及权利人所有；不表示本项目与上述项目存在隶属或背书关系。
-
-
-## 配置编辑器与管理服务
-
-前端使用 CodeMirror 6（MIT）、Lezer（MIT）与 yaml 2（ISC），锁定依赖见 `tools/proxy-config-ui/package-lock.json`；bundle 中实际使用组件的许可汇总位于 `_src/ui/assets/licenses/proxy-config-editor.txt`。esbuild 用于构建，不作为运行时服务。
-
-独立 Go 服务使用 Go 运行时（BSD 3-Clause）与 gopkg.in/yaml.v3（MIT / Apache 2.0，见上游许可）；版本和校验见 `services/proxy-config/go.mod` 与 `go.sum`。部署目录包含对应许可文本。2026.10.18.14 已移除 SSH 认证及 x/crypto / x/sys 依赖。
+配置编辑器与独立 Go 服务已从当前版本移除，其历史源码与许可可查阅 [UI 2026.10.19.5](https://github.com/yyhoworks/LocalDNS/tree/fjgac-ui-v2026.10.19.5)。

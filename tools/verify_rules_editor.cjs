@@ -106,7 +106,7 @@ const output=path.resolve(__dirname,'../dist/rules-editor-verification');fs.mkdi
 
   await fresh();
   for(const [skin,nav,width,height] of [['claude','left',1440,900],['glass','top',1440,900],['claude','left',390,568],['glass','top',390,568]]){
-   await page.setViewportSize({width,height});await page.locator('#btn-open-bg-customizer').click();await page.locator(`[data-skin-select="${skin}"]`).click();await page.locator(`[data-navigation-layout="${nav}"]`).click();await page.locator('#btn-close-bg-popover').click();
+   await page.setViewportSize({width,height});await page.locator('#btn-open-bg-customizer').click();await page.locator('[data-appearance-tab=theme]').click();await page.locator(`[data-skin-select="${skin}"]`).click();await page.locator('[data-appearance-tab=material]').click();await page.locator(`[data-navigation-layout="${nav}"]`).click();await page.locator('#btn-close-bg-popover').click();
    await value('example.com').click();await page.locator('#rv-type [data-t="regexp"]').click();await page.locator('#rv-value').fill('^'+('long-label'.repeat(30))+'\\.example\\.com$');await page.locator('#rv-cancel').click();
    await page.evaluate(()=>document.fonts.ready);
    const bounds=await page.locator('#rv-ok').boundingBox();assert(bounds.y>=0&&bounds.y+bounds.height<=height+1);assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1));

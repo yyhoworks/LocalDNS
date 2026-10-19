@@ -18,6 +18,14 @@ STAGE="$INSTALL_DIR/.ui-stage-$UI_VERSION-$STAMP-$$"
 PREVIOUS="$INSTALL_DIR/ui.previous-$UI_VERSION-$STAMP-$$"
 tar -C "$INSTALL_DIR" -czf "$BACKUP" ui
 cp -a "$PACKAGE_DIR/ui" "$STAGE"
+if [ -f "$INSTALL_DIR/ui/config.js" ]; then cp -p "$INSTALL_DIR/ui/config.js" "$STAGE/config.js"; fi
+if [ -e "$INSTALL_DIR/ui/custom" ]; then
+  [ -d "$INSTALL_DIR/ui/custom" ] && [ ! -L "$INSTALL_DIR/ui/custom" ] || { echo '共享配置目录无效'; exit 1; }
+  [ -z "$(find "$INSTALL_DIR/ui/custom" -type l -print)" ] || { echo '共享配置目录包含符号链接'; exit 1; }
+  # This is the exact freshly copied staging directory created above.
+  if [ -d "$STAGE/custom" ]; then rm -r "$STAGE/custom"; fi
+  cp -a "$INSTALL_DIR/ui/custom" "$STAGE/custom"
+fi
 ROLLBACK=0
 restore_ui() {
   if [ "$ROLLBACK" = 1 ] && [ ! -e "$INSTALL_DIR/ui" ] && [ -d "$PREVIOUS" ]; then

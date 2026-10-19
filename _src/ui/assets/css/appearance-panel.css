@@ -1,4 +1,13 @@
 /* A + C: three sections with inline controls, using the active skin. */
+.appearance-panel .shared-ui-settings{display:flex;flex-direction:column;gap:10px;border-top:1px solid var(--border-glass);padding-top:12px;min-width:0}
+.appearance-panel .shared-ui-settings h3{margin:0;font:500 12px/1.5 var(--font-sans);color:var(--text-1)}
+.shared-ui-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.shared-ui-actions button{min-height:36px;white-space:nowrap}
+.shared-ui-settings code{display:block;white-space:normal;overflow-wrap:anywhere;font:11px/1.7 var(--font-mono);color:var(--text-1)}
+.proxy-panel-popover .identity-preview{gap:10px;color:var(--text-2);font-size:12px;line-height:1.6}
+@media(max-width:600px){.shared-ui-actions button,.appearance-panel .identity-actions button{min-height:44px!important}}
+@media(max-width:600px){.appearance-panel .appearance-tab,.appearance-panel .bcp-title>.glass-btn,.appearance-panel .bcp-input,.appearance-panel .font-setting select,.appearance-panel #btn-font-upload,.appearance-panel .identity-upload,.appearance-panel summary{min-height:44px!important}.appearance-panel summary{line-height:44px}.appearance-panel .bcp-input,.appearance-panel .font-setting select{height:44px}.proxy-panel-popover input,.proxy-panel-popover .button,.proxy-panel-popover button{min-height:44px}.proxy-panel-heading .icon-button{min-width:44px}}
+.appearance-panel .bcp-save-status,.appearance-panel .font-note,.appearance-panel .identity-note,.appearance-panel .appearance-font-help,.shared-ui-settings code{font-size:12px}
 body>.appearance-panel{box-sizing:border-box;width:392px;max-width:calc(100vw - 24px);padding:16px;gap:12px;max-height:calc(100dvh - 104px);overflow:hidden;border-radius:16px}
 .appearance-panel .bcp-title{gap:12px;flex-shrink:0;font-size:13px;line-height:1.5}
 .appearance-panel .bcp-title>.glass-btn{flex-shrink:0;min-height:32px;padding:4px 10px;font-size:12px}

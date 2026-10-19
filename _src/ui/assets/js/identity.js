@@ -11,6 +11,7 @@
   function logo(value) {
     const text = String(value ?? '').trim();
     if (!text) return '';
+    if (text.startsWith('custom/assets/')) return window.LocalDNSShared.asset(text);
     if (/^data:image\/(png|jpeg|webp|gif);base64,[a-z0-9+/=]+$/i.test(text) && text.length <= 500000) return text;
     if (text.length > 4096) throw new Error('Logo 地址过长，请上传图片。');
     let url;
@@ -42,27 +43,13 @@
     if (element.getAttribute('src') !== source) element.src = source;
     element.onerror = () => { element.onerror = null; element.src = fallback; };
   }
-  async function settingsRequest(section, body) {
-    const service=new URL(window.LOCALDNS_UI_CONFIG?.proxyConfigBase||location.origin);
-    if(!window.LOCALDNS_UI_CONFIG?.proxyConfigBase)service.port='9098';
-    service.pathname='/api/proxy-config/interface/'+section;service.hash='';service.search='';
-    const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),12000);
-    try{
-      const response=await fetch(service,{method:body===undefined?'GET':'POST',credentials:'omit',cache:'no-store',signal:controller.signal,headers:body===undefined?{}:{'Content-Type':'application/json'},body:body===undefined?undefined:JSON.stringify(body)});
-      const result=await response.json();if(!response.ok)throw Object.assign(new Error(result.error||'服务器未保存设置。'),{status:response.status});return result;
-    }catch(error){if(error.name==='AbortError'||error instanceof TypeError)throw new Error('无法连接界面设置服务，请检查服务后重新读取。');throw error;}
-    finally{clearTimeout(timer);}
+  async function loadSection(section) {
+    return {value:await window.LocalDNSShared.section(section),revision:'browser'};
   }
-  async function loadSection(section, legacy, legacyKey) {
-    let result=await settingsRequest(section);
-    if(result.value===null&&legacy){
-      try{result=await settingsRequest(section,{value:legacy,revision:result.revision});}
-      catch(error){if(error.status!==409)throw error;result=await settingsRequest(section);}
-    }
-    if(result.value!==null&&legacyKey)try{localStorage.removeItem(legacyKey);}catch{}
-    return result;
+  async function saveSection(section,value) {
+    window.LocalDNSShared.save(section,value);
+    return {value,revision:'browser',saved:true};
   }
-  const saveSection=(section,value,revision)=>settingsRequest(section,{value,revision});
   const defaults = {name:'LocalDNS', logo:''};
   function read() {
     try { const value = JSON.parse(localStorage.getItem(key)); return {name:name(value?.name, defaults.name), logo:logo(value?.logo)}; }
@@ -97,8 +84,8 @@
     const enable=value=>{for(const item of [field,url,file,saveButton,resetButton])item.disabled=!value;};
     let legacy=null;try{const raw=JSON.parse(localStorage.getItem(key)||'null');if(raw)legacy={name:name(raw.name,defaults.name),logo:logo(raw.logo)};}catch{}
     async function refresh(){
-      enable(false);show('正在读取服务器设置…');retryButton.hidden=true;
-      try{const result=await loadSection('localdns',legacy,key);current=result.value?{name:name(result.value.name,defaults.name),logo:logo(result.value.logo)}:{...defaults};revision=result.revision;ready=true;apply();syncFields();show('已从服务器读取，其他设备刷新后同步。');}
+      enable(false);show('正在读取共享配置…');retryButton.hidden=true;
+      try{const result=await loadSection('localdns',legacy,key);current=result.value?{name:name(result.value.name,defaults.name),logo:logo(result.value.logo)}:{...defaults};revision=result.revision;ready=true;apply();syncFields();show(window.LocalDNSShared.hasOverride('localdns')?'正在使用本机设置；导出后可共享到其他设备。':'正在跟随服务器共享配置。');}
       catch(error){ready=false;show(error.message,true);retryButton.hidden=false;}finally{enable(ready);}
     }
     syncFields(); apply();refresh();retryButton.onclick=refresh;
@@ -111,15 +98,15 @@
     saveButton.onclick=async()=>{
       if(!ready)return;
       if(loading){show('Logo 正在读取，请稍候。');return;}enable(false);const version=generation;
-      try { const next={name:name(field.value,defaults.name),logo:logo(uploaded||url.value)};if(next.logo)await image(next.logo);if(version!==generation)return;const result=await saveSection('localdns',next,revision);current=result.value;revision=result.revision;apply();syncFields();show('名称与 Logo 已保存到服务器，其他设备刷新后同步。'); }
+      try { const next={name:name(field.value,defaults.name),logo:logo(uploaded||url.value)};if(next.logo)await image(next.logo);if(version!==generation)return;const result=await saveSection('localdns',next,revision);current=result.value;revision=result.revision;apply();syncFields();show('已应用到当前浏览器；点击下方“导出共享配置”同步到服务器。'); }
       catch(error){show(error.message,true);retryButton.hidden=false;}finally{enable(ready);}
     };
     resetButton.onclick=async()=>{
       if(!ready)return;enable(false);++generation;loading=false;
-      try {const result=await saveSection('localdns',{...defaults},revision);current=result.value;revision=result.revision;apply();syncFields();show('默认名称与 Logo 已保存到服务器。');}
+      try {const result=await saveSection('localdns',{...defaults},revision);current=result.value;revision=result.revision;apply();syncFields();show('默认名称与 Logo 已应用到当前浏览器。');}
       catch(error){show(error.message,true);retryButton.hidden=false;}finally{enable(ready);}
     };
   }
-  window.LocalDNSIdentity={apply,name,logo,upload,image,setImage,defaultProxyLogo,loadSection,saveSection,getName:()=>current.name};
+  window.LocalDNSIdentity={apply,name,logo,upload,image,setImage,defaultProxyLogo,loadSection,saveSection,getValue:()=>({...current}),getName:()=>current.name};
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',setup,{once:true});else setup();
 })();

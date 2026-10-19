@@ -1,34 +1,29 @@
-/* Device-owned sampling; the browser reads bounded, server-persisted history. */
+/* Current-session DNS sampling; no companion process or historical service. */
 (() => {
  'use strict';
- const histories=new Map(),requests=new Map(),attempts=new Map();let range=60;
+ const series=[];let range=60,pending=null,lastAttempt=0,error='';
  const overview=()=>!location.hash||location.hash==='#/overview'||location.hash==='#overview';
  function draw(container,minutes=range){
   if(!container?.isConnected)return;range=minutes;container.dataset.trafficMinutes=String(minutes);
-  const history=histories.get(minutes)||{points:[],offset:0,loading:true,error:''};
-  window.LocalDNSTraffic.render(container,history.points,minutes,Date.now()+history.offset,{loading:history.loading,error:history.error,current:history.current,source:'server'});
+  window.LocalDNSTraffic.render(container,series,minutes,Date.now(),{source:'browser',error});
  }
  function redraw(){for(const container of document.querySelectorAll('.traffic-chart-body'))draw(container,Number(container.dataset.trafficMinutes)||range);}
- async function refresh(force=false,minutes=range){
-  if(requests.has(minutes))return requests.get(minutes);
-  if(!force&&Date.now()-(attempts.get(minutes)||0)<4000)return;
-  attempts.set(minutes,Date.now());
-  const task=(async()=>{
-   const controller=new AbortController(),timeout=setTimeout(()=>controller.abort(),8000);
+ async function refresh(force=false){
+  if(pending)return pending;
+  if(!force&&Date.now()-lastAttempt<4000)return;
+  lastAttempt=Date.now();
+  const controller=new AbortController(),timeout=setTimeout(()=>controller.abort(),8000);
+  pending=(async()=>{
    try{
-    const service=new URL(window.LOCALDNS_UI_CONFIG?.proxyConfigBase||location.origin);
-    if(!window.LOCALDNS_UI_CONFIG?.proxyConfigBase)service.port='9098';
-    service.pathname='/api/proxy-config/traffic';service.search='?minutes='+minutes;service.hash='';
-    const response=await fetch(service,{cache:'no-store',credentials:'omit',signal:controller.signal});
-    const result=await response.json();if(!response.ok)throw new Error(result.error||'无法读取服务器采样记录。');
-    if(!Array.isArray(result.points)||!Number.isFinite(result.now))throw new Error('服务器采样数据格式不正确。');
-    const points=result.points.filter(sample=>Number.isFinite(sample.time)&&Number.isFinite(sample.elapsed)&&(sample.qps===null||Number.isFinite(sample.qps)));
-    histories.set(minutes,{points,offset:result.now-Date.now(),current:result.current,loading:false,error:String(result.error||'')});
-   }catch(error){
-    const previous=histories.get(minutes)||{points:[],offset:0};
-    histories.set(minutes,{...previous,loading:false,error:error.name==='AbortError'?'采样记录读取超时，正在自动重试。':error instanceof TypeError?'暂时无法读取服务器采样，正在自动重试。':error.message});
-   }finally{clearTimeout(timeout);requests.delete(minutes);if(minutes===range)redraw();}
-  })();requests.set(minutes,task);return task;
+    const base=window.LOCALDNS_UI_CONFIG?.apiBase||location.origin;
+    const response=await fetch(new URL(String(base).replace(/\/$/,'')+'/metrics',location.origin),{cache:'no-store',signal:controller.signal});
+    if(!response.ok)throw new Error('无法读取 DNS 查询采样');
+    const text=await response.text(),match=text.match(/^localdns_queries_total(?:\{[^}]*\})?\s+([0-9.eE+-]+)/m);
+    if(!match||!Number.isFinite(Number(match[1])))throw new Error('DNS 核心未返回查询计数');
+    window.LocalDNSTraffic.record(series,{total:Number(match[1]),start:'browser'});error='';
+   }catch{error='当前会话采样暂时不可用，请检查 DNS 连接。';}
+   finally{clearTimeout(timeout);pending=null;redraw();}
+  })();return pending;
  }
  function setup(){
   setInterval(()=>{if(overview()&&document.visibilityState==='visible')refresh();},5000);
@@ -38,6 +33,6 @@
   document.addEventListener('click',event=>{if(event.target.closest('[data-traffic-retry]'))refresh(true);});
   if(overview())refresh();
  }
- window.LocalDNSTrafficClient={render:draw,refresh,mount(container,minutes){draw(container,minutes);refresh(false,minutes);}};
+ window.LocalDNSTrafficClient={render:draw,refresh,mount(container,minutes){draw(container,minutes);refresh();}};
  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',setup,{once:true});else setup();
 })();

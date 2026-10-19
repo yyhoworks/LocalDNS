@@ -166,7 +166,7 @@ UI 2026.10.16.1 / FJG4O 增加字体选择、状态文字居中和单层焦点�
 - 拓扑仅外层画布使用全局 backdrop-filter；内部节点使用全局遮盖度对应的半透明底色，避免叠加模糊和固定渐变。羊皮纸皮肤保留原样。
 - `node tools/test_traffic.cjs` 与 `node tools/test_rule_conversion.cjs` 覆盖计数重置、断采、窗口边界、真实接口返回结构、元数据保留及 DAT 待识别流程。
 
-## 本机配置管理（2026.10.18.13）
+## 历史本机配置管理（2026.10.18.13，已移除）
 
 `proxy-config.js` / `proxy-config.css` 挂载系统管理下的 `#/proxy-config` 路由，沿用现有导航和主题。编辑器依赖按需加载，构建见 `tools/proxy-config-ui/README.md`。
 
@@ -174,14 +174,26 @@ UI 2026.10.16.1 / FJG4O 增加字体选择、状态文字居中和单层焦点�
 
 保存只应用于核心启动配置；目录内其他文件可选择、读取与检查。保存前后验证内容版本，核心检查通过后备份并原子替换；失败恢复。Mihomo 有自定义透明代理规则时，需要配置 `postReload` 恢复钩子。sing-box 的 SIGHUP 与在线检查不等价于确定的应用确认，界面采用对应文案。
 
-## 当前配置管理方式（2026.10.18.14）
+## 历史配置管理方式（2026.10.18.14，已移除）
 
 配置编辑器直接调用同机服务读取文件，不使用 SSH 认证和 Cookie 会话。页面初始化先读取核心元数据，再载入已选文件或默认启动配置；读取失败提供重试与错误详情。服务保留 Origin / Host 和配置目录边界，部署于现有受信局域网管理范围。历史 .13 的登录方式已被替换，核心校验与事务保存流程保持一致。
 
-## 配置服务发行包
+## 历史配置服务发行包（已移除）
+
+以下为旧版开发记录。自 UI 2026.10.19.7 起，配置服务、编辑器、构建依赖和独立 Service 包已移除；相关源码可从 `.5` 标签与 Git 历史查阅。
 
 `python tools/package_proxy_config.py --go /path/to/go` 构建 Linux amd64 / arm64 服务并生成独立 ZIP，使用 `-trimpath -buildvcs=false` 保持构建与工作目录无关。先运行 UI 打包工具生成完整包 / UI 包，再运行此脚本，将第三个压缩包加入同一 `SHA256SUMS.txt`。
 
 `python tools/test_proxy_config_installer.py` 在临时 DESTDIR 中验证两个架构的文件安装、已有配置 / 钩子保留、程序备份和非法 Origin 拒绝；不会启动系统服务。Windows 可通过 `--shell` 指定 Git 的 `usr/bin/sh.exe`。
 
 `python tools/verify_proxy_config_release.py --base /path/to/published-full.zip --base-sha256 <published-sha256>` 统一验证三个压缩包的清单、UI 字节一致性以及完整包的默认配置、规则和内核保持；可加 `--write-record` 更新当前版本的公开验证摘要。
+
+## 当前静态共享方式（2026.10.19.7）
+
+`shared-ui.js` 读取 `ui/custom/settings.json`，字体按所选用途加载；名称、Logo 和代理面板地址由同一静态配置提供。网页修改只作本机预览，导出 ZIP 后通过 `tools/configure_ui.py` 导入服务器。操作与迁移见 [共享配置指南](SHARED_UI.md)。
+
+`rule-save.js` 在名单写入前重读并核对内容，拒绝覆盖已检测到的其他修改。DNS API 不提供原子条件写入，不能保证两个设备同时保存的事务隔离。`traffic-client.js` 直接轮询 DNS `/metrics`，仅保存本次页面会话的采样，无长期历史服务。
+
+运行 `python tools/test_shared_ui.py`、`python tools/test_oneclick_installer.py`、`node tools/test_traffic.cjs` 做定向回归；设置 `LOCALDNS_TEST_BACKEND` 后运行 `node tools/verify_shared_ui.cjs` 验证跨浏览器共享、按需字体加载和图标回退。名单测试为 `node tools/verify_rules_workbench.cjs` 与 `node tools/verify_rules_editor.cjs`，所有写入使用夹具。
+
+当前打包只生成完整包、UI 升级包和 `SHA256SUMS.txt`；两包均包含 `configure-ui.py`。完整包的 FJGAC 三架构核心、默认 DNS 配置和规则沿用已校验的 `.5` 完整包。

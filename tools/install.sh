@@ -8,7 +8,7 @@ case "${1:-}" in
       '新安装：sh install.sh' \
       '已有安装默认只更新 UI，保留核心、配置与规则。' \
       '参数：--dir /opt/localdns --version TAG --dns-port 53 --http-port 9099' \
-      '      --with-service / --without-service --origin http://SERVER:9099' \
+      '      --origin http://SERVER:9099' \
       '      --package-dir /offline/packages --stage-root /absolute/staging/root'
     exit 0;;
 esac
@@ -36,7 +36,7 @@ python3 -c 'import sys; sys.exit(0 if sys.version_info >= (3, 8) else "需要 Py
 
 SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd -P)
 # Updated together with install_localdns.py; an old bootstrap fails closed.
-ENGINE_SHA256=24d30c5319137cf4ea1133dc8f2464c27568ed51e0781fe3b3f366b61851ef4c
+ENGINE_SHA256=83f513f75daac8ffc82e995d114c03fe8ede33eaf7cb6d8a2e5cce9aa058f38e
 if [ -f "$SCRIPT_DIR/install_localdns.py" ]; then
   python3 - "$SCRIPT_DIR/install_localdns.py" "$ENGINE_SHA256" <<'PY'
 import hashlib, pathlib, sys

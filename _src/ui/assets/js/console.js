@@ -43,7 +43,7 @@
     const topo=$('.topology-glass-card');topo.parentElement.classList.add('console-topology');if(!$('.console-topology-heading',topo))topo.insertAdjacentHTML('afterbegin','<div class="console-topology-heading"><h2>DNS 解析路径</h2><span>选择节点查看详情 · 连线为解析路径示意</span></div>');
     const trend=$('.traffic-chart-body');trend.closest('.col-8').classList.add('console-trend');
     const head=$('.gc-head',trend.closest('.glass-card'));$('.gc-title',head).innerHTML='查询吞吐趋势<span class="console-chart-sub">每秒 DNS 请求数 · 按实际采样时段显示</span>';
-    const range=head.lastElementChild;range.className='console-range';range.removeAttribute('style');range.innerHTML=[[60,'1 小时'],[360,'6 小时'],[1440,'1 天'],[4320,'3 天'],[10080,'7 天']].map(([m,label])=>`<button type="button" data-chart-range="${m}" aria-pressed="${trafficRange===m}">${label}</button>`).join('');
+    const range=head.lastElementChild;range.className='console-range';range.removeAttribute('style');range.innerHTML=[[15,'15 分钟'],[30,'30 分钟'],[60,'1 小时'],[120,'2 小时']].map(([m,label])=>`<button type="button" data-chart-range="${m}" aria-pressed="${trafficRange===m}">${label}</button>`).join('');
     drawTraffic(trend);$$('[data-chart-range]',head).forEach(b=>b.onclick=()=>{trafficRange=+b.dataset.chartRange;$$('[data-chart-range]',head).forEach(x=>x.setAttribute('aria-pressed',String(x===b)));drawTraffic(trend);});
     trafficResize?.disconnect();let trafficWidth=trend.clientWidth;
     const chartResize=new ResizeObserver(()=>{if(!trend.isConnected){chartResize.disconnect();return;}if(Math.abs(trend.clientWidth-trafficWidth)>1){trafficWidth=trend.clientWidth;drawTraffic(trend);}});trafficResize=chartResize;chartResize.observe(trend);

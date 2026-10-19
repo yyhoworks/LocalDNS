@@ -1,0 +1,17 @@
+{
+  "version": 1,
+  "localdns": {
+    "name": "LocalDNS",
+    "logo": ""
+  },
+  "proxy": {
+    "name": "代理面板",
+    "url": ""
+  },
+  "typography": {
+    "heading": "serif",
+    "numeral": "serif",
+    "body": "plex"
+  },
+  "fonts": []
+}

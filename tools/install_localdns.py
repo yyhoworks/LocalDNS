@@ -30,7 +30,7 @@ from zipfile import BadZipFile, ZipFile
 
 REPO = 'https://github.com/yyhoworks/LocalDNS'
 API = 'https://api.github.com/repos/yyhoworks/LocalDNS/releases/'
-INSTALLER_VERSION = '1.0.0'
+INSTALLER_VERSION = '1.1.0'
 ALPINE_RESOLVER_BRIDGE = '#include <resolv.h>\nint __res_init(void) { return res_init(); }\n'
 
 
@@ -153,7 +153,7 @@ class Packages:
             raise InstallError('GitHub 附件摘要校验失败：' + name)
 
     def get(self, kind):
-        suffix = {'full': '_Full.zip', 'ui': '_Update.zip', 'service': '_Service.zip'}[kind]
+        suffix = {'full': '_Full.zip', 'ui': '_Update.zip'}[kind]
         names = [name for name in self.sums if name.startswith('LocalDNS_') and name.endswith(suffix)]
         if len(names) != 1:
             raise InstallError('发行目录必须恰好包含一个 ' + kind + ' 安装包')
@@ -274,10 +274,8 @@ def manager(stage=None):
     raise InstallError('需要运行中的 systemd 或 OpenRC')
 
 
-def check_ports(dns_port, http_port, service=False):
+def check_ports(dns_port, http_port):
     ports = [(dns_port, socket.SOCK_DGRAM), (dns_port, socket.SOCK_STREAM), (http_port, socket.SOCK_STREAM)]
-    if service:
-        ports.append((9098, socket.SOCK_STREAM))
     for port, kind in ports:
         try:
             with socket.socket(socket.AF_INET, kind) as stream:
@@ -371,6 +369,12 @@ def update_ui(root, payload, metadata, stage=None):
     shutil.copytree(payload / 'ui', staging)
     if (root / 'ui/config.js').is_file():
         shutil.copy2(root / 'ui/config.js', staging / 'config.js')
+    custom = root / 'ui/custom'
+    if custom.exists():
+        no_symlinks(custom)
+        if any(p.is_symlink() for p in custom.rglob('*')):
+            raise InstallError('共享配置目录包含符号链接')
+        shutil.copytree(custom, staging / 'custom', dirs_exist_ok=True)
     moved = False
     try:
         (root / 'ui').rename(previous)
@@ -541,25 +545,6 @@ def install_new(root, logical_root, payload, metadata, arch, dns_port, http_port
     log('LocalDNS 已安装：' + str(root))
 
 
-def install_service(payload, origin_value, http_port, arch, stage=None):
-    prefix = stage or Path('/')
-    config = prefix / 'etc/localdns-proxy-config.json'
-    no_symlinks(config)
-    if not config.exists():
-        value = json.loads((payload / 'config.example.json').read_text(encoding='utf-8'))
-        host = urlsplit(origin_value).hostname
-        value.update(listen='0.0.0.0:9098', origins=[origin_value], hosts=[host + ':9098'],
-                     metricsURL='http://127.0.0.1:' + str(http_port) + '/metrics')
-        write_json(config, value, 0o600)
-    environment = dict(os.environ, LOCALDNS_PROXY_CONFIG_ARCH='arm64' if arch == 'arm64' else 'amd64')
-    if stage:
-        environment['DESTDIR'] = str(stage)
-    else:
-        environment.pop('DESTDIR', None)
-    log('安装配套配置服务；已有配置和回程钩子由原安装器保留。')
-    run(['sh', str(payload / 'install-proxy-config.sh'), origin_value], env=environment)
-
-
 def port_number(value):
     try:
         number = int(value)
@@ -571,17 +556,14 @@ def port_number(value):
 
 
 def main(argv=None):
-    parser = argparse.ArgumentParser(description='LocalDNS 一键安装：新装全套，已有安装默认只更新 UI。')
+    parser = argparse.ArgumentParser(description='LocalDNS 一键安装：新装 DNS 与静态 UI，已有安装默认只更新 UI。')
     parser.add_argument('--dir', default='/opt/localdns', help='安装目录，默认 /opt/localdns')
     parser.add_argument('--version', help='指定正式发行标签，默认 GitHub 最新正式版')
     parser.add_argument('--mode', choices=['auto', 'install', 'ui'], default='auto')
     parser.add_argument('--arch', choices=['amd64-v1', 'amd64-v3', 'arm64'], help='默认 x86-64 v1 或 ARM64')
     parser.add_argument('--dns-port', type=port_number, default=53)
     parser.add_argument('--http-port', type=port_number, default=9099)
-    service = parser.add_mutually_exclusive_group()
-    service.add_argument('--with-service', dest='service', action='store_true', help='同时安装 / 更新配套服务')
-    service.add_argument('--without-service', dest='service', action='store_false', help='不安装配套服务')
-    parser.set_defaults(service=None)
+    parser.add_argument('--without-service', action='store_true', help=argparse.SUPPRESS)
     parser.add_argument('--origin', help='UI 地址，例如 http://192.168.1.2:9099')
     parser.add_argument('--package-dir', help='离线发行包目录，必须包含 SHA256SUMS.txt')
     parser.add_argument('--stage-root', type=Path, help='仅向隔离根目录准备文件，不检查宿主端口或启动服务')
@@ -606,15 +588,10 @@ def main(argv=None):
         raise InstallError('新安装目标不是空目录；已停止以保留现有数据')
     if args.dns_port == args.http_port:
         raise InstallError('DNS 与管理界面端口不能相同')
-    with_service = args.service if args.service is not None else mode == 'install'
     http_port = api_port(root) if mode == 'ui' else args.http_port
     origin_value = origin(args.origin, http_port)
-    if with_service and http_port == 9098:
-        raise InstallError('管理界面端口不能与配套服务的 9098 端口相同')
-    if with_service and mode == 'install' and args.dns_port == 9098:
-        raise InstallError('DNS 端口不能与配套服务的 9098 端口相同')
     if mode == 'install' and stage is None:
-        check_ports(args.dns_port, http_port, with_service and not Path('/etc/localdns-proxy-config.json').exists())
+        check_ports(args.dns_port,http_port)
     # Use the installation filesystem instead of small RAM-backed /tmp mounts.
     with locked(root), tempfile.TemporaryDirectory(prefix='.localdns-work-', dir=str(root.parent)) as temporary:
         packages = Packages(Path(temporary), args.version, args.package_dir)
@@ -627,21 +604,11 @@ def main(argv=None):
         ui_metadata = json.loads(ui_path.read_text(encoding='utf-8'))
         if any(ui_metadata.get(key) != metadata.get(key) for key in ('uiVersion', 'backendVersion')):
             raise InstallError('UI 与发行包的版本元数据不一致')
-        service_payload = None
-        if with_service:
-            service_payload, service_meta = packages.get('service')
-            if service_meta.get('packageType') != 'proxy-config-service' or service_meta['uiVersion'] != metadata['uiVersion']:
-                raise InstallError('配套服务与 UI 发行版本不匹配')
         log('模式：' + ('保留现有核心的 UI 更新' if mode == 'ui' else '全新安装') + '；架构：' + arch)
         if mode == 'ui':
             update_ui(root, payload, metadata, stage)
         else:
             install_new(root, PurePosixPath(args.dir), payload, metadata, arch, args.dns_port, http_port, init, stage)
-        if service_payload:
-            try:
-                install_service(service_payload, origin_value, http_port, arch, stage)
-            except Exception as error:
-                raise InstallError('DNS / UI 已就绪，但配套服务安装失败。保留现有结果，请按配套服务安装说明修复：' + str(error)) from error
         log(('隔离准备完成（未启动服务）' if stage else '安装完成') + '，UI 版本：' + metadata['uiVersion'])
         log('管理页面：' + origin_value + '/ui/')
         if mode == 'install':

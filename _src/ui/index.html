@@ -5,7 +5,8 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <title>LocalDNS 控制台</title>
-  <script src="assets/js/appearance.js?v=20261018-7"></script>
+  <script src="assets/js/shared-ui.js?v=20261019-7"></script>
+  <script src="assets/js/appearance.js?v=20261019-7"></script>
   <script src="assets/js/skin.js?v=20261018-7"></script>
   <script src="assets/js/navigation.js?v=20261018-7"></script>
   <link id="dynamic-favicon" rel="icon" type="image/png" href="assets/img/logo-04-light-64.png?v=20261015-2" />
@@ -26,10 +27,9 @@
   <link rel="stylesheet" href="assets/css/collection-layouts.css?v=20261018-7" />
   <link rel="stylesheet" href="assets/css/dashboard.css?v=20261018-7" />
   <link rel="stylesheet" href="assets/css/proxy-panel.css?v=20261018-15" />
-  <link rel="stylesheet" href="assets/css/proxy-config.css?v=20261018-15" />
   <link rel="stylesheet" href="assets/css/rules-view.css?v=20261018-19" />
   <link rel="stylesheet" href="assets/css/overview-insights.css?v=20261019-3" />
-  <link rel="stylesheet" href="assets/css/appearance-panel.css?v=20261019-2" />
+  <link rel="stylesheet" href="assets/css/appearance-panel.css?v=20261019-6" />
   <link rel="stylesheet" href="assets/css/ui-refinements.css?v=20261019-5-release" />
 </head>
 <body>
@@ -223,10 +223,10 @@
                 <label for="identity-logo-url">Logo 图片地址</label>
                 <input class="bcp-input" id="identity-logo-url" type="url" placeholder="https://example.com/logo.png" spellcheck="false" />
                 <label class="button small identity-upload">上传 Logo<input id="identity-logo-file" type="file" accept="image/png,image/jpeg,image/webp,image/gif,image/svg+xml" /></label>
-                <p class="identity-note">建议 256×256 透明 PNG，上传不超过 2 MB。名称与 Logo 保存在服务器。</p>
-                <button type="button" class="button small" id="identity-retry" hidden>重新读取服务器设置</button>
+                <p class="identity-note">建议 256×256 透明 PNG，上传不超过 2 MB。网页修改仅应用到本机；导出共享配置后可同步到其他设备。</p>
+                <button type="button" class="button small" id="identity-retry" hidden>重新读取配置</button>
                 <p id="identity-status" class="identity-note" role="status" aria-live="polite"></p>
-                <div class="identity-actions"><button type="button" class="button small" id="identity-reset">恢复默认</button><button type="button" class="button primary small" id="identity-save">保存名称与 Logo</button></div>
+                <div class="identity-actions"><button type="button" class="button small" id="identity-reset">恢复默认</button><button type="button" class="button primary small" id="identity-save">应用到本机</button></div>
               </details>
 
               <div class="bcp-row">
@@ -252,14 +252,21 @@
               <div class="bcp-row">
                 <div class="bcp-row-head"><span>自定义字体（可选）</span><strong class="mono" id="val-font-upload" role="status" aria-live="polite">未上传</strong></div>
                 <div class="bcp-inline">
-                  <button type="button" class="glass-btn" id="btn-font-upload" disabled>上传字体文件…</button>
+                  <button type="button" class="glass-btn" id="btn-font-upload" disabled>选择本机字体…</button>
                   <input type="file" id="input-font-upload" accept=".ttf,.otf,.woff,.woff2" multiple hidden />
                 </div>
                 <div class="bcp-font-list" id="font-upload-list" hidden></div>
               </div>
               <p class="font-note">上传仅保存在当前浏览器，可分别用于标题、数字或正文。单个文件不超过 64 MB，总量不超过 128 MB。</p>
               <p class="font-note">域名、IP、日志和配置保持等宽排版。</p>
-              <p id="typography-save-status" class="bcp-save-status" role="status" aria-live="polite">字体偏好保存在当前浏览器。</p>
+              <p id="typography-save-status" class="bcp-save-status" role="status" aria-live="polite">正在读取服务器共享字体设置…</p>
+            </section>
+            <section class="shared-ui-settings" aria-labelledby="shared-ui-title">
+              <h3 id="shared-ui-title">共享到其他设备</h3>
+              <p class="identity-note">服务器配置是所有设备的默认值。本机调整可导出为配置包，导入服务器后刷新生效。</p>
+              <div class="shared-ui-actions"><button type="button" class="button primary small" id="export-shared-ui">导出共享配置</button><button type="button" class="button small" id="use-shared-ui">跟随服务器</button></div>
+              <p id="shared-ui-status" class="bcp-save-status" role="status" aria-live="polite">配置包包含名称、Logo、面板地址、字体文件与字体选择。</p>
+              <details class="appearance-font-help"><summary>如何应用到服务器</summary><p>将配置包与 configure-ui.py 放到服务器，运行：</p><code>python3 configure-ui.py --import localdns-ui-settings.zip</code><p>不会重启 DNS。其他设备选择“跟随服务器”后刷新即可。</p></details>
             </section>
           </div>
         </div>
@@ -312,29 +319,28 @@
       <h2 id="proxy-panel-title">代理面板</h2>
       <button class="icon-button" type="button" data-proxy-panel-close aria-label="关闭代理面板设置"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="m6 6 12 12M6 18 18 6"/></svg></button>
     </div>
-    <p id="proxy-panel-description" class="proxy-panel-description">自定义入口名称和 Logo，顶栏仅显示 Logo。</p>
+    <p id="proxy-panel-description" class="proxy-panel-description">填写面板地址，入口自动读取该面板的网站图标。</p>
     <form novalidate>
       <div class="field"><label for="proxy-panel-name">代理名称</label><input type="text" id="proxy-panel-name" maxlength="32" placeholder="例如：家庭代理" autocomplete="off" /></div>
-      <div class="field"><label for="proxy-panel-logo-url">Logo 图片地址</label><input type="url" id="proxy-panel-logo-url" placeholder="https://example.com/logo.png" autocomplete="off" spellcheck="false" /></div>
-      <div class="identity-preview"><img id="proxy-panel-preview" src="assets/img/proxy-panel.svg" alt="Logo 预览" width="32" height="32" /><label class="button small identity-upload">上传 Logo<input id="proxy-panel-logo-file" type="file" accept="image/png,image/jpeg,image/webp,image/gif,image/svg+xml" /></label><button type="button" class="button small" id="proxy-panel-logo-reset">默认图标</button></div>
+      <div class="identity-preview"><img id="proxy-panel-preview" src="assets/img/proxy-panel.svg" alt="面板图标预览" width="32" height="32" /><span id="proxy-logo-status" role="status" aria-live="polite">根据面板地址自动读取图标</span></div>
       <div class="field"><label for="proxy-panel-url">面板地址</label><input type="url" id="proxy-panel-url" placeholder="http://192.168.1.7:9090/ui" inputmode="url" autocomplete="url" spellcheck="false" autocapitalize="none" required aria-describedby="proxy-panel-note proxy-panel-error" /></div>
-      <p id="proxy-panel-note" class="proxy-panel-note">点击 Logo 在新标签页打开。设置保存在服务器，其他设备刷新后同步。</p>
-      <button type="button" class="button small" id="proxy-panel-retry" hidden>重新读取服务器设置</button>
+      <p id="proxy-panel-note" class="proxy-panel-note">点击图标打开面板。本机修改可通过“外观 → 品牌与字体”导出共享配置。</p>
+      <button type="button" class="button small" id="proxy-panel-retry" hidden>重新读取配置</button>
       <p id="proxy-panel-error" class="proxy-panel-error" role="alert" hidden></p>
-      <div class="proxy-panel-actions"><a class="button" href="#/proxy-config" data-proxy-panel-close>编辑配置</a><button type="button" class="button" data-proxy-panel-close>取消</button><button type="submit" class="button primary">保存设置</button></div>
+      <div class="proxy-panel-actions"><button type="button" class="button" data-proxy-panel-close>取消</button><button type="submit" class="button primary">应用到本机</button></div>
     </form>
   </section>
 
   <div id="toast-stack" class="toast-stack" aria-live="polite"></div>
   <script src="config.js?v=20261018-7"></script>
   <script src="assets/js/chart.umd.min.js"></script>
-  <script src="assets/js/traffic.js?v=20261018-17"></script>
-  <script src="assets/js/traffic-client.js?v=20261018-17"></script>
-  <script src="assets/js/identity.js?v=20261018-16"></script>
+  <script src="assets/js/traffic.js?v=20261019-6"></script>
+  <script src="assets/js/traffic-client.js?v=20261019-7"></script>
+  <script src="assets/js/identity.js?v=20261019-7"></script>
   <script src="assets/js/rule-conversion.js?v=20261018-7"></script>
-  <script src="assets/js/console.js?v=20261019-3"></script>
+  <script src="assets/js/console.js?v=20261019-7"></script>
   <script src="assets/js/wallpaper.js?v=20261018-11"></script>
-  <script src="assets/js/font-uploads.js?v=20261018-7"></script>
+  <script src="assets/js/font-uploads.js?v=20261019-7"></script>
   <script src="assets/js/topology-flow.js?v=20261018-7"></script>
   <script src="assets/js/query-path.js?v=20261018-7"></script>
   <script src="assets/js/rank-latency.js?v=20261018-7"></script>
@@ -343,14 +349,13 @@
   <script src="assets/js/workspace.js?v=20261019-3"></script>
   <script src="assets/js/collection-layouts.js?v=20261019-3"></script>
   <script src="assets/js/clients.js?v=20261018-8"></script>
-  <script src="assets/js/proxy-panel.js?v=20261018-16"></script>
-  <script src="assets/js/proxy-config.js?v=20261019-3"></script>
-  <script src="assets/js/rule-backups.js?v=20261018-19"></script>
-  <script src="assets/js/app.js?v=20261019-4"></script>
-  <script src="assets/js/appearance-panel.js?v=20261019-2"></script>
+  <script src="assets/js/proxy-panel.js?v=20261019-7"></script>
+  <script src="assets/js/rule-save.js?v=20261019-7"></script>
+  <script src="assets/js/app.js?v=20261019-7"></script>
+  <script src="assets/js/appearance-panel.js?v=20261019-6"></script>
   <script src="assets/js/material.js?v=20261018-7-FJGAC"></script>
   <script src="assets/js/navbar.js?v=20261018-7"></script>
   <script src="assets/js/rules-view.js?v=20261019-3"></script>
-  <script src="assets/js/rules-workbench.js?v=20261018-19"></script>
+  <script src="assets/js/rules-workbench.js?v=20261019-7"></script>
 </body>
 </html>
