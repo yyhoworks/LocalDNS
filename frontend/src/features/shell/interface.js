@@ -1,0 +1,106 @@
+import { trafficClientService } from '../overview/traffic/client.js';
+import { identityService } from '../identity/index.js';
+import { setHTML, insertHTML } from '../../core/security/safe-dom.ts';
+import { sessionPreferences } from '../../core/persistence/preferences.ts';
+export let shellInterfaceService;
+export function initialize() {
+
+  'use strict';
+  const $=(s,r=document)=>r.querySelector(s),$$=(s,r=document)=>[...r.querySelectorAll(s)];
+  const drafts=new Map(),series=[];
+  let connected=null,lastSuccess=null,lastFocus=null,draftKey='',observer=null,scheduled=false,shortcutsOpen=false,trafficRange=60,trafficResize=null;
+  const route=()=>location.hash.replace(/^#\/?/,'')||'overview';
+  const escape=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  const labels={r1:'国内域名',r2:'白名单与自定义',r3:'海外域名',r4:'FakeIP 与灰名单',r5:'广告与追踪拦截',r6:'黑名单与类型过滤',g1:'国内解析组',g2:'海外解析组',g3:'海外 ECS 组',g4:'代理解析组',g5:'本地拦截'};
+  const activeTag=()=>$('.rule-menu button.active')?.dataset.ruleTag;
+  function persistDrafts(){try{sessionPreferences.setItem(draftKey,JSON.stringify([...drafts]));}catch{}}
+  function rememberDraft(){const text=$('#rule-text'),tag=activeTag();if(text&&tag&&text.dataset.original!==undefined){if(text.value!==text.dataset.original)drafts.set(tag,text.value);else drafts.delete(tag);persistDrafts();}}
+  function updateBrand(){
+    if(identityService){identityService.apply();return;}
+    const light=document.documentElement.dataset.theme==='light-glass';
+    const base=light?'logo-04-light':'logo-08-dark';
+    const img=$('#brand-mark');if(img)img.src=`assets/img/${base}.png?v=20261015-2`;
+    const favicon=$('#dynamic-favicon');if(favicon){favicon.type='image/png';favicon.href=`assets/img/${base}-64.png?v=20261015-2`;}
+  }
+  function connection(ok,text=''){
+    if(typeof ok==='boolean'){connected=ok;if(ok)lastSuccess=new Date();}
+    const status=$('#connection-status');if(!status)return;
+    status.classList.toggle('offline',connected===false);
+    $('.console-connection-text',status).textContent=connected===null?'连接中':connected?'已连接':'连接已断开';
+    const time=lastSuccess?lastSuccess.toLocaleTimeString('zh-CN',{hour12:false}):null;
+    $('small',status).textContent=connected===false?(time?`最后更新 ${time}`:'当前数据不可用'):(time?`更新于 ${time}`:'正在读取运行数据');
+    status.title=connected===false?String(text||'连接异常'):('API '+(window.LOCALDNS_UI_CONFIG?.apiBase||location.host));
+    const brandStatus=$('.console-brand-status');if(brandStatus){brandStatus.classList.toggle('offline',connected===false);brandStatus.classList.toggle('pending',connected===null);brandStatus.setAttribute('aria-label',$('.console-connection-text',status).textContent);brandStatus.title=$('.console-connection-text',status).textContent;}
+    const mobile=$('.console-mobile-status');if(mobile){mobile.classList.toggle('offline',connected===false);mobile.textContent=(connected===null?'连接中':connected?'已连接':'连接已断开')+(time?` · ${connected===false?'最后更新':'更新于'} ${time}`:'');}
+    const health=$('.console-service-health');if(health){health.classList.toggle('offline',connected===false);$('#service-summary-title',health).textContent=connected===false?'DNS 服务连接已断开':connected===true?'DNS 服务运行中':'正在读取服务状态';$('.service-connection',health).textContent=connected===null?'连接中':connected?'已连接':'已断开';$('[data-service-check]',health).setAttribute('d',connected===false?'m8 8 8 8m0-8-8 8':'m7 12 3 3 7-7');}
+  }
+  function recordMetrics() { /* Throughput sampling runs on the device. */ }
+  function tinyPath(values,width=100,height=32){const min=Math.min(...values),max=Math.max(...values),span=max-min||1;return values.map((v,i)=>`${i?'L':'M'}${(i/(values.length-1)*(width-4)+2).toFixed(1)},${(height-4-(v-min)/span*(height-10)).toFixed(1)}`).join(' ');}
+  function drawTraffic(container,minutes=trafficRange){
+    trafficClientService.mount(container,minutes);
+  }
+  function overview(){
+    const main=$('#page-content');if($('.console-kpi',main)||!$('.spark-kpi-card',main))return;
+    $('#btn-overview-custom-bg')?.remove();
+    const title=$('.view-title-row'),short=document.createElement('details');short.className='console-shortcuts';short.open=shortcutsOpen;setHTML(short, '<summary><strong>快捷控制</strong><span>客户端分流 / 缓存 / 广告屏蔽</span></summary><div class="console-shortcut-grid"></div>');short.addEventListener('toggle',()=>shortcutsOpen=short.open);
+    $$('.control-bar-card',main).forEach(card=>{const old=card.parentElement;$('.console-shortcut-grid',short).append(card);old.remove();});title.after(short);
+    $$('.spark-kpi-card',main).forEach((card,i)=>{card.parentElement.classList.add('console-kpi');const key=['total','cache','clients','blocked','latency','domains'][i];const values=series.slice(-60).map(p=>p[key]).filter(Number.isFinite);const svg=$('.sk-chart',card);if(svg){if(values.length<2){svg.remove();}else{setHTML(svg, `<path d="${tinyPath(values)}" fill="none" stroke="var(--console-line)" stroke-width="1.8"/>`);svg.setAttribute('aria-label','当前会话采样趋势');}}});
+    const service=$('.console-service-summary',main);if(service){$$('.console-kpi',main).forEach(kpi=>service.append(kpi));$('.view-title-row>div:first-child>.mono',main)?.remove();}
+    const topo=$('.topology-glass-card');topo.parentElement.classList.add('console-topology');if(!$('.console-topology-heading',topo))insertHTML(topo, 'afterbegin', '<div class="console-topology-heading"><h2>DNS 解析路径</h2><span>选择节点查看详情 · 连线为解析路径示意</span></div>');
+    const trend=$('.traffic-chart-body');trend.closest('.col-8').classList.add('console-trend');
+    const head=$('.gc-head',trend.closest('.glass-card'));setHTML($('.gc-title',head), '查询吞吐趋势<span class="console-chart-sub">每秒 DNS 请求数 · 按实际采样时段显示</span>');
+    const range=head.lastElementChild;range.className='console-range';range.removeAttribute('style');setHTML(range, [[15,'15 分钟'],[30,'30 分钟'],[60,'1 小时'],[120,'2 小时']].map(([m,label])=>`<button type="button" data-chart-range="${m}" aria-pressed="${trafficRange===m}">${label}</button>`).join(''));
+    drawTraffic(trend);$$('[data-chart-range]',head).forEach(b=>b.onclick=()=>{trafficRange=+b.dataset.chartRange;$$('[data-chart-range]',head).forEach(x=>x.setAttribute('aria-pressed',String(x===b)));drawTraffic(trend);});
+    trafficResize?.disconnect();let trafficWidth=trend.clientWidth;
+    const chartResize=new ResizeObserver(()=>{if(!trend.isConnected){chartResize.disconnect();return;}if(Math.abs(trend.clientWidth-trafficWidth)>1){trafficWidth=trend.clientWidth;drawTraffic(trend);}});trafficResize=chartResize;chartResize.observe(trend);
+    $('.outbound-donut-body')?.closest('.col-4').classList.add('console-donut');$$('.uniform-4rows').forEach(e=>e.closest('.col-4')?.classList.add('console-lower'));
+    $$('.t-node').forEach(node=>{const name=$('.tn-name',node),sub=$('.tn-sub',node);if(!node.title)node.title=[name?.textContent,sub?.textContent].filter(Boolean).join(' · ');if(labels[node.dataset.nodeId]&&!$('.tn-proto-tag',name))name.textContent=labels[node.dataset.nodeId];if(node.dataset.nodeId==='e_core')node.setAttribute('aria-label','查看多级缓存管理');});
+    const names={whitelist:'白名单',greylist:'灰名单',blocklist:'黑名单'};$$('.rl-name').forEach(e=>{const t=e.lastChild;if(t?.nodeType===3)t.textContent=names[t.textContent.trim()]||t.textContent;});requestAnimationFrame(()=>window.dispatchEvent(new Event('resize')));
+  }
+  function semantics(root=document){
+    $$('input:not([type=file]),select,textarea',root).forEach(input=>{const field=input.closest('.field'),label=field&&$('label',field);if(label&&input.id)label.htmlFor=input.id;if(input.type==='checkbox'&&!input.getAttribute('aria-label'))input.setAttribute('aria-label',input.closest('.feature-card')?.querySelector('h3')?.textContent||input.closest('tr')?.querySelector('strong')?.textContent||input.closest('label')?.textContent.trim()||'启用');});
+    $$('.t-node,.spark-kpi-card,[data-route]',root).forEach(el=>{if(!['BUTTON','A'].includes(el.tagName)){el.tabIndex=0;el.setAttribute('role','button');if(!el.dataset.consoleKeyboard){el.dataset.consoleKeyboard='1';el.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();el.click();}});}}});
+    $$('[data-route]',root).forEach(el=>{if(el.classList.contains('active'))el.setAttribute('aria-current','page');else el.removeAttribute('aria-current');});$$('.seg-item',root).forEach(el=>el.setAttribute('aria-pressed',String(el.classList.contains('active'))));
+    $$('table',root).forEach(table=>{const heads=$$('thead th',table).map(x=>x.textContent.trim());if(!heads.length)return;const dedicated=table.matches('.workspace-rank-table,.workspace-upstream-table,.overview-slow-table,.overview-detail-table');table.classList.toggle('mobile-records',!dedicated);$$('tbody tr',table).forEach(tr=>$$('td',tr).forEach((td,i)=>{if(!td.dataset.label)td.dataset.label=heads[i]||'';}));});
+    $$('label',root).forEach(label=>{if(label.querySelector('input[type=file]')){label.tabIndex=0;label.setAttribute('role','button');if(!label.dataset.consoleKeyboard){label.dataset.consoleKeyboard='1';label.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();label.querySelector('input').click();}};}}});
+  }
+  function ruleState(){const el=$('.console-rule-state'),tag=activeTag();if(!el)return;const dirty=drafts.has(tag);el.classList.toggle('dirty',dirty);el.textContent=dirty?'有未保存修改 · 切换名单将保留草稿':'当前内容已保存';}
+  function rules(){const text=$('#rule-text'),tag=activeTag();if(!text||!tag)return;if(!text.dataset.consoleDraft){text.dataset.consoleDraft='1';text.dataset.original=text.value;if(drafts.has(tag)&&drafts.get(tag)===text.value){drafts.delete(tag);persistDrafts();}if(drafts.has(tag))text.value=drafts.get(tag);text.addEventListener('input',()=>{rememberDraft();ruleState();});insertHTML($('.section-header>div'), 'beforeend', '<div class="console-rule-state" role="status"></div>');if(!$('.console-rule-select')){const select=document.createElement('div');select.className='console-rule-select';setHTML(select, '<label for="console-list-select">名单类别</label><select id="console-list-select">'+$$('.rule-menu button').map(b=>`<option value="${escape(b.dataset.ruleTag)}" ${b.dataset.ruleTag===tag?'selected':''}>${escape(b.querySelector('span').textContent)}</option>`).join('')+'</select>');$('.rule-editor').prepend(select);$('select',select).onchange=e=>{rememberDraft();$(`.rule-menu [data-rule-tag="${e.target.value}"]`)?.click();};}}ruleState();}
+  function ruleSaved(tag,value){if(drafts.get(tag)===value||!drafts.has(tag))drafts.delete(tag);persistDrafts();if(activeTag()===tag){const text=$('#rule-text');if(text)text.dataset.original=value;ruleState();}}
+  function displayNumerals(){
+    $$('.console-kpi .sk-val,.tec-big,.ring-center,.service-value[data-display-number]').forEach(el=>{
+      if(el.classList.contains('has-display-number')){
+        if(el.querySelector('.display-number'))return;
+        el.classList.remove('has-display-number');
+      }
+      const value=el.textContent.trim(),match=value.match(/^([+\-]?\d[\d,.]*)(\s*(?:%|ms|s|KB|MB|GB|TB|万|亿))?$/);
+      if(!match)return;
+      el.classList.add('has-display-number');
+      el.style.setProperty('--numeral-size',`${Math.min(38,260/match[1].length).toFixed(2)}px`);
+      const number=document.createElement('span');number.className='display-number';number.textContent=match[1];el.replaceChildren(number);
+      if(match[2]){const unit=document.createElement('span');unit.className='display-unit';unit.textContent=match[2];el.append(unit);}
+    });
+  }
+  function apply(){
+    observer?.disconnect();
+    try{document.body.dataset.consoleRoute=route();updateBrand();connection();if(route()==='overview'){overview();displayNumerals();}if(route()==='rules')rules();semantics();if(route()==='management'&&!$('.console-restart')){const b=document.createElement('button');b.type='button';b.className='glass-btn console-restart';b.textContent='重启服务';b.onclick=()=>$('#restart-button').click();$('#management-service-controls')?.append(b);}}
+    finally{observer?.observe($('#page-content'),{childList:true,subtree:true});}
+  }
+  function drawerOpened(){lastFocus=document.activeElement;$('.master-container').inert=true;$('#drawer-close').focus();}
+  function drawerClosed(){$('.master-container').inert=false;if(lastFocus?.isConnected)lastFocus.focus();lastFocus=null;}
+  function formError(message){let error=$('#modal-error');if(!error){error=document.createElement('div');error.id='modal-error';error.className='form-error';error.setAttribute('role','alert');$('#modal-content').prepend(error);}error.textContent=message;}
+  function setup(options={}){
+    draftKey='localdns-drafts-v1:'+(options.apiBase||location.host);
+    try{for(const item of JSON.parse(sessionPreferences.getItem(draftKey)||'[]'))if(Array.isArray(item)&&typeof item[0]==='string'&&typeof item[1]==='string')drafts.set(...item);}catch{}
+    const mobileSearch=document.createElement('button');mobileSearch.type='button';mobileSearch.className='icon-action-btn console-search-button';mobileSearch.style.display='none';mobileSearch.setAttribute('aria-label','搜索域名、客户端或页面');setHTML(mobileSearch, '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m16 16 4 4"/></svg>');mobileSearch.onclick=()=>{const bar=$('.cmd-search-bar');bar.classList.toggle('console-search-open');if(bar.classList.contains('console-search-open'))$('#global-search-input').focus();};$('.top-actions-dock').prepend(mobileSearch);
+    const status=document.createElement('div');status.id='connection-status';status.className='console-status';status.setAttribute('role','status');setHTML(status, '<span class="status-dot"></span><span class="console-status-text"><span class="console-connection-text">连接中</span><small>正在读取运行数据</small></span>');$('#btn-open-bg-customizer').closest('.glass-action-capsule').before(status);
+    const brandStatus=document.createElement('span');brandStatus.className='console-brand-status pending';brandStatus.setAttribute('role','status');brandStatus.setAttribute('aria-label','连接中');$('.brand-logo')?.append(brandStatus);
+    const drawer=$('#drawer');drawer.setAttribute('role','dialog');drawer.setAttribute('aria-modal','true');drawer.setAttribute('aria-labelledby','drawer-title');
+    document.addEventListener('click',e=>{if(e.target.closest('[data-rule-tag],[data-route],#theme-toggle,#refresh-button'))rememberDraft();if(e.target.closest('[data-route]'))$('.cmd-search-bar').classList.remove('console-search-open');},true);
+    window.addEventListener('beforeunload',e=>{rememberDraft();if(drafts.size){e.preventDefault();e.returnValue='';}});
+    document.addEventListener('keydown',e=>{if(!drawer.classList.contains('open'))return;if(e.key==='Escape'){e.preventDefault();$('#drawer-close').click();}if(e.key==='Tab'){const items=$$('button,a,input,select,textarea,[tabindex="0"]',drawer).filter(x=>x.getClientRects().length);if(!items.length)return;if(e.shiftKey&&document.activeElement===items[0]){e.preventDefault();items.at(-1).focus();}else if(!e.shiftKey&&document.activeElement===items.at(-1)){e.preventDefault();items[0].focus();}}});
+    observer=new MutationObserver(()=>{if(scheduled)return;scheduled=true;requestAnimationFrame(()=>{scheduled=false;observer.disconnect();try{semantics($('#page-content'));if(route()==='overview')displayNumerals();if(route()==='rules')rules();}finally{observer.observe($('#page-content'),{childList:true,subtree:true});}});});observer.observe($('#page-content'),{childList:true,subtree:true});updateBrand();connection();semantics();
+  }
+  shellInterfaceService ={setup,apply,rememberDraft,recordMetrics,connection,updateBrand,ruleSaved,drawerOpened,drawerClosed,semantics,formError,displayNumerals};
+
+}

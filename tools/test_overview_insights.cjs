@@ -1,6 +1,6 @@
 const assert = require('node:assert/strict');
-const overview = require('../_src/ui/assets/js/overview-insights.js');
-const version = require('../_src/ui/assets/js/version-check.js');
+const overview = require('./frontend_test_module.cjs').loadFeature('features/overview/insights.js','overviewInsightsService',false);
+const version = require('./frontend_test_module.cjs').loadFeature('features/version/index.js','versionService',false);
 
 const data = Array.from({length:19}, (_, i) => ({key: 'result_' + i, count: 19 - i}));
 const summary = overview.distribution(data.reverse());

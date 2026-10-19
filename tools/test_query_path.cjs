@@ -3,7 +3,7 @@ const fs = require('node:fs');
 const vm = require('node:vm');
 const assert = require('node:assert/strict');
 const context = {window:{}};
-vm.runInNewContext(fs.readFileSync(require('node:path').join(__dirname,'../_src/ui/assets/js/query-path.js'),'utf8'),context);
+vm.runInNewContext(require('./frontend_test_module.cjs').bundleFeature('features/overview/query-path.js','queryPathService','window.LocalDNSQueryPath'),context);
 const {model,html} = context.window.LocalDNSQueryPath;
 const partial = {client_ip:'192.0.2.1',query_name:'example.test',query_type:'AAAA',query_class:'IN',domain_set:'client_direct',response_code:'NOERROR',duration_ms:0,cache:false,learning:'none evidence=cache',upstream_attempt:'',trace_id:'',answers:[{data:'2001:db8::1'}]};
 const result = model(partial);

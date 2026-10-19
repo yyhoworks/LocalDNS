@@ -1,0 +1,8 @@
+/* Shared touch targets take precedence over route-specific compact button defaults. */
+@media(max-width:760px) {
+  .workspace-saved .glass-btn,
+  .workspace-filter-buttons .glass-btn,
+  .workspace-detail-tabs .glass-btn {
+    min-height:var(--control-touch-height);
+  }
+}

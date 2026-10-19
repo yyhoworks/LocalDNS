@@ -11,14 +11,15 @@ function isReadEndpoint(url) {
     /^\/plugins\/[\w-]+\/(show|config|status)$/.test(url) ||
     /^\/plugins\/requery\/(scheduler\/config|stats\/source_file_counts)$/.test(url);
 }
-function createPreviewServer({ backend = '', onBlocked = () => {} } = {}) {
-  const root = path.resolve(__dirname, '../_src/ui');
+function createPreviewServer({ backend = '', onBlocked = () => {}, uiRoot = process.env.LOCALDNS_UI_ROOT || '../dist/ui', csp = process.env.LOCALDNS_UI_CSP || '' } = {}) {
+  const root = path.resolve(__dirname, uiRoot);
   const base = backend ? new URL(backend) : null;
   if (base && !['http:', 'https:'].includes(base.protocol)) throw new Error('Backend must use HTTP(S)');
   return http.createServer((request, response) => {
     let url;
     try { url = new URL(request.url, 'http://localhost'); } catch { response.writeHead(400).end(); return; }
     response.setHeader('Cache-Control', 'no-store');
+    if (csp) response.setHeader('Content-Security-Policy', csp);
     const isApi = /^\/(api|plugins)\//.test(url.pathname) || url.pathname === '/metrics';
     if (request.method !== 'GET' || (isApi && !isReadEndpoint(url.pathname))) {
       onBlocked({ method: request.method, path: url.pathname });

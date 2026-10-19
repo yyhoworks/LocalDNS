@@ -160,7 +160,9 @@ curl -fsSL https://raw.githubusercontent.com/yyhoworks/LocalDNS/main/tools/insta
 ## 仓库结构
 
 ```text
-_src/ui/              当前 Web 界面源码、本地字体与 Logo
+frontend/             前端入口、功能模块、分层 CSS、锁定工具链和测试
+_src/ui/              公共静态资源、Chart.js、字体、Logo 与共享默认配置
+dist/ui/              Vite 生成的完整静态界面（忽略，不提交）
 tools/                UI / 服务打包、验证与更新脚本
 docs/                 开发、验证与第三方说明
 AUTHORS.md            作者署名与分工
@@ -174,13 +176,17 @@ VERSION.json          UI 与后端版号
 
 ## 开发与打包
 
-需要 Python 3.10+：
+构建机需要 Node.js `^20.19.0 || ^22.13.0 || >=24.0.0` 和 Python 3.10+；服务器只需提供静态页面与现有 DNS API：
 
 ```sh
+npm ci --prefix frontend
+npm run --prefix frontend build
+npm run --prefix frontend check
+python tools/test_package_ui.py
 python tools/package_ui.py
 ```
 
-生成的 UI 升级包和 SHA-256 校验文件位于 `dist/`。本工具只构建 Web 界面，不编译 Rust 核心。详见 [开发说明](docs/DEVELOPMENT.md)。
+生成的 UI 升级包和 SHA-256 校验文件位于 `dist/`。打包工具校验 `dist/ui/` 的源文件指纹与输出 SHA-256；源码改变后需要重新构建。它不编译 Rust 核心。详见 [开发说明](docs/DEVELOPMENT.md)。
 
 ## 来源与许可
 

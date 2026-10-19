@@ -3,7 +3,7 @@ const fs=require('node:fs');
 const vm=require('node:vm');
 const path=require('node:path');
 const context={window:{}};
-vm.runInNewContext(fs.readFileSync(path.join(__dirname,'../_src/ui/assets/js/rule-conversion.js'),'utf8'),context);
+vm.runInNewContext(require('./frontend_test_module.cjs').bundleFeature('features/rules/conversion.js','ruleConversionService','window.LocalDNSRuleConversion'),context);
 const {label,updated,message,withMetadata}=context.window.LocalDNSRuleConversion;
 for(const [detected_format,expected] of Object.entries({srs:'SRS',clash_yaml:'YAML → SRS',txt:'TXT → SRS',singbox_json:'JSON → SRS',hosts:'Hosts → SRS',dnsmasq:'DNSMasq → SRS',dat:'DAT → SRS'}))assert.equal(label({detected_format}),expected);
 assert.equal(label({url:'https://example.com/list.srs'}),'待识别'); // A suffix is not evidence of conversion.

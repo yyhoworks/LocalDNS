@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-skin="claude" data-claude-preset="parchment" data-theme="light-glass" data-brand-ver-mode="hidden">
+<head>
+  <base href="/ui/" />
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>LocalDNS 控制台</title>
+  <link id="dynamic-favicon" rel="icon" type="image/png" href="assets/img/logo-04-light-64.png?v=20261015-2" />
+  <link rel="preload" href="assets/fonts/noto-serif-sc-ui.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="preload" href="assets/fonts/instrument-serif-numerals.woff2" as="font" type="font/woff2" crossorigin>
+  <script src="/config.js"></script>
+  <script src="/assets/js/chart.umd.min.js"></script>
+  <script type="module" src="/src/entry/app.ts"></script>
+</head>
+<body>
+
+  <div class="wallpaper-layer" id="wallpaper-layer" data-preset="cosmos"></div>
+  <div class="wallpaper-dimmer" id="wallpaper-dimmer"></div>
+  <div class="paper-grain-layer" id="paper-grain-layer" aria-hidden="true"></div>
+
+  <div class="master-container">
+    <header class="top-header-grid">
+      <div class="navbar-surface" aria-hidden="true"></div>
+      <div class="navbar-content">
+      <div class="brand-box">
+        <div class="brand-logo" id="brand-logo-slot"><img id="brand-mark" src="assets/img/logo-04-light.png?v=20261015-2" alt="" width="36" height="36" /></div>
+        <span class="brand-name">LocalDNS</span>
+        <span class="brand-ver" id="brand-version-tag" data-backend-version="FJGAC">FJGAC</span>
+        <button class="icon-button sidebar-collapse" id="sidebar-collapse" aria-label="折叠侧栏" style="display:none"></button>
+      </div>
+
+      <div class="top-main-bar">
+        <div class="cmd-search-bar" role="search">
+          <div class="cmd-search-left">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+            <input type="text" id="global-search-input" aria-label="全局搜索" placeholder="搜索域名、客户端或页面" />
+          </div>
+          <span class="kbd-tag">Enter</span>
+        </div>
+
+        <div class="top-actions-dock">
+          <button type="button" class="version-button" id="version-button" aria-haspopup="dialog" aria-controls="version-dialog" aria-label="版本与更新">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M12 3 4 7v10l8 4 8-4V7l-8-4Zm-8 4 8 4 8-4M12 11v10"/></svg>
+            <span class="version-button-copy"><span data-version-number>版本</span><small data-version-status>正在读取</small></span>
+            <i class="version-indicator" aria-hidden="true"></i>
+          </button>
+
+          <div class="proxy-launcher" id="proxy-launcher" role="group" aria-label="代理面板快捷入口">
+            <a data-proxy-panel-link href="http://192.168.1.7:9090/ui" target="_blank" rel="noopener noreferrer" title="打开代理面板" aria-label="打开代理面板（新标签页）"><img src="assets/img/proxy-panel.svg" alt="" width="22" height="22" /></a>
+            <button type="button" aria-label="设置代理名称、Logo 与地址" title="代理面板设置" aria-expanded="false" aria-controls="proxy-panel-popover"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button>
+          </div>
+
+          <div class="glass-action-capsule" role="group" aria-label="视图与主题工具">
+            <button type="button" class="icon-action-btn active" id="btn-open-bg-customizer" aria-label="外观设置" title="外观设置" aria-expanded="false" aria-controls="bg-customizer-popover">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-5-5L5 21"/></svg>
+              <span>外观</span>
+            </button>
+            <span class="dock-divider" aria-hidden="true"></span>
+            <button type="button" class="particle-inline-btn" id="btn-toggle-particles" aria-pressed="true" aria-label="拓扑粒子开关" title="拓扑粒子开关">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M3 7h5l3 5-3 5H3M14 7h7M14 17h7"/></svg>
+              <span>流光</span>
+            </button>
+            <span class="dock-divider" aria-hidden="true"></span>
+            <button type="button" class="icon-action-btn" id="refresh-button" aria-label="立即刷新" title="立即刷新"></button>
+            <button type="button" class="icon-action-btn" id="theme-toggle" aria-label="切换深色或浅色主题" title="切换深色/浅色主题"></button>
+            <button type="button" class="icon-action-btn" id="restart-button" aria-label="重启 LocalDNS" title="重启 LocalDNS"></button>
+          </div>
+
+          <!-- 背景与双皮肤自定义弹出面板 -->
+          <div class="bg-customizer-popover" id="bg-customizer-popover" role="dialog" aria-label="外观与皮肤设置">
+            <div class="bcp-title">
+              <span>外观与皮肤 · 人文羊皮纸</span>
+              <button type="button" class="glass-btn" id="btn-close-bg-popover">关闭</button>
+            </div>
+
+            <div class="bcp-group" id="bcp-group-navigation">
+              <div class="bcp-group-title">导航布局</div>
+              <div class="navigation-layout-options" id="navigation-layout-options" role="group" aria-label="导航布局">
+                <button type="button" data-navigation-layout="left" aria-pressed="true">
+                  <span class="navigation-layout-preview" aria-hidden="true"><i></i><b></b><em></em></span>
+                  <strong>垂直</strong>
+                </button>
+                <button type="button" data-navigation-layout="top" aria-pressed="false">
+                  <span class="navigation-layout-preview navigation-preview-top" aria-hidden="true"><i></i><b></b><em></em></span>
+                  <strong>水平</strong>
+                </button>
+              </div>
+              <p class="navigation-layout-note">垂直布局支持收起侧栏；水平布局使用居中顶栏。手机使用底部导航，设置自动保存。</p>
+            </div>
+
+            <div class="bcp-group" id="bcp-group-skin">
+              <div class="bcp-group-title">皮肤体系</div>
+              <div class="skin-cards-grid" role="radiogroup" aria-label="界面皮肤体系">
+                <button type="button" class="skin-card active" data-skin-select="claude" role="radio" aria-checked="true">
+                  <div class="skin-card-preview preview-claude" aria-hidden="true">
+                    <span class="scp-bar"></span>
+                    <span class="scp-dot"></span>
+                  </div>
+                  <div class="skin-card-meta">
+                    <strong>人文羊皮纸</strong>
+                    <small>Claude 温润纸质</small>
+                  </div>
+                </button>
+                <button type="button" class="skin-card" data-skin-select="glass" role="radio" aria-checked="false">
+                  <div class="skin-card-preview preview-glass" aria-hidden="true">
+                    <span class="scp-bar"></span>
+                    <span class="scp-dot"></span>
+                  </div>
+                  <div class="skin-card-meta">
+                    <strong>流光毛玻璃</strong>
+                    <small>原版深空雾面</small>
+                  </div>
+                </button>
+              </div>
+            </div>
+
+            <div class="bcp-group" id="bcp-group-claude">
+              <div class="bcp-group-title">纸张与色调</div>
+
+              <div class="bcp-row">
+                <div class="bcp-row-head"><span>预设纸张色调</span><strong class="mono" id="val-claude-preset">经典羊皮纸</strong></div>
+                <div class="preset-swatches">
+                  <button type="button" class="preset-btn active" data-claude-preset="parchment" aria-label="经典羊皮纸" title="经典羊皮纸 (Claude 默认)" style="background:radial-gradient(circle at 30% 35%, #C96442, #F5F2EA 72%)"></button>
+                  <button type="button" class="preset-btn" data-claude-preset="terracotta" aria-label="暖陶宣纸" title="暖陶宣纸" style="background:radial-gradient(circle at 30% 35%, #D97757, #F2E8DC 72%)"></button>
+                  <button type="button" class="preset-btn" data-claude-preset="sage" aria-label="鼠尾草笺" title="鼠尾草笺" style="background:radial-gradient(circle at 30% 35%, #2D6A4F, #EFF3EC 72%)"></button>
+                  <button type="button" class="preset-btn" data-claude-preset="ivory" aria-label="纯粹原白" title="纯粹原白" style="background:radial-gradient(circle at 30% 35%, #B45309, #FAF9F5 72%)"></button>
+                  <button type="button" class="preset-btn" data-claude-preset="obsidian" aria-label="夜读黑曜" title="夜读黑曜 (深色羊皮纸)" style="background:radial-gradient(circle at 30% 35%, #D97757, #1A1815 75%)"></button>
+                </div>
+              </div>
+
+              <div class="bcp-row">
+                <div class="bcp-row-head"><label for="slider-paper-grain">纸张肌理浓度</label><strong class="mono" id="val-paper-grain">22%</strong></div>
+                <input type="range" class="bcp-slider" id="slider-paper-grain" min="0" max="60" value="22" />
+              </div>
+
+              <div class="bcp-row">
+                <div class="bcp-row-head"><label for="slider-paper-warmth">卡片温润层次</label><strong class="mono" id="val-paper-warmth">48%</strong></div>
+                <input type="range" class="bcp-slider" id="slider-paper-warmth" min="0" max="100" value="48" />
+              </div>
+            </div>
+
+            <div class="bcp-group" id="bcp-group-glass-bg">
+              <div class="bcp-group-title">壁纸</div>
+
+              <div class="bcp-row">
+                <div class="bcp-row-head"><span>预设光影主题</span><strong class="mono" id="val-preset">—</strong></div>
+                <div class="preset-swatches">
+                  <button type="button" class="preset-btn active" data-bg-preset="cosmos" aria-label="深空暖金" title="深空暖金 (图2默认)" style="background:radial-gradient(circle at 30% 35%, #c48a45, #090a0f 75%)"></button>
+                  <button type="button" class="preset-btn" data-bg-preset="aurora" aria-label="极光深海" title="极光深海" style="background:radial-gradient(circle at 30% 35%, #2563eb, #090a0f 75%)"></button>
+                  <button type="button" class="preset-btn" data-bg-preset="emerald" aria-label="暗夜翡翠" title="暗夜翡翠" style="background:radial-gradient(circle at 30% 35%, #10b981, #090a0f 75%)"></button>
+                  <button type="button" class="preset-btn" data-bg-preset="sunset" aria-label="日落琥珀" title="日落琥珀" style="background:radial-gradient(circle at 30% 35%, #ea580c, #090a0f 75%)"></button>
+                  <button type="button" class="preset-btn" data-bg-preset="minimal" aria-label="纯净暗黑" title="纯净暗黑" style="background:#08090c"></button>
+                </div>
+              </div>
+
+              <div class="bcp-row">
+                <div class="bcp-row-head"><span>本地壁纸</span><strong>自动保存</strong></div>
+                <div class="bcp-inline">
+                  <button type="button" class="glass-btn primary" id="btn-select-bg-file">选择本地图片…</button>
+                  <input type="file" id="bg-file-input" accept="image/*" hidden />
+                  <button type="button" class="glass-btn" id="btn-clear-custom-bg">恢复默认</button>
+                </div>
+              </div>
+
+              <div class="bcp-row">
+                <div class="bcp-row-head"><label for="bg-url-input">在线壁纸 URL</label></div>
+                <div class="bcp-inline">
+                  <input type="text" class="bcp-input" id="bg-url-input" placeholder="https://example.com/wallpaper.jpg" />
+                  <button type="button" class="glass-btn" id="btn-apply-bg-url">应用</button>
+                </div>
+              </div>
+
+              <p id="wallpaper-save-status" class="bcp-save-status" role="status" aria-live="polite">正在读取已保存壁纸…</p>
+            </div>
+
+            <div class="bcp-group" id="bcp-group-glass-material">
+              <div class="bcp-group-title">毛玻璃</div>
+
+              <div class="bcp-row">
+                <div class="bcp-row-head"><label for="slider-blur">毛玻璃模糊度</label><strong class="mono" id="val-blur">14px</strong></div>
+                <input type="range" class="bcp-slider" id="slider-blur" min="4" max="48" value="14" />
+              </div>
+
+              <div class="bcp-row">
+                <div class="bcp-row-head"><label for="slider-alpha">面板遮盖度（越低越透）</label><strong class="mono" id="val-alpha">48%</strong></div>
+                <input type="range" class="bcp-slider" id="slider-alpha" min="25" max="92" value="48" />
+              </div>
+
+              <div class="bcp-row">
+                <div class="bcp-row-head"><label for="slider-dimmer">背景暗化遮罩</label><strong class="mono" id="val-dimmer">22%</strong></div>
+                <input type="range" class="bcp-slider" id="slider-dimmer" min="0" max="88" value="22" />
+              </div>
+            </div>
+
+            <div class="bcp-group" id="bcp-group-interface">
+              <div class="bcp-group-title">界面</div>
+
+              <details class="identity-settings">
+                <summary>名称与 Logo</summary>
+                <div class="identity-preview"><img id="identity-preview" src="assets/img/logo-04-light.png" alt="Logo 预览" width="36" height="36" /><span>顶栏、页面标题与站点图标</span></div>
+                <label for="identity-name">显示名称</label>
+                <input class="bcp-input" id="identity-name" type="text" maxlength="32" placeholder="LocalDNS" autocomplete="off" />
+                <label for="identity-logo-url">Logo 图片地址</label>
+                <input class="bcp-input" id="identity-logo-url" type="url" placeholder="https://example.com/logo.png" spellcheck="false" />
+                <label class="button small identity-upload">上传 Logo<input id="identity-logo-file" type="file" accept="image/png,image/jpeg,image/webp,image/gif,image/svg+xml" /></label>
+                <p class="identity-note">建议 256×256 透明 PNG，上传不超过 2 MB。网页修改仅应用到本机；导出共享配置后可同步到其他设备。</p>
+                <button type="button" class="button small" id="identity-retry" hidden>重新读取配置</button>
+                <p id="identity-status" class="identity-note" role="status" aria-live="polite"></p>
+                <div class="identity-actions"><button type="button" class="button small" id="identity-reset">恢复默认</button><button type="button" class="button primary small" id="identity-save">应用到本机</button></div>
+              </details>
+
+              <div class="bcp-row">
+                <div class="bcp-row-head"><label for="slider-radius">界面圆角</label><strong class="mono" id="val-radius">100%</strong></div>
+                <input type="range" class="bcp-slider" id="slider-radius" min="0" max="200" step="10" value="100" />
+              </div>
+
+              <div class="bcp-row">
+                <div class="bcp-row-head"><label for="select-brand-ver">版本标签</label><strong class="mono" id="val-brand-ver">跟随后端版本</strong></div>
+                <select class="bcp-input bcp-select" id="select-brand-ver" aria-label="版本标签">
+                  <option value="hidden">隐藏</option>
+                  <option value="version" selected>跟随后端版本</option>
+                  <option value="custom">自定义文字</option>
+                </select>
+                <input class="bcp-input" id="input-brand-ver" type="text" maxlength="14" placeholder="例如 v3（留空则不显示）" autocomplete="off" spellcheck="false" hidden />
+              </div>
+            </div>
+            <section class="bcp-fonts" aria-labelledby="typography-title">
+              <h3 id="typography-title">字体与阅读</h3>
+              <div class="font-setting"><label for="font-heading">标题字体</label><select id="font-heading"><option value="serif">Noto Serif SC · 宋体</option><option value="sans">Noto Sans SC · 黑体</option><option value="system">系统字体</option></select></div>
+              <div class="font-setting"><label for="font-numeral">指标数字</label><select id="font-numeral"><option value="serif">Instrument Serif · 衬线</option><option value="sans">IBM Plex Sans · 无衬线</option><option value="mono">IBM Plex Mono · 等宽</option></select></div>
+              <div class="font-setting"><label for="font-body">界面文字</label><select id="font-body"><option value="plex">IBM Plex Sans + Noto Sans SC</option><option value="noto">Noto Sans SC</option><option value="system">系统字体</option></select></div>
+              <div class="bcp-row">
+                <div class="bcp-row-head"><span>自定义字体（可选）</span><strong class="mono" id="val-font-upload" role="status" aria-live="polite">未上传</strong></div>
+                <div class="bcp-inline">
+                  <button type="button" class="glass-btn" id="btn-font-upload" disabled>选择本机字体…</button>
+                  <input type="file" id="input-font-upload" accept=".ttf,.otf,.woff,.woff2" multiple hidden />
+                </div>
+                <div class="bcp-font-list" id="font-upload-list" hidden></div>
+              </div>
+              <p class="font-note">上传仅保存在当前浏览器，可分别用于标题、数字或正文。单个文件不超过 64 MB，总量不超过 128 MB。</p>
+              <p class="font-note">域名、IP、日志和配置保持等宽排版。</p>
+              <p id="typography-save-status" class="bcp-save-status" role="status" aria-live="polite">正在读取服务器共享字体设置…</p>
+            </section>
+            <section class="shared-ui-settings" aria-labelledby="shared-ui-title">
+              <h3 id="shared-ui-title">共享到其他设备</h3>
+              <p class="identity-note">服务器配置是所有设备的默认值。本机调整可导出为配置包，导入服务器后刷新生效。</p>
+              <div class="shared-ui-actions"><button type="button" class="button primary small" id="export-shared-ui">导出共享配置</button><button type="button" class="button small" id="use-shared-ui">跟随服务器</button></div>
+              <p id="shared-ui-status" class="bcp-save-status" role="status" aria-live="polite">配置包包含名称、Logo、面板地址、字体文件与字体选择。</p>
+              <details class="appearance-font-help"><summary>如何应用到服务器</summary><p>将配置包与 configure-ui.py 放到服务器，运行：</p><code>python3 configure-ui.py --import localdns-ui-settings.zip</code><p>不会重启 DNS。其他设备选择“跟随服务器”后刷新即可。</p></details>
+            </section>
+          </div>
+        </div>
+      </div>
+      </div>
+    </header>
+
+    <div class="shell-grid">
+      <aside class="glass-sidebar" id="sidebar" aria-label="主导航侧边栏">
+        <nav id="side-nav" aria-label="控制台导航"></nav>
+
+        <div class="sidebar-foot" id="sidebar-status">
+          <span class="dot-online status-dot" aria-hidden="true"></span>
+          <div class="sidebar-status-copy">
+            <strong style="font-weight:600;color:var(--text-1)"><span data-localdns-name>LocalDNS</span> 在线</strong>
+            <small id="api-endpoint-label" style="color:var(--text-3)">:53</small>
+          </div>
+        </div>
+      </aside>
+
+      <div style="display:none"><h1 id="page-title">运行概览</h1><p id="page-subtitle"></p></div>
+      <main class="dashboard-12grid" id="page-content" tabindex="-1"></main>
+    </div>
+
+    <nav id="mobile-nav" class="mobile-nav" aria-label="手机导航" style="display:none"></nav>
+  </div>
+
+  <div class="drawer-backdrop" id="drawer-backdrop"></div>
+  <aside class="drawer" id="drawer" aria-hidden="true">
+    <div class="drawer-header">
+      <div><h2 id="drawer-title">详情</h2><p id="drawer-subtitle"></p></div>
+      <button class="icon-button" id="drawer-close" aria-label="关闭"></button>
+    </div>
+    <div id="drawer-content" class="drawer-content"></div>
+  </aside>
+
+  <dialog id="modal" class="modal">
+    <form method="dialog" class="modal-panel" id="modal-form">
+      <div class="modal-header">
+        <div><h2 id="modal-title">操作</h2><p id="modal-subtitle"></p></div>
+        <button class="icon-button" id="modal-close" type="button" aria-label="关闭"></button>
+      </div>
+      <div id="modal-content" class="modal-content"></div>
+      <div class="modal-actions" id="modal-actions"></div>
+    </form>
+  </dialog>
+
+  <section id="proxy-panel-popover" class="proxy-panel-popover" role="dialog" aria-labelledby="proxy-panel-title" aria-describedby="proxy-panel-description" hidden>
+    <div class="proxy-panel-heading">
+      <h2 id="proxy-panel-title">代理面板</h2>
+      <button class="icon-button" type="button" data-proxy-panel-close aria-label="关闭代理面板设置"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="m6 6 12 12M6 18 18 6"/></svg></button>
+    </div>
+    <p id="proxy-panel-description" class="proxy-panel-description">填写面板地址，入口自动读取该面板的网站图标。</p>
+    <form novalidate>
+      <div class="field"><label for="proxy-panel-name">代理名称</label><input type="text" id="proxy-panel-name" maxlength="32" placeholder="例如：家庭代理" autocomplete="off" /></div>
+      <div class="identity-preview"><img id="proxy-panel-preview" src="assets/img/proxy-panel.svg" alt="面板图标预览" width="32" height="32" /><span id="proxy-logo-status" role="status" aria-live="polite">根据面板地址自动读取图标</span></div>
+      <div class="field"><label for="proxy-panel-url">面板地址</label><input type="url" id="proxy-panel-url" placeholder="http://192.168.1.7:9090/ui" inputmode="url" autocomplete="url" spellcheck="false" autocapitalize="none" required aria-describedby="proxy-panel-note proxy-panel-error" /></div>
+      <p id="proxy-panel-note" class="proxy-panel-note">点击图标打开面板。本机修改可通过“外观 → 品牌与字体”导出共享配置。</p>
+      <button type="button" class="button small" id="proxy-panel-retry" hidden>重新读取配置</button>
+      <p id="proxy-panel-error" class="proxy-panel-error" role="alert" hidden></p>
+      <div class="proxy-panel-actions"><button type="button" class="button" data-proxy-panel-close>取消</button><button type="submit" class="button primary">应用到本机</button></div>
+    </form>
+  </section>
+
+  <div id="toast-stack" class="toast-stack" aria-live="polite"></div>
+</body>
+</html>

@@ -3,7 +3,7 @@ const fs = require('node:fs');
 const vm = require('node:vm');
 const path = require('node:path');
 const context = {window:{}};
-vm.runInNewContext(fs.readFileSync(path.join(__dirname,'../_src/ui/assets/js/traffic.js'),'utf8'),context);
+vm.runInNewContext(require('./frontend_test_module.cjs').bundleFeature('features/overview/traffic/model.js','trafficService','window.LocalDNSTraffic'),context);
 const {record,summary,chart}=context.window.LocalDNSTraffic;
 const rows=[],base=1792300000000;
 assert.equal(record(rows,{total:100,start:1},base),true);

@@ -7,7 +7,7 @@ const vm = require('node:vm');
 let IDB;
 try { IDB = require('fake-indexeddb'); }
 catch { IDB = require(path.resolve(process.env.LOCALDNS_TEST_DEPS || 'deployment/tools/wallpaper-test-deps/node_modules', 'fake-indexeddb')); }
-const source = fs.readFileSync(path.resolve(__dirname, '../_src/ui/assets/js/wallpaper.js'), 'utf8');
+const source = require('./frontend_test_module.cjs').bundleFeature('features/appearance/wallpaper.js','wallpaperService','window.LocalDNSWallpaper');
 const image = (name = 'current.png') => ({type:'image', name, blob:new Blob(['image'], {type:'image/png'})});
 const library = selected => ({version:1, revision:'old', items:[{...image('unused.png'), id:'wunused'}, {...image(), id:'wcurrent'}], selected:selected || {type:'asset', id:'wcurrent'}});
 const request = r => new Promise((resolve, reject) => {r.onsuccess = () => resolve(r.result); r.onerror = () => reject(r.error);});
@@ -33,7 +33,7 @@ async function ui(indexedDB, localStorage = storage()) {
   const presets = ['cosmos','aurora'].map(preset => Object.assign(element(), {dataset:{bgPreset:preset}}));
   class Image {set src(value) {if (value) queueMicrotask(() => value.includes('broken') ? this.onerror?.() : this.onload?.());}}
   const window = {};
-  vm.runInNewContext(source, {window, indexedDB, localStorage, Blob, URL, Image, fetch, setTimeout, clearTimeout, document:{querySelector:selector => nodes.get(selector), querySelectorAll:() => presets}});
+  vm.runInNewContext(source, {window, indexedDB, localStorage, Blob, URL, Image, fetch, AbortController, DOMException, Response, EventTarget, Event, CustomEvent, setTimeout, clearTimeout, document:{querySelector:selector => nodes.get(selector), querySelectorAll:() => presets}});
   await window.LocalDNSWallpaper.setup();
   return {nodes, presets, localStorage, wall:nodes.get('#wallpaper-layer'), status:nodes.get('#wallpaper-save-status')};
 }

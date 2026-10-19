@@ -1,0 +1,10 @@
+localdns_info{version="FJGAC"} 1
+localdns_runtime_info{runtime="rust-1.98.1",platform="amd64-v3"} 1
+process_start_time_seconds 1792382400
+process_cpu_seconds_total 12
+process_resident_memory_bytes 33554432
+localdns_queries_total 1000
+localdns_cache_query_total{tag="cache_main"} 100
+localdns_cache_hit_total{tag="cache_main"} 80
+localdns_cache_lazy_hit_total{tag="cache_main"} 10
+localdns_cache_size_current{tag="cache_main"} 20

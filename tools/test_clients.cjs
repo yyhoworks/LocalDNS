@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const C = require('../_src/ui/assets/js/clients.js');
+const C = require('./frontend_test_module.cjs').loadFeature('features/logs/clients.js','clientsService',true);
 
 test('only recorded positive-query sources appear; saved ROS aliases do not become devices', () => {
   const clients = [{key:'192.0.2.102',count:5500},{key:'192.0.2.1',count:120}];

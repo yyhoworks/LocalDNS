@@ -26,7 +26,7 @@ const output=path.resolve(__dirname,'../dist/rules-editor-verification');fs.mkdi
  async function add(kind='rule'){await page.locator('#rv-new').click();await page.locator(`[data-new="${kind}"]`).click();await page.locator(kind==='paste'?'#rp-wrap[open]':'#rv-sheet.show').waitFor();}
  const value=text=>page.locator('.rv-value').filter({hasText:text}).first();
  async function closed(){await page.locator('#rv-sheet.show').waitFor({state:'hidden'});assert.equal(await page.locator('.master-container').evaluate(e=>e.inert),false);assert.equal(await page.locator('#rv-sheet').evaluate(e=>e.inert),true);}
- async function discard(){await page.locator('#rv-cancel').click();await page.locator('[data-rv-discard]').click();await closed();}
+ async function discard(){await page.locator('#rv-cancel').click();try{await page.locator('[data-rv-discard]').click();}catch(error){await page.screenshot({path:path.join(output,'failure.png')});fs.writeFileSync(path.join(output,'failure.json'),JSON.stringify(await page.evaluate(()=>({sheet:document.querySelector('#rv-sheet')?.outerHTML,text:document.querySelector('#rule-text')?.value})),null,2));throw error;}await closed();}
  async function openTag(tag){await page.locator(`[data-rule-tag="${tag}"]`).click();await page.waitForFunction(t=>document.querySelector('.rule-menu button.active')?.dataset.ruleTag===t&&!!document.querySelector('.wb-list-heading'),tag);}
  try{
   await fresh();await value('example.com').click();await page.locator('#rv-cancel').click();await closed();

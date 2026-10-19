@@ -8,6 +8,7 @@
 | IBM Plex Sans | 英文与 UI 正文 | [SIL Open Font License](%5Fsrc/ui/assets/fonts/ibmplexsans-OFL.txt) |
 | IBM Plex Mono | IP、端口等技术信息 | [SIL Open Font License](%5Fsrc/ui/assets/fonts/ibmplexmono-OFL.txt) |
 | Chart.js | 图表库 | MIT；见 [许可文件](docs/licenses/Chart.js-LICENSE.md) |
+| DOMPurify | 动态 HTML 安全渲染 | Apache-2.0；见 [许可文件](docs/licenses/DOMPurify-LICENSE.txt) |
 
 字体通过 Google Fonts 官方 CSS 获取，使用 WOFF2 子集以控制加载体积。来源和散列记录在 `_src/ui/assets/fonts/manifest.json`。
 

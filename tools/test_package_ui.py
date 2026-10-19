@@ -3,9 +3,12 @@ import io
 import struct
 import unittest
 import warnings
+import json
+import tempfile
+from pathlib import Path
 from zipfile import ZipFile, ZipInfo
 
-from package_ui import read_kernel_bundle
+from package_ui import read_kernel_bundle, read_built_ui, sha
 
 
 class KernelBundleTests(unittest.TestCase):
@@ -85,6 +88,70 @@ class KernelBundleTests(unittest.TestCase):
                 archive.writestr('LocalDNS_FJGA7/localdns/bin/localdns', b'duplicate')
         with ZipFile(buffer) as archive, self.assertRaisesRegex(ValueError, 'Invalid'):
             read_kernel_bundle(archive, self.backend)
+
+
+class BuiltUITests(unittest.TestCase):
+    def setUp(self):
+        self.temporary = tempfile.TemporaryDirectory()
+        self.addCleanup(self.temporary.cleanup)
+        self.root = Path(self.temporary.name)
+        self.output = self.root / 'dist/ui'
+        self.output.mkdir(parents=True)
+        self.version = {'uiVersion': 'test'}
+        source = {'frontend/src/entry/app.ts': b'entry', '_src/ui/config.js': b'config'}
+        source.update({name: b'input' for name in ['frontend/index.html', 'frontend/package.json',
+            'frontend/package-lock.json', 'frontend/vite.config.ts', 'frontend/tsconfig.json', 'frontend/scripts/build-integrity.ts', 'frontend/scripts/build-inputs.mjs', 'VERSION.json']})
+        for name, data in source.items():
+            file = self.root / name
+            file.parent.mkdir(parents=True, exist_ok=True)
+            file.write_bytes(data)
+        self.payload = {'index.html': b'<script src="assets/app-123.js"></script>',
+                        'assets/app-123.js': b'code', 'version.json': json.dumps(self.version).encode()}
+        for name, data in self.payload.items():
+            file = self.output / name
+            file.parent.mkdir(parents=True, exist_ok=True)
+            file.write_bytes(data)
+        self.metadata = {'schema': 1, 'version': self.version, 'sourceDigest': 'test',
+                         'inputs': {name: sha(data) for name, data in source.items()},
+                         'files': {name: sha(data) for name, data in self.payload.items()}}
+        self.save_metadata()
+
+    def save_metadata(self):
+        (self.output / 'build-meta.json').write_text(json.dumps(self.metadata), encoding='utf-8')
+
+    def read(self):
+        return read_built_ui(self.output, self.version, self.root)
+
+    def test_complete_build_is_accepted(self):
+        self.assertIn('assets/app-123.js', self.read())
+
+    def test_tampered_or_extra_build_file_is_rejected(self):
+        (self.output / 'assets/app-123.js').write_bytes(b'changed')
+        with self.assertRaisesRegex(ValueError, 'integrity'):
+            self.read()
+
+    def test_source_change_requires_rebuild(self):
+        (self.root / 'frontend/src/entry/app.ts').write_bytes(b'changed')
+        with self.assertRaisesRegex(ValueError, 'stale'):
+            self.read()
+
+    def test_typescript_build_configuration_change_requires_rebuild(self):
+        (self.root / 'frontend/tsconfig.json').write_bytes(b'changed compiler options')
+        with self.assertRaisesRegex(ValueError, 'stale'):
+            self.read()
+
+    def test_added_source_requires_rebuild(self):
+        (self.root / 'frontend/src/new.ts').write_bytes(b'new')
+        with self.assertRaisesRegex(ValueError, 'inputs changed'):
+            self.read()
+
+    def test_missing_build_and_wrong_version_are_rejected(self):
+        with self.assertRaisesRegex(ValueError, 'missing'):
+            read_built_ui(self.root / 'missing', self.version, self.root)
+        self.metadata['version'] = {'uiVersion': 'old'}
+        self.save_metadata()
+        with self.assertRaisesRegex(ValueError, 'version'):
+            self.read()
 
 
 if __name__ == '__main__':

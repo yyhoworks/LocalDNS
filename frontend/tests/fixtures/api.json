@@ -1,0 +1,24 @@
+{
+  "/api/v1/status": {"stats":{"adguard_blocked":10},"rules":{"geosite_cn":100}},
+  "/api/v1/audit/status": {"capturing":true},
+  "/api/v1/audit/capacity": {"capacity":10000},
+  "/api/v2/audit/stats": {"total_queries":1000,"average_duration_ms":3.25,"client_count":1,"domain_count":1},
+  "/api/v1/upstream/config": {"domestic":[{"tag":"fixture-dns","address":"https://dns.example/dns-query","enabled":true}]},
+  "/api/v1/upstream/tags": ["domestic"],
+  "/api/v1/upstream/ecs": {"ecs":""},
+  "/plugins/client_name": {"192.0.2.10":"测试客户端"},
+  "/api/v2/audit/rank/domain": [{"key":"example.com","count":1000}],
+  "/api/v2/audit/rank/client": [{"key":"192.0.2.10","count":1000}],
+  "/api/v2/audit/rank/domain_set": [{"key":"cache_main","count":800},{"key":"geosite_cn","count":200}],
+  "/api/v2/audit/rank/slowest": [],
+  "/api/v2/audit/logs": {
+    "logs":[{"query_time":"2026-10-19T07:59:00Z","query_name":"example.com","query_type":"A","client_ip":"192.0.2.10","domain_set":"cache_main","duration_ms":12,"response_code":"NOERROR","answers":[{"data":"192.0.2.20"}]}],
+    "filters":{"query_types":["A"],"domain_sets":["cache_main"],"response_codes":["NOERROR"]},
+    "pagination":{"current_page":1,"total_pages":1,"total_items":1}
+  },
+  "/plugins/adguard/rules": [],
+  "/plugins/requery/scheduler/config": {"enabled":false,"interval_hours":24},
+  "/plugins/requery/stats/source_file_counts": {},
+  "/plugins/requery/status": {},
+  "/plugins/requery/config": {}
+}

@@ -1,0 +1,19 @@
+
+.proxy-panel-popover[hidden] { display: none; }
+.proxy-panel-popover { position: fixed; z-index: 110; width: min(390px, calc(100vw - 24px)); padding: 22px; overflow-y: auto; border: 1px solid var(--border-glass); border-radius: calc(16px * var(--radius-scale)); background: var(--glass-bg-strong); backdrop-filter: var(--blur-filter); -webkit-backdrop-filter: var(--blur-filter); box-shadow: 0 16px 48px color-mix(in srgb, var(--text-1) 12%, transparent); color: var(--text-1); text-wrap: pretty; }
+.proxy-panel-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.proxy-panel-heading h2 { font-size: 19px; font-weight: 600; }
+.proxy-panel-heading .icon-button { min-width: 32px; width: 32px; height: 32px; min-height: 32px; }
+.proxy-panel-heading svg { width: 17px; height: 17px; }
+.proxy-panel-description, .proxy-panel-note { margin: 8px 0 20px; color: var(--text-2); font-size: 12px; line-height: 1.7; }
+.proxy-panel-note { margin: 10px 0 0; }
+.proxy-panel-error { margin-top: 10px; color: var(--console-danger, var(--red)); font-size: 12px; line-height: 1.7; }
+.proxy-panel-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 22px; }
+@media (max-width: 600px) {
+  .proxy-panel-popover { padding: 20px; }
+}
+@media (max-width: 600px) {
+  .proxy-panel-actions .button { min-height: 44px; }
+}
+.proxy-panel-popover .identity-preview{gap:10px;color:var(--text-2);font-size:12px;line-height:1.6}
+@media(max-width:600px){.proxy-panel-heading .icon-button{min-width:44px}}

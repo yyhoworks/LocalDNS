@@ -72,7 +72,7 @@ async function main() {
   report.checks.push('centered top layout, search shortcut, route state and unchanged rule draft');
 
   await route('management');
-  await page.evaluate(() => window.LocalDNSSkin.setClaudePreset('obsidian'));
+  await page.locator('[data-claude-preset="obsidian"]').dispatchEvent('click');
   await page.locator('.management-feature-card').first().waitFor();
   const cards = await page.locator('.management-feature-card').evaluateAll(nodes => nodes.map(node => {
     const text = node.firstElementChild.getBoundingClientRect();
@@ -99,7 +99,7 @@ async function main() {
   assert.equal(await page.locator('.topo-grid').evaluate(node => getComputedStyle(node).columnGap), '22px');
   report.checks.push('topology recalculates while preserving the five-stage layout');
   await layout('top');
-  await page.evaluate(() => window.LocalDNSSkin.setSkin('glass'));
+  await page.locator('[data-skin-select="glass"]').dispatchEvent('click');
   await page.locator('.console-service-summary').waitFor();
   await frame('overview-horizontal-1440-glass-dark');
   await page.setViewportSize({ width: 1024, height: 1000 });
@@ -114,7 +114,7 @@ async function main() {
   assert.equal(await page.locator('#sidebar').evaluate(node => node.parentElement.className), 'shell-grid');
   assert.equal(await page.locator('#mobile-nav').evaluate(node => getComputedStyle(node).display), 'grid');
   await frame('management-390-glass-light');
-  await page.evaluate(() => window.LocalDNSSkin.setSkin('claude'));
+  await page.locator('[data-skin-select="claude"]').dispatchEvent('click');
   await page.locator('.management-feature-card').first().waitFor();
   await frame('management-390-claude-dark');
   await appearance();

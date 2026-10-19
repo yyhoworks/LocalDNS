@@ -1,8 +1,8 @@
-// Exercise the production count-up function with a deterministic animation clock.
+// Exercise the maintained count-up function with a deterministic animation clock.
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const vm = require('node:vm');
-const source = fs.readFileSync(require('node:path').join(__dirname, '../_src/ui/assets/js/app.js'), 'utf8');
+const source = fs.readFileSync(require('node:path').join(__dirname, '../frontend/src/shared/components/motion.js'), 'utf8');
 const start = source.indexOf('  function animateCountUps(root){');
 const end = source.indexOf('  function syncSegThumb(', start);
 assert(start >= 0 && end > start, 'Production count-up function must be found');
@@ -16,7 +16,7 @@ function fixture(value, reduced = false) {
     set textContent(_) { assert.fail('Count-up must never replace the number/unit container'); }
   };
   const context = vm.createContext({
-    window: { LocalDNSInterface: { displayNumerals: () => splits++ } },
+    shellInterfaceService: { displayNumerals: () => splits++ },
     reduceMotion: motion, performance: { now: () => 0 },
     requestAnimationFrame: callback => frames.push(callback), setTimeout() {}
   });

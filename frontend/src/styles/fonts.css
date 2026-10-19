@@ -1,0 +1,61 @@
+
+@font-face {
+  font-family: 'Instrument Serif';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('/assets/fonts/instrument-serif-numerals.woff2') format('woff2');
+  unicode-range: U+28-29, U+2b-39;
+}
+
+@font-face {
+  font-family: 'Noto Serif SC';
+  font-style: normal;
+  font-weight: 400 500;
+  font-display: swap;
+  src: url('/assets/fonts/noto-serif-sc-ui.woff2') format('woff2');
+  unicode-range: U+20-7e, U+b7, U+d7, U+2013-2014, U+2026, U+2103, U+2192, U+2248, U+4e00, U+4e07, U+4e09-4e0b, U+4e0d-4e0e, U+4e14, U+4e2a, U+4e2d, U+4e3a-4e3b, U+4e49, U+4e50, U+4e5f, U+4e8b-4e8c, U+4e8e, U+4e94, U+4ea4, U+4ebf, U+4ec5, U+4ecd-4ece, U+4ed6, U+4ee3, U+4ee5, U+4ef6, U+4efb, U+4f1a, U+4f46, U+4f4d-4f4e, U+4f53, U+4f59, U+4f5c, U+4f7f, U+4f8b, U+4f9b, U+4fa7, U+4fdd, U+4fee, U+503c, U+504f, U+505c, U+5065, U+5141, U+5143, U+5149, U+5165, U+5168, U+516c, U+5171, U+5173, U+5176-5178, U+5185, U+518d, U+5199, U+51c0, U+51d1, U+51fa-51fb, U+5206-5207, U+5217, U+5219, U+5220, U+522b, U+5230, U+5236-5237, U+523b, U+524d, U+529f-52a1, U+52a8, U+52bf, U+5316, U+5339, U+534f, U+5355, U+5360-5361, U+5373, U+5386, U+539f, U+53bb, U+53ca, U+53d1, U+53d6, U+53d8, U+53e0, U+53e3, U+53ea, U+53ef-53f0, U+53f2-53f3, U+53f7, U+5408, U+540c-540e, U+5410-5411, U+5417, U+541e, U+5426, U+542c, U+542f, U+544a, U+5458, U+547d, U+548c, U+54c1, U+54cd, U+5668, U+56ca, U+56db, U+56de, U+56e0, U+56fa, U+56fd-56fe, U+5728, U+5730, U+5740, U+5747, U+578b, U+57df, U+57fa, U+58c1, U+5904, U+5907, U+590d, U+5916, U+591a, U+591c, U+5927, U+5929, U+5931, U+597d, U+5982, U+59cb, U+5b50, U+5b57-5b58, U+5b66, U+5b89, U+5b8b-5b8c, U+5b9a, U+5b9e, U+5ba1-5ba2, U+5bb9, U+5bbd, U+5bf9, U+5bfc, U+5c04, U+5c06, U+5c0f, U+5c11, U+5c31, U+5c40, U+5c42, U+5c49, U+5c4f, U+5c5e, U+5de5, U+5df1-5df2, U+5e26, U+5e38, U+5e72-5e73, U+5e76, U+5e7f, U+5e8f, U+5e94, U+5ea6, U+5eb7, U+5f00, U+5f02, U+5f0f, U+5f15, U+5f20, U+5f39-5f3a, U+5f53, U+5f55, U+5f62, U+5f71, U+5f81, U+5f84-5f85, U+5f88, U+5fae, U+5fc3, U+5fc5-5fc6, U+5fd7, U+5feb, U+6001, U+6027, U+603b, U+6062, U+60c5, U+610f, U+611f, U+6162, U+6210, U+6216, U+622a, U+6237, U+6240, U+624b, U+624d, U+6251, U+6253, U+6267, U+626b, U+6291, U+6298, U+62a4, U+62bd, U+62d2-62d3, U+62e6, U+62e8-62e9, U+6301, U+6307, U+6309, U+6362, U+636e, U+6377, U+6392, U+63a5, U+63a7, U+63cf-63d0, U+63d2, U+641c, U+64cd-64ce, U+652f, U+6536, U+6539, U+653e, U+6548, U+6570, U+6574, U+6587, U+65ad, U+65b0, U+65b9, U+65e0, U+65e5-65e7, U+65f6, U+6620, U+662f, U+663e, U+666f-6670, U+667a, U+6682, U+6696-6697, U+66f4, U+66ff-6700, U+6709, U+670d, U+671f, U+672a, U+672c, U+673a, U+6743, U+6761, U+6765, U+677f, U+6781, U+6784, U+6790, U+679c, U+67d3, U+67e5, U+6807, U+680f, U+6821, U+6837-6838, U+683c, U+6848, U+6863, U+68c0, U+6982, U+69fd, U+6a21, U+6b21, U+6b62-6b65, U+6bb5, U+6bcf, U+6bd4, U+6bdb, U+6c42, U+6c47, U+6c60-6c61, U+6ca1, U+6cd5, U+6d3b, U+6d41, U+6d45, U+6d4b, U+6d4f, U+6d77, U+6d88, U+6df1, U+6dfb, U+6e05, U+6e32, U+6e38, U+6e90, U+6eda, U+6ee4, U+7070, U+70b9, U+7247-7248, U+724c, U+72b6, U+72ec, U+7387, U+73af-73b0, U+73bb, U+73c0, U+7406, U+7425, U+7483, U+751f, U+7528, U+7531, U+753b, U+754c, U+7559, U+7565, U+767d, U+7684, U+76d1, U+76d6, U+76ee, U+76f4, U+770b, U+771f, U+7740, U+77e5, U+77ed-77ee, U+7801, U+786e, U+793a, U+7981, U+79d1-79d2, U+79ef-79f0, U+7a0b, U+7a3f, U+7a7a, U+7a7f, U+7a97, U+7acb, U+7ade, U+7aef, U+7b26, U+7b2c, U+7b49, U+7b56, U+7b5b, U+7ba1, U+7c7b, U+7c92, U+7cbe, U+7cca, U+7cfb, U+7d22, U+7d27, U+7d2f, U+7ea7, U+7eaf, U+7eb3, U+7eb8, U+7ebf, U+7ec4, U+7ec8, U+7ecf, U+7ed1, U+7ed3, U+7ed8, U+7edd, U+7edf, U+7eea, U+7eed, U+7ef4, U+7f00, U+7f13, U+7f16, U+7f51, U+7f69, U+7f6e, U+7fe0-7fe1, U+7ffb, U+8017, U+8054, U+80cc, U+80f6, U+80fd, U+81ea, U+81f3-81f4, U+822a, U+8272, U+8282, U+8349, U+843d, U+84dd, U+853d, U+85cf, U+884c, U+8865, U+8868, U+886c, U+88ab, U+8981, U+8986, U+89c2, U+89c4, U+89c6, U+89c8, U+89d2, U+89e3, U+89e6, U+8ba1-8ba2, U+8ba4, U+8bae, U+8bb0, U+8bb8, U+8bbe, U+8bc6, U+8bd5, U+8bdd, U+8be2, U+8be6, U+8bed, U+8bef, U+8bf7, U+8bfb, U+8c03, U+8d25, U+8d28, U+8d85, U+8d8a-8d8b, U+8dc3, U+8def, U+8e2a, U+8f6c, U+8f7d, U+8f91, U+8f93, U+8fb9, U+8fc7, U+8fd0-8fd1, U+8fd4, U+8fd9, U+8fdb-8fdc, U+8fde, U+8ffd, U+9009, U+900f, U+901a, U+901f-9020, U+906e, U+90e8, U+914d, U+91c7, U+91cc-91cd, U+91cf, U+91d1, U+949f, U+94fe, U+9519-951a, U+952e, U+957f, U+95ed, U+95f2, U+95f4, U+9605, U+9636, U+963b, U+9646, U+9664, U+9690, U+9694, U+96c6, U+96f6, U+9700, U+9752, U+975e, U+9762, U+9875-9876, U+9879, U+987b, U+9884, U+9891, U+9898, U+9996, U+9a7b, U+9ad8, U+9ed1, U+9ed8;
+}
+
+@font-face {
+  font-family: 'IBM Plex Sans';
+  font-style: normal;
+  font-weight: 400 700;
+  font-stretch: 100%;
+  font-display: swap;
+  src: url('/assets/fonts/ibm-plex-sans-latin.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: 'Noto Sans SC';
+  font-style: normal;
+  font-weight: 400 700;
+  font-display: swap;
+  src: url('/assets/fonts/noto-sans-sc-ui.woff2') format('woff2');
+  unicode-range: U+20-7e, U+b7, U+d7, U+2013-2014, U+2026, U+2103, U+2192, U+2248, U+4e00, U+4e07, U+4e09-4e0b, U+4e0d-4e0e, U+4e14, U+4e2a, U+4e2d, U+4e3a-4e3b, U+4e49, U+4e50, U+4e5f, U+4e8b-4e8c, U+4e8e, U+4e94, U+4ea4, U+4ebf, U+4ec5, U+4ecd-4ece, U+4ed6, U+4ee3, U+4ee5, U+4ef6, U+4efb, U+4f1a, U+4f46, U+4f4d-4f4e, U+4f53, U+4f59, U+4f5c, U+4f7f, U+4f8b, U+4f9b, U+4fa7, U+4fdd, U+4fee, U+503c, U+504f, U+505c, U+5065, U+5141, U+5143, U+5149, U+5165, U+5168, U+516c, U+5171, U+5173, U+5176-5178, U+5185, U+518d, U+5199, U+51c0, U+51d1, U+51fa-51fb, U+5206-5207, U+5217, U+5219, U+5220, U+522b, U+5230, U+5236-5237, U+523b, U+524d, U+529f-52a1, U+52a8, U+52bf, U+5316, U+5339, U+534f, U+5355, U+5360-5361, U+5373, U+5386, U+539f, U+53bb, U+53ca, U+53d1, U+53d6, U+53d8, U+53e0, U+53e3, U+53ea, U+53ef-53f0, U+53f2-53f3, U+53f7, U+5408, U+540c-540e, U+5410-5411, U+5417, U+541e, U+5426, U+542c, U+542f, U+544a, U+5458, U+547d, U+548c, U+54c1, U+54cd, U+5668, U+56ca, U+56db, U+56de, U+56e0, U+56fa, U+56fd-56fe, U+5728, U+5730, U+5740, U+5747, U+578b, U+57df, U+57fa, U+58c1, U+5904, U+5907, U+590d, U+5916, U+591a, U+591c, U+5927, U+5929, U+5931, U+597d, U+5982, U+59cb, U+5b50, U+5b57-5b58, U+5b66, U+5b89, U+5b8b-5b8c, U+5b9a, U+5b9e, U+5ba1-5ba2, U+5bb9, U+5bbd, U+5bf9, U+5bfc, U+5c04, U+5c06, U+5c0f, U+5c11, U+5c31, U+5c40, U+5c42, U+5c49, U+5c4f, U+5c5e, U+5de5, U+5df1-5df2, U+5e26, U+5e38, U+5e72-5e73, U+5e76, U+5e7f, U+5e8f, U+5e94, U+5ea6, U+5eb7, U+5f00, U+5f02, U+5f0f, U+5f15, U+5f20, U+5f39-5f3a, U+5f53, U+5f55, U+5f62, U+5f71, U+5f81, U+5f84-5f85, U+5f88, U+5fae, U+5fc3, U+5fc5-5fc6, U+5fd7, U+5feb, U+6001, U+6027, U+603b, U+6062, U+60c5, U+610f, U+611f, U+6162, U+6210, U+6216, U+622a, U+6237, U+6240, U+624b, U+624d, U+6251, U+6253, U+6267, U+626b, U+6291, U+6298, U+62a4, U+62bd, U+62d2-62d3, U+62e6, U+62e8-62e9, U+6301, U+6307, U+6309, U+6362, U+636e, U+6377, U+6392, U+63a5, U+63a7, U+63cf-63d0, U+63d2, U+641c, U+64cd-64ce, U+652f, U+6536, U+6539, U+653e, U+6548, U+6570, U+6574, U+6587, U+65ad, U+65b0, U+65b9, U+65e0, U+65e5-65e7, U+65f6, U+6620, U+662f, U+663e, U+666f-6670, U+667a, U+6682, U+6696-6697, U+66f4, U+66ff-6700, U+6709, U+670d, U+671f, U+672a, U+672c, U+673a, U+6743, U+6761, U+6765, U+677f, U+6781, U+6784, U+6790, U+679c, U+67d3, U+67e5, U+6807, U+680f, U+6821, U+6837-6838, U+683c, U+6848, U+6863, U+68c0, U+6982, U+69fd, U+6a21, U+6b21, U+6b62-6b65, U+6bb5, U+6bcf, U+6bd4, U+6bdb, U+6c42, U+6c47, U+6c60-6c61, U+6ca1, U+6cd5, U+6d3b, U+6d41, U+6d45, U+6d4b, U+6d4f, U+6d77, U+6d88, U+6df1, U+6dfb, U+6e05, U+6e32, U+6e38, U+6e90, U+6eda, U+6ee4, U+7070, U+70b9, U+7247-7248, U+724c, U+72b6, U+72ec, U+7387, U+73af-73b0, U+73bb, U+73c0, U+7406, U+7425, U+7483, U+751f, U+7528, U+7531, U+753b, U+754c, U+7559, U+7565, U+767d, U+7684, U+76d1, U+76d6, U+76ee, U+76f4, U+770b, U+771f, U+7740, U+77e5, U+77ed-77ee, U+7801, U+786e, U+793a, U+7981, U+79d1-79d2, U+79ef-79f0, U+7a0b, U+7a3f, U+7a7a, U+7a7f, U+7a97, U+7acb, U+7ade, U+7aef, U+7b26, U+7b2c, U+7b49, U+7b56, U+7b5b, U+7ba1, U+7c7b, U+7c92, U+7cbe, U+7cca, U+7cfb, U+7d22, U+7d27, U+7d2f, U+7ea7, U+7eaf, U+7eb3, U+7eb8, U+7ebf, U+7ec4, U+7ec8, U+7ecf, U+7ed1, U+7ed3, U+7ed8, U+7edd, U+7edf, U+7eea, U+7eed, U+7ef4, U+7f00, U+7f13, U+7f16, U+7f51, U+7f69, U+7f6e, U+7fe0-7fe1, U+7ffb, U+8017, U+8054, U+80cc, U+80f6, U+80fd, U+81ea, U+81f3-81f4, U+822a, U+8272, U+8282, U+8349, U+843d, U+84dd, U+853d, U+85cf, U+884c, U+8865, U+8868, U+886c, U+88ab, U+8981, U+8986, U+89c2, U+89c4, U+89c6, U+89c8, U+89d2, U+89e3, U+89e6, U+8ba1-8ba2, U+8ba4, U+8bae, U+8bb0, U+8bb8, U+8bbe, U+8bc6, U+8bd5, U+8bdd, U+8be2, U+8be6, U+8bed, U+8bef, U+8bf7, U+8bfb, U+8c03, U+8d25, U+8d28, U+8d85, U+8d8a-8d8b, U+8dc3, U+8def, U+8e2a, U+8f6c, U+8f7d, U+8f91, U+8f93, U+8fb9, U+8fc7, U+8fd0-8fd1, U+8fd4, U+8fd9, U+8fdb-8fdc, U+8fde, U+8ffd, U+9009, U+900f, U+901a, U+901f-9020, U+906e, U+90e8, U+914d, U+91c7, U+91cc-91cd, U+91cf, U+91d1, U+949f, U+94fe, U+9519-951a, U+952e, U+957f, U+95ed, U+95f2, U+95f4, U+9605, U+9636, U+963b, U+9646, U+9664, U+9690, U+9694, U+96c6, U+96f6, U+9700, U+9752, U+975e, U+9762, U+9875-9876, U+9879, U+987b, U+9884, U+9891, U+9898, U+9996, U+9a7b, U+9ad8, U+9ed1, U+9ed8;
+}
+
+@font-face {
+  font-family: 'IBM Plex Mono';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('/assets/fonts/ibm-plex-mono-latin.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: 'IBM Plex Mono';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url('/assets/fonts/ibm-plex-mono-latin-2.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: 'IBM Plex Mono';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url('/assets/fonts/ibm-plex-mono-latin-3.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}

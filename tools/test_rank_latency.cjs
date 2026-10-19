@@ -2,7 +2,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const vm = require('node:vm');
 const context = {window:{}, DOMException};
-vm.runInNewContext(fs.readFileSync(require('node:path').join(__dirname,'../_src/ui/assets/js/rank-latency.js'),'utf8'), context);
+vm.runInNewContext(require('./frontend_test_module.cjs').bundleFeature('features/overview/ranking/latency.js','rankLatencyService','window.LocalDNSRankLatency'),context);
 const {summarize, params, create} = context.window.LocalDNSRankLatency;
 
 (async () => {

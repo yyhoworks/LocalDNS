@@ -19,6 +19,47 @@ def json_bytes(value):
     return (json.dumps(value, ensure_ascii=False, indent=2) + '\n').encode('utf-8')
 
 
+def read_built_ui(directory, version, source_root=ROOT):
+    """Require a complete, current Vite build; never package a partial source tree."""
+    if not (directory / 'build-meta.json').is_file():
+        raise ValueError('Built UI is missing. Run npm ci --prefix frontend and npm run --prefix frontend build')
+    ui = {}
+    for file in sorted(directory.rglob('*')):
+        if file.is_symlink():
+            raise ValueError('Symlinks not allowed in built UI')
+        if file.is_file():
+            ui[file.relative_to(directory).as_posix()] = file.read_bytes()
+    metadata = json.loads(ui['build-meta.json'])
+    if metadata.get('schema') != 1 or metadata.get('version') != version:
+        raise ValueError('Built UI version metadata is stale')
+    if json.loads(ui.get('version.json', b'null')) != version:
+        raise ValueError('Built UI version.json is stale')
+    if metadata.get('files') != {name: sha(data) for name, data in ui.items() if name != 'build-meta.json'}:
+        raise ValueError('Built UI integrity check failed; rebuild the frontend')
+    inputs = metadata.get('inputs')
+    if not isinstance(inputs, dict) or not inputs or not metadata.get('sourceDigest'):
+        raise ValueError('Built UI input manifest is missing')
+    actual_inputs = set()
+    for folder in ['frontend/src', '_src/ui']:
+        for file in (source_root / folder).rglob('*'):
+            if file.is_symlink():
+                raise ValueError('Symlinks not allowed in frontend inputs')
+            if file.is_file():
+                actual_inputs.add(file.relative_to(source_root).as_posix())
+    actual_inputs.update(['frontend/index.html', 'frontend/package.json', 'frontend/package-lock.json',
+                          'frontend/vite.config.ts', 'frontend/tsconfig.json', 'frontend/scripts/build-integrity.ts', 'frontend/scripts/build-inputs.mjs', 'VERSION.json'])
+    if set(inputs) != actual_inputs:
+        raise ValueError('Built UI inputs changed; rebuild the frontend')
+    for name, expected in inputs.items():
+        # Only paths in the enumerated source set are read.
+        file = source_root / name
+        if not file.is_file() or sha(file.read_bytes()) != expected:
+            raise ValueError('Built UI source is stale: ' + name)
+    if not re.search(rb'assets/app-[A-Za-z0-9_-]+\.js', ui.get('index.html', b'')):
+        raise ValueError('Built UI entry must reference the hashed app')
+    return ui
+
+
 def read_kernel_bundle(archive, backend):
     """Read only known ELF binaries, with or without the upstream wrapper directory."""
     names = archive.namelist()
@@ -104,6 +145,7 @@ def write_archive(path, payload, version, modes=None):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--ui-dir', type=Path, default=ROOT / 'dist/ui', help='Verified Vite UI build directory')
     parser.add_argument('--full-base', type=Path, help='Previously published full ZIP with clean default configuration')
     parser.add_argument('--base-sha256', help='SHA-256 verified against the published Release')
     parser.add_argument('--kernel-archive', type=Path, help='Upstream kernel ZIP; import only the three platform binaries')
@@ -117,8 +159,7 @@ def main():
     version = json.loads((ROOT / 'VERSION.json').read_text(encoding='utf-8'))
     if json.loads((ROOT / '_src/ui/version.json').read_text(encoding='utf-8')) != version:
         raise ValueError('Root and UI version metadata differ')
-    ui = {file.relative_to(ROOT / '_src/ui').as_posix(): file.read_bytes()
-          for file in sorted((ROOT / '_src/ui').rglob('*')) if file.is_file()}
+    ui = read_built_ui(args.ui_dir.resolve(), version)
     common = {name: (ROOT / name).read_bytes() for name in
               ['AUTHORS.md', 'THIRD_PARTY_NOTICES.md', 'INSTALL.md', 'CHANGELOG.md']}
     common['README.md'] = common['INSTALL.md']

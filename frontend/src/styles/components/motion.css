@@ -1,0 +1,6 @@
+
+    @keyframes topoDash { to { stroke-dashoffset: -44; } }
+@keyframes skel { to { background-position: -200% 0; } }
+@keyframes view-in { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+@keyframes num-bump { from { opacity: .55; transform: translateY(3px); } to { opacity: 1; transform: none; } }
+@keyframes rvpop{0%{transform:none}40%{transform:scale(1.08)}100%{transform:none}}

@@ -1,5 +1,82 @@
 # 开发说明
 
+## 当前前端维护入口（Phase 0–7）
+
+维护源码是 `frontend/index.html` 和 `frontend/src/`，入口为 `src/entry/app.ts`。业务按 `features/` 分目录；`core/` 负责 HTTP、生命周期、路由、安全 DOM 与存储；`shared/` 提供格式、图表与交互组件。`_src/ui/` 只保留公共静态资源与运行时配置，不再维护业务 bundle 或 CSS。完整结构与边界见 [前端架构](refactor/frontend-architecture.md)。
+
+### 安装、构建和检查
+
+需要 Node.js `^20.19.0 || ^22.13.0 || >=24.0.0`、npm 和 Python 3.10+。依赖版本与 lockfile 固定；本次实际环境是 Node 24.20.0 / npm 11.19.0。
+
+```sh
+npm ci --prefix frontend
+npm run --prefix frontend build
+npm run --prefix frontend check
+python tools/test_package_ui.py
+python tools/package_ui.py
+```
+
+`check` 执行严格 TS 类型检查、Vitest、ESLint 和 `verify:generated`。迁移后的业务 JS 全部纳入 lint；JS 采用显式 ESM，尚未开启全量 `checkJs`，基础设施和新增查询模型使用严格 TypeScript。构建输出到忽略的 `dist/ui/`，包含哈希 JS/CSS、生成 HTML、所有公共资源以及 `build-meta.json`。不输出 source map，不提交普通 bundle，保留已授权的 Chart.js vendor。源 CSS 使用 cascade layers，构建时编译层级以保留较旧浏览器的 CSS 语法兼容性。
+
+`verify:generated` 先检查源指纹和文件清单，再在系统临时目录干净重建，逐文件比较 SHA-256，最后清理临时目录。共用指纹实现为普通 `.mjs`，不要求 Node 原生加载 TypeScript。打包工具不隐式执行 npm，拒绝缺失、过期、篡改或多出文件的构建。
+
+构建的语法目标为 ES2020、Chrome/Edge 90、Safari 14.1；不引入 Web API polyfill。这不是相应旧版浏览器或 Safari 的实机兼容认证。运行时仍以 `/ui/` 为基址，读取 `config.js` 的 `LOCALDNS_UI_CONFIG`，无需 Node、CDN 或新的常驻服务。
+
+### 本地预览
+
+```sh
+node tools/preview_ui.cjs
+```
+
+访问输出的 `/ui/` 地址。`LOCALDNS_PREVIEW_BACKEND` 可配置只读后端；代理拒绝全部非 GET 和不在读取允许列表中的 GET（包括 flush），返回 403。Vite 的 `npm run --prefix frontend dev` 仅供开发静态资源，不提供可写 API 代理。浏览器验收使用隔离 API fixture，写入不会到达真实设备。
+
+### 可重复验收
+
+Playwright 模块需可被 Node 加载，或者将 `LOCALDNS_PLAYWRIGHT` 设为现有模块的绝对路径。默认使用已安装的 Edge；`LOCALDNS_BROWSER` 可指定可用的 Playwright channel。
+
+```sh
+node --test tools/test_countup.cjs tools/test_traffic.cjs tools/test_rule_conversion.cjs tools/test_query_path.cjs tools/test_rank_latency.cjs tools/test_overview_insights.cjs tools/test_clients.cjs tools/test_wallpaper.cjs
+python tools/test_shared_ui.py
+python tools/test_oneclick_installer.py
+node tools/verify_frontend_build.cjs
+node tools/verify_frontend_routes.cjs
+node tools/verify_frontend_actions.cjs
+node tools/verify_frontend_matrix.cjs
+node tools/verify_rules_editor.cjs
+node tools/verify_rules_workbench.cjs
+node tools/verify_shared_ui.cjs
+```
+
+壁纸回归所需 `fake-indexeddb` 优先使用已安装模块，也可通过 `LOCALDNS_TEST_DEPS` 指定包含该包的 node_modules 路径，详见测试文件。八个既有 Node harness 通过 `tools/frontend_test_module.cjs` 编译维护源码，不测试已删除的旧 bundle。
+
+设置 `LOCALDNS_FRONTEND_BASELINE=8d4b9deed5cdbebde50701dbdc11faae45e35ead` 后，build 和 matrix 验收直接读取 Git 基线资源做对照。build 验证三个视口与两种动态效果偏好，matrix 验证五路由、两种皮肤、深浅主题与两种桌面导航。matrix 比较文本、几何、颜色和字体并保存全页截图；不是全页像素一致断言。`LOCALDNS_VIEWPORTS=390` 可定向运行 build 验收。输出均在忽略的 `dist/*-verification/`，不提交截图和测试临时文件。
+
+### 打包完整包
+
+完整包需要已发布并校验 SHA-256 的基础 ZIP，保留原有 DNS 配置、规则、服务与内核保护：
+
+```sh
+python tools/package_ui.py --full-base /path/to/published-full.zip --base-sha256 <published-sha256>
+```
+
+更新包和完整包共用已验证的 `dist/ui/`，`MANIFEST.sha256` 覆盖包内文件；ZIP 生成后再次核验 CRC、清单和执行权限。`VERSION.json` 为版本来源，`_src/ui/version.json` 必须一致。重构不自动提升版本、部署或发布。回退时使用上一个完整 UI 包或还原整个重构变更后重建，不混用旧 HTML 与新哈希资源。
+
+### 可选 CSP
+
+`LOCALDNS_UI_CSP` 为预览服务器设置响应头。部署时由静态服务器配置对应头，例如同源 API 的基础策略：
+
+```text
+default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: http: https:; font-src 'self' data: blob:; connect-src 'self' https://api.github.com; object-src 'none'; base-uri 'self'; frame-ancestors 'self'
+```
+
+跨源 `apiBase` 需加入 `connect-src`；图片、壁纸、面板图标来自用户允许的 URL。现有动态位置与材质样式仍需要 `style-src 'unsafe-inline'`。该基础策略不允许内联脚本，不是 nonce / strict CSP；先在目标部署环境验证所需来源。
+
+本次范围、测试结果、N/A 项与限制见 [完整验证记录](refactor/frontend-phase-07-validation.md)。起始快照见 [基线](refactor/frontend-baseline.md)，早期 [Phase 0+1 记录](refactor/frontend-phase-01-validation.md) 为历史资料。
+
+## 历史版本开发记录
+
+以下内容记录对应旧版实现；旧文件名、全局接口、9098、服务器采样和备份的描述不能作为当前维护入口。当前功能以本文顶部、README 和架构文档为准。
+
 ## 概览、外观与版本检查（2026.10.19.5）
 
 `overview-insights.js` 提供中文处理结果、稳定分类色、缓存池名称与耗时等级；`version-check.js` 读取安装元数据并缓存 GitHub 最新正式版，正式渠道比较自身版本，本地渠道使用基准正式版。
@@ -49,7 +126,9 @@ DNS 核心主要由折腾日记交流群的 R 大使用 Rust 编写；当前工�
 |---|---|
 | `_src/ui/index.html` | 页面入口；静态资源基址为 `/ui/` |
 | `_src/ui/config.js` | UI 配置；默认通过同源地址访问 API |
-| `_src/ui/assets/js/app.js` | API 调用、路由与页面业务交互 |
+| `frontend/src/legacy/app.js` | API 调用、路由与页面业务交互的维护源码 |
+| `frontend/src/shared/metrics/prometheus.ts` | Prometheus 解析与指标查找纯函数 |
+| `_src/ui/assets/js/app.js` | Vite 生成的经典 IIFE，提交并用于静态打包 |
 | `_src/ui/assets/js/console.js` | 布局、真实采样、草稿、语义与数字排版 |
 | `_src/ui/assets/js/material.js` | 外观参数与静态背景光影 |
 | `_src/ui/assets/js/navbar.js` | 顶部滚动联动 |
