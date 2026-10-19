@@ -819,7 +819,9 @@
 @media(min-width:1251px) and (max-width:1649px) {
   .overview-cache-facts dd { font-size:12px; }
 }
-.workspace-rank-table .workspace-text-button,.overview-slow-domain button { display:block; width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+/* 文字按钮内边距左右为 0，键盘焦点框会贴着文字。把盒子左右各外扩 6px 并用负外边距
+   把文字位置拉回原处：视觉位置不变，焦点框有呼吸空间。 */
+.workspace-rank-table .workspace-text-button,.overview-slow-domain button { display:block; width:calc(100% + 12px); margin-left:-6px; padding-left:6px; padding-right:6px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .workspace-rank-table td .workspace-subline { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .overview-slow-mobile-meta { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 @media(max-width:600px) {

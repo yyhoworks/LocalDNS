@@ -68,6 +68,15 @@ html[data-theme=light-glass] .tn-pill,html[data-theme=light-glass] .tec-badge{co
   .drawer, .drawer-backdrop, .toast, .seg-thumb, .t-node, .management-feature-card { transition: none !important; }
 }
 :focus-visible{outline:2px solid var(--focus-ring)!important}
+/* 浏览器按元素自身的圆角绘制 outline。下列可聚焦元素的圆角是 0，焦点框会被画成方角
+   矩形，与全站圆角语言不符；其中最显眼的是可滚动表格容器——它为了键盘滚动而可聚焦，
+   焦点框会画成整张表那么大的方角。这里补齐圆角，并统一留出偏移，别贴着文字。 */
+:focus-visible{outline-offset:3px!important}
+.overview-slow-table-wrap,.table-wrap,.glass-table-wrap,.workspace-rank-table{border-radius:calc(12px * var(--radius-scale))!important}
+.workspace-rank-table tr,.workspace-rank-table th,.workspace-rank-table td{border-radius:calc(8px * var(--radius-scale))!important}
+.workspace-text-button,summary,.gc-sub[tabindex],span[tabindex]{border-radius:calc(8px * var(--radius-scale))!important}
+.proxy-launcher a,.proxy-launcher button{border-radius:calc(8px * var(--radius-scale))!important}
+.switch input[type="checkbox"]{border-radius:calc(8px * var(--radius-scale))!important}
 html[data-input-modality=pointer] :focus-visible{outline:none!important}
 .cmd-search-bar input:focus-visible{outline:none!important}
 
