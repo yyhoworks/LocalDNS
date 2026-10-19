@@ -62,7 +62,7 @@ html[data-theme=light-glass] .tn-pill,html[data-theme=light-glass] .tec-badge{co
 .topo-stage-wrap.has-hover .topo-cursor { opacity: 0 !important; }
 .topo-stage-wrap.no-particles .topo-particle { animation: none !important; opacity: 0 !important; }
 @media (prefers-reduced-motion: reduce) {
-  #page-content.view-enter > *, .sk-val.is-bumping, .topo-particle { animation: none !important; }
+  #page-content.view-enter > *, .sk-val.is-bumping { animation: none !important; }
 }
 @media (prefers-reduced-motion: reduce) {
   .drawer, .drawer-backdrop, .toast, .seg-thumb, .t-node, .management-feature-card { transition: none !important; }

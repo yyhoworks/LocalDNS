@@ -2,7 +2,6 @@ export let topologyFlowService;
 export function initialize() {
 
   'use strict';
-  const reduce = matchMedia('(prefers-reduced-motion: reduce)');
   let current = null;
 
   function stop() {
@@ -33,7 +32,8 @@ export function initialize() {
     let hovering = false, focused = false;
     const observer = new MutationObserver(sync);
     observer.observe(wrap, { attributes: true, attributeFilter: ['class'] });
-    const canPlay = () => !disposed && wrap.isConnected && !document.hidden && !reduce.matches &&
+    // 播放与否只由「拓扑粒子」开关决定：用户显式打开时不因系统「减少动态」偏好而静默停播。
+    const canPlay = () => !disposed && wrap.isConnected && !document.hidden &&
       !wrap.classList.contains('no-particles') && !wrap.classList.contains('has-hover') && !hovering && !focused;
     function clear() {
       cursor.style.opacity = '0';
@@ -91,12 +91,12 @@ export function initialize() {
     const blur = event => { focused = wrap.contains(event.relatedTarget); sync(); };
     wrap.addEventListener('pointerenter', enter); wrap.addEventListener('pointerleave', leave);
     wrap.addEventListener('focusin', focus); wrap.addEventListener('focusout', blur);
-    document.addEventListener('visibilitychange', sync); reduce.addEventListener('change', sync);
+    document.addEventListener('visibilitychange', sync);
     current = { sync, dispose() {
       disposed = true; cancelAnimationFrame(frame); observer.disconnect(); clear(); cursor.remove();
       wrap.removeEventListener('pointerenter', enter); wrap.removeEventListener('pointerleave', leave);
       wrap.removeEventListener('focusin', focus); wrap.removeEventListener('focusout', blur);
-      document.removeEventListener('visibilitychange', sync); reduce.removeEventListener('change', sync);
+      document.removeEventListener('visibilitychange', sync);
     } };
     sync();
   }

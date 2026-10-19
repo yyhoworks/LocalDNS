@@ -429,9 +429,6 @@
 .console-kpi .sk-top > svg { width: 15px; height: 15px; flex: 0 0 auto; opacity: .5; }
 .console-kpi .sk-top { align-items: center; }
 .topo-stage-wrap .topo-edge.is-muted { stroke-dasharray: 3 5; }
-@media (prefers-reduced-motion: reduce) {
-  .topo-stage-wrap .topo-cursor, .topo-stage-wrap .topo-particle { display: none; }
-}
 .workspace-rankings{grid-column:1/-1;order:5;min-width:0}.workspace-rank-period{display:flex;align-items:center;justify-content:space-between;padding:11px 16px;border:1px solid var(--border-glass);border-radius:var(--radius-node);background:var(--glass-bg);font-size:12px;color:var(--text-2);margin-bottom:16px}
 .workspace-rank-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:18px;align-items:start}.workspace-rank-card{min-width:0}
 .workspace-rank-card .gc-head{align-items:flex-start;margin-bottom:12px}.workspace-rank-card .gc-title{font-family:var(--font-sans);font-size:15px;font-weight:500}.workspace-rank-card .gc-head>.workspace-text-button{font-size:11px;color:var(--text-3)}
