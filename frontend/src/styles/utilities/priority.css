@@ -109,7 +109,7 @@ html[data-skin="claude"] .tec-badge {
 html[data-skin="claude"][data-theme="light-glass"] .tn-pill {
   color: var(--text-1) !important;
 }
-[hidden]{display:none!important}.workspace-rank-card{height:auto!important;padding:18px!important}.workspace-lower{grid-column:span 6!important}.workspace-upstream-group{padding:18px!important}.console-topology-heading{padding:0 0 14px!important;margin-bottom:16px!important}.topo-col-title{padding:9px 10px!important;margin-bottom:14px!important}
+[hidden]{display:none!important}.workspace-rank-card{height:auto!important;padding:18px!important}.workspace-lower{grid-column:span 6!important}.workspace-upstream-group{padding:18px!important}
 @media(max-width:760px){.workspace-lower{grid-column:1/-1!important}}
 @media(max-width:760px){.workspace-rank-card,.workspace-upstream-group{padding:15px!important}}
 @media(prefers-reduced-motion:reduce){.query-path *,.workspace-rank-card *{transition:none!important}}.collection-surface [data-collection-view][hidden]{display:none!important}
