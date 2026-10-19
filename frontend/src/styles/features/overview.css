@@ -440,6 +440,8 @@
 .console-topology-heading{grid-column:1;display:block}
 .workspace-topology-tools{grid-column:2;justify-self:end;display:flex;align-items:center;gap:14px;margin:2px 0 12px;padding:0;border:0;border-radius:0;background:none}
 .topo-stage-wrap{grid-column:1/-1}
+/* 「节点详情 / 相关查询」与那行提示跟标题右侧的说明重复，且不是卡片头范式，整组不显示 */
+.workspace-topology-status{display:none}
 .workspace-topology-tools button:disabled{opacity:.45;cursor:not-allowed}
 .console-topology-heading span{font-size:12px}
 /* 分支筛选改用规则页胶囊规格（见 features/rules.css 的 .rule-menu button） */
