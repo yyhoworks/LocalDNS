@@ -130,7 +130,21 @@
 
 查询趋势使用当前浏览器会话的真实采样，提供 15 / 30 分钟视图；至少积累三次采样后绘图，最多保留 240 个采样点、最长两小时，不作为服务器历史报表。
 
-## 快速安装
+## 一键安装（Linux）
+
+以 **root** 登录服务器，复制执行：
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/yyhoworks/LocalDNS/main/tools/install.sh -o localdns-install.sh && sh localdns-install.sh
+```
+
+- **首次安装**：自动识别 x86-64 / ARM64，下载最新正式版，校验文件，安装 DNS、Web UI 与配套配置服务，设置开机启动。
+- **已有安装**：再次执行默认只更新 UI，备份原界面，保留内核、DNS 配置、规则及站点 API 设置，无需重启 DNS。
+- 默认目录 `/opt/localdns`，DNS 端口 `53`，管理页 `http://服务器IP:9099/ui/`；端口冲突时停止并提示。
+
+支持 systemd / OpenRC；x86-64 默认选择兼容性较好的 `amd64-v1`。新装自动配置公共 DNS 上游，安装后可在 DNS 管理中调整。自定义目录、端口、离线安装与回退见 **[一键安装指南](docs/ONECLICK.md)**。
+
+## 手动安装
 
 1. 在 [Releases](https://github.com/yyhoworks/LocalDNS/releases/tag/fjgac-ui-v2026.10.19.5) 下载完整包或 UI 升级包，并核对同页的 `SHA256SUMS.txt`。**升级 FJGAC 内核必须从完整包选择对应架构的程序；UI 升级包不含内核。**
 2. 已有 LocalDNS 服务时，解压 UI 升级包并运行：

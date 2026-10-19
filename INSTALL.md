@@ -2,6 +2,20 @@
 
 当前发行版本：**后端 FJGAC / UI 2026.10.19.5**。本次更新概览、外观面板、手机布局与 GitHub 版本检查。DNS 核心沿用 FJGAC，配套配置服务沿用 1.5.0，已有该服务无需重复升级。现有 DNS 配置和规则保留。
 
+## 一键安装 / 更新（推荐）
+
+在运行 systemd 或 OpenRC 的 Linux 服务器上，以 root 执行：
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/yyhoworks/LocalDNS/main/tools/install.sh -o localdns-install.sh && sh localdns-install.sh
+```
+
+首次运行安装最新正式版的 DNS 核心、UI 与配置服务，设置开机启动并检查管理 API；已检测到安装时默认只更新 UI。默认安装在 `/opt/localdns`，DNS 使用 TCP / UDP 53，UI 使用 9099，配套服务使用 9098。
+
+其他目录或端口可用 `sh localdns-install.sh --dir /opt/mydns --dns-port 1053 --http-port 19099`。在其他目录已有安装时，更新也必须提供对应 `--dir`。脚本不会自动升级已有 DNS 内核，原配置、名单与 `ui/config.js` 均保留。
+
+完整参数、Alpine 兼容依赖、下载受限时的离线方式和回退步骤见 **[一键安装指南](docs/ONECLICK.md)**。下面保留手动安装流程。
+
 ## 选择下载包
 
 从 [本版 Releases](https://github.com/yyhoworks/LocalDNS/releases/tag/fjgac-ui-v2026.10.19.5) 下载；本地构建位于 `dist/fjgac-ui-v2026.10.19.5/`。配套包为：
