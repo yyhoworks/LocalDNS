@@ -1,6 +1,6 @@
 # 安装与更新
 
-当前发行版本：**后端 FJGAC / UI 2026.10.19.7**。名称、Logo 与字体支持静态共享，代理入口自动读取面板图标。当前版本已移除 9098 配置服务及代理配置编辑器，DNS 核心沿用 FJGAC，现有 DNS 配置和规则保留。
+当前发行版本：**后端 FJGAC / UI 2026.10.19.8**。名称、Logo 与字体支持静态共享，代理入口自动读取面板图标。当前版本已移除 9098 配置服务及代理配置编辑器，DNS 核心沿用 FJGAC，现有 DNS 配置和规则保留。
 
 ## 名称、Logo 与字体共享
 
@@ -22,12 +22,12 @@ curl -fsSL https://raw.githubusercontent.com/yyhoworks/LocalDNS/main/tools/insta
 
 ## 选择下载包
 
-从 [本版 Releases](https://github.com/yyhoworks/LocalDNS/releases/tag/fjgac-ui-v2026.10.19.7) 下载；本地构建位于 `dist/fjgac-ui-v2026.10.19.7/`。
+从 [本版 Releases](https://github.com/yyhoworks/LocalDNS/releases/tag/fjgac-ui-v2026.10.19.8) 下载；本地构建位于 `dist/fjgac-ui-v2026.10.19.8/`。
 
 | 文件 | 用途 |
 |---|---|
-| `LocalDNS_FJGAC_UI_2026.10.19.7_Full.zip` | 新安装或提取内核：FJGAC 程序、已清理的默认配置与规则、当前双皮肤 UI |
-| `LocalDNS_UI_2026.10.19.7_Update.zip` | 已安装环境更新界面 |
+| `LocalDNS_FJGAC_UI_2026.10.19.8_Full.zip` | 新安装或提取内核：FJGAC 程序、已清理的默认配置与规则、当前双皮肤 UI |
+| `LocalDNS_UI_2026.10.19.8_Update.zip` | 已安装环境更新界面 |
 | `SHA256SUMS.txt` | 两个发行包的 SHA-256 校验值 |
 
 在同一目录核对：

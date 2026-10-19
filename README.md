@@ -6,9 +6,9 @@
 
 **DNS 核心主要由折腾日记交流群里的 R 大使用 Rust 编写；[yyhoworks](https://github.com/yyhoworks) 负责 UI 设计。**
 
-当前版本：**[后端 FJGAC / UI 2026.10.19.7](https://github.com/yyhoworks/LocalDNS/releases/tag/fjgac-ui-v2026.10.19.7)**，提供完整包、UI 升级包、SHA-256 校验文件，见 [本次更新说明](docs/releases/fjgac-ui-v2026.10.19.7.md)。
+当前版本：**[后端 FJGAC / UI 2026.10.19.8](https://github.com/yyhoworks/LocalDNS/releases/tag/fjgac-ui-v2026.10.19.8)**，提供完整包、UI 升级包、SHA-256 校验文件，见 [本次更新说明](docs/releases/fjgac-ui-v2026.10.19.8.md)。
 
-本次合并静态共享配置与清理工作：名称、Logo、字体及字体选择可通过服务器静态目录跨设备共享；代理入口自动读取面板图标；移除 9098 配置服务、代理配置编辑器和配套安装包。DNS 核心继续使用 FJGAC。
+本次完成前端模块化与可重复静态构建，并统一字体下拉菜单的深浅主题样式；名称、Logo 和字体继续支持静态共享，DNS 核心保持 FJGAC。
 
 [产品图集](docs/SCREENSHOTS.md) · [功能指南](docs/FEATURES.md) · [安装说明](INSTALL.md) · [下载 Releases](https://github.com/yyhoworks/LocalDNS/releases) · [作者与分工](AUTHORS.md) · [开发说明](docs/DEVELOPMENT.md) · [近期更新](CHANGELOG.md)
 
@@ -146,7 +146,7 @@ curl -fsSL https://raw.githubusercontent.com/yyhoworks/LocalDNS/main/tools/insta
 
 ## 手动安装
 
-1. 在 [Releases](https://github.com/yyhoworks/LocalDNS/releases/tag/fjgac-ui-v2026.10.19.7) 下载完整包或 UI 升级包，并核对同页的 `SHA256SUMS.txt`。**升级 FJGAC 内核必须从完整包选择对应架构的程序；UI 升级包不含内核。**
+1. 在 [Releases](https://github.com/yyhoworks/LocalDNS/releases/tag/fjgac-ui-v2026.10.19.8) 下载完整包或 UI 升级包，并核对同页的 `SHA256SUMS.txt`。**升级 FJGAC 内核必须从完整包选择对应架构的程序；UI 升级包不含内核。**
 2. 已有 LocalDNS 服务时，解压 UI 升级包并运行：
 
    ```sh

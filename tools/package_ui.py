@@ -171,7 +171,8 @@ def main():
     for name in ['docs/SHARED_UI.md', 'docs/ONECLICK.md',
                  'docs/validation/oneclick-installer-1.0.0.md',
                  'docs/validation/static-ui-2026.10.19.6.md',
-                 'docs/validation/static-ui-cleanup-2026.10.19.7.md']:
+                 'docs/validation/static-ui-cleanup-2026.10.19.7.md',
+                 'docs/validation/frontend-refactor-2026.10.19.8.md']:
         common[name] = (ROOT / name).read_bytes()
     release_tag = version.get('releaseTag', f"ui-v{version['uiVersion']}")
     if not re.fullmatch(r'[A-Za-z0-9._-]+', release_tag):
