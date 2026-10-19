@@ -1,5 +1,13 @@
 # 开发说明
 
+## 概览、外观与版本检查（2026.10.19.5）
+
+`overview-insights.js` 提供中文处理结果、稳定分类色、缓存池名称与耗时等级；`version-check.js` 读取安装元数据并缓存 GitHub 最新正式版，正式渠道比较自身版本，本地渠道使用基准正式版。
+
+`appearance-panel.js` 在保留既有控件和处理器的前提下组织三栏面板；`ui-refinements.css` 统一间距、触摸区域和组件布局。排行不再参与通用手机记录卡增强；桌面慢查询通过尺寸包含使缓存内容决定行高，列表独立滚动，透明表头随内容滚动。
+
+新增 `test_overview_insights.cjs`、`verify_overview_insights.cjs` 和 `verify_appearance_layout.cjs`。核验范围见 [正式版验证记录](validation/ui-2026.10.19.5.md)。
+
 ## 名单编辑器修复（2026.10.18.19）
 
 面板打开后保存字段快照，直到「应用到名单」前不改行模型。关闭时显式继续 / 放弃；路由、名单和标签切换与刷新通过 `LocalDNSRules.canLeave(next)` 统一保护未应用的字段。Ctrl+S 在面板内应用草稿，在名单页保存；服务端写入仍沿用备份与冲突核对流程。

@@ -13,10 +13,11 @@
   const storage = { get(k){ try { return window.localStorage.getItem(k); } catch { return null; } }, set(k,v){ try { window.localStorage.setItem(k,String(v)); } catch {} } };
   const state = {
     route: 'overview', charts: [], history: [], lastStats: null, lastStatsAt: null, lastCpuTotal: null, lastCpuAt: null,
-    logs: { page: 1, limit: 50, q: '', exact: false, type: '', set: '', code: '', client: '' },
+    logs: { page: 1, limit: matchMedia('(max-width:600px)').matches ? 25 : 50, q: '', exact: false, type: '', set: '', code: '', client: '' },
     ruleTag: 'whitelist', upstreamConfig: null, aliases: {},
     refreshTimer: null, mobileMoreOpen: false, renderSeq: 0, routeController: null, routeUiCleanup: [],
-    overviewSlowPage: 0, overviewDomainPage: 0
+    overviewSlowPage: 0, overviewDomainPage: 0,
+    overviewSlowLimit: [5,10,20].includes(Number(storage.get('localdns-overview-slow-limit:' + (API_BASE || location.host)))) ? Number(storage.get('localdns-overview-slow-limit:' + (API_BASE || location.host))) : 10
   };
 
   const icons = {
@@ -720,6 +721,30 @@
       return `<tr><td class="overview-detail-rank">${i+1}</td><td class="overview-detail-domain" title="${esc(g.query_name)}">${esc(g.query_name)}</td><td class="overview-detail-types" title="${types}">${types}</td><td class="overview-detail-client" title="${esc(state.aliases[g.client_ip]||g.client_ip)}">${esc(state.aliases[g.client_ip]||g.client_ip)}</td><td class="overview-detail-latency"><span class="latency-chip ${+g.duration_ms>500?'bad':''}">${ms(g.duration_ms)}</span></td></tr>`;
     }).join('');
   }
+  function slowOverviewRowsHtml(groups,limit=state.overviewSlowLimit){
+    const shown=(groups||[]).slice(0,limit);
+    const maxDur=Math.max(1,...shown.map(g=>+g.duration_ms||0));
+    return shown.map((g,index)=>{
+      const typeList=[...g.types.keys()].sort(slowTypeSort);
+      const types=typeList.join(' · ')||'—';
+      const typePills=typeList.length?typeList.map(t=>`<span class="slow-qtype-pill mono" data-qtype="${esc(t)}">${esc(t)}</span>`).join(''):'<span class="slow-qtype-pill mono">—</span>';
+      const alias=state.aliases[g.client_ip];
+      const client=alias||g.client_ip||'—';
+      const dur=+g.duration_ms||0;
+      const ratio=Math.max(4,Math.min(100,dur/maxDur*100)).toFixed(1);
+      const tier=window.LocalDNSOverview?.latencyTier?window.LocalDNSOverview.latencyTier(dur):(dur>500?'critical':'fast');
+      const rankCls=index<3?`is-top is-top-${index+1}`:'';
+      return `<tr style="--slow-ratio:${ratio}%" data-latency-tier="${tier}"><td class="overview-slow-index"><span class="slow-rank-badge ${rankCls}">${index+1}</span></td><td class="overview-slow-domain"><div class="slow-domain-main"><button type="button" class="workspace-text-button mono" data-slow-record="${index}" title="查看 ${esc(g.query_name)} 的查询日志">${esc(g.query_name)}</button></div><span class="overview-slow-mobile-meta">${esc(types)} · ${esc(client)}${alias&&g.client_ip&&alias!==g.client_ip?` (${esc(g.client_ip)})`:''}</span></td><td class="overview-slow-type"><div class="slow-qtype-group">${typePills}</div></td><td class="overview-slow-client" title="${esc(g.client_ip)}"><div class="slow-client-stack"><span class="slow-client-name">${esc(client)}</span>${alias&&g.client_ip&&alias!==g.client_ip?`<small class="slow-client-ip mono">${esc(g.client_ip)}</small>`:''}</div></td><td class="overview-slow-duration"><div class="slow-duration-cell"><div class="slow-duration-bar" aria-hidden="true"><span class="slow-duration-fill tier-${tier}" style="width:${ratio}%"></span></div><span class="latency-chip tier-${tier} ${dur>500?'bad':''}">${ms(dur)}</span></div></td></tr>`;
+    }).join('') || '<tr><td colspan="5" class="table-empty">暂无查询记录，记录查询后将在这里显示耗时排行。</td></tr>';
+  }
+  function openOutcomeDetail(rows,total,otherOnly=false){
+    const content=`<p class="overview-outcome-note">当前审计保留日志的最终处理结果。主缓存命中不会展开原本的国内或国外去向；占比以本次返回分类的查询总数为基准。</p><div class="overview-outcome-detail-list">${rows.map(row=>`<button type="button" class="overview-outcome-detail-row" data-outcome-filter="${esc(row.key)}"><span><strong>${esc(row.label)}</strong><small class="mono">${esc(row.key||'未分类')}</small></span><span>${num(row.count)} 次<small>${total ? (row.count/total*100).toFixed(1) : '0.0'}%</small></span></button>`).join('')||'<p>暂无分类统计。</p>'}</div>`;
+    openDrawer(otherOnly?'其他处理结果':'全部处理结果',`当前保留日志 · ${rows.length} 类 · ${num(rows.reduce((n,row)=>n+row.count,0))} 次查询`,content);
+    $$('#drawer [data-outcome-filter]').forEach(button=>button.onclick=()=>{
+      Object.assign(state.logs,{page:1,q:'',exact:false,type:'',set:button.dataset.outcomeFilter,code:'',client:''});
+      closeDrawer();navigate('logs');
+    });
+  }
   function domainDetailRowsHtml(items,page,pageSize=OVERVIEW_DETAIL_PAGE_SIZE){
     const totalPages=Math.max(1,Math.ceil((items?.length||0)/pageSize));
     const safe=Math.max(0,Math.min(totalPages-1,page||0));
@@ -891,8 +916,9 @@
     const clientCount = Number.isFinite(+stats?.client_count) ? fullNum(+stats.client_count) : rankCount(clients);
     const domainCount = Number.isFinite(+stats?.domain_count) ? fullNum(+stats.domain_count) : rankCount(domains);
     window.LocalDNSInterface?.recordMetrics({total:metrics.find(x=>x.name==='localdns_queries_total')?.value,latency:stats.average_duration_ms,cache:overallHitRate,cacheEnabled:!cacheDisabled,clients:stats.client_count??clients.length,domains:stats.domain_count??domains.length,blocked:adguardBlocked,start:sys.start});
-    const allSets = (sets || []).filter(x => x && x.count > 0);
-    const ds = allSets.length > 4 ? [...allSets.slice(0,3), {key:'其他',count:allSets.slice(3).reduce((sum,x)=>sum+(+x.count||0),0)}] : allSets;
+    const outcomes = window.LocalDNSOverview.distribution(sets);
+    const allSets = outcomes.all;
+    const ds = outcomes.shown;
     const slowGroups = aggregateSlowest(slowest, Infinity);
 
     // 客户端分流策略状态（对应真实 switch2 / switch12）
@@ -1027,14 +1053,12 @@
     }));
 
     // 分流结果占比环形图数据（基于真实 domain_set 排行 ds）
-    const dsTotal = Math.max(1, ds.reduce((n, x) => n + (+x.count || 0), 0));
-    const ringColors = isClaude
-      ? ['#C96442', '#2D6A4F', '#B45309', '#3D6B66', '#B91C1C']
-      : ['#2563EB', '#10B981', '#F59E0B', '#14B8A6', '#EF4444'];
+    const dsTotal = Math.max(1, outcomes.total);
+    const outcomeColor = key => window.LocalDNSOverview.color(key,isClaude?'claude':'glass');
     let dashOffset = 25;
-    const ringCircles = ds.slice(0, 4).map((x, i) => {
+    const ringCircles = ds.map(x => {
       const pctVal = Math.max(0, Math.min(100, (+x.count || 0) / dsTotal * 100));
-      const circle = `<circle cx="21" cy="21" r="15.915" fill="transparent" stroke="${ringColors[i%ringColors.length]}" stroke-width="4.8" stroke-dasharray="${pctVal.toFixed(1)} ${(100 - pctVal).toFixed(1)}" stroke-dashoffset="${dashOffset.toFixed(1)}"></circle>`;
+      const circle = `<circle cx="21" cy="21" r="15.915" fill="transparent" stroke="${outcomeColor(x.key)}" stroke-width="4.8" stroke-dasharray="${pctVal.toFixed(4)} ${(100 - pctVal).toFixed(4)}" stroke-dashoffset="${dashOffset.toFixed(4)}"></circle>`;
       dashOffset -= pctVal;
       return circle;
     }).join('');
@@ -1334,8 +1358,8 @@
       <div class="col-4">
         <div class="glass-card">
           <div class="gc-head">
-            <div class="gc-title">分流结果占比</div>
-            <span class="gc-sub mono">按 domain_set 分类</span>
+            <div><div class="gc-title">查询处理结果占比</div><p class="workspace-subline">当前保留日志 · 最终处理结果</p></div>
+            <button type="button" class="glass-btn" id="outcome-detail-button">全部 ${allSets.length} 类</button>
           </div>
           <div class="outbound-donut-body">
             <div class="ring-wrap">
@@ -1343,71 +1367,93 @@
                 <circle cx="21" cy="21" r="15.915" fill="transparent" stroke="rgba(148,163,184,0.14)" stroke-width="4.8"></circle>
                 ${ringCircles}
               </svg>
-              <div class="ring-center">${compactNum(ds.reduce((n,x)=>n+(+x.count||0),0))}</div>
+              <div class="ring-center" title="${fullNum(outcomes.total)} 次查询">${compactNum(outcomes.total)}</div>
             </div>
             <div class="ring-legend">
-              ${ds.slice(0, 4).map((x, i) => {
-                const p = Math.round((+x.count || 0) / dsTotal * 100);
-                return `<div class="rl-item">
-                  <span class="rl-name" title="${esc(x.key||'未分类')}"><i class="rl-dot" style="background:${ringColors[i%ringColors.length]}"></i>${esc(x.key||'未分类')}</span>
+              ${ds.map((x, i) => {
+                const p = ((+x.count || 0) / dsTotal * 100).toFixed(1);
+                return `<button type="button" class="rl-item outcome-item" data-outcome-index="${i}" title="${x.members?`展开其余 ${x.members.length} 类`:`${esc(x.key||'未分类')} · 点击查看查询日志`}">
+                  <span class="rl-name"><i class="rl-dot" style="background:${outcomeColor(x.key)}"></i>${esc(x.label)}${x.members?`<small>（${x.members.length} 类）</small>`:''}</span>
                   <span class="mono" style="color:var(--text-2);text-align:right">${compactNum(x.count)}</span>
                   <span class="mono" style="color:var(--text-3);text-align:right">${p}%</span>
-                </div>`;
+                </button>`;
               }).join('') || `<div style="color:var(--text-3);font-size:12px">暂无分流分类统计</div>`}
             </div>
           </div>
+          <p class="overview-outcome-note">按查询次数排列；缓存命中不展开原始分流去向。${allSets.length>=64?'接口最多读取 64 类，当前占比仅覆盖已返回分类。':''}</p>
         </div>
       </div>
 
       <div class="col-12 workspace-rankings">
         ${window.LocalDNSWorkspace.rankings({domains:domains||[],clients:clients||[],sets:sets||[],total:stats.total_queries,aliases:state.aliases})}
       </div>
-      <div class="col-4 workspace-lower">
+
+      <div class="col-12 overview-cache-panel">
         <div class="glass-card">
           <div class="gc-head">
-            <div class="gc-title">多级缓存池状态</div>
-            <span class="gc-sub" style="cursor:pointer" data-route="management">缓存管理 ›</span>
-          </div>
-          <div class="rank-col-hint"><span>缓存池</span><span>命中率 · 条目数</span></div>
-          <div class="uniform-4rows">
-            ${[
-              ['全部缓存 (cache_main)', cMain],
-              ['国内缓存 (cache_domestic)', cDom],
-              ['国外缓存 (cache_foreign)', cFor],
-              ['国外 ECS (cache_foreign_ecs)', cEcs]
-            ].map(([label, c]) => `
-              <div class="u-row-bar">
-                <div class="urb-head">
-                  <span style="color:var(--text-1)">${label}</span>
-                  <span style="color:var(--text-2)">${c.hit.toFixed(1)}% · ${num(c.size)} 条</span>
-                </div>
-                <div class="urb-track"><div class="urb-fill" style="width:${Math.max(4, c.hit).toFixed(1)}%"></div></div>
+            <div>
+              <div class="gc-title-row">
+                <div class="gc-title">多级缓存池状态</div>
+                <span class="cache-status-pill ${cacheDisabled ? 'is-off' : 'is-on'}">${cacheDisabled ? '● 核心缓存已关闭' : '● 核心缓存运行中'}</span>
+                <span class="cache-status-pill ${lazyEnabled ? 'is-lazy' : 'is-muted'}">乐观过期 ${lazyEnabled ? '开启' : '关闭'}</span>
               </div>
-            `).join('')}
+              <p class="workspace-subline cache-panel-subline">4 级独立缓存池实时命中率、请求量与驻留条目数 · 综合命中率 ${pct(overallHitRate)}</p>
+            </div>
+            <div class="cache-head-actions">
+              <span class="gc-sub" style="cursor:pointer" data-route="management">缓存管理 ›</span>
+            </div>
           </div>
+          <div class="overview-cache-pools">
+            ${[
+              ['全部缓存 (cache_main)', 'cache_main', cMain],
+              ['国内缓存 (cache_domestic)', 'cache_domestic', cDom],
+              ['国外缓存 (cache_foreign)', 'cache_foreign', cFor],
+              ['国外 ECS (cache_foreign_ecs)', 'cache_foreign_ecs', cEcs]
+            ].map(([label, tag, c]) => {
+              const info = window.LocalDNSOverview?.poolInfo ? window.LocalDNSOverview.poolInfo(tag) : { code: 'POOL', shortLabel: label, sub: tag, tone: 'main' };
+              const hitClamped = Math.max(0, Math.min(100, +c.hit || 0));
+              const lazyVal = Math.max(0, +c.lazy || 0);
+              return `
+              <div class="u-row-bar overview-cache-pool" data-pool-tag="${esc(tag)}" data-pool-tone="${esc(info.tone)}">
+                <div class="cache-pool-body">
+                  <div class="urb-head">
+                    <span class="cache-pool-title-wrap" style="color:var(--text-1)">
+                      <span class="cache-pool-code mono">${esc(info.code)}</span>
+                      <span class="cache-pool-titles">
+                        <strong class="cache-pool-short">${esc(info.shortLabel)}</strong>
+                        <small class="cache-pool-sub">${esc(info.sub)}</small>
+                      </span>
+                    </span>
+                    <span class="cache-pool-rate-wrap" style="color:var(--text-2)" aria-label="命中率 ${c.hit.toFixed(1)}%">
+                      <span class="cache-pool-hit-num tabular">${c.hit.toFixed(1)}%</span> <small class="cache-pool-hit-unit" style="font-size:11px">命中率</small>
+                      <span class="cache-pool-lazy-tag tabular" title="乐观过期缓存命中率 ${lazyVal.toFixed(1)}%">过期 ${lazyVal.toFixed(1)}%</span>
+                    </span>
+                  </div>
+                  <div class="urb-track" aria-hidden="true"><div class="urb-fill" style="width:${hitClamped.toFixed(1)}%"></div></div>
+                  <dl class="overview-cache-facts"><div><dt>查询数</dt><dd>${num(c.q)}</dd></div><div><dt>命中数</dt><dd>${num(c.h)}</dd></div><div><dt>缓存条目</dt><dd>${num(c.size)}</dd></div></dl>
+                  <div class="cache-pool-foot">
+                    <span class="cache-pool-tag-mono mono">${esc(tag)}</span>
+                    <div class="cache-pool-actions">
+                      <button type="button" class="cache-pool-btn" data-overview-cache-view="${esc(tag)}" title="查看 ${esc(info.shortLabel)} 内容">查看</button>
+                      <button type="button" class="cache-pool-btn is-danger" data-overview-cache-flush="${esc(tag)}" title="清空 ${esc(info.shortLabel)}">清空</button>
+                    </div>
+                  </div>
+                </div>
+              </div>`;
+            }).join('')}
+          </div>
+          <p class="overview-outcome-note">命中率 = 命中数 ÷ 本池查询数；条目数为当前值。查询与命中计数来自核心运行指标，统计周期与审计日志不同。</p>
         </div>
       </div>
 
-      <div class="col-4 workspace-lower">
+      <div class="col-12 overview-slow-panel">
         <div class="glass-card">
           <div class="gc-head">
-            <div class="gc-title">最慢查询与耗时监控</div>
-            <button type="button" class="glass-btn" id="slow-detail-button">详情</button>
+            <div><div class="gc-title">慢查询排行</div><p class="workspace-subline">当前保留日志中耗时最高的最多 1,000 条样本 · 按域名与客户端合并，取最大耗时</p></div>
+            <div class="overview-slow-tools"><label for="overview-slow-limit">显示条数</label><select id="overview-slow-limit">${[5,10,20].map(n=>`<option value="${n}" ${state.overviewSlowLimit===n?'selected':''}>${n} 条</option>`).join('')}</select><button type="button" class="glass-btn" id="slow-detail-button">详情</button></div>
           </div>
-          <div class="uniform-4rows">
-            ${slowGroups.slice(0, 4).length ? slowGroups.slice(0, 4).map((g, idx) => {
-              const dur = +g.duration_ms || 0;
-              const dotColor = dur > 300 ? '#EF4444' : (dur > 80 ? '#F59E0B' : '#10B981');
-              const txtColor = dur > 300 ? '#F87171' : (dur > 80 ? '#FBBF24' : '#34D399');
-              return `<div class="u-row-pill">
-                <span style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding-right:8px" title="${esc(g.query_name)} (${esc(state.aliases[g.client_ip]||g.client_ip)})">
-                  <i style="display:inline-block;width:6px;height:6px;border-radius:50%;background:${dotColor};margin-right:8px"></i>
-                  <strong class="mono" style="color:var(--text-1)">${esc(g.query_name)}</strong>
-                </span>
-                <span class="mono" style="color:${txtColor};font-weight:600;flex-shrink:0">${ms(dur)}</span>
-              </div>`;
-            }).join('') : `<div style="color:var(--text-3);font-size:12px;padding:12px 0">暂无慢查询记录</div>`}
-          </div>
+          <div class="overview-slow-table-wrap" tabindex="0" role="region" aria-label="慢查询列表，可滚动查看更多记录"><table class="overview-slow-table"><thead><tr><th scope="col">序号</th><th scope="col">域名</th><th scope="col">查询类型</th><th scope="col">客户端</th><th scope="col">最大耗时</th></tr></thead><tbody id="overview-slow-rows">${slowOverviewRowsHtml(slowGroups)}</tbody></table></div>
+          <p class="overview-outcome-note" id="overview-slow-count">显示 ${Math.min(state.overviewSlowLimit,slowGroups.length)} / ${slowGroups.length} 组 · 点击域名查看对应查询日志</p>
         </div>
       </div>
     `;
@@ -1513,6 +1559,30 @@
         renderRoute(true, true);
       };
     });
+    $$('[data-overview-cache-view]', page).forEach(btn => {
+      btn.onclick = async () => {
+        const tag = btn.dataset.overviewCacheView;
+        try {
+          const text = await api.request(`/plugins/${tag}/show`);
+          openDrawer(cacheName(tag), '缓存内容', `<pre>${esc(text)}</pre>`);
+        } catch (e) {
+          toast('查看缓存失败', 'error', e.message);
+        }
+      };
+    });
+    $$('[data-overview-cache-flush]', page).forEach(btn => {
+      btn.onclick = async () => {
+        const tag = btn.dataset.overviewCacheFlush;
+        if (!confirm(`确定清空 ${cacheName(tag)}？`)) return;
+        try {
+          await api.request(`/plugins/${tag}/flush`);
+          toast(`${cacheName(tag)}已清空`);
+          renderRoute(true, true);
+        } catch (e) {
+          toast('清空缓存失败', 'error', e.message);
+        }
+      };
+    });
     if ($('#manage-alias')) $('#manage-alias').onclick = openAliasModal;
     if ($('#kpi-card-clients')) $('#kpi-card-clients').onclick = openAliasModal;
     if ($('#kpi-card-domains')) $('#kpi-card-domains').onclick = () => openDomainDetailModal(domains || []);
@@ -1523,20 +1593,39 @@
       };
     }
     if ($('#slow-detail-button')) $('#slow-detail-button').onclick = () => openSlowDetailModal(slowGroups);
+    const bindSlowRows=()=>$$('[data-slow-record]',page).forEach(button=>button.onclick=()=>{
+      const row=slowGroups[Number(button.dataset.slowRecord)];
+      Object.assign(state.logs,{page:1,q:row.query_name,exact:true,type:'',set:'',code:'',client:row.client_ip});navigate('logs');
+    });
+    bindSlowRows();
+    $('#overview-slow-limit').onchange=event=>{
+      const limit=Number(event.target.value);if(![5,10,20].includes(limit))return;
+      state.overviewSlowLimit=limit;storage.set('localdns-overview-slow-limit:'+(API_BASE||location.host),limit);
+      $('#overview-slow-rows').innerHTML=slowOverviewRowsHtml(slowGroups);
+      $('#overview-slow-count').textContent=`显示 ${Math.min(limit,slowGroups.length)} / ${slowGroups.length} 组 · 点击域名查看对应查询日志`;
+      bindSlowRows();
+    };
+    $('#outcome-detail-button').onclick=()=>openOutcomeDetail(allSets,outcomes.total);
+    $$('[data-outcome-index]',page).forEach(button=>button.onclick=()=>{
+      const row=ds[Number(button.dataset.outcomeIndex)];
+      if(row.members)return openOutcomeDetail(row.members,outcomes.total,true);
+      Object.assign(state.logs,{page:1,q:'',exact:false,type:'',set:row.key,code:'',client:''});navigate('logs');
+    });
     window.LocalDNSWorkspace.topology(page,redraw,sets);
   }
 
-  function logBadge(set){const s=String(set||'未分类');let cls='primary';if(/黑|BAN|BLOCK|拒绝/i.test(s))cls='danger';else if(/白|直连|国内|REAL/i.test(s))cls='success';else if(/灰|代理|订阅/i.test(s))cls='pink';else if(/FAKE/i.test(s))cls='cyan';return `<span class="badge ${cls}">${esc(s)}</span>`;}
-  function logRow(x){const ans=(x.answers||[]).map(a=>a.data||a.value).filter(Boolean).join(', ')||x.response_code||'—';return `<tr data-log='${esc(JSON.stringify(x))}'><td>${fmtDate(x.query_time)}</td><td class="td-domain" data-qtype="${esc(String(x.query_type||'').toUpperCase())}" data-qtype-short="${({AAAA:'6',A:'A',CNAME:'C',PTR:'P',HTTPS:'H',TXT:'T',MX:'M',NS:'N',SRV:'S'})[String(x.query_type||'').toUpperCase()]||(String(x.query_type||'')[0]||'?')}" data-blocked="${/黑|BAN|BLOCK|拒绝|拦截/i.test(String(x.domain_set||''))?1:0}"><strong class="copyable" role="button" tabindex="0" data-copy="${esc(x.query_name)}" title="点击复制域名">${esc(x.query_name)}</strong><div style="color:var(--muted);font-size:11px;max-width:360px;overflow:hidden;text-overflow:ellipsis">${esc(ans)}</div></td><td>${esc(x.query_type)}</td><td>${logBadge(x.domain_set)}</td><td>${ms(x.duration_ms)}</td><td><span class="copyable value-chip" role="button" tabindex="0" data-copy="${esc(x.client_ip)}" title="点击复制客户端 IP">${esc(state.aliases[x.client_ip]||x.client_ip)}</span></td><td><span class="badge ${x.response_code==='NOERROR'?'success':'danger'}">${esc(x.response_code)}</span></td><td><button class="icon-button row-action log-detail" type="button" aria-label="查看查询详情" title="查看详情"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M2 12s3.6-6 10-6 10 6 10 6-3.6 6-10 6-10-6-10-6Z"/><circle cx="12" cy="12" r="2.6"/></svg></button></td></tr>`;}
+  function logBadge(set){const s=String(set||'未分类');let cls='primary';if(/黑|BAN|BLOCK|拒绝/i.test(s))cls='danger';else if(/白|直连|国内|REAL/i.test(s))cls='success';else if(/灰|代理|订阅/i.test(s))cls='pink';else if(/FAKE/i.test(s))cls='cyan';return `<span class="badge ${cls}" title="${esc(s)}">${esc(window.LocalDNSOverview.label(s))}</span>`;}
+  function logRow(x){const ans=(x.answers||[]).map(a=>a.data||a.value).filter(Boolean).join(', ')||x.response_code||'—';return `<tr data-log='${esc(JSON.stringify(x))}'><td title="${esc(fmtDate(x.query_time))}"><span class="log-time-full">${fmtDate(x.query_time)}</span><span class="log-time-mobile">${esc(new Date(x.query_time).toLocaleTimeString('zh-CN',{hour12:false}))}</span></td><td class="td-domain" data-qtype="${esc(String(x.query_type||'').toUpperCase())}" data-qtype-short="${({AAAA:'6',A:'A',CNAME:'C',PTR:'P',HTTPS:'H',TXT:'T',MX:'M',NS:'N',SRV:'S'})[String(x.query_type||'').toUpperCase()]||(String(x.query_type||'')[0]||'?')}" data-blocked="${/黑|BAN|BLOCK|拒绝|拦截/i.test(String(x.domain_set||''))?1:0}"><strong class="copyable" role="button" tabindex="0" data-copy="${esc(x.query_name)}" title="点击复制域名">${esc(x.query_name)}</strong><div style="color:var(--muted);font-size:11px;max-width:360px;overflow:hidden;text-overflow:ellipsis">${esc(ans)}</div></td><td>${esc(x.query_type)}</td><td>${logBadge(x.domain_set)}</td><td>${ms(x.duration_ms)}</td><td><span class="copyable value-chip" role="button" tabindex="0" data-copy="${esc(x.client_ip)}" title="点击复制客户端 IP">${esc(state.aliases[x.client_ip]||x.client_ip)}</span></td><td><span class="badge ${x.response_code==='NOERROR'?'success':'danger'}">${esc(x.response_code)}</span></td><td><button class="icon-button row-action log-detail" type="button" aria-label="查看查询详情" title="查看详情"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M2 12s3.6-6 10-6 10 6 10 6-3.6 6-10 6-10-6-10-6Z"/><circle cx="12" cy="12" r="2.6"/></svg></button></td></tr>`;}
   async function renderLogs(){
     const p=state.logs;
     const data=await api.logs({page:p.page,limit:p.limit,q:p.q,exact:p.exact,query_type:p.type,domain_set:p.set,response_code:p.code,client_contains:p.client});
     const rows=data.logs||[],filters=data.filters||{};
+    const topPager = `<div class="logs-top-pagination">${paginationHtml(data.pagination)}</div>`;
     const choices=(items,selected)=>[...new Set([...(items||[]),selected].filter(Boolean))].sort();
     const options=(items,value,label)=>`<option value="">${label}</option>${choices(items,value).map(v=>`<option value="${esc(v)}" ${v===value?'selected':''}>${esc(v)}</option>`).join('')}`;
     page.innerHTML=`<div class="view-title-row"><div><h1>查询日志</h1></div><div class="workspace-actions"><button type="button" class="glass-btn" id="log-pause" aria-pressed="${!!state.logsPaused}">${state.logsPaused?'继续刷新':'暂停刷新'}</button><button type="button" class="glass-btn" id="audit-control">审计控制</button><button type="button" class="glass-btn" id="alias-control">客户端管理</button></div></div>
     ${card('查询与过滤',`<div class="log-filter-bar"><div class="lf-search"><span class="search-icon">${icon('search')}</span><input id="log-q" value="${esc(p.q)}" placeholder="域名、IP、响应值" aria-label="搜索查询"></div><select id="log-type" aria-label="请求类型">${options(filters.query_types,p.type,'全部类型')}</select><select id="log-set" aria-label="分流结果">${options(filters.domain_sets,p.set,'全部分流')}</select><button type="button" class="lf-more" id="lf-more" aria-expanded="${!!(p.code||p.client||p.exact)}" aria-controls="log-filter-more">更多筛选</button><button type="button" class="lf-reset" id="lf-reset">重置</button><button type="button" class="button primary" id="log-search">查询</button></div><div class="log-filter-more" id="log-filter-more" ${p.code||p.client||p.exact?'':'hidden'}><div class="field"><label for="log-code">响应码</label><select id="log-code">${options(filters.response_codes,p.code,'全部响应码')}</select></div><div class="field"><label for="log-client">客户端</label><input id="log-client" value="${esc(p.client)}" placeholder="客户端 IP"></div><label class="switch"><input id="log-exact" type="checkbox" ${p.exact?'checked':''}><span class="switch-track"><span class="switch-thumb"></span></span><span class="switch-label">精确匹配</span></label></div>${window.LocalDNSWorkspace.logTools(p)}`,{iconName:'logs'})}
-    ${card('DNS 请求记录',`<div class="table-wrap"><table class="workspace-log-table"><thead><tr><th>时间</th><th>域名 / 响应</th><th>类型</th><th>分流</th><th>耗时</th><th>客户端</th><th>状态</th><th>操作</th></tr></thead><tbody>${rows.length?rows.map(logRow).join(''):'<tr><td colspan="8" class="table-empty">没有符合条件的记录</td></tr>'}</tbody></table></div>${paginationHtml(data.pagination)}`,{iconName:'logs',subtitle:`共 ${num(data.pagination?.total_items||0)} 条 · 第 ${num(data.pagination?.current_page||1)} / ${num(data.pagination?.total_pages||1)} 页`})}`;
+    ${card('DNS 请求记录',`${topPager}<div class="table-wrap"><table class="workspace-log-table"><thead><tr><th>时间</th><th>域名 / 响应</th><th>类型</th><th>分流</th><th>耗时</th><th>客户端</th><th>状态</th><th>操作</th></tr></thead><tbody>${rows.length?rows.map(logRow).join(''):'<tr><td colspan="8" class="table-empty">没有符合条件的记录</td></tr>'}</tbody></table></div>${paginationHtml(data.pagination)}`,{iconName:'logs',subtitle:`共 ${num(data.pagination?.total_items||0)} 条 · 第 ${num(data.pagination?.current_page||1)} / ${num(data.pagination?.total_pages||1)} 页`})}`;
     $('#log-search').onclick=()=>{Object.assign(p,{page:1,q:$('#log-q').value.trim(),type:$('#log-type').value,set:$('#log-set').value,code:$('#log-code').value,client:$('#log-client').value.trim(),exact:$('#log-exact').checked});renderRoute(true);};
     $('#log-q').onkeydown=e=>{if(e.key==='Enter')$('#log-search').click();};
     $('#lf-more').onclick=()=>{const box=$('#log-filter-more');box.hidden=!box.hidden;$('#lf-more').setAttribute('aria-expanded',String(!box.hidden));};
@@ -1922,6 +2011,7 @@
         <div id="management-counts-slot" style="display:contents">${card('域名列表统计',skeletonBlock(150),{iconName:'rules',subtitle:'查看自动分流列表的当前条目数',className:'data-counts-card'})}</div>
         <div id="management-requery-slot" style="display:contents">${card('刷新分流缓存',skeletonBlock(270),{iconName:'refresh',subtitle:'重新扫描域名并更新自动生成的分流列表',className:'data-requery-card'})}</div>
       </div>
+      <section class="management-service-actions" aria-label="DNS 服务操作"><div><h2>DNS 服务</h2><p>管理当前 DNS 核心进程</p></div><div id="management-service-controls"></div></section>
     </div>`;
 
     window.LocalDNSProxyPanel?.sync();
@@ -1947,7 +2037,7 @@
       const activeCacheLabel=cacheName(activeCacheTag),activeForeignTag='cache_foreign_ecs';
       const visibleCacheTags=[activeCacheTag,'cache_domestic','cache_foreign',activeForeignTag];
       const visibleCaches=visibleCacheTags.map(tag=>caches.find(c=>c.tag===tag)).filter(Boolean);
-      const cacheCards=visibleCaches.map(c=>`<div class="cache-card cache-card-compact" style="min-width:0;padding:10px 11px 11px;border-radius:11px"><div class="cache-card-head" style="display:flex!important;flex-direction:row!important;align-items:center!important;justify-content:space-between!important;gap:10px!important;width:100%!important;min-width:0!important;margin:0!important"><h3 title="${esc(cacheName(c.tag))}" style="flex:1 1 auto!important;min-width:0!important;margin:0!important;padding:0!important;font-size:13px!important;line-height:30px!important;white-space:nowrap!important;overflow:hidden!important;text-overflow:ellipsis!important">${cacheName(c.tag)}</h3><div class="cache-card-actions" style="display:flex!important;flex:0 0 auto!important;flex-direction:row!important;align-items:center!important;justify-content:flex-end!important;gap:5px!important;white-space:nowrap!important;margin:0!important;padding:0!important"><button class="button small cache-view" data-tag="${c.tag}" style="flex:0 0 auto!important;min-width:48px!important;height:30px!important;min-height:30px!important;padding:4px 9px!important;margin:0!important">查看</button><button class="button small danger cache-clear" data-tag="${c.tag}" style="flex:0 0 auto!important;min-width:48px!important;height:30px!important;min-height:30px!important;padding:4px 9px!important;margin:0!important">清空</button></div></div><div class="cache-stats cache-stats-flat" style="display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:6px!important;margin-top:7px!important"><div class="cache-stat" title="完整数值：${num(c.q)}" style="min-width:0!important;min-height:40px!important;padding:5px 9px!important;border-radius:9px!important;display:flex!important;flex-direction:column!important;justify-content:center!important"><span>请求总数</span><strong>${num(c.q)}</strong></div><div class="cache-stat" title="完整数值：${num(c.size)}" style="min-width:0!important;min-height:40px!important;padding:5px 9px!important;border-radius:9px!important;display:flex!important;flex-direction:column!important;justify-content:center!important"><span>条目数</span><strong>${num(c.size)}</strong></div><div class="cache-stat" title="完整数值：${pct(c.hit)}" style="min-width:0!important;min-height:40px!important;padding:5px 9px!important;border-radius:9px!important;display:flex!important;flex-direction:column!important;justify-content:center!important"><span>命中率</span><strong>${compactPct(c.hit)}</strong></div><div class="cache-stat" title="完整数值：${pct(c.lazy)}" style="min-width:0!important;min-height:40px!important;padding:5px 9px!important;border-radius:9px!important;display:flex!important;flex-direction:column!important;justify-content:center!important"><span>过期命中</span><strong>${compactPct(c.lazy)}</strong></div></div></div>`);
+      const cacheCards=visibleCaches.map(c=>`<div class="cache-card cache-card-compact"><div class="cache-card-head"><h3 title="${esc(cacheName(c.tag))}">${cacheName(c.tag)}</h3><div class="cache-card-actions"><button class="button small cache-view" data-tag="${c.tag}">查看</button><button class="button small danger cache-clear" data-tag="${c.tag}">清空</button></div></div><div class="cache-stats cache-stats-flat"><div class="cache-stat" title="完整数值：${num(c.q)}"><span>请求总数</span><strong>${num(c.q)}</strong></div><div class="cache-stat" title="完整数值：${num(c.size)}"><span>条目数</span><strong>${num(c.size)}</strong></div><div class="cache-stat" title="完整数值：${pct(c.hit)}"><span>命中率</span><strong>${compactPct(c.hit)}</strong></div><div class="cache-stat" title="完整数值：${pct(c.lazy)}"><span>过期命中</span><strong>${compactPct(c.lazy)}</strong></div></div></div>`);
       const cacheHeaderActions=`<div class="cache-header-actions"><span class="badge success cache-active-badge">${activeCacheLabel} · ${cacheEnabled?'当前使用':'当前模式'}</span><span class="badge ${cacheEnabled?'success':'danger'}">● 核心缓存${cacheEnabled?'已开启':'已关闭'}</span><button class="button small danger" id="cache-clear-all">全部清空</button></div>`;
       const slot=$('#management-cache-slot');if(!slot)return;
       slot.innerHTML=`<section class="card data-cache-panel"><div class="card-header"><div class="card-title"><span class="icon">${icon('data')}</span><div><h2>缓存管理</h2><p>仅显示当前模式对应的全部缓存与国外缓存，界面更紧凑</p></div></div>${cacheHeaderActions}</div><div class="card-body"><div class="cache-grid data-cache-grid">${cacheCards.join('')}</div></div></section>`;

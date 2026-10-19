@@ -314,7 +314,7 @@
       '<span class="rv-handle" title="拖动排序"><svg width="14" height="16" viewBox="0 0 14 16" fill="currentColor" aria-hidden="true"><circle cx="4" cy="4" r="1"/><circle cx="10" cy="4" r="1"/><circle cx="4" cy="8" r="1"/><circle cx="10" cy="8" r="1"/><circle cx="4" cy="12" r="1"/><circle cx="10" cy="12" r="1"/></svg></span>' +
       /* 注释行/说明行不参与批量选择与启停，就不给它复选框，免得勾了却数不进「已选 N 条」 */
       (cmt ? '<span class="rv-ck-na" title="# 行不参与批量操作">—</span>'
-           : '<input type="checkbox" class="rv-ck"' + (on ? ' checked' : '') + ' aria-label="选择这条">') +
+           : '<label class="rv-select" title="选择这条"><input type="checkbox" class="rv-ck"' + (on ? ' checked' : '') + ' aria-label="选择这条"></label>') +
       '<span class="rv-type t-' + r.type + (cmt && r.role === 'note' ? ' role-note' : '') + '">' +
         (cmt ? (r.role === 'note' ? '备注' : (r.role === 'doc' ? '说明' : '注释')) : NAME[r.type]) + '</span>' +
       '<span class="rv-value' + (r.type === 'regexp' || (r.value || '').length > 56 ? ' wrap' : '') + '" title="' + esc(lineOf(r)) + '">' + esc(r.value) + '</span>' +

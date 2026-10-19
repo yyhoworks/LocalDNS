@@ -114,7 +114,7 @@
         newline=loaded.content.includes('\r\n')?'\r\n':'\n';base=loaded.content.replace(/\r\n/g,'\n');
         if(!editor){$('#pc-editor').replaceChildren();editor=tools.makeEditor({parent:$('#pc-editor'),doc:base,type:core,onSave:()=>{if(!busy&&dirty())compare(true);},onUpdate:update=>{cursor();if(update.docChanged&&!programmatic){editor.diagnostics([]);sync();result('idle','内容已修改，等待检查','保存时会重新执行核心校验。');}}});}
         else{programmatic=true;editor.set(base,core);programmatic=false;}
-        $('#pc-logo').src=brands[core].logo;$('#pc-logo').alt=brands[core].name;$('#pc-name').textContent=path.split('/').pop();$('#pc-path').textContent=path;$('#pc-format').textContent=brands[core].format;
+        $('#pc-logo').src=brands[core].logo;$('#pc-logo').alt=brands[core].name;$('#pc-name').textContent=path.split('/').pop();$('#pc-path').textContent=path;$('#pc-path').title=path;$('#pc-format').textContent=brands[core].format;
         $('#pc-encoding').textContent='UTF-8 · '+(newline==='\r\n'?'CRLF':'LF');
         $('#pc-active-note').textContent=fragmentMode?`运行分片 · 与 ${groupCount} 份文件合并校验，保存后重载整套配置`:activeFile?'启动配置 · 保存后自动重载':'备用配置 · 保存后不切换当前运行配置';
         $('.pc-directory-note').textContent=cores.find(item=>item.id===core)?.mode==='fragments'?'运行分片会按完整集合合并校验，目录外备用文件单独保存。':'每个文件作为完整配置单独校验。';

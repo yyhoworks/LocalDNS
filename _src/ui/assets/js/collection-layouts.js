@@ -34,10 +34,6 @@
       if (!header) return;
       root.classList.add('collection-surface');
       root.dataset.collectionKind = definition.key;
-      if (definition.key === 'caches') root.querySelectorAll('.cache-stats-flat').forEach(stats => {
-        stats.style.setProperty('grid-template-columns', 'var(--collection-cache-columns,repeat(2,minmax(0,1fr)))', 'important');
-        stats.style.setProperty('margin-top', 'var(--collection-cache-gap,7px)', 'important');
-      });
       const controls = document.createElement('div');
       controls.className = 'collection-switch';
       controls.dataset.collectionControl = definition.key;
