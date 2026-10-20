@@ -33,7 +33,9 @@ export function initialize() {
     let hovering = false, focused = false;
     const observer = new MutationObserver(sync);
     observer.observe(wrap, { attributes: true, attributeFilter: ['class'] });
-    const canPlay = () => !disposed && wrap.isConnected && !document.hidden && !reduce.matches &&
+    // Follow the system unless the person explicitly enabled this animation.
+    const canPlay = () => !disposed && wrap.isConnected && !document.hidden &&
+      (!reduce.matches || wrap.classList.contains('motion-override')) &&
       !wrap.classList.contains('no-particles') && !wrap.classList.contains('has-hover') && !hovering && !focused;
     function clear() {
       cursor.style.opacity = '0';

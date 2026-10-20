@@ -369,7 +369,7 @@ import { cacheName } from '../management/index.js';
       <!-- 第三层：UI 2026.10.16.1 的五阶段 DNS 解析路径布局 -->
       <div class="col-12">
         <section class="glass-card topology-glass-card" aria-label="实时 DNS 解析与分流全链路拓扑" title="流光仅示意拓扑路径，不代表单条 DNS 查询记录">
-          <div class="topo-stage-wrap ${state.particles === false ? 'no-particles' : ''}" id="topo-stage-wrap">
+          <div class="topo-stage-wrap ${state.particles === false ? 'no-particles' : ''} ${state.particleMotionOverride ? 'motion-override' : ''}" id="topo-stage-wrap">
             <svg class="topo-svg-overlay" id="topo-svg" aria-hidden="true"></svg>
 
             <div class="topo-grid">

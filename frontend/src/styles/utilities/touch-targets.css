@@ -5,4 +5,5 @@
   .workspace-detail-tabs .glass-btn {
     min-height:var(--control-touch-height);
   }
+  .workspace-topology-tools .glass-btn { min-height:44px; }
 }

@@ -9,7 +9,7 @@ import { workspaceService } from '../../shared/workspace.js';
 import { collectionsService } from '../../shared/components/collection-layouts.js';
 import { proxyPanelService } from '../proxy-panel/index.js';
 import { setHTML } from '../../core/security/safe-dom.ts';
-import { $, CONFIG, $$, state, storage, API_BASE } from '../../core/context.js';
+import { $, CONFIG, $$, state, storage, API_BASE, reduceMotion } from '../../core/context.js';
 import { icon } from '../../shared/components/icons.js';
 import { toast } from '../../shared/components/toast.js';
 import { closeDrawer } from '../../shared/components/drawer.js';
@@ -146,23 +146,39 @@ import { loadAliases } from '../logs/aliases.js';
       }
     }
 
-    // 3. 保留既有粒子偏好；系统减少动画设置始终优先
+    // 3. Default to the system preference; a new explicit choice may override it.
     state.particles = (storage.get('localdns_particles') ?? storage.get('localdns_particles_v2')) !== 'false';
+    state.particleMotionOverride = storage.get('localdns_particles_motion_override') === 'true';
     const partBtn = $('#btn-toggle-particles');
     if (partBtn) {
-      partBtn.classList.toggle('active', state.particles);
-      partBtn.setAttribute('aria-pressed', String(state.particles));
-      partBtn.onclick = () => {
-        state.particles = !state.particles;
-        storage.set('localdns_particles', String(state.particles));
-        partBtn.classList.toggle('active', state.particles);
-        partBtn.setAttribute('aria-pressed', String(state.particles));
+      const enabled = () => state.particles && (!reduceMotion.matches || state.particleMotionOverride);
+      const syncParticles = () => {
+        partBtn.classList.toggle('active', enabled());
+        partBtn.setAttribute('aria-pressed', String(enabled()));
+        const label = reduceMotion.matches && !state.particleMotionOverride
+          ? '拓扑动画已跟随系统减少动态暂停，点击可单独启用'
+          : enabled() ? '关闭拓扑动画' : '开启拓扑动画';
+        partBtn.title = label; partBtn.setAttribute('aria-label', label);
         const wrap = $('#topo-stage-wrap');
         if (wrap) {
           wrap.classList.toggle('no-particles', !state.particles);
+          wrap.classList.toggle('motion-override', state.particleMotionOverride);
           topologyFlowService?.sync();
         }
       };
+      partBtn.onclick = () => {
+        state.particles = !enabled();
+        state.particleMotionOverride = state.particles && reduceMotion.matches;
+        storage.set('localdns_particles', String(state.particles));
+        storage.set('localdns_particles_motion_override', String(state.particleMotionOverride));
+        syncParticles();
+      };
+      reduceMotion.addEventListener('change', () => {
+        state.particleMotionOverride = false;
+        storage.set('localdns_particles_motion_override', 'false');
+        syncParticles();
+      });
+      syncParticles();
     }
 
     const searchInput = $('#global-search-input');
