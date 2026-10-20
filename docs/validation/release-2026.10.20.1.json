@@ -1,0 +1,31 @@
+{
+  "version": {
+    "product": "LocalDNS",
+    "uiVersion": "2026.10.20.1",
+    "backendVersion": "FJGAC",
+    "releaseTag": "fjgac-ui-v2026.10.20.1",
+    "channel": "stable",
+    "builtAt": "2026-10-20T10:22:56+08:00"
+  },
+  "packages": {
+    "LocalDNS_UI_2026.10.20.1_Update.zip": {
+      "sha256": "5319fa49253f6737dfae636b1c77e115c873ac3025b50b22baa20f6c973742ee",
+      "bytes": 1535498,
+      "uiFiles": 28,
+      "manifest": "pass",
+      "builtUiMatch": true
+    },
+    "LocalDNS_FJGAC_UI_2026.10.20.1_Full.zip": {
+      "sha256": "58a9fc6e076d46d9ad48e5ef8311284ddbc23e5859493ea462313814064dd30c",
+      "bytes": 14616890,
+      "uiFiles": 28,
+      "manifest": "pass",
+      "builtUiMatch": true
+    }
+  },
+  "checks": [
+    "FJGAC binaries, default DNS configuration, rules and service files match published .10 full base; all three ELF architecture markers checked",
+    "Windows isolated installer staging: full install then UI update; core/configuration/rules/site config/custom file retained; no services started",
+    "Frontend typecheck, 93 tests, ESLint, reproducible build and source/file digest checks passed"
+  ]
+}

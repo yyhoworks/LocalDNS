@@ -6,9 +6,9 @@
 
 **DNS 核心主要由折腾日记交流群里的 R 大使用 Rust 编写；[yyhoworks](https://github.com/yyhoworks) 负责 UI 设计。**
 
-当前版本：**[后端 FJGAC / UI 2026.10.19.10](https://github.com/yyhoworks/LocalDNS/releases/tag/fjgac-ui-v2026.10.19.10)**，提供完整包、UI 升级包、SHA-256 校验文件，见 [本次更新说明](docs/releases/fjgac-ui-v2026.10.19.10.md)。
+当前版本：**[后端 FJGAC / UI 2026.10.20.1](https://github.com/yyhoworks/LocalDNS/releases/tag/fjgac-ui-v2026.10.20.1)**，提供完整包、UI 升级包、SHA-256 校验文件，见 [本次更新说明](docs/releases/fjgac-ui-v2026.10.20.1.md)。
 
-本次新增网页 UI 在线升级：免口令操作、后台任务、进度查看与失败恢复。可选更新执行端首次安装后即可在网页更新 UI；保留配置、Logo 和字体，DNS 核心继续使用 FJGAC。
+本次新增 DNS 趋势：QPS、缓存命中率和上游平均延迟，支持 24 小时浏览器历史；修复首次采样延迟，进入概览即开始采集，后续每 5 秒更新。网页 UI 升级继续可用，DNS 核心沿用 FJGAC。
 
 [产品图集](docs/SCREENSHOTS.md) · [功能指南](docs/FEATURES.md) · [安装说明](INSTALL.md) · [下载 Releases](https://github.com/yyhoworks/LocalDNS/releases) · [作者与分工](AUTHORS.md) · [开发说明](docs/DEVELOPMENT.md) · [近期更新](CHANGELOG.md)
 
@@ -18,7 +18,7 @@
 
 名称、Logo、字体文件和字体选择保存在服务器 `ui/custom/` 静态目录，其他设备刷新后读取。网页修改先在本机预览，再导出配置包，通过 `configure-ui.py` 导入服务器。详见 [共享配置指南](docs/SHARED_UI.md)。
 
-代理入口根据面板地址自动读取网站图标，点击在新标签页打开实际面板。当前版本不需要 9098 服务。名单直接保存到 DNS 核心，吞吐图显示当前浏览器会话内的真实采样；关闭页面后不再采样。
+代理入口根据面板地址自动读取网站图标，点击在新标签页打开实际面板。当前版本不需要 9098 服务。名单直接保存到 DNS 核心，DNS 趋势在当前浏览器保留最近 24 小时的真实采样，刷新后恢复；关闭页面或离开概览后停止采样，未采集时段留空。
 
 ## 作者与分工
 
@@ -148,7 +148,7 @@ curl -fsSL https://raw.githubusercontent.com/yyhoworks/LocalDNS/main/tools/insta
 
 ## 手动安装
 
-1. 在 [Releases](https://github.com/yyhoworks/LocalDNS/releases/tag/fjgac-ui-v2026.10.19.10) 下载完整包或 UI 升级包，并核对同页的 `SHA256SUMS.txt`。**升级 FJGAC 内核必须从完整包选择对应架构的程序；UI 升级包不含内核。**
+1. 在 [Releases](https://github.com/yyhoworks/LocalDNS/releases/tag/fjgac-ui-v2026.10.20.1) 下载完整包或 UI 升级包，并核对同页的 `SHA256SUMS.txt`。**升级 FJGAC 内核必须从完整包选择对应架构的程序；UI 升级包不含内核。**
 2. 已有 LocalDNS 服务时，解压 UI 升级包并运行：
 
    ```sh
