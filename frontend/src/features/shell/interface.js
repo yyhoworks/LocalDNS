@@ -48,8 +48,8 @@ export function initialize() {
     const service=$('.console-service-summary',main);if(service){$$('.console-kpi',main).forEach(kpi=>service.append(kpi));$('.view-title-row>div:first-child>.mono',main)?.remove();}
     const topo=$('.topology-glass-card');topo.parentElement.classList.add('console-topology');if(!$('.console-topology-heading',topo))insertHTML(topo, 'afterbegin', '<div class="console-topology-heading"><h2>DNS 解析路径</h2><span>选择节点锁定路径，再查看详情或相关查询 · 连线为解析路径示意</span></div>');
     const trend=$('.traffic-chart-body');trend.closest('.col-8').classList.add('console-trend');
-    const head=$('.gc-head',trend.closest('.glass-card'));setHTML($('.gc-title',head), '查询吞吐趋势<span class="console-chart-sub">每秒 DNS 请求数 · 按实际采样时段显示</span>');
-    const range=head.lastElementChild;range.className='console-range';range.removeAttribute('style');setHTML(range, [[15,'15 分钟'],[30,'30 分钟'],[60,'1 小时'],[120,'2 小时']].map(([m,label])=>`<button type="button" data-chart-range="${m}" aria-pressed="${trafficRange===m}">${label}</button>`).join(''));
+    const head=$('.gc-head',trend.closest('.glass-card'));setHTML($('.gc-title',head), 'DNS 趋势<span class="console-chart-sub">切换指标查看趋势 · 历史保存在当前浏览器</span>');
+    const range=head.lastElementChild;range.className='console-range';range.removeAttribute('style');range.setAttribute('role','group');range.setAttribute('aria-label','DNS 趋势时间范围');setHTML(range, [[15,'15 分钟'],[60,'1 小时'],[360,'6 小时'],[1440,'24 小时']].map(([m,label])=>`<button type="button" data-chart-range="${m}" aria-pressed="${trafficRange===m}">${label}</button>`).join(''));
     drawTraffic(trend);$$('[data-chart-range]',head).forEach(b=>b.onclick=()=>{trafficRange=+b.dataset.chartRange;$$('[data-chart-range]',head).forEach(x=>x.setAttribute('aria-pressed',String(x===b)));drawTraffic(trend);});
     trafficResize?.disconnect();let trafficWidth=trend.clientWidth;
     const chartResize=new ResizeObserver(()=>{if(!trend.isConnected){chartResize.disconnect();return;}if(Math.abs(trend.clientWidth-trafficWidth)>1){trafficWidth=trend.clientWidth;drawTraffic(trend);}});trafficResize=chartResize;chartResize.observe(trend);

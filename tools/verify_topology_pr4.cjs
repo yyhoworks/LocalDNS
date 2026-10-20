@@ -24,7 +24,7 @@ const root=path.resolve(__dirname,'..'),out=path.join(root,'dist/topology-pr4-ve
  try{
   const c=await context(),page=await c.newPage();await page.goto(base+'/ui/');
   await page.locator('.workspace-topology-tools').waitFor();
-  assert.deepEqual(await page.locator('[data-chart-range]').evaluateAll(els=>els.map(e=>e.dataset.chartRange)),['15','30','60','120']);
+  assert.deepEqual(await page.locator('[data-chart-range]').evaluateAll(els=>els.map(e=>e.dataset.chartRange)),['15','60','360','1440']);
   const motion=page.locator('#btn-toggle-particles');
   assert.equal(await motion.getAttribute('aria-pressed'),'false');
   assert((await motion.getAttribute('title')).includes('减少动态'));
@@ -49,7 +49,7 @@ const root=path.resolve(__dirname,'..'),out=path.join(root,'dist/topology-pr4-ve
   await page.waitForURL('**/#/logs');await page.goto(base+'/ui/#/overview');await page.locator('.workspace-topology-tools').waitFor();
   await page.locator('[data-topology-clear]').click();
   assert.equal(await page.locator('[data-topology-clear]').getAttribute('aria-pressed'),'true');
-  report.checks.push('existing session ranges, reduced motion default and explicit override, persisted override, system change, node details and related queries');
+  report.checks.push('current trend ranges, reduced motion default and explicit override, persisted override, system change, node details and related queries');
   for(const skin of ['glass','claude'])for(const theme of ['cosmos-glass','light-glass'])for(const width of [1440,760,390]){
    await page.evaluate(({skin,theme})=>{document.documentElement.dataset.skin=skin;document.documentElement.dataset.theme=theme;},{skin,theme});
    await page.setViewportSize({width,height:1000});
@@ -68,7 +68,7 @@ const root=path.resolve(__dirname,'..'),out=path.join(root,'dist/topology-pr4-ve
   await c.close();
   const fresh=await context(),second=await fresh.newPage();await second.goto(base+'/ui/');await second.locator('.workspace-topology-tools').waitFor();
   assert.equal(await second.locator('#btn-toggle-particles').getAttribute('aria-pressed'),'false');await fresh.close();
-  report.checks.push('fresh browser follows reduced motion, existing browser session traffic ranges');
+  report.checks.push('fresh browser follows reduced motion, current browser trend ranges');
   assert.deepEqual(report.errors,[]);assert.deepEqual(report.writes,[]);
   fs.writeFileSync(path.join(out,'results.json'),JSON.stringify(report,null,2));console.log(JSON.stringify({checks:report.checks,layouts:report.layouts.length,errors:report.errors,writes:report.writes}));
  }finally{await browser.close();server.closeAllConnections();await new Promise(r=>server.close(r));}

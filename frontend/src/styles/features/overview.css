@@ -478,6 +478,18 @@
 .query-path-overview>header,.query-path-answers>header{padding:0;background:transparent;border:0;min-height:0}.query-path h3{margin:0}.query-path table{width:100%}.query-path .query-path-answers td{overflow-wrap:anywhere}
 .skin-card-meta small,.query-path-nodes small{font-size:11px}
 .traffic-summary {display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin:16px 0 12px;}
+.traffic-metric-tabs{display:flex;flex-wrap:wrap;gap:6px;margin:12px 0 0}
+.traffic-metric-tabs button{border:1px solid var(--border-glass);border-radius:8px;background:transparent;color:var(--text-2);font:12px/1.4 var(--font-sans);padding:7px 12px;min-height:34px;cursor:pointer}
+.traffic-metric-tabs button:hover{color:var(--text-1);background:var(--glass-pill)}
+.traffic-metric-tabs button[aria-pressed=true]{color:var(--text-1);background:var(--glass-pill-active);border-color:var(--border-highlight)}
+.traffic-metric-note,.traffic-storage-note{font-size:12px;line-height:1.6;color:var(--text-2);margin:8px 0 0;overflow-wrap:anywhere}
+.traffic-storage-note{margin-top:6px}
+.traffic-plot{position:relative;min-width:0;border-radius:8px;touch-action:pan-y}
+.traffic-plot .traffic-chart.console-chart{height:216px}
+.traffic-plot .traffic-axis-unit{font-family:var(--font-sans);font-size:11px}
+.traffic-inspect-line{stroke:var(--text-2);stroke-width:1;stroke-dasharray:3 4;pointer-events:none}
+.traffic-tooltip{position:absolute;top:0;left:50%;transform:translateX(-50%);width:max-content;max-width:calc(100% - 16px);padding:8px 10px;border:1px solid var(--border-highlight);border-radius:8px;background:var(--glass-bg-strong);color:var(--text-1);font:12px/1.6 var(--font-sans);font-variant-numeric:tabular-nums;pointer-events:none;box-shadow:0 6px 20px -8px rgba(0,0,0,.3)}
+.traffic-live{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap;border:0}
 .traffic-summary>div {min-width:0;}
 .traffic-summary dt {font-size:12px;color:var(--text-2);margin-bottom:5px;}
 .traffic-summary dd {margin:0;font-family:var(--font-mono);font-size:23px;line-height:1.4;color:var(--text-1);font-variant-numeric:tabular-nums;overflow-wrap:anywhere;}
@@ -487,9 +499,12 @@
 .traffic-line {fill:none;stroke:var(--console-line);stroke-width:2;stroke-linejoin:round;vector-effect:non-scaling-stroke;}
 .traffic-area {fill:var(--console-line);fill-opacity:.09;}
 .traffic-point {fill:var(--console-line);}
+.traffic-peak{stroke:var(--console-line);stroke-width:1;stroke-opacity:.55;vector-effect:non-scaling-stroke}
 .traffic-grid {stroke:var(--text-3);stroke-opacity:.2;stroke-dasharray:3 5;}
 .traffic-caption {display:flex;flex-wrap:wrap;justify-content:space-between;gap:6px 16px;font-size:11px;color:var(--text-2);line-height:1.6;padding-top:8px;}
 @media(max-width:600px) {
+  .traffic-metric-tabs{gap:6px}
+  .traffic-metric-tabs button{flex:1;min-height:44px;padding:8px 10px}
   .traffic-summary {grid-template-columns:repeat(2,minmax(0,1fr));gap:14px 16px;}
 }
 @media(max-width:600px) {

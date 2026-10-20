@@ -6,4 +6,5 @@
     min-height:var(--control-touch-height);
   }
   .workspace-topology-tools .glass-btn { min-height:44px; }
+  .console-trend .console-range button { min-height:44px; }
 }
