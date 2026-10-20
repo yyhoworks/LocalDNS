@@ -5,7 +5,7 @@ export function initialize() {
   const finite = n => typeof n === 'number' && Number.isFinite(n);
   const nonnegative = n => finite(n) && n >= 0;
   const definitions = {
-    qps: {label:'QPS', unit:'QPS', note:'每秒 DNS 请求数 · 按实际采样秒数计算', count:'区间请求', empty:'尚未建立查询采样基线，约 5 秒后显示数据'},
+    qps: {label:'QPS', unit:'QPS', note:'每秒 DNS 请求数 · 按实际采样秒数计算', count:'区间请求', empty:'正在建立查询采样基线，通常约 2 秒后显示数据'},
     cache: {label:'缓存命中率', unit:'%', note:'主缓存命中数 ÷ 主缓存查询数 · 区间均值按查询数加权', count:'缓存查询', empty:'所选时段暂无有效缓存查询，或核心未提供主缓存计数'},
     latency: {label:'平均延迟', unit:'ms', note:'上游实际响应的平均耗时 · 不包含缓存命中请求', count:'上游响应', empty:'所选时段暂无上游响应，或核心未提供延迟计数'},
   };
@@ -42,7 +42,7 @@ export function initialize() {
   function record(series, sample, now = Date.now()) {
     if (!nonnegative(sample?.total) || !nonnegative(now)) return false;
     const previous = series.at(-1);
-    if (previous && now - previous.time < 4000) return false;
+    if (previous && now - previous.time < 1500) return false;
     const next = raw(sample, now), elapsed = previous ? (now - previous.time) / 1000 : 0;
     const valid = !!previous && !next.breakBefore && elapsed > 0 && elapsed <= 90 && previous.start === next.start && next.total >= previous.total;
     const difference = (a,b) => nonnegative(a) && nonnegative(b) && a >= b ? a - b : null;
@@ -169,7 +169,7 @@ export function initialize() {
     const plotFocused=document.activeElement?.classList.contains('traffic-plot')&&container.contains(document.activeElement);
     const item=(label,value,unit)=>`<div><dt>${label}</dt><dd>${value}<small>${unit}</small></dd></div>`;
     setHTML(container,`<div class="traffic-metric-tabs" role="group" aria-label="选择 DNS 趋势指标">${Object.entries(definitions).map(([key,d])=>`<button type="button" data-traffic-metric="${key}" aria-pressed="${metric===key}">${d.label}</button>`).join('')}</div><p class="traffic-metric-note">${definition.note}</p><dl class="traffic-summary">${item('最近采样',rate(s.current),definition.unit)}${item('区间均值',rate(s.average),definition.unit)}${item('区间峰值',rate(s.peak),definition.unit)}${item(definition.count,s.samples?rate(s.count):'—','次')}</dl>`
-      +(s.samples?chart(s.points,container.clientWidth,metric):`<div class="console-chart-empty">${state.loading?'正在读取本机历史与 DNS 采样…':definition.empty}<br>未采集和无有效请求的区间不补零</div>`)
+      +(s.samples?chart(s.points,container.clientWidth,metric):`<div class="console-chart-empty">${state.loading&&!series.length?'正在读取 DNS 采样，本机历史在后台恢复…':definition.empty}<br>${series.length&&metric==='qps'?'已读取查询计数，正在等待下一次采样':'未采集和无有效请求的区间不补零'}</div>`)
       +`<div class="traffic-caption"><span>${s.stale?'采样暂时中断，正在自动重试':s.samples?`有效采样 ${rate(s.seconds)} 秒 · 最近间隔 ${rate(s.interval)} 秒`:'概览可见时每 5 秒采样'}</span><span>本浏览器保留 24 小时 · 当前 ${({15:'15 分钟',60:'1 小时',360:'6 小时',1440:'24 小时'})[minutes]||minutes+' 分钟'}</span></div><p class="traffic-storage-note">${state.storageError?'本机历史存储暂不可用，新增采样仅临时保留。':'刷新后可继续查看本机历史。'}关闭网页、切换页面或后台休眠期间留空。</p>`);
     if(state.error){const error=document.createElement('div');error.className='traffic-read-error';error.setAttribute('role','status');const message=document.createElement('span');message.textContent=state.error;const retry=document.createElement('button');retry.type='button';retry.className='button small';retry.dataset.trafficRetry='';retry.textContent='重新读取';error.append(message,retry);container.append(error);}
     inspect(container,s.points,metric);

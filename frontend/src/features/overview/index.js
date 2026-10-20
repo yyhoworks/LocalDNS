@@ -1,6 +1,7 @@
 import { clientAliases } from '../logs/aliases.js';
 import { currentScope } from '../../core/router/route-lifetime';
 import { shellInterfaceService } from '../shell/interface.js';
+import { trafficClientService } from './traffic/client.js';
 import { overviewInsightsService } from './insights.js';
 import { workspaceService } from '../../shared/workspace.js';
 import { clientsService } from '../logs/clients.js';
@@ -25,6 +26,7 @@ import { cacheName } from '../management/index.js';
 
   async function renderOverview(container, context){
  const renderScope = context.scope, page = container;
+    trafficClientService.start(renderScope);
 
     await renderScope.guard(loadAliases(renderScope).catch(()=>{}));
     const switchTags = ['switch1','switch5','switch7','switch6','switch13','switch4','switch2','switch12'];

@@ -11,7 +11,10 @@ export function initialize() {
   const base=()=>new URL(String(window.LOCALDNS_UI_CONFIG?.apiBase||location.origin).replace(/\/$/,''),location.origin);
   const source=base().href.replace(/\/$/,'');
   const ready=trafficRepository.load(source).then(rows=>{
-    for(const row of rows)trafficService.record(series,row,row.time);
+    // History may finish after live sampling has begun. Merge without dropping live points.
+    const combined=rows.concat(series.map(p=>trafficService.raw(p,p.time))).sort((a,b)=>a.time-b.time);
+    series.length=0;
+    for(const row of combined)trafficService.record(series,row,row.time);
   }).catch(()=>{storageError='无法读取浏览器历史';}).finally(()=>{loading=false;redraw();});
   function draw(container,minutes=range){
     if(!container?.isConnected)return;range=minutes;container.dataset.trafficMinutes=String(minutes);
@@ -27,7 +30,7 @@ export function initialize() {
     const request={scope,controller};pending=request;
     request.promise=(async()=>{
       try{
-        await ready;throwIfAborted(scope.signal);
+        throwIfAborted(scope.signal);
         const response=await assetHttp.fetch(new URL(source+'/metrics'),{cache:'no-store',signal:controller.signal,credentials:'omit'});
         if(!response.ok)throw new Error('无法读取 DNS 查询采样');
         const sample=trafficService.parse(await response.text());
@@ -37,8 +40,10 @@ export function initialize() {
         if(recorded){
           breakNext=false;
           redraw();
-          try{await trafficRepository.save(source,trafficService.raw(series.at(-1),series.at(-1).time));storageError='';}
-          catch{storageError='无法保存浏览器历史';}
+          // Storage latency must not hold the network request or the five-second poll open.
+          trafficRepository.save(source,trafficService.raw(series.at(-1),series.at(-1).time))
+            .then(()=>{storageError='';if(!scope.signal.aborted)redraw();})
+            .catch(()=>{storageError='无法保存浏览器历史';if(!scope.signal.aborted)redraw();});
         }
       }catch{
         if(!scope.signal.aborted)error='DNS 趋势采样暂时不可用，请检查连接后重新读取。';
@@ -48,24 +53,24 @@ export function initialize() {
     })();
     return request.promise;
   }
-  function mount(container,minutes){
-    draw(container,minutes);
-    const scope=currentScope();
+  function start(scope=currentScope()){
     if(scope===mountedScope)return;
     mountedScope=scope;
     scope.add(()=>{if(!overview()||document.visibilityState!=='visible')breakNext=true;});
-    scope.interval(()=>{if(document.visibilityState==='visible')refresh();},5000);
+    scope.interval(()=>{if(document.visibilityState==='visible')refresh(true);},5000);
+    if(breakNext||!series.length)scope.timeout(()=>{if(document.visibilityState==='visible')refresh(true);},2000);
     scope.listen(document,'visibilitychange',()=>{if(document.visibilityState==='visible')refresh(true);else breakNext=true;});
     scope.listen(document,'freeze',()=>{breakNext=true;});
     scope.listen(window,'focus',()=>refresh(true));
     scope.listen(document,'click',event=>{
       const button=event.target.closest('[data-traffic-metric]');
-      if(button&&container.contains(button)&&trafficService.definitions[button.dataset.trafficMetric]){
+      if(button?.closest('.traffic-chart-body')&&trafficService.definitions[button.dataset.trafficMetric]){
         metric=button.dataset.trafficMetric;redraw();
       }
       if(event.target.closest('[data-traffic-retry]'))refresh(true);
     });
     refresh(true);
   }
-  trafficClientService={render:draw,refresh,mount,ready};
+  function mount(container,minutes){draw(container,minutes);start();}
+  trafficClientService={render:draw,refresh,start,mount,ready};
 }
