@@ -1,0 +1,40 @@
+{
+  "schema": 1,
+  "version": {
+    "product": "LocalDNS",
+    "uiVersion": "2026.10.21.2",
+    "backendVersion": "FJGIR",
+    "releaseTag": "fjgir-ui-v2026.10.21.2",
+    "channel": "stable",
+    "builtAt": "2026-10-21T17:53:00+08:00"
+  },
+  "frontendTests": 102,
+  "packagingTests": 14,
+  "kernelArchiveSha256": "88616c3fbc8883c625303a7d952d2bc2c8a3234ce76f366074d4e69cfd02319c",
+  "publishedBaseSha256": "973ddd4c6f348c3bd745d32dd0f5d0e7c63c436e80be39c2e38f3a948eeb7a91",
+  "serviceBaseSha256": "154ade5353b9dce2514da94eac6d3eccc90c6ee7e8cac118051bc820c192718a",
+  "serviceVersion": "1.6.0",
+  "configurationPreservedFromPublishedBase": true,
+  "packages": {
+    "LocalDNS_FJGIR_UI_2026.10.21.2_Full.zip": {
+      "sha256": "3394641b27326e42612098281efafd0f577c6546419ca27f22f4a10e3ffec821",
+      "bytes": 15498842,
+      "entries": 142
+    },
+    "LocalDNS_ProxyConfig_UI_2026.10.21.2_Service.zip": {
+      "sha256": "3662f90c7d8ddf8235e8c03052f988a41ccbaf3b2c7e3fe31382af9e1fcb02b1",
+      "bytes": 6416852,
+      "entries": 13
+    },
+    "LocalDNS_UI_2026.10.21.2_Update.zip": {
+      "sha256": "830b75c3676ecb0f75f3e4f3a816dd3f869def973587740b873280fc78f8454a",
+      "bytes": 1853591,
+      "entries": 56
+    }
+  },
+  "kernelBinaries": {
+    "amd64-v1": "199fde32dc4accb595392a611c528c7403959a0a426c062cf099970f7fa29aea",
+    "amd64-v3": "93f679fb557df0644b6d0921027936ae620b32ba57c94dfd1c072c1ae01a813a",
+    "arm64": "f3655310501e81a491c803593f24620f3ff35630d726a93acd2c3f0abc08e40d"
+  }
+}

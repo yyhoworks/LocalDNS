@@ -11,7 +11,7 @@ import { loadAliases } from './aliases.js';
 import { card } from '../../shared/components/templates.js';
 import { icon } from '../../shared/components/icons.js';
 import { renderRoute } from '../../core/router/router.js';
-import { openAuditModal } from '../management/index.js';
+import { openAuditModal } from './audit.js';
 import { openAliasModal } from './aliases.js';
 import { openDrawer } from '../../shared/components/drawer.js';
 

@@ -1,4 +1,26 @@
 
+.audit-settings { display: grid; gap: 20px; }
+.audit-settings .field { gap: 8px; }
+.audit-settings p { margin: 0; }
+.audit-settings-row input { min-width: 0; }
+.audit-settings-row button { flex: 0 0 auto; min-height: 40px; }
+.audit-storage-details { display: grid; gap: 10px; margin: 4px 0; font-size: 12px; line-height: 1.6; }
+.audit-storage-details > div { display: grid; grid-template-columns: 90px minmax(0, 1fr); gap: 12px; }
+.audit-storage-details dt { color: var(--text-2); }
+.audit-storage-details dd { margin: 0; color: var(--text-1); overflow-wrap: anywhere; }
+.audit-storage-warning, .audit-settings-feedback.is-error { color: var(--coral); }
+.audit-storage-warning, .audit-storage-unavailable, .audit-settings-feedback { font-size: 12px; line-height: 1.65; }
+.audit-storage-unavailable { display: grid; justify-items: start; gap: 10px; color: var(--text-2); }
+.audit-settings-feedback { color: var(--text-1); }
+.audit-settings-feedback[hidden] { display: none; }
+.audit-settings-actions { padding-top: 8px; border-top: 1px solid var(--border-glass); }
+@media (max-width: 600px) {
+  .audit-settings-row { align-items: stretch; flex-wrap: wrap; }
+  .audit-settings-row input { flex-basis: 100%; }
+  .audit-settings-row button { width: 100%; min-height: 44px; }
+  .audit-storage-details > div { grid-template-columns: 1fr; gap: 2px; }
+}
+
 .log-filter-grid {
   display: grid;
   grid-template-columns: 2fr 1fr 1fr 1fr 1fr auto auto;

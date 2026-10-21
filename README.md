@@ -6,9 +6,9 @@
 
 **DNS 核心主要由折腾日记交流群里的 R 大使用 Rust 编写；[yyhoworks](https://github.com/yyhoworks) 负责 UI 设计。**
 
-当前版本：**[后端 FJGAC / UI 2026.10.21.1](https://github.com/yyhoworks/LocalDNS/releases/tag/fjgac-ui-v2026.10.21.1)**，提供完整包、UI 升级包、SHA-256 校验文件，见 [本次更新说明](docs/releases/fjgac-ui-v2026.10.21.1.md)。
+当前版本：**[后端 FJGIR / UI 2026.10.21.2](https://github.com/yyhoworks/LocalDNS/releases/tag/fjgir-ui-v2026.10.21.2)**，提供完整包、UI 升级包、配套配置服务包和 SHA-256 校验文件，见 [本次更新说明](docs/releases/fjgir-ui-v2026.10.21.2.md)。
 
-本次新增 DNS 趋势：QPS、缓存命中率和上游平均延迟，支持 24 小时浏览器历史；修复首次采样延迟，进入概览即开始采集，后续每 5 秒更新。网页 UI 升级继续可用，DNS 核心沿用 FJGAC。
+本次升级 FJGIR 核心，在「查询日志 → 审计控制」增加自定义日志存储目录，支持服务器上的相对路径和绝对路径，并显示实际路径及内存、磁盘占用。目录设置在重启后保留；重启服务或切换目录会清空当前查询记录。保留 DNS 趋势、双皮肤及 Mihomo / sing-box 配置编辑器。
 
 [产品图集](docs/SCREENSHOTS.md) · [功能指南](docs/FEATURES.md) · [安装说明](INSTALL.md) · [下载 Releases](https://github.com/yyhoworks/LocalDNS/releases) · [作者与分工](AUTHORS.md) · [开发说明](docs/DEVELOPMENT.md) · [近期更新](CHANGELOG.md)
 
@@ -114,7 +114,7 @@
 | 模块 | 主要能力 |
 |---|---|
 | **运行概览** | 服务在线状态、启动时间、运行时长、进程 CPU 与内存；累计请求、缓存命中、客户端数、拦截请求、平均响应、域名统计；QPS 趋势、分流占比、解析路径与排行 |
-| **查询日志** | 域名与 IP 搜索、精确匹配、多条件筛选、分页、响应详情；审计开关、日志容量、清空日志与客户端别名 |
+| **查询日志** | 域名与 IP 搜索、精确匹配、多条件筛选、分页、响应详情；审计开关、日志容量、自定义日志目录、存储占用、清空日志与客户端别名 |
 | **DNS 管理** | 国内、国外、国外 ECS、代理四组上游；UDP / TCP / TLS / HTTPS；新增、编辑、启停、删除；响应耗时、采纳数与错误详情 |
 | **本地名单** | 白名单、黑名单、灰名单、强制 RealIP、DDNS、PCDN、客户端 IP、直连 IP 与重定向；列表下载与切换时保留草稿 |
 | **广告拦截** | AdGuard 规则订阅；启停、编辑、单独更新、批量更新、自动更新与更新间隔；规则数与上次更新时间 |
@@ -148,7 +148,7 @@ curl -fsSL https://raw.githubusercontent.com/yyhoworks/LocalDNS/main/tools/insta
 
 ## 手动安装
 
-1. 在 [Releases](https://github.com/yyhoworks/LocalDNS/releases/tag/fjgac-ui-v2026.10.20.1) 下载完整包或 UI 升级包，并核对同页的 `SHA256SUMS.txt`。**升级 FJGAC 内核必须从完整包选择对应架构的程序；UI 升级包不含内核。**
+1. 在 [Releases](https://github.com/yyhoworks/LocalDNS/releases/tag/fjgir-ui-v2026.10.21.2) 下载完整包或 UI 升级包，并核对同页的 `SHA256SUMS.txt`。**升级 FJGIR 内核必须从完整包选择对应架构的程序；UI 升级包不含内核，旧核心需先升级才能设置日志目录。**
 2. 已有 LocalDNS 服务时，解压 UI 升级包并运行：
 
    ```sh
@@ -172,9 +172,9 @@ INSTALL.md            安装、更新与回退
 VERSION.json          UI 与后端版号
 ```
 
-安装 ZIP 和后端预编译程序放在 Releases。旧版 9098 服务源码保留在 Git 历史与旧 Release 中。部署凭据、设备配置、运行日志、临时截图和历史工作文件不进入 Git。
+安装 ZIP 和后端预编译程序放在 Releases，配套配置服务源码位于 `services/proxy-config/`。部署凭据、设备配置、运行日志、临时截图和历史工作文件不进入 Git。
 
-**当前仓库包含 UI 源码；当前工作目录未提供 Rust DNS 核心源码，DNS 核心通过 FJGAC 预编译发行包提供。**
+**当前仓库包含 UI 源码；当前工作目录未提供 Rust DNS 核心源码，DNS 核心通过 FJGIR 预编译发行包提供。**
 
 ## 开发与打包
 

@@ -5,7 +5,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 
 function isReadEndpoint(url) {
-  return url === '/metrics' || /^\/api\/v1\/(status|audit\/(status|capacity)|upstream\/(config|tags|ecs))$/.test(url) ||
+  return url === '/metrics' || /^\/api\/v1\/(status|audit\/(status|capacity|settings)|upstream\/(config|tags|ecs))$/.test(url) ||
     /^\/api\/v2\/audit\/(stats|rank\/[\w-]+|logs(?:\/[\w-]+)?)$/.test(url) ||
     url === '/plugins/client_name' || url === '/plugins/adguard/rules' ||
     /^\/plugins\/[\w-]+\/(show|config|status)$/.test(url) ||

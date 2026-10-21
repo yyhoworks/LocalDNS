@@ -178,15 +178,4 @@ import { icon } from '../../shared/components/icons.js';
 
   async function restartService(){if(!confirm(`确定重启 ${identityService?.getName()||'LocalDNS'}？短时间内 DNS 服务会中断。`))return;const scope=currentScope();await api.json('/api/v1/system/restart','POST',{delay_ms:500});if(scope.signal.aborted)return;toast((identityService?.getName()||'LocalDNS')+' 正在重启');scope.timeout(()=>renderRoute(true),4000);}
 
-  async function openAuditModal(){
-    const [s,c]=await Promise.all([api.status(),api.capacity()]);
-    modalOpen('审计控制','控制 DNS 查询日志的记录状态与容量',`
-      <div class="kv-list"><div class="kv-row"><span class="kv-key">当前状态</span><span class="kv-value"><span class="badge ${s.capturing?'success':'danger'}">${s.capturing?'运行中':'已停止'}</span></span></div></div>
-      <div class="field" style="margin-top:16px"><label>日志容量 <span class="settings-compact-note">最大记录数，当前 ${num(c.capacity)} 条</span></label>
-        <div class="settings-refresh-row"><input id="audit-cap" type="number" min="100" value="${c.capacity}"><button class="button primary" id="audit-cap-save">保存</button></div></div>
-      <div class="grid grid-2" style="margin-top:16px"><button class="button ${s.capturing?'danger':'success'}" id="modal-audit-toggle">${s.capturing?'关闭审计':'开启审计'}</button><button class="button danger" id="modal-audit-clear">清空日志</button></div>`,null,false);
-    $('#audit-cap-save').onclick=async()=>{const v=Math.floor(+$('#audit-cap').value);if(!Number.isFinite(v)||v<100){toast('日志容量不能小于 100');return}await api.json('/api/v1/audit/capacity','POST',{capacity:v});toast('日志容量已保存');modalClose();renderRoute(true)};
-    $('#modal-audit-toggle').onclick=async()=>{await api.request(`/api/v1/audit/${s.capturing?'stop':'start'}`,{method:'POST'});toast('审计状态已更新');modalClose();renderRoute(true)};
-    $('#modal-audit-clear').onclick=async()=>{if(!confirm('确定清空日志？'))return;await api.request('/api/v1/audit/clear',{method:'POST'});toast('日志已清空');modalClose();renderRoute(true)};
-  }
-export { cacheName, requeryHtml, openRequeryScheduler, countsHtml, multiPluginAction, clearShuntData, switchProfiles, renderManagement, restartService, openAuditModal };
+export { cacheName, requeryHtml, openRequeryScheduler, countsHtml, multiPluginAction, clearShuntData, switchProfiles, renderManagement, restartService };
