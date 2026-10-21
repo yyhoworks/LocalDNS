@@ -113,6 +113,7 @@ import { icon } from '../../shared/components/icons.js';
         <div><h2 data-proxy-panel-name>代理面板</h2><code data-proxy-panel-address></code></div>
         <a class="button small" data-proxy-panel-link target="_blank" rel="noopener noreferrer">打开面板</a>
         <button type="button" class="button small" data-proxy-panel-settings>面板设置</button>
+        <button type="button" class="button small" data-route="proxy-config">编辑配置</button>
       </section>
       <div id="management-cache-slot" style="display:contents">${card('缓存管理',skeletonBlock(130),{iconName:'data',className:'data-cache-panel'})}</div>
       <div id="management-feature-slot" style="display:contents">${card('功能开关',skeletonBlock(300),{iconName:'features',subtitle:'常用运行功能集中管理',className:'management-feature-panel'})}</div>

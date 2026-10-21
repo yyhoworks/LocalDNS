@@ -19,13 +19,14 @@ import { logsRoute } from '../../features/logs/route';
 import { upstreamsRoute } from '../../features/upstreams/route';
 import { rulesRoute } from '../../features/rules/route';
 import { managementRoute } from '../../features/management/route';
+import { proxyConfigRoute } from '../../features/proxy-config/route';
 import { playViewEnter, animateCountUps, syncAllSegThumbs } from '../../shared/components/motion.js';
 import { setApiStatus } from '../../features/shell/connection.js';
 import { esc } from '../../shared/format/number.js';
 import { icon } from '../../shared/components/icons.js';
 
   let navigationSeq=0;
-  function routeModule(id){return {overview:overviewRoute,logs:logsRoute,upstreams:upstreamsRoute,rules:rulesRoute,management:managementRoute}[id];}
+  function routeModule(id){return {overview:overviewRoute,logs:logsRoute,upstreams:upstreamsRoute,rules:rulesRoute,management:managementRoute,'proxy-config':proxyConfigRoute}[id];}
   async function navigate(id,write=true){
     const sequence=++navigationSeq;
     id=resolveRoute(id);

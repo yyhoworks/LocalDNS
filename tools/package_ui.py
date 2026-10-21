@@ -168,6 +168,7 @@ def main():
     for name in ['install_ui_updater.py', 'ui_updater.py', 'install_localdns.py']:
         common['ui-updater/' + name] = (ROOT / 'tools' / name).read_bytes()
     common['docs/WEB_UPDATE.md'] = (ROOT / 'docs/WEB_UPDATE.md').read_bytes()
+    common['docs/PROXY_CONFIG.md'] = (ROOT / 'docs/PROXY_CONFIG.md').read_bytes()
     common['VERSION.txt'] = f"LocalDNS UI {version['uiVersion']}\nBackend {version['backendVersion']}\n".encode()
     for file in (ROOT / 'docs/licenses').rglob('*'):
         if file.is_file():

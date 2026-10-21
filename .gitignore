@@ -14,6 +14,7 @@
 !/docs/
 !/tools/
 !/frontend/
+!/services/
 
 __pycache__/
 *.pyc

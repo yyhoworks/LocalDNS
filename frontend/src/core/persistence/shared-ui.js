@@ -17,7 +17,7 @@ export function initialize() {
     if(typeof path!=='string'||!/^custom\/(assets|fonts)\/[a-zA-Z0-9._-]+$/.test(path))throw new Error('共享资源路径无效');
     return new URL(path,base).href;
   };
-  try{for(const key of ['localdns-proxy-config-file-v1','localdns-proxy-config-workspace-v1'])preferences.removeItem(key);const old=read(keys.proxy);if(old&&Object.hasOwn(old,'logo')){delete old.logo;preferences.setItem(keys.proxy,JSON.stringify(old));}}catch{}
+  try{const old=read(keys.proxy);if(old&&Object.hasOwn(old,'logo')){delete old.logo;preferences.setItem(keys.proxy,JSON.stringify(old));}}catch{}
   const ready = (async()=>{
     const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),6000);
     try{
