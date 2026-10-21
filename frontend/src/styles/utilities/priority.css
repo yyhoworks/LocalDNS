@@ -206,9 +206,6 @@ body[data-console-route="rules"] .rv-list{height:auto!important}
 @media(max-width:600px){
   .overview-slow-table .overview-slow-type,.overview-slow-table .overview-slow-client,.overview-slow-table th:nth-child(3),.overview-slow-table th:nth-child(4),.slow-duration-bar{display:none!important}
 }
-@media(max-width:360px){
-  .console-donut .ring-center{--numeral-size:23px!important}
-}
 @media(max-width:600px){.shared-ui-actions button,.appearance-panel .identity-actions button{min-height:44px!important}}
 @media(max-width:600px){.appearance-panel .appearance-tab,.appearance-panel .bcp-title>.glass-btn,.appearance-panel .bcp-input,.appearance-panel .font-setting select,.appearance-panel #btn-font-upload,.appearance-panel .identity-upload,.appearance-panel summary{min-height:44px!important}}.appearance-panel .preset-btn{min-height:32px!important;min-width:0!important}
 .appearance-panel .appearance-inline{flex-wrap:nowrap!important}

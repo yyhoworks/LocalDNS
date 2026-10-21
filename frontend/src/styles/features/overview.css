@@ -235,8 +235,53 @@
 .console-kpi .sk-chart{align-self:center}
 .tec-big.has-display-number{font-size:40px;letter-spacing:0;gap:5px}
 .tec-big .display-unit{font-size:14px}
-.ring-center.has-display-number{font-size:32px;justify-content:center;gap:3px}
-.ring-center .display-unit{font-size:12px}
+.overview-outcomes .outbound-donut-body{
+  display:flex;
+  flex-wrap:wrap;
+  align-items:center;
+  gap:20px;
+  padding-block:8px;
+}
+.overview-outcomes .ring-wrap{
+  flex:0 0 144px;
+  width:144px;
+  height:144px;
+}
+.overview-outcomes .ring-wrap>svg{display:block;width:100%;height:100%}
+.overview-outcomes .ring-center{
+  inset:27%;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+  gap:4px;
+  min-width:0;
+  font-weight:400;
+}
+.overview-outcomes .ring-total{
+  display:inline-flex;
+  align-items:baseline;
+  justify-content:center;
+  gap:2px;
+  font-family:var(--font-numeral);
+  font-size:min(24px,var(--numeral-size,20px));
+  font-weight:400;
+  line-height:1.1;
+  white-space:nowrap;
+}
+.overview-outcomes .ring-total .display-number{font-size:min(24px,var(--numeral-size,20px))}
+.overview-outcomes .ring-total .display-unit{font-size:11px}
+.overview-outcomes .ring-caption{
+  font-family:var(--font-sans);
+  font-size:11px;
+  line-height:1.4;
+  color:var(--text-2);
+  white-space:nowrap;
+}
+.overview-outcomes .ring-legend{flex:1 1 232px;min-width:0;gap:4px}
+.overview-outcomes .outcome-item.rl-item{grid-template-columns:minmax(0,1fr) 6ch 5ch;gap:8px;min-height:36px}
+.overview-outcomes .outcome-item .rl-name{white-space:normal;overflow-wrap:anywhere}
+@media(max-width:600px){.overview-outcomes .outcome-item.rl-item{min-height:44px}}
 .service-value .display-number,.overview-duration-num{font-family:var(--font-numeral);font-size:28px;font-weight:400;font-variant-numeric:lining-nums proportional-nums;line-height:1.05;letter-spacing:-.015em}
 @media(max-width:600px){.gc-title,.console-trend .gc-title,.console-topology-heading h2,.card-title h2,.section-header h2{font-size:15px}}
 @media(max-width:600px){.console-kpi .spark-kpi-card{min-height:112px}}

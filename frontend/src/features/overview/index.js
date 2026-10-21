@@ -516,7 +516,7 @@ import { cacheName } from '../management/index.js';
       </div>
 
       <div class="col-4">
-        <div class="glass-card">
+        <div class="glass-card overview-outcomes">
           <div class="gc-head">
             <div><div class="gc-title">查询处理结果占比</div><p class="workspace-subline">当前保留日志 · 最终处理结果</p></div>
             <button type="button" class="glass-btn" id="outcome-detail-button">全部 ${allSets.length} 类</button>
@@ -527,7 +527,10 @@ import { cacheName } from '../management/index.js';
                 <circle cx="21" cy="21" r="15.915" fill="transparent" stroke="rgba(148,163,184,0.14)" stroke-width="4.8"></circle>
                 ${ringCircles}
               </svg>
-              <div class="ring-center" title="${fullNum(outcomes.total)} 次查询">${compactNum(outcomes.total)}</div>
+              <div class="ring-center" title="${fullNum(outcomes.total)} 次查询" aria-label="总查询 ${fullNum(outcomes.total)} 次">
+                <span class="ring-total">${compactNum(outcomes.total)}</span>
+                <span class="ring-caption">总查询</span>
+              </div>
             </div>
             <div class="ring-legend">
               ${ds.map((x, i) => {

@@ -68,7 +68,7 @@ export function initialize() {
   function rules(){const text=$('#rule-text'),tag=activeTag();if(!text||!tag)return;if(!text.dataset.consoleDraft){text.dataset.consoleDraft='1';text.dataset.original=text.value;if(drafts.has(tag)&&drafts.get(tag)===text.value){drafts.delete(tag);persistDrafts();}if(drafts.has(tag))text.value=drafts.get(tag);text.addEventListener('input',()=>{rememberDraft();ruleState();});insertHTML($('.section-header>div'), 'beforeend', '<div class="console-rule-state" role="status"></div>');if(!$('.console-rule-select')){const select=document.createElement('div');select.className='console-rule-select';setHTML(select, '<label for="console-list-select">名单类别</label><select id="console-list-select">'+$$('.rule-menu button').map(b=>`<option value="${escape(b.dataset.ruleTag)}" ${b.dataset.ruleTag===tag?'selected':''}>${escape(b.querySelector('span').textContent)}</option>`).join('')+'</select>');$('.rule-editor').prepend(select);$('select',select).onchange=e=>{rememberDraft();$(`.rule-menu [data-rule-tag="${e.target.value}"]`)?.click();};}}ruleState();}
   function ruleSaved(tag,value){if(drafts.get(tag)===value||!drafts.has(tag))drafts.delete(tag);persistDrafts();if(activeTag()===tag){const text=$('#rule-text');if(text)text.dataset.original=value;ruleState();}}
   function displayNumerals(){
-    $$('.console-kpi .sk-val,.tec-big,.ring-center,.service-value[data-display-number]').forEach(el=>{
+    $$('.console-kpi .sk-val,.tec-big,.ring-total,.service-value[data-display-number]').forEach(el=>{
       if(el.classList.contains('has-display-number')){
         if(el.querySelector('.display-number'))return;
         el.classList.remove('has-display-number');
@@ -76,7 +76,11 @@ export function initialize() {
       const value=el.textContent.trim(),match=value.match(/^([+\-]?\d[\d,.]*)(\s*(?:%|ms|s|KB|MB|GB|TB|万|亿))?$/);
       if(!match)return;
       el.classList.add('has-display-number');
-      el.style.setProperty('--numeral-size',`${Math.min(38,260/match[1].length).toFixed(2)}px`);
+      // The ring has its own type budget so custom numeral fonts stay inside the hole.
+      const numeralSize=el.classList.contains('ring-total')
+        ? Math.min(24,100/(match[1].length+(match[2]?1:0)))
+        : Math.min(38,260/match[1].length);
+      el.style.setProperty('--numeral-size',`${numeralSize.toFixed(2)}px`);
       const number=document.createElement('span');number.className='display-number';number.textContent=match[1];el.replaceChildren(number);
       if(match[2]){const unit=document.createElement('span');unit.className='display-unit';unit.textContent=match[2];el.append(unit);}
     });
