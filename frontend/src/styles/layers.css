@@ -16,6 +16,7 @@
 @import './features/management.css' layer(features);
 @import './features/rules.css' layer(features);
 @import './features/proxy-panel.css' layer(features);
+@import './features/proxy-config.css' layer(features);
 @import './features/appearance.css' layer(features);
 @import './utilities/touch-targets.css' layer(utilities);
 @import './utilities/priority.css' layer(overrides);

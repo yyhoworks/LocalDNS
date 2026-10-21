@@ -1,4 +1,4 @@
-export const routeIds = ['overview', 'logs', 'upstreams', 'rules', 'management'] as const;
+export const routeIds = ['overview', 'logs', 'upstreams', 'rules', 'management', 'proxy-config'] as const;
 export type RouteId = typeof routeIds[number];
 
 export function resolveRoute(value: string): RouteId {

@@ -6,7 +6,7 @@
 
 **DNS 核心主要由折腾日记交流群里的 R 大使用 Rust 编写；[yyhoworks](https://github.com/yyhoworks) 负责 UI 设计。**
 
-当前版本：**[后端 FJGAC / UI 2026.10.20.1](https://github.com/yyhoworks/LocalDNS/releases/tag/fjgac-ui-v2026.10.20.1)**，提供完整包、UI 升级包、SHA-256 校验文件，见 [本次更新说明](docs/releases/fjgac-ui-v2026.10.20.1.md)。
+当前版本：**[后端 FJGAC / UI 2026.10.21.1](https://github.com/yyhoworks/LocalDNS/releases/tag/fjgac-ui-v2026.10.21.1)**，提供完整包、UI 升级包、SHA-256 校验文件，见 [本次更新说明](docs/releases/fjgac-ui-v2026.10.21.1.md)。
 
 本次新增 DNS 趋势：QPS、缓存命中率和上游平均延迟，支持 24 小时浏览器历史；修复首次采样延迟，进入概览即开始采集，后续每 5 秒更新。网页 UI 升级继续可用，DNS 核心沿用 FJGAC。
 
@@ -18,7 +18,7 @@
 
 名称、Logo、字体文件和字体选择保存在服务器 `ui/custom/` 静态目录，其他设备刷新后读取。网页修改先在本机预览，再导出配置包，通过 `configure-ui.py` 导入服务器。详见 [共享配置指南](docs/SHARED_UI.md)。
 
-代理入口根据面板地址自动读取网站图标，点击在新标签页打开实际面板。当前版本不需要 9098 服务。名单直接保存到 DNS 核心，DNS 趋势在当前浏览器保留最近 24 小时的真实采样，刷新后恢复；关闭页面或离开概览后停止采样，未采集时段留空。
+代理入口根据面板地址自动读取网站图标，点击在新标签页打开实际面板。`2026.10.21.1` 的配置编辑器使用配套 9098 服务读取、校验、备份和应用 Mihomo / sing-box 配置；名单直接保存到 DNS 核心，DNS 趋势在当前浏览器保留最近 24 小时的真实采样，刷新后恢复；关闭页面或离开概览后停止采样，未采集时段留空。
 
 ## 作者与分工
 
@@ -198,3 +198,7 @@ python tools/package_ui.py
 
 字体、Chart.js 等第三方组件遵循各自许可，见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。
 
+
+## 本地开发构建：代理配置器恢复
+
+`2026.10.21.1` 恢复 Mihomo / sing-box 配置编辑器与独立配置服务，支持 HTTP(S) 获取、目标控制接口保留、备份、校验和保存应用。入口为「系统管理 → 编辑配置」，安装 UI 包和配套 Service 包后使用。详见 [配置器安装说明](docs/PROXY_CONFIG.md)。
