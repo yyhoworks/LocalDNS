@@ -1,6 +1,8 @@
 import { ApiError } from './api-error';
 import { throwIfAborted } from '../lifecycle/abort';
 
+export type HttpRequestOptions = RequestInit & { timeout?: number };
+
 export class HttpClient {
   constructor(private options: {
     base?: string;
@@ -14,14 +16,15 @@ export class HttpClient {
     return `${this.options.base || ''}${path}`;
   }
 
-  private async run<T>(path: string | URL, options: RequestInit, read: (response: Response) => Promise<T>): Promise<T> {
+  private async run<T>(path: string | URL, request: HttpRequestOptions, read: (response: Response) => Promise<T>): Promise<T> {
+    const { timeout = this.options.timeout ?? 10000, ...options } = request;
     const controller = new AbortController();
     const signal = options.signal || (String(options.method || 'GET').toUpperCase() === 'GET' ? this.options.signal?.() : undefined);
     const forward = () => controller.abort(signal?.reason);
     if (signal?.aborted) forward();
     else signal?.addEventListener('abort', forward, { once: true });
     let timedOut = false;
-    const timer = setTimeout(() => { timedOut = true; controller.abort(); }, this.options.timeout ?? 10000);
+    const timer = setTimeout(() => { timedOut = true; controller.abort(); }, timeout);
     try {
       throwIfAborted(controller.signal);
       const response = await (this.options.fetch || globalThis.fetch)(this.url(path), { ...options, signal: controller.signal });
@@ -41,7 +44,7 @@ export class HttpClient {
     }
   }
 
-  request(path: string | URL, options: RequestInit = {}): Promise<unknown> {
+  request(path: string | URL, options: HttpRequestOptions = {}): Promise<unknown> {
     return this.run(path, options, async response => {
       const body: unknown = response.status === 204 ? null : /(?:application\/json|\+json)/i.test(response.headers.get('content-type') || '')
         ? await response.json() : await response.text();

@@ -20,7 +20,17 @@ import { safeResult } from '../../shared/async.js';
 
   const ruleProfiles=[['whitelist','白名单'],['blocklist','黑名单'],['greylist','灰名单'],['force_realip','强制 RealIP'],['ddns_domains','DDNS 域名'],['pcdn_domains','PCDN 域名'],['pcdn_regex_v4','PCDN IPv4 规则'],['pcdn_regex_v6','PCDN IPv6 规则'],['client_ip','客户端 IP'],['direct_ip','直连 IP'],['rewrite','重定向']];
 
-  let ruleViews, activeTab='lists';
+  let ruleViews, activeTab='lists', diversionUpdating=false;
+  const updateRule=path=>api.request(path,{method:'POST',timeout:300000});
+  const updateUncertain=error=>['timeout','network','invalid-json'].includes(error?.code);
+  function updateError(error,label='更新失败'){
+    if(updateUncertain(error))toast('更新结果待确认','info','未能收到完整更新结果，服务器可能仍在处理。请稍后刷新，查看更新时间和来源错误；请勿重复提交。');
+    else toast(label,'error',error.message);
+  }
+  function syncDiversionUpdateState(body){
+    $$('.div-update,#div-update-all',body).forEach(button=>{button.disabled=diversionUpdating});
+    const button=$('#div-update-all',body);if(button)button.textContent=diversionUpdating?'更新中…':'更新全部';
+  }
 
   async function renderRules(container, context){
  const renderScope = context.scope, page = container;
@@ -86,10 +96,10 @@ if(!approved&&rulesWorkbenchService?.canLeave(()=>renderRuleTab(tab,true))===fal
     setHTML(body, card('广告拦截规则',`${sourceErrors.length?`<div class="error-panel">${sourceErrors.map(r=>`${esc(r.name)}：${esc(r.last_error)}`).join('；')}</div>`:''}<div class="table-wrap adguard-table-wrap mobile-card-table"><table class="adguard-rules-table adguard-card-table"><colgroup><col class="col-enabled"><col class="col-name"><col class="col-url"><col class="col-count"><col class="col-auto"><col class="col-updated"><col class="col-actions"></colgroup><thead><tr><th>启用</th><th>名称</th><th>订阅地址</th><th>规则数</th><th>自动更新</th><th>上次更新</th><th>操作</th></tr></thead><tbody>${rules.length?rules.map(r=>`<tr data-id="${esc(r.id)}"><td class="ad-enabled-cell mobile-toggle-cell"><label class="switch"><input class="ad-enable" type="checkbox" ${r.enabled?'checked':''}><span class="switch-track"><span class="switch-thumb"></span></span></label></td><td class="ad-name-cell mobile-name-cell" title="${esc(r.name)}"><strong>${esc(r.name)}</strong></td><td class="ad-url-cell mobile-url-cell" data-label="订阅地址" title="${esc(r.url)}"><span class="table-ellipsis mobile-ellipsis">${esc(r.url)}</span></td><td class="ad-count-cell mobile-count-cell" data-label="规则数">${num(r.rule_count)}</td><td class="ad-auto-cell mobile-auto-cell" data-label="自动更新">${r.auto_update?'是':'否'}</td><td class="ad-updated-cell mobile-updated-cell" data-label="上次更新">${fmtDate(r.last_updated)}</td><td class="ad-actions-cell mobile-actions-cell"><div class="table-row-actions card-actions"><button class="button small ad-update">更新</button><button class="button small ad-edit">编辑</button><button class="button small danger ad-delete">删除</button></div></td></tr>`).join(''):`<tr><td colspan="7" class="table-empty">暂无规则</td></tr>`}</tbody></table></div>`,{iconName:'rules',actions:'<button class="button" id="ad-update-all">更新全部</button><button class="button primary" id="ad-add">'+icon('plus')+'添加订阅</button>'}));
     const findRule=tr=>rules.find(r=>String(r.id)===tr.dataset.id);
     $$('.ad-enable').forEach(x=>x.onchange=async()=>{const rule=findRule(x.closest('tr'));if(!rule)return;x.disabled=true;try{await updateAdguard(rule,{enabled:x.checked});toast(`规则“${rule.name}”已${x.checked?'启用':'关闭'}`);await renderAdguard(body)}catch(e){x.checked=!x.checked;toast('状态保存失败','error',e.message)}finally{x.disabled=false}});
-    $$('.ad-update').forEach(x=>x.onclick=async()=>{const rule=findRule(x.closest('tr'));if(!rule)return;x.disabled=true;try{const r=await api.request(`/plugins/adguard/rules/${encodeURIComponent(rule.id)}/update`,{method:'POST'});toast(`广告规则“${rule.name}”更新完成`,'success',`规则数：${num(r?.rule_count||0)}`);await renderAdguard(body)}catch(e){toast(`“${rule.name}”更新失败`,'error',e.message)}finally{x.disabled=false}});
+    $$('.ad-update').forEach(x=>x.onclick=async()=>{const rule=findRule(x.closest('tr'));if(!rule)return;x.disabled=true;try{const r=await updateRule(`/plugins/adguard/rules/${encodeURIComponent(rule.id)}/update`);toast(`广告规则“${rule.name}”更新完成`,'success',`规则数：${num(r?.rule_count||0)}`);await renderAdguard(body)}catch(e){updateError(e,`“${rule.name}”更新失败`)}finally{x.disabled=false}});
     $$('.ad-edit').forEach(x=>x.onclick=()=>openAdguardModal(findRule(x.closest('tr')),body));
     $$('.ad-delete').forEach(x=>x.onclick=async()=>{const rule=findRule(x.closest('tr'));if(!rule||!confirm(`确定删除广告规则“${rule.name}”？`))return;x.disabled=true;try{await api.request(`/plugins/adguard/rules/${encodeURIComponent(rule.id)}`,{method:'DELETE'});toast('广告规则已删除');await renderAdguard(body)}catch(e){toast('删除失败','error',e.message)}finally{x.disabled=false}});
-    $('#ad-update-all').onclick=async()=>{const btn=$('#ad-update-all');btn.disabled=true;try{const r=await api.request('/plugins/adguard/update',{method:'POST'});const errors=Array.isArray(r?.errors)?r.errors:[];if(errors.length){toast(`广告规则更新完成，失败 ${errors.length} 条`,'error',errors.map(x=>`${x.name}：${x.error}`).join('；'))}else toast(`广告规则更新完成：${Number(r?.updated_sources||0)} 条`);await renderAdguard(body)}catch(e){toast('广告规则更新失败','error',e.message)}finally{btn.disabled=false}};
+    $('#ad-update-all').onclick=async()=>{const btn=$('#ad-update-all');btn.disabled=true;btn.textContent='更新中…';try{const r=await updateRule('/plugins/adguard/update');const errors=Array.isArray(r?.errors)?r.errors:[];if(errors.length){toast(`广告规则更新完成，失败 ${errors.length} 条`,'error',errors.map(x=>`${x.name}：${x.error}`).join('；'))}else toast(`广告规则更新完成：${Number(r?.updated_sources||0)} 条`);await renderAdguard(body)}catch(e){updateError(e,'广告规则更新失败')}finally{btn.disabled=false;btn.textContent='更新全部'}};
     $('#ad-add').onclick=()=>openAdguardModal(null,body);
   }
 
@@ -147,7 +157,7 @@ if(!approved&&rulesWorkbenchService?.canLeave(()=>renderRuleTab(tab,true))===fal
     const target=diversionDefByType(rule.type);if(!target)throw new Error('请选择有效的规则类型');
     const payload=diversionPayload(ruleConversionService.withMetadata(rule,original));if(!payload.name)throw new Error('名称不能为空');if(!payload.url)throw new Error('订阅地址不能为空');
     const response=await api.json(`/plugins/${target.tag}/config/${encodeURIComponent(payload.name)}`,'PUT',payload);
-    const saved=await ruleConversionService.finishSave(response,()=>api.request(`/plugins/${target.tag}/update/${encodeURIComponent(payload.name)}`,{method:'POST'}));
+    const saved=await ruleConversionService.finishSave(response,()=>updateRule(`/plugins/${target.tag}/update/${encodeURIComponent(payload.name)}`));
     if(original&&(original.tag!==target.tag||original.name!==payload.name)){
       await api.request(`/plugins/${original.tag}/config/${encodeURIComponent(original.name)}`,{method:'DELETE'});
     }
@@ -168,7 +178,7 @@ if(!approved&&rulesWorkbenchService?.canLeave(()=>renderRuleTab(tab,true))===fal
 
   async function updateDiversionRule(rule,body){
     try{
-      const result=await api.request(`/plugins/${rule.tag}/update/${encodeURIComponent(rule.name)}`,{method:'POST'});
+      const result=await updateRule(`/plugins/${rule.tag}/update/${encodeURIComponent(rule.name)}`);
       const source=ruleConversionService.updated(result);if(source)Object.assign(rule,source);
       toast('规则更新完成','success',ruleConversionService.message(result));
       await renderDiversion(body);
@@ -196,17 +206,19 @@ if(!approved&&rulesWorkbenchService?.canLeave(()=>renderRuleTab(tab,true))===fal
     rows.sort((a,b)=>Number(b.enabled)-Number(a.enabled));
     setHTML(body, card('在线分流规则',workspaceService.diversion(rows,errors,diversionFormatLabel),{iconName:'rules',actions:'<button class="button" id="div-update-all">更新全部</button><button class="button primary" id="div-add">'+icon('plus')+'添加规则</button>'}));
     workspaceService.bindDiversion(body);
+    syncDiversionUpdateState(body);
     $$('.div-detail',body).forEach(button=>button.onclick=()=>{const el=button.closest('[data-tag][data-name]'),r=rows.find(r=>r.tag===el.dataset.tag&&String(r.name)===el.dataset.name);if(r)workspaceService.ruleDetails(r,()=>openDiversionModal(r,body),diversionFormatLabel);});
     const findRow=tr=>rows.find(r=>r.tag===tr.dataset.tag&&String(r.name)===tr.dataset.name);
     $$('.div-enable').forEach(x=>x.onchange=async()=>{const tr=x.closest('[data-tag][data-name]'),rule=findRow(tr);if(!rule)return;x.disabled=true;try{const next={...rule,enabled:x.checked};await saveDiversionRule(next,rule);rule.enabled=x.checked;toast(`规则“${rule.name}”已${x.checked?'启用':'关闭'}，配置已保存`);await renderDiversion(body)}catch(e){x.checked=!x.checked;toast('状态保存失败','error',e.message)}finally{x.disabled=false}});
-    $$('.div-update').forEach(x=>x.onclick=async()=>{const rule=findRow(x.closest('[data-tag][data-name]'));if(!rule)return;x.disabled=true;try{await updateDiversionRule(rule,body)}catch(e){toast('更新失败','error',e.message)}finally{x.disabled=false}});
+    $$('.div-update').forEach(x=>x.onclick=async()=>{if(diversionUpdating)return;const rule=findRow(x.closest('[data-tag][data-name]'));if(!rule)return;x.disabled=true;try{await updateDiversionRule(rule,body)}catch(e){updateError(e)}finally{x.disabled=false}});
     $$('.div-edit').forEach(x=>x.onclick=()=>{const rule=findRow(x.closest('[data-tag][data-name]'));if(rule)openDiversionModal(rule,body)});
     $$('.div-delete').forEach(x=>x.onclick=async()=>{if(!confirm('确定删除此在线规则？配置文件中的对应项目也会被删除。'))return;const tr=x.closest('[data-tag][data-name]');x.disabled=true;try{await api.request(`/plugins/${tr.dataset.tag}/config/${encodeURIComponent(tr.dataset.name)}`,{method:'DELETE'});toast('规则及对应配置已删除');await renderDiversion(body)}catch(e){toast('删除失败','error',e.message)}finally{x.disabled=false}});
     $('#div-add').onclick=()=>openDiversionModal(null,body);
     $('#div-update-all').onclick=async()=>{
+      if(diversionUpdating)return;
       const targets=rows.filter(r=>r.enabled&&r.url);
       if(!targets.length){toast('没有可更新的已启用规则','info');return}
-      const btn=$('#div-update-all');btn.disabled=true;
+      diversionUpdating=true;syncDiversionUpdateState(body);
       try{
         const byTag=new Map();
         targets.forEach(r=>{if(!byTag.has(r.tag))byTag.set(r.tag,[]);byTag.get(r.tag).push(r)});
@@ -214,13 +226,13 @@ if(!approved&&rulesWorkbenchService?.canLeave(()=>renderRuleTab(tab,true))===fal
         for(const [tag,group] of byTag){
           const def=diversionDefByTag(tag);
           if(def){
-            jobs.push(api.request(`/plugins/${tag}/update-all`,{method:'POST'}).then(data=>({kind:'batch',count:group.length,data}),error=>({kind:'failed',count:group.length,error})));
+            jobs.push(updateRule(`/plugins/${tag}/update-all`).then(data=>({kind:'batch',count:group.length,data}),error=>({kind:'failed',count:group.length,error,label:def.label})));
           }else{
-            group.forEach(r=>jobs.push(api.request(`/plugins/${r.tag}/update/${encodeURIComponent(r.name)}`,{method:'POST'}).then(data=>({kind:'single',count:1,data}))));
+            group.forEach(r=>jobs.push(updateRule(`/plugins/${r.tag}/update/${encodeURIComponent(r.name)}`).then(data=>({kind:'single',count:1,data}),error=>({kind:'failed',count:1,error,label:r.name}))));
           }
         }
         const result=await Promise.allSettled(jobs);
-        let failed=0,datasetNeeded=0,completed=0,details=[];
+        let failed=0,uncertain=0,datasetNeeded=0,completed=0,details=[];
         result.forEach(x=>{
           if(x.status==='rejected'){
             failed++;
@@ -228,7 +240,11 @@ if(!approved&&rulesWorkbenchService?.canLeave(()=>renderRuleTab(tab,true))===fal
             details.push(x.reason?.message||'未知错误');
             return;
           }
-          const item=x.value;if(item.kind==='failed'){failed+=item.count;details.push(item.error?.message||'更新失败');return;}
+          const item=x.value;if(item.kind==='failed'){
+            if(updateUncertain(item.error)){uncertain+=item.count;details.push(`${item.label}：未收到更新结果，服务器可能仍在处理，请稍后刷新查看更新时间`)}
+            else{failed+=item.count;details.push(`${item.label}：${item.error?.message||'更新失败'}`)}
+            return;
+          }
           completed+=item.kind==='batch'?Number(item.data?.updated||0):item.count;
           if(item.kind==='batch'){
             failed+=Number(item.data?.failed||0);
@@ -237,11 +253,12 @@ if(!approved&&rulesWorkbenchService?.canLeave(()=>renderRuleTab(tab,true))===fal
           }
         });
         const detailText=details.join('；');
-        if(datasetNeeded)toast(`更新完成 ${completed} 条；${datasetNeeded} 条需要单独选择数据集`,'error',detailText);
+        if(uncertain)toast(`已更新 ${completed} 条；${uncertain} 条结果待确认${failed?`；失败 ${failed} 条`:''}${datasetNeeded?`；${datasetNeeded} 条需要选择数据集`:''}`,failed||datasetNeeded?'error':'info',detailText+'；请勿重复提交更新任务。');
+        else if(datasetNeeded)toast(`更新完成 ${completed} 条；${datasetNeeded} 条需要单独选择数据集`,'error',detailText);
         else if(failed)toast(`更新任务完成，失败 ${failed} 条`,'error',detailText);
         else toast(`已更新 ${completed} 条在线分流规则`);
         await renderDiversion(body);
-      }finally{btn.disabled=false}
+      }finally{diversionUpdating=false;syncDiversionUpdateState(body)}
     };
   }
 

@@ -39,6 +39,24 @@ describe('HTTP boundary', () => {
     const assertion = expect(pending).rejects.toMatchObject({ code: 'timeout' });
     await vi.advanceTimersByTimeAsync(20); await assertion;
   });
+  it('allows long rule updates without changing the default read timeout or leaking options to fetch', async () => {
+    vi.useFakeTimers();
+    const fetcher = vi.fn<typeof fetch>().mockImplementation(async (_url, options) => {
+      return await new Promise<Response>((resolve, reject) => {
+        const timer = setTimeout(() => resolve(new Response('{"updated":18}', { headers: { 'content-type': 'application/json' } })), 15000);
+        options?.signal?.addEventListener('abort', () => { clearTimeout(timer); reject(new DOMException('cancelled', 'AbortError')); });
+      });
+    });
+    const client = new HttpClient({ timeout: 10000, fetch: fetcher });
+    const update = client.request('/plugins/geoip_cn/update-all', { method: 'POST', timeout: 300000 });
+    const read = expect(client.request('/plugins/geoip_cn/config')).rejects.toMatchObject({ code: 'timeout' });
+    await vi.advanceTimersByTimeAsync(10000); await read;
+    expect(fetcher.mock.calls[0][1]).not.toHaveProperty('timeout');
+    expect(fetcher.mock.calls[0][1]?.signal?.aborted).toBe(false);
+    await vi.advanceTimersByTimeAsync(5000);
+    expect(await update).toEqual({ updated: 18 });
+    expect(vi.getTimerCount()).toBe(0);
+  });
   it('applies route cancellation to reads and permits explicitly scoped writes', async () => {
     const route = new AbortController(); route.abort();
     const fetcher = vi.fn<typeof fetch>().mockResolvedValue(new Response('saved'));
