@@ -93,11 +93,22 @@ export class BackendClient {
 
   async request(path: string, options: HttpRequestOptions = {}): Promise<unknown> {
     const [route, query = ''] = path.split('?');
-    if (route === '/metrics' || route === '/api/v1/status' || route.startsWith('/api/v1/upstream/') || route === '/api/v1/system/restart') {
+    const method = String(options.method || 'GET').toUpperCase();
+    if (route === '/metrics' || route === '/api/v1/status' || (route.startsWith('/api/v1/upstream/') && method === 'GET') || route === '/api/v1/system/restart') {
       return this.http.request(path, options);
     }
     if (await this.detect() === 'legacy') return this.http.request(path, options);
     const suffix = query ? '?' + query : '';
+    if (route === '/api/v1/upstream/config' && method === 'POST') {
+      const { plugin_tag, ...value } = body(options);
+      if (plugin_tag !== undefined) {
+        if (typeof plugin_tag !== 'string' || !plugin_tag || (value.group !== undefined && value.group !== plugin_tag)) {
+          throw new Error('上游分组无效或冲突。');
+        }
+        value.group = plugin_tag;
+      }
+      return this.json(path, options, method, value);
+    }
     if (route.startsWith('/api/v1/audit/')) return this.http.request(route.replace('/api/v1/audit/', '/api/v1/querylog/') + suffix, options);
     if (route.startsWith('/api/v2/audit/')) {
       const target = route === '/api/v2/audit/logs' ? '/api/v1/querylog/entries' : route.replace('/api/v2/audit/', '/api/v1/querylog/');

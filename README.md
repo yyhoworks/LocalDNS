@@ -6,9 +6,9 @@
 
 **DNS 核心主要由折腾日记交流群里的 R 大使用 Rust 编写；[yyhoworks](https://github.com/yyhoworks) 负责 UI 设计。**
 
-当前版本：**[后端 FJGLI / UI 2026.10.22.1](https://github.com/yyhoworks/LocalDNS/releases/tag/fjgli-ui-v2026.10.22.1)**，提供完整包、UI 升级包、配套配置服务包和 SHA-256 校验文件，见 [本次更新说明](docs/releases/fjgli-ui-v2026.10.22.1.md)。
+当前版本：**[后端 FJGLI / UI 2026.10.22.2](https://github.com/yyhoworks/LocalDNS/releases/tag/fjgli-ui-v2026.10.22.2)**，提供完整包、UI 升级包、配套配置服务包和 SHA-256 校验文件，见 [本次更新说明](docs/releases/fjgli-ui-v2026.10.22.2.md)。
 
-本次适配 FJGLI 的新版管理接口，提供保留上游、手工名单、客户端别名、订阅及运行设置的完整迁移工具。已有旧核心安装应先下载完整备份、隔离验证，再切换整个运行目录；普通 UI 更新继续保留核心，并阻止跨核心误升级。保留 DNS 趋势、双皮肤及 Mihomo / sing-box 配置编辑器。迁移步骤见 [FJGLI 更新指南](docs/FJGLI_UPGRADE.md)。
+本次修复 FJGLI 上游保存失败（`unknown field "plugin_tag"`）：新版内核使用 `group` 字段，旧内核继续保留原格式。FJGLI / UI 2026.10.22.1 用户只需更新 UI，无需重启 DNS。旧核心跨版本迁移仍按 [FJGLI 更新指南](docs/FJGLI_UPGRADE.md) 操作。
 
 [产品图集](docs/SCREENSHOTS.md) · [功能指南](docs/FEATURES.md) · [安装说明](INSTALL.md) · [下载 Releases](https://github.com/yyhoworks/LocalDNS/releases) · [作者与分工](AUTHORS.md) · [开发说明](docs/DEVELOPMENT.md) · [近期更新](CHANGELOG.md)
 
@@ -148,7 +148,7 @@ curl -fsSL https://raw.githubusercontent.com/yyhoworks/LocalDNS/main/tools/insta
 
 ## 手动安装
 
-1. 在 [Releases](https://github.com/yyhoworks/LocalDNS/releases/tag/fjgli-ui-v2026.10.22.1) 下载完整包或 UI 升级包，并核对同页的 `SHA256SUMS.txt`。**升级 FJGIR 内核必须从完整包选择对应架构的程序；UI 升级包不含内核，旧核心需先升级才能设置日志目录。**
+1. 在 [Releases](https://github.com/yyhoworks/LocalDNS/releases/tag/fjgli-ui-v2026.10.22.2) 下载完整包或 UI 升级包，并核对同页的 `SHA256SUMS.txt`。**升级 FJGIR 内核必须从完整包选择对应架构的程序；UI 升级包不含内核，旧核心需先升级才能设置日志目录。**
 2. 已有 LocalDNS 服务时，解压 UI 升级包并运行：
 
    ```sh

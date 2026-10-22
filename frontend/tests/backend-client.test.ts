@@ -18,6 +18,32 @@ function fixture(legacy = false) {
 }
 
 describe('backend compatibility', () => {
+  it.each(['domestic', 'foreign', 'foreign_ecs', 'proxy'])('saves %s with the FJGLI group field and retains all upstream settings', async group => {
+    const { request, client } = fixture();
+    const upstreams = [{ tag: 'test', protocol: 'https', addr: 'https://dns.example/dns-query',
+      enabled: false, dial_addr: '192.0.2.53', socks5: '127.0.0.1:1080' }];
+    const ecs = group === 'foreign_ecs' ? { ecs: '192.0.2.0/24' } : {};
+    await client.request('/api/v1/upstream/config', { method: 'POST', body: JSON.stringify({ plugin_tag: group, upstreams, ...ecs }) });
+    const [path, options] = request.mock.calls[request.mock.calls.length - 1];
+    expect(path).toBe('/api/v1/upstream/config');
+    expect(options?.method).toBe('POST');
+    expect(JSON.parse(String(options?.body))).toEqual({ group, upstreams, ...ecs });
+  });
+
+  it('retains plugin_tag for old cores and never retries a failed upstream save', async () => {
+    const old = fixture(true);
+    const options = { method: 'POST', body: '{"plugin_tag":"domestic","upstreams":[]}' };
+    await old.client.request('/api/v1/upstream/config', options);
+    expect(old.request).toHaveBeenLastCalledWith('/api/v1/upstream/config', options);
+    const current = fixture();
+    await current.client.request('/plugins/switch1/show');
+    current.request.mockRejectedValueOnce(new ApiError('save failed', 400));
+    const count = current.request.mock.calls.length;
+    await expect(current.client.request('/api/v1/upstream/config', options)).rejects.toMatchObject({ status: 400 });
+    expect(current.request.mock.calls.slice(count)).toHaveLength(1);
+    expect(JSON.parse(String(current.request.mock.calls[current.request.mock.calls.length - 1][1]?.body))).toEqual({ group: 'domestic', upstreams: [] });
+  });
+
   it('retains legacy paths and methods after a read-only capability check', async () => {
     const { request, client } = fixture(true);
     const options = { method: 'POST', body: '{"values":["example.com"]}' };
