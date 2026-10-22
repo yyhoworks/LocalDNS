@@ -3,7 +3,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const {createPreviewServer} = require('./preview_ui.cjs');
-const {chromium} = require(process.env.LOCALDNS_PLAYWRIGHT || 'C:/Users/dev/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/node_modules/playwright');
+const {chromium} = require(process.env.LOCALDNS_PLAYWRIGHT || 'playwright');
 const output = path.resolve(__dirname, '../dist/overview-insights-verification');
 fs.mkdirSync(output, {recursive:true});
 const installedMetadata = require('../_src/ui/version.json');
@@ -14,7 +14,9 @@ const nextVersion = nextParts.join('.');
 const release = {tag_name:'fjgac-ui-v' + baseVersion,prerelease:false,draft:false,assets:[{name:'LocalDNS_UI_Update.zip'},{name:'LocalDNS_FJGAC_Full.zip'},{name:'Config_Service.zip'}]};
 const github = 'https://api.github.com/repos/yyhoworks/LocalDNS/releases/latest';
 (async () => {
-  const server = createPreviewServer({backend:'http://192.168.1.7:9099'});
+  const backend = process.env.LOCALDNS_PREVIEW_BACKEND;
+  if (!backend) { console.error('Set LOCALDNS_PREVIEW_BACKEND to an isolated LocalDNS backend (e.g. http://127.0.0.1:9099); this script no longer defaults to a hard-coded LAN address.'); process.exit(2); }
+  const server = createPreviewServer({backend});
   await new Promise(resolve => server.listen(0,'127.0.0.1',resolve));
   const origin = process.env.LOCALDNS_VERIFY_URL || `http://127.0.0.1:${server.address().port}/ui/`;
   const browser = await chromium.launch({headless:true,channel:'msedge'});

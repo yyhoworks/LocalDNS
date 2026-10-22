@@ -1,7 +1,7 @@
 /* Font picker regression: themed popup, keyboard choice, uploaded fonts and persistence. */
 const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path');
 const {createPreviewServer}=require('./preview_ui.cjs');
-const {chromium}=require(process.env.LOCALDNS_PLAYWRIGHT||'C:/Users/dev/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/node_modules/playwright');
+const {chromium}=require(process.env.LOCALDNS_PLAYWRIGHT||'playwright');
 const root=path.resolve(__dirname,'..'),out=path.join(root,'dist/font-select-verification');
 const fixtures=require('../frontend/tests/fixtures/api.json'),metrics=fs.readFileSync(path.join(root,'frontend/tests/fixtures/metrics.prom'),'utf8');
 const report={checks:[],views:[],errors:[]};let browser,server;

@@ -52,7 +52,7 @@ def main(argv=None):
     parser = argparse.ArgumentParser(description='为已有 LocalDNS 安装网页 UI 升级执行端')
     parser.add_argument('--dir', default='/opt/localdns')
     parser.add_argument('--origin', required=True, help='实际打开网页的来源，例如 http://192.168.1.2:9099')
-    parser.add_argument('--listen', default='0.0.0.0')
+    parser.add_argument('--listen', help='监听地址，默认 127.0.0.1；局域网直连时显式指定，且必须配合访问令牌')
     parser.add_argument('--port', type=installer.port_number, default=9100)
     parser.add_argument('--public-url', help='通过 HTTPS 同源代理时设置，例如 https://dns.example/_updater')
     parser.add_argument('--stage-root', type=Path, help='仅准备隔离安装文件，不启停宿主服务')
@@ -89,7 +89,16 @@ def main(argv=None):
     # Migrate installations created before password-free web updates.
     for key in ('passwordSalt', 'passwordHash'):
         existing.pop(key, None)
-    config = dict(existing, installDir=args.dir, listenHost=args.listen, port=args.port,
+    # Reinstalls keep the previously chosen listen address unless overridden;
+    # fresh installs bind loopback only (LAN exposure is an explicit choice).
+    listen = args.listen or existing.get('listenHost') or '127.0.0.1'
+    token = existing.get('token')
+    token_generated = not (isinstance(token, str) and token)
+    if token_generated:
+        token = secrets.token_hex(32)
+    if listen not in ('127.0.0.1', '::1', 'localhost') and not token:
+        raise installer.InstallError('监听非回环地址时必须配置访问令牌，已中止')
+    config = dict(existing, installDir=args.dir, listenHost=listen, port=args.port, token=token,
                   allowedOrigins=[ui_origin], allowedHosts=[host, address.hostname, '127.0.0.1', 'localhost'])
     runtime = root / 'bin/ui-updater'
     source = Path(__file__).resolve().parent
@@ -128,6 +137,14 @@ def main(argv=None):
             site.write_bytes(site_before)
             raise
     print('更新执行端已' + ('准备（未启动服务）' if stage else '安装') + '：' + public)
+    if token_generated:
+        print('访问令牌（仅显示这一次，请妥善保存）：' + token)
+        print('在网页“版本与更新”面板中填写此令牌后即可升级或回滚；令牌同时保存在 ' +
+              str(config_path) + '（文件权限 0600）。')
+    else:
+        print('访问令牌保持不变（未重新生成）。')
+    if listen not in ('127.0.0.1', '::1', 'localhost'):
+        print('注意：更新执行端监听 ' + listen + '（非回环），局域网内须携带上述令牌才能执行升级或回滚。')
     print('刷新 ' + ui_origin + '/ui/，打开“版本与更新”即可升级 UI。')
     return 0
 

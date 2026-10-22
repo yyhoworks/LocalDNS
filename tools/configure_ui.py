@@ -118,8 +118,33 @@ def read_bundle(path):
     return value, files
 
 
+def recover_custom_switch(root):
+    """Undo a switch that was killed between its two renames.
+
+    install() first renames ui/custom to a backup, then renames the staged
+    directory into place. A crash in between leaves ui/custom missing; the
+    switch record names the backup so the next run restores it before doing
+    anything else. The settings themselves are never lost.
+    """
+    target = root / 'ui/custom'
+    record = root / '.custom-switch.json'
+    if target.exists() or not record.is_file():
+        return
+    try:
+        name = json.loads(record.read_text(encoding='utf-8')).get('previous', '')
+    except (OSError, ValueError):
+        return
+    if not re.fullmatch(r'custom-backup-[A-Za-z0-9]+', name):
+        return
+    backup = root / name
+    if backup.is_dir() and not backup.is_symlink():
+        backup.rename(target)
+    record.unlink(missing_ok=True)
+
+
 def install(root, value, files):
     no_links(root)
+    recover_custom_switch(root)
     if not (root / 'ui/index.html').is_file():
         raise ValueError('未找到 LocalDNS UI')
     target = root / 'ui/custom'
@@ -157,7 +182,11 @@ def install(root, value, files):
         for folder in (stage, stage / 'assets', stage / 'fonts'):
             if folder.exists():
                 folder.chmod(0o755)
+        record = root / '.custom-switch.json'
         if target.exists():
+            # Record the backup name before the first rename so a crash
+            # between the two renames can be recovered on the next run.
+            record.write_text(json.dumps({'previous': previous.name}), encoding='utf-8')
             target.rename(previous)
         try:
             stage.rename(target)
@@ -165,6 +194,8 @@ def install(root, value, files):
             if previous.exists():
                 previous.rename(target)
             raise
+        finally:
+            record.unlink(missing_ok=True)
     print('共享配置已保存，其他设备刷新页面并选择“跟随服务器”即可使用。')
     print('配置：' + str(target / 'settings.json'))
     if previous.exists():

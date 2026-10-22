@@ -3,7 +3,7 @@ const assert=require('node:assert/strict');
 const fs=require('node:fs');
 const path=require('node:path');
 const {createPreviewServer}=require('./preview_ui.cjs');
-const {chromium}=require(process.env.LOCALDNS_PLAYWRIGHT||'C:/Users/dev/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/node_modules/playwright');
+const {chromium}=require(process.env.LOCALDNS_PLAYWRIGHT||'playwright');
 const baselineRoot=process.env.LOCALDNS_FRONTEND_BASELINE_ROOT;
 const root=path.resolve(__dirname,'..'),out=path.join(root,baselineRoot?'dist/frontend-routes-baseline':'dist/frontend-routes-verification');
 const fixtures=require('../frontend/tests/fixtures/api.json');

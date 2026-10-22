@@ -1,6 +1,6 @@
 const fs=require('node:fs'),path=require('node:path'),assert=require('node:assert/strict');
 const {createPreviewServer}=require('./preview_ui.cjs');
-const {chromium}=require(process.env.LOCALDNS_PLAYWRIGHT||'C:/Users/dev/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/node_modules/playwright');
+const {chromium}=require(process.env.LOCALDNS_PLAYWRIGHT||'playwright');
 const out=path.resolve(__dirname,process.env.LOCALDNS_AUDIT_OUT||'../dist/shared-ui-audit');fs.mkdirSync(out,{recursive:true});
 (async()=>{
  const server=createPreviewServer({backend:process.env.LOCALDNS_TEST_BACKEND||'http://127.0.0.1:9099'});await new Promise(r=>server.listen(0,'127.0.0.1',r));
