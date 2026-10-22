@@ -18,6 +18,6 @@
 
 代理入口直接加载用户配置的面板站点图标，不再随安装包分发 Mihomo / sing-box 标识。图标与商标权利归对应项目及权利人所有。
 
-配置编辑器与独立 Go 服务已从当前版本移除，其历史源码与许可可查阅 [UI 2026.10.19.5](https://github.com/yyhoworks/LocalDNS/tree/fjgac-ui-v2026.10.19.5)。
+配置编辑器与独立 Go 配置服务（当前 1.6.0）随现行版本提供，安装与使用见 [配置服务说明](docs/PROXY_CONFIG.md)；其早期版本源码与许可可查阅 [UI 2026.10.19.5](https://github.com/yyhoworks/LocalDNS/tree/fjgac-ui-v2026.10.19.5)。
 
 配置编辑器按需加载 CodeMirror、Lezer 与 YAML，许可见 docs/licenses/proxy-config-editor.txt；JSONC 解析使用 jsonc-parser（MIT），许可见 docs/licenses/jsonc-parser-LICENSE.txt。配置服务使用 Go 与 yaml.v3，许可随 Service 包提供。

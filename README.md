@@ -8,7 +8,7 @@
 
 当前版本：**[后端 FJGLI / UI 2026.10.22.3](https://github.com/yyhoworks/LocalDNS/releases/tag/fjgli-ui-v2026.10.22.3)**，提供完整包、UI 升级包、配套配置服务包和 SHA-256 校验文件，见 [本次更新说明](docs/releases/fjgli-ui-v2026.10.22.3.md)。
 
-本次修复 FJGLI 上游保存失败（`unknown field "plugin_tag"`）：新版内核使用 `group` 字段，旧内核继续保留原格式。FJGLI / UI 2026.10.22.1 用户只需更新 UI，无需重启 DNS。旧核心跨版本迁移仍按 [FJGLI 更新指南](docs/FJGLI_UPGRADE.md) 操作。
+本次修复 FJGLI 在线分流订阅保存误报（UI 2026.10.22.3）：新核心成功更新只返回 `changed: true/false`、没有格式元数据时，界面不再误报“保存失败”或虚报 0 条规则。FJGLI 用户只需更新 UI，无需重启 DNS。旧核心跨版本迁移仍按 [FJGLI 更新指南](docs/FJGLI_UPGRADE.md) 操作。
 
 [产品图集](docs/SCREENSHOTS.md) · [功能指南](docs/FEATURES.md) · [安装说明](INSTALL.md) · [下载 Releases](https://github.com/yyhoworks/LocalDNS/releases) · [作者与分工](AUTHORS.md) · [开发说明](docs/DEVELOPMENT.md) · [近期更新](CHANGELOG.md)
 
@@ -128,7 +128,7 @@
 
 壁纸、主题与玻璃参数保存在当前浏览器。较大的本地图片使用 IndexedDB 保存；面板会提示保存结果，在线图片地址在刷新后自动回填。名称、Logo、字体及其用途可导入服务器，作为跨设备共享默认值；已有本机覆盖时可点击「跟随服务器」。
 
-查询趋势使用当前浏览器会话的真实采样，提供 15 / 30 / 60 / 120 分钟视图；至少积累三次采样后绘图，保留最长两小时的采样，不作为服务器历史报表。
+查询趋势使用当前浏览器的真实采样，默认显示最近 1 小时，可选 15 分钟 / 1 小时 / 6 小时 / 24 小时视图；采样保存在本机 IndexedDB，保留最近 24 小时，刷新后恢复，不作为服务器历史报表。详见 [趋势说明](docs/DNS_TRENDS.md)。
 
 ## 一键安装（Linux）
 
@@ -174,7 +174,7 @@ VERSION.json          UI 与后端版号
 
 安装 ZIP 和后端预编译程序放在 Releases，配套配置服务源码位于 `services/proxy-config/`。部署凭据、设备配置、运行日志、临时截图和历史工作文件不进入 Git。
 
-**当前仓库包含 UI 源码；当前工作目录未提供 Rust DNS 核心源码，DNS 核心通过 FJGIR 预编译发行包提供。**
+**当前仓库包含 UI 源码；当前工作目录未提供 Rust DNS 核心源码，DNS 核心通过 FJGLI 预编译发行包提供。**
 
 ## 开发与打包
 
