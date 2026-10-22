@@ -82,3 +82,8 @@ node tools/verify_ui_update.cjs
 ```
 
 自动测试使用隔离目录、模拟发行包和回环 HTTP 服务；浏览器写请求全部由夹具响应，不访问真实设备升级接口。
+
+
+## FJGLI 跨核心更新
+
+FJGLI 改变配置结构与管理接口。普通 UI 更新会检查核心要求；旧核心更新到本版须使用完整包的 `upgrade-localdns.py`，先下载备份并进行配置迁移，见 [完整更新指南](FJGLI_UPGRADE.md#完整更新命令)。保留旧核心时，指定其同核心发行版，例如 `--version fjgir-ui-v2026.10.21.2`。

@@ -1,6 +1,6 @@
 # 安装与更新
 
-当前发行版本：**后端 FJGIR / UI 2026.10.21.2**。新增查询日志自定义目录及存储占用显示，保留 DNS 趋势、静态共享设置与 Mihomo / sing-box 配置编辑器。自定义日志目录需要支持该接口的 FJGIR 内核；已有安装的普通 UI 更新仍保留原内核。
+当前发行版本：**后端 FJGLI / UI 2026.10.22.1**。提供新版 API 适配和完整配置迁移工具，保留 DNS 趋势、静态共享设置、日志目录与 Mihomo / sing-box 配置编辑器。
 
 ## 名称、Logo 与字体共享
 
@@ -26,13 +26,13 @@ curl -fsSL https://raw.githubusercontent.com/yyhoworks/LocalDNS/main/tools/insta
 
 包含此功能的发行包可一次性安装更新执行端，之后在顶部「版本与更新」中直接发起 UI 更新或恢复上一版。只更新 UI，保留配置与核心。安装方法及 HTTPS 接入见 [网页升级指南](docs/WEB_UPDATE.md)。
 
-从 [本版 Releases](https://github.com/yyhoworks/LocalDNS/releases/tag/fjgir-ui-v2026.10.21.2) 下载；本地构建位于 `dist/fjgir-ui-v2026.10.21.2/`。
+从 [本版 Releases](https://github.com/yyhoworks/LocalDNS/releases/tag/fjgli-ui-v2026.10.22.1) 下载；本地构建位于 `dist/fjgli-ui-v2026.10.22.1/`。
 
 | 文件 | 用途 |
 |---|---|
-| `LocalDNS_FJGIR_UI_2026.10.21.2_Full.zip` | 新安装或提取内核：FJGIR 程序、已清理的默认配置与规则、当前双皮肤 UI |
-| `LocalDNS_UI_2026.10.21.2_Update.zip` | 已安装环境更新界面 |
-| `LocalDNS_ProxyConfig_UI_2026.10.21.2_Service.zip` | 可选的 Mihomo / sing-box 配置服务 1.6.0，已有 1.6.0 可继续使用 |
+| `LocalDNS_FJGLI_UI_2026.10.22.1_Full.zip` | 新安装或完整迁移：FJGLI 程序、新配置结构、迁移工具与当前双皮肤 UI |
+| `LocalDNS_UI_2026.10.22.1_Update.zip` | 已安装环境更新界面 |
+| `LocalDNS_ProxyConfig_UI_2026.10.22.1_Service.zip` | 可选的 Mihomo / sing-box 配置服务 1.6.0，已有 1.6.0 可继续使用 |
 | `SHA256SUMS.txt` | 三个发行包的 SHA-256 校验值 |
 
 在同一目录核对：
@@ -61,17 +61,15 @@ sh install-ui.sh /opt/localdns
 
 ## 已安装环境升级后端
 
-**UI 升级包只更新界面，不包含后端程序。** 升级 FJGIR 时，从完整包的 `LocalDNS_FJGIR_Binaries/` 选择对应架构的 `localdns` 程序。先备份后端、配置、规则与 UI，在隔离目录及独立端口验证兼容性，停止服务后替换 `/opt/localdns/bin/localdns`，恢复可执行权限并启动服务，再检查 TCP / UDP DNS 查询、管理接口与 `/metrics` 中的 `FJGIR` 版本。切换内核需要短暂中断 DNS 服务。
+**FJGLI 使用新的配置结构和管理接口，不能按旧版方式只替换二进制。** 从完整包解压目录运行 `upgrade-localdns.py`，按 [FJGLI 更新指南](docs/FJGLI_UPGRADE.md#完整更新命令) 完成外置备份、本机下载校验、新目录准备、隔离验证和整体切换。工具会迁移别名文件名、缓存字段、日志及定时计划，保留上游、手工规则、订阅和共享 UI 配置；失败恢复完整旧目录。
 
-升级前先将完整安装目录备份到本机。保留已有 `config/`（含上游、订阅、功能开关、客户端别名、审计及定时任务）、`rules/`、`generated/`、`cache/` 和 `ui/`（含 `ui/custom/` 与 `ui/config.js`），不要用完整包目录覆盖已有安装。上游内核 ZIP 附带的旧 UI、客户端别名和配置不作为升级来源。验证失败时停止新服务，恢复备份的旧内核及必要的数据，再启动旧服务。
+普通 UI 更新保留核心；跨核心发行包会在替换前停止并提示迁移。继续使用旧核心时，可用 `--version fjgir-ui-v2026.10.21.2` 指定旧正式版 UI。网页升级仍只处理同核心 UI。
 
-FJGIR 兼容读取原配置的 `memory_limit_mb`，将原数值用于 DNS 缓存容量；新字段名为 `cache_memory_mb`。保持原字段即可运行。
-
-此次上游仅提供 amd64-v1、amd64-v3、arm64；未附带 ARMv7 新程序。
+已验证的旧配置结构包括 FJGAC 和 FJGIR；其他旧安装遇到未知配置时停止并提示。迁移程序不保证支持尚未核实的任意历史版本。所有架构均提供二进制，实机运行验收目前针对 Alpine x86-64。
 
 ## 新安装
 
-完整包中的 `localdns/` 放到 `/opt/localdns`。默认程序为 **amd64-v3**；其他二进制位于 `LocalDNS_FJGIR_Binaries/`，按设备架构选择。
+完整包中的 `localdns/` 放到 `/opt/localdns`。默认程序为 **amd64-v3**；其他二进制位于 `LocalDNS_FJGLI_Binaries/`，按设备架构选择。
 
 | 文件 | 平台 |
 |---|---|
@@ -86,9 +84,9 @@ chmod +x /opt/localdns/bin/localdns
 /opt/localdns/bin/localdns --root /opt/localdns --config /opt/localdns/config/localdns.json
 ```
 
-监听地址和端口由 `localdns/config/localdns.json` 决定。完整包沿用上一正式版基于 FJG4O 整理的默认配置与规则，已清理客户端别名、任务历史，并将私有上游地址改为本机示例；本次只引入 FJGIR 内核，需按实际环境调整配置。
+监听地址和端口由 `localdns/config/localdns.json` 决定。完整包使用已清理的 FJGLI 默认结构：客户端别名、手工规则和运行数据为空，上游改为公共示例，默认定时任务关闭。订阅配置保留公开来源，核心重新下载或编译规则；安装后按实际网络调整。
 
-`localdns.service` 是 systemd 服务示例。Alpine/OpenRC 使用对应的服务启动方式，并保留原有兼容库和环境变量。FJGIR 为上游预编译程序，本仓库不保证其在所有发行版或 CPU 上均可直接运行。
+`localdns.service` 是 systemd 服务示例。Alpine/OpenRC 使用对应启动方式，并保留兼容库和环境变量。上游提供 amd64-v1、amd64-v3、arm64；包内默认 amd64-v3，不能用于不支持 v3 的 CPU。一键安装器在 x86-64 上默认选择 amd64-v1。
 
 ## 自定义查询日志目录
 

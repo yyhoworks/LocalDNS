@@ -1,0 +1,28 @@
+{
+  "schema": 1,
+  "version": {
+    "product": "LocalDNS",
+    "uiVersion": "2026.10.22.1",
+    "backendVersion": "FJGLI",
+    "releaseTag": "fjgli-ui-v2026.10.22.1",
+    "channel": "stable",
+    "builtAt": "2026-10-22T16:45:00+08:00"
+  },
+  "frontendTests": 109,
+  "linuxTests": 50,
+  "kernelArchiveSha256": "7780104dfc62075d79dd3c58a8225cd9202621c29794e3bdee9813568d9d4649",
+  "packages": {
+    "LocalDNS_FJGLI_UI_2026.10.22.1_Full.zip": {
+      "sha256": "5937404d1464d66a135c4d7a3e1da229e6b6e2ee174b0ab97c4a8de8cddc2be5",
+      "bytes": 14987630
+    },
+    "LocalDNS_ProxyConfig_UI_2026.10.22.1_Service.zip": {
+      "sha256": "11ff7a4a9c4eda2abaa1b43f8ec6f4df0d0a8d88e9444ec9440d13bfa7780200",
+      "bytes": 6416851
+    },
+    "LocalDNS_UI_2026.10.22.1_Update.zip": {
+      "sha256": "637b4b96556ecb3ce666049f1e4513324775425d9b3adb1ced9997f2fee77a02",
+      "bytes": 1874827
+    }
+  }
+}

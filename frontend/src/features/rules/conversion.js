@@ -2,7 +2,7 @@ export let ruleConversionService;
 export function initialize() {
 
   'use strict';
-  const formats = {srs:'SRS',dat:'DAT',clash_yaml:'YAML',singbox_json:'JSON',txt:'TXT',
+  const formats = {srs:'SRS',dat:'DAT',mrs:'MRS',mmdb:'MMDB',singbox_geosite:'DB',clash_yaml:'YAML',singbox_json:'JSON',txt:'TXT',
     surge:'Surge',dnsmasq:'DNSMasq',hosts:'Hosts',quantumult_x:'Quantumult X'};
   function label(rule) {
     const format = formats[String(rule.detected_format || '').trim().toLowerCase()];

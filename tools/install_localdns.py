@@ -30,7 +30,7 @@ from zipfile import BadZipFile, ZipFile
 
 REPO = 'https://github.com/yyhoworks/LocalDNS'
 API = 'https://api.github.com/repos/yyhoworks/LocalDNS/releases/'
-INSTALLER_VERSION = '1.3.0'
+INSTALLER_VERSION = '1.3.1'
 ALPINE_RESOLVER_BRIDGE = '#include <resolv.h>\nint __res_init(void) { return res_init(); }\n'
 
 
@@ -434,6 +434,12 @@ def recover_ui_update(root):
 def update_ui(root, payload, metadata, stage=None, on_step=None):
     report = on_step or (lambda step: None)
     recover_ui_update(root)
+    current_version = root / 'ui/version.json'
+    if current_version.is_file():
+        current_backend = json.loads(current_version.read_text(encoding='utf-8')).get('backendVersion')
+        if current_backend and metadata.get('backendVersion') != current_backend:
+            raise InstallError('目标发行版需要不同的 DNS 核心，请使用完整包中的 upgrade-localdns.py 先备份并迁移；'
+                               '只更新 UI 时请用 --version 指定同核心发行版。')
     for path in (root / 'ui', root / 'ui/config.js', root / 'bin', root / 'config'):
         no_symlinks(path)
     stamp = datetime.now().strftime('%Y%m%d-%H%M%S') + '-' + uuid.uuid4().hex[:8]

@@ -1,9 +1,11 @@
 import { backendHttp } from './network';
 import { normalizeResponse } from './contracts';
+import { BackendClient } from './backend-client';
+const backend = new BackendClient(backendHttp);
 export const api = {
   url: path => backendHttp.url(path),
   async request(path, options = {}) {
-    const value = await backendHttp.request(path, options);
+    const value = await backend.request(path, options);
     return String(options.method || 'GET').toUpperCase() === 'GET' ? normalizeResponse(path, value) : value;
   },
   json(path, method = 'GET', body) { return this.request(path, { method, headers: { 'Content-Type': 'application/json' }, body: body === undefined ? undefined : JSON.stringify(body) }); },

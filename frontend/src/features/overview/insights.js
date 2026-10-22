@@ -6,6 +6,8 @@ const overviewInsightsService = (() => {
     blocked_qtype: '查询类型屏蔽', blocked_nodata: '无结果请求屏蔽',
     client_direct: '客户端直连', geosite_non_cn: '非国内规则命中',
     whitelist: '白名单命中', greylist: '灰名单命中', blocked: '请求屏蔽',
+    direct_list: '直连名单命中', proxy_list: '代理名单命中', proxy_realip_list: '代理真实 IP 名单命中',
+    geosite_cn_use_foreign_cn: '国内规则使用国外 ECS', rewrite: '重定向规则命中',
     learned_realip: '已学习 RealIP', learned_fakeip: '已学习 FakeIP',
     geosite_cn: '国内规则命中', custom_cn: '自定义国内规则',
     custom_non_cn: '自定义非国内规则', unknown_fakeip: '未知域名 FakeIP',

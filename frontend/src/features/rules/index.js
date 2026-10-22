@@ -166,9 +166,11 @@ if(!approved&&rulesWorkbenchService?.canLeave(()=>renderRuleTab(tab,true))===fal
 
   function openDiversionDatasetPrompt(rule,datasets,body,original=rule){
     const options=(Array.isArray(datasets)?datasets:[]).map(x=>String(x||'').trim()).filter(Boolean);
-    if(!options.length){toast('更新失败','error','数据源要求选择数据集，但没有返回可用数据集');return;}
-    modalOpen('请选择数据集 / Tag','检测到多数据集 DAT。选择一次后会作为隐藏元数据保存，后续自动更新将直接复用。',`<div class="stack"><div class="field"><label>数据集 / Tag</label><select id="div-dataset-choice">${options.map(x=>`<option value="${esc(x)}" ${x===rule.dataset?'selected':''}>${esc(x)}</option>`).join('')}</select></div><p class="form-note">此选择只在多数据集 DAT 需要时出现，不会重新加入常驻的格式或匹配设置。</p></div>`,async()=>{
-      const dataset=$('#div-dataset-choice').value;
+    const typed=!options.length;
+    const field=typed?`<input id="div-dataset-choice" value="${esc(rule.dataset||'')}" placeholder="例如 AS13335，多个用逗号分隔">`:`<select id="div-dataset-choice">${options.map(x=>`<option value="${esc(x)}" ${x===rule.dataset?'selected':''}>${esc(x)}</option>`).join('')}</select>`;
+    modalOpen(typed?'请填写 AS 号':'请选择数据集 / Tag','选择后保存到此订阅，后续自动更新直接复用。',`<div class="stack"><div class="field"><label>${typed?'AS 号':'数据集 / Tag'}</label>${field}</div><p class="form-note">${typed?'ASN 数据库需要填写要提取的 AS 号。':'多数据集来源需要选择对应的国家或分类。'}</p></div>`,async()=>{
+      const dataset=$('#div-dataset-choice').value.trim();
+      if(!dataset)throw new Error(typed?'请填写 AS 号':'请选择数据集');
       const saved=await saveDiversionRule({...rule,dataset},original);
       workspaceService.clearRuleDraft(original);
       toast('识别与转换完成','success',ruleConversionService.message(saved));

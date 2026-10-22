@@ -12,6 +12,13 @@ cd "$PACKAGE_DIR"
 sha256sum -c MANIFEST.sha256
 UI_VERSION=$(sed -n 's/^LocalDNS UI //p' VERSION.txt)
 case "$UI_VERSION" in ''|*[!A-Za-z0-9._-]*) echo "UI 版本信息无效" >&2; exit 1;; esac
+PACKAGE_BACKEND=$(sed -n 's/^Backend //p' VERSION.txt)
+if [ "$PACKAGE_BACKEND" = FJGLI ] && [ -f "$INSTALL_DIR/ui/version.json" ]; then
+  grep -Eq '"backendVersion"[[:space:]]*:[[:space:]]*"FJGLI"' "$INSTALL_DIR/ui/version.json" || {
+    echo '此 UI 包需要 FJGLI。请先使用完整包的 upgrade-localdns.py 备份并迁移，或下载原核心的 UI 包。' >&2
+    exit 1
+  }
+fi
 LOCK_FILE="$(dirname -- "$INSTALL_DIR")/.$(basename -- "$INSTALL_DIR")-installer.lock"
 (set -C; umask 077; printf '%s\n' "$$" > "$LOCK_FILE") 2>/dev/null || { echo '已有安装任务或遗留安装锁'; exit 1; }
 ROLLBACK=0

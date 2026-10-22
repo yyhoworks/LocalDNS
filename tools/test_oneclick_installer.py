@@ -110,6 +110,13 @@ class InstallerTests(unittest.TestCase):
         self.install('--arch', 'amd64-v1')
         self.assertEqual(len(list(self.root.glob('ui-backup-*.tar.gz'))), 2)
 
+    def test_cross_core_ui_update_stops_before_creating_backups_or_changing_files(self):
+        self.install('--arch', 'amd64-v1')
+        before = {p.relative_to(self.root): p.read_bytes() for p in self.root.rglob('*') if p.is_file()}
+        with self.assertRaisesRegex(installer.InstallError, '不同的 DNS 核心'):
+            installer.update_ui(self.root, self.base / 'unused-payload', dict(VERSION, backendVersion='FJGLI'), self.stage)
+        self.assertEqual({p.relative_to(self.root): p.read_bytes() for p in self.root.rglob('*') if p.is_file()}, before)
+
     def test_checksum_failure_makes_no_installation(self):
         archive = next(self.packages.glob('*_Full.zip'))
         archive.write_bytes(archive.read_bytes() + b'changed')

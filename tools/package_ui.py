@@ -7,6 +7,7 @@ import struct
 from datetime import datetime
 from pathlib import Path, PurePosixPath
 from zipfile import ZIP_DEFLATED, ZipFile, ZipInfo
+from fjgli_config import clean_template
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -109,6 +110,17 @@ def verify_manifest(payload):
         raise ValueError('Manifest does not match every packaged file')
 
 
+def read_runtime_template(archive):
+    anchors = [n for n in archive.namelist() if n.endswith('/localdns/config/localdns.json')]
+    if len(anchors) != 1:
+        raise ValueError('Expected exactly one upstream runtime template')
+    wrapper = anchors[0][:-len('localdns/config/localdns.json')]
+    allowed = ('localdns/config/', 'localdns/rules/', 'localdns/generated/', 'localdns/cache/', 'localdns/logs/')
+    template = {name[len(wrapper):]: archive.read(name) for name in archive.namelist()
+                if name.startswith(tuple(wrapper + prefix for prefix in allowed))}
+    return clean_template(template)
+
+
 def write_archive(path, payload, version, modes=None):
     modes = modes or {}
     payload = dict(payload)
@@ -151,11 +163,14 @@ def main():
     parser.add_argument('--base-sha256', help='SHA-256 verified against the published Release')
     parser.add_argument('--kernel-archive', type=Path, help='Upstream kernel ZIP; import only the three platform binaries')
     parser.add_argument('--kernel-sha256', help='SHA-256 of the separately verified upstream kernel archive')
+    parser.add_argument('--runtime-template', action='store_true', help='Use a sanitized FJGLI runtime layout from the verified kernel ZIP')
     args = parser.parse_args()
     if bool(args.full_base) != bool(args.base_sha256):
         parser.error('--full-base and --base-sha256 must be supplied together')
     if bool(args.kernel_archive) != bool(args.kernel_sha256) or (args.kernel_archive and not args.full_base):
         parser.error('--kernel-archive requires --kernel-sha256 and a verified --full-base')
+    if args.runtime_template and not args.kernel_archive:
+        parser.error('--runtime-template requires --kernel-archive')
 
     version = json.loads((ROOT / 'VERSION.json').read_text(encoding='utf-8'))
     if json.loads((ROOT / '_src/ui/version.json').read_text(encoding='utf-8')) != version:
@@ -165,6 +180,9 @@ def main():
               ['AUTHORS.md', 'THIRD_PARTY_NOTICES.md', 'INSTALL.md', 'CHANGELOG.md']}
     common['README.md'] = common['INSTALL.md']
     common['configure-ui.py'] = (ROOT / 'tools/configure_ui.py').read_bytes()
+    for name in ['upgrade_localdns.py', 'fjgli_config.py']:
+        common[name.replace('_', '-') if name == 'upgrade_localdns.py' else name] = (ROOT / 'tools' / name).read_bytes()
+    common['docs/FJGLI_UPGRADE.md'] = (ROOT / 'docs/FJGLI_UPGRADE.md').read_bytes()
     for name in ['install_ui_updater.py', 'ui_updater.py', 'install_localdns.py']:
         common['ui-updater/' + name] = (ROOT / 'tools' / name).read_bytes()
     common['docs/WEB_UPDATE.md'] = (ROOT / 'docs/WEB_UPDATE.md').read_bytes()
@@ -229,6 +247,16 @@ def main():
             kernel_prefix = f'LocalDNS_{backend}_Binaries/'
             with ZipFile(args.kernel_archive) as archive:
                 kernels = read_kernel_bundle(archive, backend)
+                if args.runtime_template:
+                    if backend != 'FJGLI':
+                        raise ValueError('The new runtime template currently supports FJGLI only')
+                    template = read_runtime_template(archive)
+                    full = {name: data for name, data in full.items() if not name.startswith('localdns/')}
+                    full.update(template)
+                    for name in template:
+                        modes[name] = 0o40755 if name.endswith('/') else 0o100644
+                    full['localdns/bin/'] = b''
+                    modes['localdns/bin/'] = 0o40755
             # Do not import upstream UI, personal settings, subscriptions or rules.
             full = {name: data for name, data in full.items()
                     if not re.match(r'LocalDNS_[A-Z0-9]+_Binaries/', name)}
@@ -250,13 +278,15 @@ def main():
         full['release.json'] = json_bytes(dict(
             version, packageType='full', baseArchive=args.full_base.name,
             baseArchiveSha256=base_digest, backendBinarySha256=binary_sha,
-            configurationSource=meta['configurationSource'],
-            templateCleanup=meta.get('templateCleanup', ''),
+            configurationSource='FJGLI upstream runtime template' if args.runtime_template else meta['configurationSource'],
+            templateCleanup='FJGLI: cleared aliases, manual rules, runtime data, task history and private upstream examples' if args.runtime_template else meta.get('templateCleanup', ''),
             uiFiles={name: sha(data) for name, data in ui.items()}, **kernel_metadata))
         for name, data in base.items():
             protected = ((name.startswith('localdns/') or re.match(r'LocalDNS_[A-Z0-9]+_Binaries/', name))
                          and not name.startswith('localdns/ui/') and name not in ('localdns/UI-VERSION','localdns/bin/configure-ui.py'))
             if args.kernel_archive and (name == 'localdns/bin/localdns' or re.match(r'LocalDNS_[A-Z0-9]+_Binaries/', name)):
+                protected = False
+            if args.runtime_template and name.startswith('localdns/'):
                 protected = False
             if (protected or name == 'localdns.service') and full[name] != data:
                 raise ValueError('Protected base content changed: ' + name)
