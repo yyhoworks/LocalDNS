@@ -6,7 +6,7 @@
 
 **DNS 核心主要由折腾日记交流群里的 R 大使用 Rust 编写；[yyhoworks](https://github.com/yyhoworks) 负责 UI 设计。**
 
-当前版本：**[后端 FJGLI / UI 2026.10.22.2](https://github.com/yyhoworks/LocalDNS/releases/tag/fjgli-ui-v2026.10.22.2)**，提供完整包、UI 升级包、配套配置服务包和 SHA-256 校验文件，见 [本次更新说明](docs/releases/fjgli-ui-v2026.10.22.2.md)。
+当前版本：**[后端 FJGLI / UI 2026.10.22.3](https://github.com/yyhoworks/LocalDNS/releases/tag/fjgli-ui-v2026.10.22.3)**，提供完整包、UI 升级包、配套配置服务包和 SHA-256 校验文件，见 [本次更新说明](docs/releases/fjgli-ui-v2026.10.22.3.md)。
 
 本次修复 FJGLI 上游保存失败（`unknown field "plugin_tag"`）：新版内核使用 `group` 字段，旧内核继续保留原格式。FJGLI / UI 2026.10.22.1 用户只需更新 UI，无需重启 DNS。旧核心跨版本迁移仍按 [FJGLI 更新指南](docs/FJGLI_UPGRADE.md) 操作。
 
@@ -148,7 +148,7 @@ curl -fsSL https://raw.githubusercontent.com/yyhoworks/LocalDNS/main/tools/insta
 
 ## 手动安装
 
-1. 在 [Releases](https://github.com/yyhoworks/LocalDNS/releases/tag/fjgli-ui-v2026.10.22.2) 下载完整包或 UI 升级包，并核对同页的 `SHA256SUMS.txt`。**升级 FJGIR 内核必须从完整包选择对应架构的程序；UI 升级包不含内核，旧核心需先升级才能设置日志目录。**
+1. 在 [Releases](https://github.com/yyhoworks/LocalDNS/releases/tag/fjgli-ui-v2026.10.22.3) 下载完整包或 UI 升级包，并核对同页的 `SHA256SUMS.txt`。**从旧核心升级 FJGLI 请使用完整包和迁移工具，先备份并保留原设置；UI 升级包只更新界面。**
 2. 已有 LocalDNS 服务时，解压 UI 升级包并运行：
 
    ```sh

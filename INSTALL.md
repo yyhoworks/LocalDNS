@@ -1,6 +1,6 @@
 # 安装与更新
 
-当前发行版本：**后端 FJGLI / UI 2026.10.22.2**。提供新版 API 适配和完整配置迁移工具，保留 DNS 趋势、静态共享设置、日志目录与 Mihomo / sing-box 配置编辑器。
+当前发行版本：**后端 FJGLI / UI 2026.10.22.3**。提供新版 API 适配和完整配置迁移工具，保留 DNS 趋势、静态共享设置、日志目录与 Mihomo / sing-box 配置编辑器。
 
 ## 名称、Logo 与字体共享
 
@@ -26,13 +26,13 @@ curl -fsSL https://raw.githubusercontent.com/yyhoworks/LocalDNS/main/tools/insta
 
 包含此功能的发行包可一次性安装更新执行端，之后在顶部「版本与更新」中直接发起 UI 更新或恢复上一版。只更新 UI，保留配置与核心。安装方法及 HTTPS 接入见 [网页升级指南](docs/WEB_UPDATE.md)。
 
-从 [本版 Releases](https://github.com/yyhoworks/LocalDNS/releases/tag/fjgli-ui-v2026.10.22.2) 下载；本地构建位于 `dist/fjgli-ui-v2026.10.22.2/`。
+从 [本版 Releases](https://github.com/yyhoworks/LocalDNS/releases/tag/fjgli-ui-v2026.10.22.3) 下载；本地构建位于 `dist/fjgli-ui-v2026.10.22.3/`。
 
 | 文件 | 用途 |
 |---|---|
-| `LocalDNS_FJGLI_UI_2026.10.22.2_Full.zip` | 新安装或完整迁移：FJGLI 程序、新配置结构、迁移工具与当前双皮肤 UI |
-| `LocalDNS_UI_2026.10.22.2_Update.zip` | 已安装环境更新界面 |
-| `LocalDNS_ProxyConfig_UI_2026.10.22.2_Service.zip` | 可选的 Mihomo / sing-box 配置服务 1.6.0，已有 1.6.0 可继续使用 |
+| `LocalDNS_FJGLI_UI_2026.10.22.3_Full.zip` | 新安装或完整迁移：FJGLI 程序、新配置结构、迁移工具与当前双皮肤 UI |
+| `LocalDNS_UI_2026.10.22.3_Update.zip` | 已安装环境更新界面 |
+| `LocalDNS_ProxyConfig_UI_2026.10.22.3_Service.zip` | 可选的 Mihomo / sing-box 配置服务 1.6.0，已有 1.6.0 可继续使用 |
 | `SHA256SUMS.txt` | 三个发行包的 SHA-256 校验值 |
 
 在同一目录核对：

@@ -6,7 +6,7 @@ export function initialize() {
     surge:'Surge',dnsmasq:'DNSMasq',hosts:'Hosts',quantumult_x:'Quantumult X'};
   function label(rule) {
     const format = formats[String(rule.detected_format || '').trim().toLowerCase()];
-    return format ? (format === 'SRS' ? 'SRS' : format + ' → SRS') : '待识别';
+    return format ? (format === 'SRS' ? 'SRS' : format + ' → SRS') : '格式未记录';
   }
   function updated(result) {
     const source = result?.source || result;
@@ -15,7 +15,12 @@ export function initialize() {
   function message(result) {
     const source = updated(result);
     if (!source) return '规则更新完成';
-    return `${label(source)} · ${Number(source.rule_count || 0).toLocaleString('zh-CN')} 条规则`;
+    const parts = [];
+    if (source.detected_format) parts.push(label(source));
+    if (source.rule_count !== undefined && source.rule_count !== null && Number.isFinite(Number(source.rule_count))) {
+      parts.push(`${Number(source.rule_count).toLocaleString('zh-CN')} 条规则`);
+    }
+    return parts.join(' · ') || (result?.changed === false ? '规则未变化' : '规则更新完成');
   }
   function withMetadata(rule, original) {
     const result = {...rule};
@@ -30,8 +35,11 @@ export function initialize() {
     const source = updated(result);
     // FJGAC may save a pending DAT subscription and ask for its dataset only on update.
     if (source?.detected_format) return source;
-    const converted = updated(await refresh());
-    if (!converted?.detected_format) throw new Error('配置已保存，但来源尚未识别，请检查订阅地址后重试更新。');
+    const response = await refresh();
+    const converted = updated(response);
+    // FJGLI confirms a completed update with changed, including an unchanged source,
+    // and may omit format/count metadata. Older pending responses still need it.
+    if (!converted || (!converted.detected_format && typeof response.changed !== 'boolean')) throw new Error('配置已保存，但来源尚未识别，请检查订阅地址后重试更新。');
     return converted;
   }
   ruleConversionService = {label, updated, message, withMetadata, finishSave};

@@ -105,18 +105,18 @@ if(!approved&&rulesWorkbenchService?.canLeave(()=>renderRuleTab(tab,true))===fal
 
   async function updateAdguard(rule,patch){
     const next=Object.assign({},rule,patch);
-    delete next.last_error;
-    await api.json(`/plugins/adguard/rules/${rule.id}`,'PUT',next);
+    delete next.last_error;delete next.line_report;
+    await api.json(`/plugins/adguard/rules/${encodeURIComponent(rule.id)}`,'PUT',next);
   }
 
   function openAdguardModal(rule,body){
     rule=rule||{name:'',url:'',files:'',enabled:true,auto_update:true,update_interval_hours:24};
-    modalOpen(rule.id?'编辑广告规则':'添加广告规则','订阅下载后保存为 TXT（保留 AdGuard 语法），所有启用的订阅合并为 rules/compiled/adguard.txt。',`<div class="stack"><div class="field"><label>名称</label><input id="ad-name" value="${esc(rule.name)}"></div><div class="field"><label>订阅地址</label><input id="ad-url" value="${esc(rule.url)}" placeholder="https://example.com/adblock.txt"></div><div class="field"><label>源缓存文件（可选）</label><input id="ad-files" value="${esc(rule.files||'')}" placeholder="留空时从 URL 自动生成"><p class="form-note">统一保存到 rules/online/adguard/，后缀固定为 .txt；留空时从 URL 路径提取文件名，query/fragment 不会写入文件名。</p></div><div class="grid grid-2"><label class="switch"><input id="ad-enabled" type="checkbox" ${rule.enabled?'checked':''}><span class="switch-track"><span class="switch-thumb"></span></span><span class="switch-label">启用</span></label><label class="switch"><input id="ad-auto" type="checkbox" ${rule.auto_update?'checked':''}><span class="switch-track"><span class="switch-thumb"></span></span><span class="switch-label">自动更新</span></label></div><div class="field"><label>更新间隔（小时）</label><input id="ad-hours" type="number" min="1" value="${rule.update_interval_hours||24}"></div></div>`,async()=>{
+    modalOpen(rule.id?'编辑广告规则':'添加广告规则','支持 AdGuard DNS 过滤规则；订阅下载与合并由内核完成。',`<div class="stack"><div class="field"><label>名称</label><input id="ad-name" value="${esc(rule.name)}"></div><div class="field"><label>订阅地址</label><input id="ad-url" value="${esc(rule.url)}" placeholder="https://example.com/adblock.txt"></div><div class="field"><label>源缓存文件（可选）</label><input id="ad-files" value="${esc(rule.files||'')}" placeholder="留空时从 URL 自动生成"><p class="form-note">统一保存到 rules/online/adguard/，后缀固定为 .txt；留空时从 URL 路径提取文件名，query/fragment 不会写入文件名。</p></div><div class="grid grid-2"><label class="switch"><input id="ad-enabled" type="checkbox" ${rule.enabled?'checked':''}><span class="switch-track"><span class="switch-thumb"></span></span><span class="switch-label">启用</span></label><label class="switch"><input id="ad-auto" type="checkbox" ${rule.auto_update?'checked':''}><span class="switch-track"><span class="switch-thumb"></span></span><span class="switch-label">自动更新</span></label></div><div class="field"><label>更新间隔（小时）</label><input id="ad-hours" type="number" min="1" value="${rule.update_interval_hours||24}"></div></div>`,async()=>{
       const payload={name:$('#ad-name').value.trim(),url:$('#ad-url').value.trim(),files:$('#ad-files').value.trim(),enabled:$('#ad-enabled').checked,auto_update:$('#ad-auto').checked,update_interval_hours:+$('#ad-hours').value||24};
       if(!payload.name||!payload.url)throw new Error('名称和地址不能为空');
       if(rule.rule_count!==undefined)payload.rule_count=rule.rule_count;
       if(rule.last_updated)payload.last_updated=rule.last_updated;
-      if(rule.id)await api.json(`/plugins/adguard/rules/${rule.id}`,'PUT',Object.assign({},rule,payload,{last_error:undefined}));else await api.json('/plugins/adguard/rules','POST',payload);
+      if(rule.id)await updateAdguard(rule,payload);else await api.json('/plugins/adguard/rules','POST',payload);
       toast(`广告规则已${rule.id?'更新':'添加'}`);
       await renderAdguard(body);
     });

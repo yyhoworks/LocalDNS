@@ -6,8 +6,8 @@ const context={window:{}};
 vm.runInNewContext(require('./frontend_test_module.cjs').bundleFeature('features/rules/conversion.js','ruleConversionService','window.LocalDNSRuleConversion'),context);
 const {label,updated,message,withMetadata}=context.window.LocalDNSRuleConversion;
 for(const [detected_format,expected] of Object.entries({srs:'SRS',clash_yaml:'YAML → SRS',txt:'TXT → SRS',singbox_json:'JSON → SRS',hosts:'Hosts → SRS',dnsmasq:'DNSMasq → SRS',dat:'DAT → SRS'}))assert.equal(label({detected_format}),expected);
-assert.equal(label({url:'https://example.com/list.srs'}),'待识别'); // A suffix is not evidence of conversion.
-assert.equal(label({detected_format:'unknown'}),'待识别');
+assert.equal(label({url:'https://example.com/list.srs'}),'格式未记录'); // A suffix is not evidence of conversion.
+assert.equal(label({detected_format:'unknown'}),'格式未记录');
 const raw={name:'test',detected_format:'clash_yaml',rule_count:2};
 assert.equal(updated(raw),raw);assert.equal(updated({source:raw}),raw);
 assert.equal(message(raw),'YAML → SRS · 2 条规则');
