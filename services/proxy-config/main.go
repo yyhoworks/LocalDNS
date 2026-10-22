@@ -4,6 +4,7 @@ package main
 import (
 	"context"
 	"crypto/sha256"
+	"crypto/subtle"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
@@ -28,6 +29,12 @@ import (
 )
 
 const maxFile = 2 << 20
+
+// maxGroupFile bounds a whole sing-box fragment group and its merged result.
+// Individual fragments still use maxFile; only the group total and the merged
+// output may grow to this limit.
+const maxGroupFile = 8 << 20
+
 const apiPrefix = "/api/proxy-config/"
 
 type Core struct {
@@ -42,14 +49,19 @@ type Core struct {
 	PostReload              []string `json:"postReload,omitempty"`
 }
 type Config struct {
-	RuleBackupDirectory string          `json:"ruleBackupDirectory,omitempty"`
-	TrafficDirectory    string          `json:"trafficDirectory,omitempty"`
-	MetricsURL          string          `json:"metricsURL,omitempty"`
-	InterfaceFile       string          `json:"interfaceFile,omitempty"`
-	Listen              string          `json:"listen"`
-	Origins             []string        `json:"origins"`
-	Hosts               []string        `json:"hosts"`
-	Cores               map[string]Core `json:"cores"`
+	Listen string `json:"listen"`
+	// Token, when set, is required as "Authorization: Bearer <token>" on every
+	// business endpoint. Empty keeps the legacy Host/Origin-only behaviour so
+	// existing deployments keep working; main() warns about it at startup.
+	Token string `json:"token,omitempty"`
+	// ImportAllowCIDRs lists the private networks the fetch endpoint may
+	// retrieve configuration from. Loopback is always allowed, link-local
+	// (including cloud metadata) never is, and public addresses stay allowed;
+	// private addresses need an explicit entry here.
+	ImportAllowCIDRs []string        `json:"importAllowCIDRs,omitempty"`
+	Origins          []string        `json:"origins"`
+	Hosts            []string        `json:"hosts"`
+	Cores            map[string]Core `json:"cores"`
 }
 type Server struct {
 	config      Config
@@ -108,6 +120,15 @@ func decode(r *http.Request, w http.ResponseWriter, value any) error {
 	}
 	return nil
 }
+func validToken(r *http.Request, token string) bool {
+	const prefix = "Bearer "
+	header := r.Header.Get("Authorization")
+	if !strings.HasPrefix(header, prefix) {
+		return false
+	}
+	provided := strings.TrimPrefix(header, prefix)
+	return subtle.ConstantTimeCompare([]byte(provided), []byte(token)) == 1
+}
 func contains(list []string, value string) bool {
 	for _, item := range list {
 		if item == value {
@@ -138,9 +159,15 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if r.Method == "OPTIONS" {
+		// Preflight requests never carry Authorization, so they are exempt
+		// from the token check; Host and Origin above still apply.
 		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
-		w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
+		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
 		w.WriteHeader(204)
+		return
+	}
+	if s.config.Token != "" && !validToken(r, s.config.Token) {
+		writeError(w, failure(401, "访问令牌无效或缺失，请在 LocalDNS 界面中填写配置服务令牌后重试。"))
 		return
 	}
 	if !strings.HasPrefix(r.URL.Path, apiPrefix) {
@@ -251,18 +278,25 @@ func resolve(c Core, path string, directory bool) (string, error) {
 	}
 	return resolved, nil
 }
-func readFile(path string) ([]byte, error) {
+func readFile(path string) ([]byte, error) { return readFileLimit(path, maxFile) }
+func readFileLimit(path string, limit int64) ([]byte, error) {
 	f, err := os.Open(path)
 	if err != nil {
 		return nil, err
 	}
 	defer f.Close()
-	b, err := io.ReadAll(io.LimitReader(f, maxFile+1))
+	if info, err := f.Stat(); err == nil && info.Size() > limit {
+		return nil, failure(400, fmt.Sprintf("配置文件大小为 %d 字节，超过上限 %d 字节。", info.Size(), limit))
+	}
+	b, err := io.ReadAll(io.LimitReader(f, limit+1))
 	if err != nil {
 		return nil, err
 	}
-	if len(b) > maxFile || !utf8.Valid(b) || strings.ContainsRune(string(b), 0) {
-		return nil, failure(400, "配置需为不超过 2 MB 的 UTF-8 文本。")
+	if int64(len(b)) > limit {
+		return nil, failure(400, fmt.Sprintf("配置文件大小为 %d 字节，超过上限 %d 字节。", len(b), limit))
+	}
+	if !utf8.Valid(b) || strings.ContainsRune(string(b), 0) {
+		return nil, failure(400, "配置需为 UTF-8 文本，且不能包含空字节。")
 	}
 	return b, nil
 }
@@ -919,6 +953,14 @@ func main() {
 	}
 	if config.Listen == "" || len(config.Origins) == 0 || len(config.Hosts) == 0 {
 		log.Fatal("incomplete configuration")
+	}
+	for _, cidr := range config.ImportAllowCIDRs {
+		if _, _, err := net.ParseCIDR(cidr); err != nil {
+			log.Fatalf("importAllowCIDRs 包含无效网段 %q：%v", cidr, err)
+		}
+	}
+	if config.Token == "" {
+		log.Print("警告：未配置访问令牌（token 为空），业务接口仅靠 Host/Origin 白名单校验；监听非回环地址时请务必在配置中设置 token。")
 	}
 	s := newServer(config)
 	httpServer := &http.Server{Addr: config.Listen, Handler: s, ReadHeaderTimeout: 5 * time.Second, ReadTimeout: 15 * time.Second, WriteTimeout: 110 * time.Second, IdleTimeout: 30 * time.Second, MaxHeaderBytes: 16 << 10}

@@ -62,6 +62,35 @@ func TestFragmentCheckStagesWholeGroupAndRejectsConcurrentChanges(t *testing.T) 
 		t.Fatal("accepted old group revision")
 	}
 }
+func TestFragmentSaveWithMergedResultOverSingleFileLimit(t *testing.T) {
+	s, _, path := fragmentServer(t)
+	binary := filepath.Join(t.TempDir(), "sing-box-fixture")
+	script := "#!/bin/sh\n" +
+		"if [ \"$1\" = merge ]; then " +
+		"printf '%s' '{\"outbounds\":[{\"type\":\"direct\",\"tag\":\"direct\"}],\"pad\":\"' > \"$2\"; " +
+		"head -c 3145728 /dev/zero | tr '\\0' 'x' >> \"$2\"; " +
+		"printf '%s' '\"}' >> \"$2\"; fi\n"
+	os.WriteFile(binary, []byte(script), 0o700)
+	configured := s.config.Cores["sing-box"]
+	configured.Binary = binary
+	s.config.Cores["sing-box"] = configured
+	c := s.config.Cores["sing-box"]
+	group, err := snapshotSingBox(c)
+	if err != nil {
+		t.Fatal(err)
+	}
+	old, _ := os.ReadFile(path)
+	// The merged result is ~3 MiB: above the 2 MiB single-file limit but
+	// within the 8 MiB group total, so saving the group must succeed.
+	input := request{Core: "sing-box", Path: path, Content: `{"route":{"final":"direct","rules":[]}}`, Revision: digest(old), GroupRevision: group.Revision}
+	if rr := call(s, "save", input); rr.Code != 200 {
+		t.Fatal(rr.Body.String())
+	}
+	current, _ := os.ReadFile(path)
+	if string(current) != input.Content {
+		t.Fatal("fragment was not saved")
+	}
+}
 func TestFragmentSnapshotRejectsEscapingLinksAndIncludesNewFiles(t *testing.T) {
 	s, _, path := fragmentServer(t)
 	c := s.config.Cores["sing-box"]

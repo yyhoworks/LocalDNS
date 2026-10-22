@@ -170,8 +170,8 @@ func snapshotSingBox(c Core) (*singBoxGroup, error) {
 			return nil, err
 		}
 		total += len(data)
-		if total > 8<<20 {
-			return nil, failure(400, "分片配置总大小不能超过 8 MB。")
+		if total > maxGroupFile {
+			return nil, failure(400, fmt.Sprintf("分片配置总大小为 %d 字节，不能超过 %d 字节。", total, maxGroupFile))
 		}
 		group.Inputs = append(group.Inputs, groupInput{Path: path, Resolved: resolved, Data: data})
 		manifest = append(manifest, path+"\x00"+resolved+"\x00"+digest(data))
@@ -269,7 +269,9 @@ func mergeSingBox(ctx context.Context, c Core, output string) ([]byte, error) {
 		return nil, &apiError{Status: 422, Message: "整套分片无法合并，原配置未修改。", Detail: scrubOutput(message, output)}
 	}
 	os.Chmod(output, 0o600)
-	return readFile(output)
+	// The merged result is bounded by the group total (maxGroupFile), not by
+	// the single-file limit; a group of small fragments may merge past maxFile.
+	return readFileLimit(output, maxGroupFile)
 }
 func processInputs(c Core) (Core, error) {
 	pid, err := singBoxPID(c)

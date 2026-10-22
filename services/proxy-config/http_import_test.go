@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -121,6 +122,42 @@ func TestHTTPImportRejectsInvalidSourcesAndKeepsTarget(t *testing.T) {
 	target, _ := os.ReadFile(path)
 	if string(target) != "mode: rule\n" {
 		t.Fatal("failed fetch modified target")
+	}
+}
+func TestImportAllowedPolicy(t *testing.T) {
+	cases := []struct {
+		ip    string
+		cidrs []string
+		want  bool
+	}{
+		{"127.0.0.1", nil, true},
+		{"::1", nil, true},
+		{"169.254.169.254", nil, false},
+		{"169.254.169.254", []string{"169.254.0.0/16"}, false}, // link-local stays blocked even when listed
+		{"10.0.0.5", nil, false},                               // private needs an explicit allowlist entry
+		{"10.0.0.5", []string{"10.0.0.0/8"}, true},
+		{"192.168.1.5", []string{"10.0.0.0/8"}, false},
+		{"192.168.1.5", []string{"192.168.0.0/16"}, true},
+		{"10.0.0.5", []string{"not-a-cidr"}, false},
+		{"fd00::1", nil, false},
+		{"fd00::1", []string{"fd00::/8"}, true},
+		{"8.8.8.8", nil, true}, // public addresses stay allowed
+		{"0.0.0.0", nil, false},
+		{"224.0.0.1", nil, false},
+	}
+	for _, c := range cases {
+		if got := importAllowed(net.ParseIP(c.ip), c.cidrs); got != c.want {
+			t.Errorf("importAllowed(%s, %v) = %v, want %v", c.ip, c.cidrs, got, c.want)
+		}
+	}
+}
+func TestHTTPImportRejectsPrivateAddressWithoutAllowlist(t *testing.T) {
+	s, _ := importTestServer(t)
+	// Nothing listens on this address; the policy check must reject the
+	// request before any dialing happens, so the failure is immediate.
+	w := importCall(s, "fetch", map[string]string{"url": "http://10.255.255.1:81/config.yaml", "core": "mihomo"})
+	if w.Code < 400 {
+		t.Fatal(w.Body.String())
 	}
 }
 func TestHTTPImportRequiresApprovedOrigin(t *testing.T) {
