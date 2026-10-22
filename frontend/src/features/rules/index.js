@@ -153,13 +153,27 @@ if(!approved&&rulesWorkbenchService?.canLeave(()=>renderRuleTab(tab,true))===fal
     return payload;
   }
 
-  async function saveDiversionRule(rule,original=null){
+  // PUT 新配置成功、但删除改名/换组前的旧配置失败时，新旧两份会并存。
+  // 这里记录待清理的旧配置，renderDiversion 会渲染带重试按钮的提示条，
+  // 而不是把整个保存误报为「操作失败」。
+  let staleOriginal=null;
+  async function deleteOriginalConfig(ref){
+    const path=`/plugins/${ref.tag}/config/${encodeURIComponent(ref.name)}`;
+    return ruleConversionService.deleteOriginalWithRetry(()=>api.request(path,{method:'DELETE'}));
+  }
+
+  async function saveDiversionRule(rule,original=null,options={}){
     const target=diversionDefByType(rule.type);if(!target)throw new Error('请选择有效的规则类型');
     const payload=diversionPayload(ruleConversionService.withMetadata(rule,original));if(!payload.name)throw new Error('名称不能为空');if(!payload.url)throw new Error('订阅地址不能为空');
     const response=await api.json(`/plugins/${target.tag}/config/${encodeURIComponent(payload.name)}`,'PUT',payload);
-    const saved=await ruleConversionService.finishSave(response,()=>updateRule(`/plugins/${target.tag}/update/${encodeURIComponent(payload.name)}`));
+    const saved=await ruleConversionService.finishSave(response,()=>updateRule(`/plugins/${target.tag}/update/${encodeURIComponent(payload.name)}`),options);
     if(original&&(original.tag!==target.tag||original.name!==payload.name)){
-      await api.request(`/plugins/${original.tag}/config/${encodeURIComponent(original.name)}`,{method:'DELETE'});
+      if(await deleteOriginalConfig(original)){
+        if(staleOriginal&&staleOriginal.tag===original.tag&&staleOriginal.name===original.name)staleOriginal=null;
+      }else{
+        staleOriginal={tag:original.tag,name:original.name};
+        toast('新配置已保存，旧配置未能删除','error',`旧配置「${original.name}」仍保留在列表中，可在分流规则页顶部重试删除。`);
+      }
     }
     return saved;
   }
@@ -208,10 +222,17 @@ if(!approved&&rulesWorkbenchService?.canLeave(()=>renderRuleTab(tab,true))===fal
     rows.sort((a,b)=>Number(b.enabled)-Number(a.enabled));
     setHTML(body, card('在线分流规则',workspaceService.diversion(rows,errors,diversionFormatLabel),{iconName:'rules',actions:'<button class="button" id="div-update-all">更新全部</button><button class="button primary" id="div-add">'+icon('plus')+'添加规则</button>'}));
     workspaceService.bindDiversion(body);
+    if(staleOriginal){
+      const notice=document.createElement('div');
+      notice.className='error-panel';
+      setHTML(notice,`<div><strong>新配置已保存，旧配置未能删除。</strong><p>旧配置「${esc(staleOriginal.name)}」仍保留，新旧两份会同时生效。</p></div><button class="button" id="div-stale-retry">重试删除旧配置</button>`);
+      body.prepend(notice);
+      notice.querySelector('#div-stale-retry').onclick=async event=>{const button=event.currentTarget;button.disabled=true;if(await deleteOriginalConfig(staleOriginal)){staleOriginal=null;toast('旧配置已删除');await renderDiversion(body)}else{toast('旧配置仍删除失败','error','请稍后重试，或检查配置服务状态。');button.disabled=false}};
+    }
     syncDiversionUpdateState(body);
     $$('.div-detail',body).forEach(button=>button.onclick=()=>{const el=button.closest('[data-tag][data-name]'),r=rows.find(r=>r.tag===el.dataset.tag&&String(r.name)===el.dataset.name);if(r)workspaceService.ruleDetails(r,()=>openDiversionModal(r,body),diversionFormatLabel);});
     const findRow=tr=>rows.find(r=>r.tag===tr.dataset.tag&&String(r.name)===tr.dataset.name);
-    $$('.div-enable').forEach(x=>x.onchange=async()=>{const tr=x.closest('[data-tag][data-name]'),rule=findRow(tr);if(!rule)return;x.disabled=true;try{const next={...rule,enabled:x.checked};await saveDiversionRule(next,rule);rule.enabled=x.checked;toast(`规则“${rule.name}”已${x.checked?'启用':'关闭'}，配置已保存`);await renderDiversion(body)}catch(e){x.checked=!x.checked;toast('状态保存失败','error',e.message)}finally{x.disabled=false}});
+    $$('.div-enable').forEach(x=>x.onchange=async()=>{const tr=x.closest('[data-tag][data-name]'),rule=findRow(tr);if(!rule)return;x.disabled=true;try{const next={...rule,enabled:x.checked};await saveDiversionRule(next,rule,{configOnly:true});rule.enabled=x.checked;toast(`规则“${rule.name}”已${x.checked?'启用':'关闭'}，配置已保存`);await renderDiversion(body)}catch(e){x.checked=!x.checked;toast('状态保存失败','error',e.message)}finally{x.disabled=false}});
     $$('.div-update').forEach(x=>x.onclick=async()=>{if(diversionUpdating)return;const rule=findRow(x.closest('[data-tag][data-name]'));if(!rule)return;x.disabled=true;try{await updateDiversionRule(rule,body)}catch(e){updateError(e)}finally{x.disabled=false}});
     $$('.div-edit').forEach(x=>x.onclick=()=>{const rule=findRow(x.closest('[data-tag][data-name]'));if(rule)openDiversionModal(rule,body)});
     $$('.div-delete').forEach(x=>x.onclick=async()=>{if(!confirm('确定删除此在线规则？配置文件中的对应项目也会被删除。'))return;const tr=x.closest('[data-tag][data-name]');x.disabled=true;try{await api.request(`/plugins/${tr.dataset.tag}/config/${encodeURIComponent(tr.dataset.name)}`,{method:'DELETE'});toast('规则及对应配置已删除');await renderDiversion(body)}catch(e){toast('删除失败','error',e.message)}finally{x.disabled=false}});
@@ -255,7 +276,11 @@ if(!approved&&rulesWorkbenchService?.canLeave(()=>renderRuleTab(tab,true))===fal
           }
         });
         const detailText=details.join('；');
-        if(uncertain)toast(`已更新 ${completed} 条；${uncertain} 条结果待确认${failed?`；失败 ${failed} 条`:''}${datasetNeeded?`；${datasetNeeded} 条需要选择数据集`:''}`,failed||datasetNeeded?'error':'info',detailText+'；请勿重复提交更新任务。');
+        // dataset_required 是 failed 的子集（需要选数据集的规则同时计入失败数），
+        // 展示时相减，避免同一条规则在「失败」与「需要数据集」中被重复计数。
+        const failedOther=Math.max(0,failed-datasetNeeded);
+        if(uncertain)toast(`已更新 ${completed} 条；${uncertain} 条结果待确认${failedOther?`；失败 ${failedOther} 条`:''}${datasetNeeded?`；${datasetNeeded} 条需要选择数据集`:''}`,failedOther||datasetNeeded?'error':'info',detailText+'；请勿重复提交更新任务。');
+        else if(datasetNeeded&&failedOther)toast(`更新完成 ${completed} 条；失败 ${failedOther} 条；${datasetNeeded} 条需要单独选择数据集`,'error',detailText);
         else if(datasetNeeded)toast(`更新完成 ${completed} 条；${datasetNeeded} 条需要单独选择数据集`,'error',detailText);
         else if(failed)toast(`更新任务完成，失败 ${failed} 条`,'error',detailText);
         else toast(`已更新 ${completed} 条在线分流规则`);

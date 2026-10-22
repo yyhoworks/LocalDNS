@@ -1,7 +1,7 @@
 /* Direct local configuration editing. Configuration contents are never persisted in browser storage. */
 import { setHTML } from '../../core/security/safe-dom.ts';
 import { preferences } from '../../core/persistence/preferences.ts';
-import { request } from './api';
+import { request, readProxyConfigToken, PROXY_CONFIG_TOKEN_KEY } from './api';
   const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const icons = {
     back:'<path d="m14 6-6 6 6 6M8 12h12"/>', folder:'<path d="M3 7a2 2 0 0 1 2-2h5l2 2h7a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z"/>',
@@ -12,7 +12,12 @@ import { request } from './api';
   };
   const icon = name => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.65" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${icons[name] || icons.file}</svg>`;
   const brands = {mihomo:{name:'Mihomo',format:'YAML',logo:'assets/img/proxy-panel.svg'},'sing-box':{name:'sing-box',format:'JSON',logo:'assets/img/proxy-panel.svg'}};
+  // 配置服务可能上报本地未知的核心 id：查表判空并回退通用品牌，避免整页渲染崩溃。
+  const brandOf = id => brands[id] || {name:String(id || '未知核心'),format:'',logo:'assets/img/proxy-panel.svg'};
   let active = null;
+  // 无 route scope 时无人接管 dispose：暂存于此，下一次 mount 前先执行，
+  // 避免 window 监听、AbortController 与编辑器实例泄漏（见 mount 末尾）。
+  let fallbackDispose = null;
   const vendor = () => import('./editor.js');
   function dialog(title, content, actions='', wide=false) {
     const origin = document.activeElement;
@@ -33,6 +38,7 @@ import { request } from './api';
   /** @param {HTMLElement} parent @param {import('../../core/router/route-context').RouteContext} context */
   export async function mount(parent, context) {
     const {notify,navigate,scope}=context;
+    if(fallbackDispose){const run=fallbackDispose;fallbackDispose=null;run();}
     const abort = new AbortController();
     let editor, tools, cores=[], core='mihomo', path='', revision='', base='', newline='\n', busy=false, programmatic=false, serviceReady=false, activeFile=false, groupRevision='', fragmentMode=false, groupCount=0, alive=true, mode='file', directory='', directoryCore='mihomo', directoryFiles=[], browseSequence=0, browsing=false;
     let workspace={};try{workspace=JSON.parse(preferences.getItem('localdns-proxy-config-workspace-v1')||'{}')||{};}catch{}
@@ -42,6 +48,7 @@ import { request } from './api';
       <div class="pc-sourcebar"><label for="pc-core-select">配置核心</label><select id="pc-core-select"><option value="mihomo">Mihomo · YAML</option><option value="sing-box">sing-box · JSON</option></select><div class="pc-source-modes" role="group" aria-label="文件浏览方式"><button type="button" data-pc-mode="file" aria-pressed="true">单文件</button><button type="button" data-pc-mode="directory" aria-pressed="false">目录</button></div><button type="button" class="button small" id="pc-http-toggle" aria-expanded="false" aria-controls="pc-http-form">HTTP 获取</button></div>
       <form class="pc-http-form" id="pc-http-form" hidden><label for="pc-http-url">HTTP(S) 配置链接</label><div class="pc-http-fields"><input id="pc-http-url" type="url" placeholder="https://example.com/config.yaml" autocomplete="off" spellcheck="false" required aria-describedby="pc-http-note pc-http-error"/><button type="submit" class="button" id="pc-http-read">读取到编辑器</button></div><label class="pc-keep-controller"><input type="checkbox" id="pc-keep-controller" checked/>保留目标核心的控制地址和密钥</label><p id="pc-http-note">先选择目标配置文件。读取成功后进入草稿，保存时写入该文件。</p><p id="pc-http-error" class="pc-form-error" role="alert" hidden></p></form>
       <details class="pc-setup" id="pc-setup" hidden><summary>恢复配置服务</summary><p>在核心所在服务器安装配套配置服务，然后重新读取。默认端口为 9098；自定义地址可在 ui/config.js 设置 proxyConfigBase。</p><code>sh install-proxy-config.sh http://服务器IP:9099</code><a href="help/proxy-config.txt" target="_blank" rel="noopener noreferrer">查看安装说明</a></details>
+      <details class="pc-setup" id="pc-token-setup"><summary>配置服务令牌</summary><p>配置服务启用令牌校验时，填入安装时生成的令牌；令牌只保存在此浏览器，服务未启用校验时可留空。</p><div class="pc-http-fields"><input id="pc-token" type="password" placeholder="配置服务令牌" autocomplete="off" spellcheck="false"/><button type="button" class="button" id="pc-token-save">保存令牌</button></div><p id="pc-token-state" class="pc-form-error" role="alert" hidden></p></details>
       <button type="button" class="pc-mobile-files" id="pc-toggle-files" aria-expanded="false" aria-controls="pc-directory-panel" hidden><span>切换配置文件</span><span>展开列表</span></button>
       <div class="pc-workspace" data-mode="file"><aside class="pc-directory-panel" id="pc-directory-panel" aria-label="目录配置文件" hidden><form id="pc-directory-form"><label for="pc-directory-input">配置目录</label><div><input id="pc-directory-input" type="text" placeholder="/etc/mihomo" autocomplete="off" spellcheck="false" required/><button type="submit" class="button small">读取</button></div></form><div class="pc-directory-heading"><span id="pc-file-count" role="status">尚未读取目录</span><button type="button" class="button small" id="pc-directory-parent">上一级</button></div><input id="pc-file-filter" type="search" placeholder="筛选配置文件" aria-label="筛选配置文件"/><div id="pc-directory-list" class="pc-directory-list" aria-live="polite"></div><p class="pc-directory-note">备用配置仅保存文件；启动配置保存后自动应用。</p></aside>
       <section class="pc-card" id="pc-card"><div class="pc-filebar"><img id="pc-logo" src="assets/img/proxy-panel.svg" alt="" width="34" height="34"/><div class="pc-filename"><div><strong id="pc-name">选择配置文件</strong><span class="pc-format" id="pc-format">YAML</span></div><button type="button" class="pc-path" id="pc-choose"><span id="pc-path">读取服务器配置…</span>${icon('folder')}</button></div><div class="pc-editor-tools"><button type="button" class="icon-button" id="pc-search" aria-label="查找配置">${icon('search')}</button><button type="button" class="icon-button" id="pc-focus" aria-label="专注编辑" aria-pressed="false">${icon('expand')}</button><button type="button" class="button small" id="pc-diff">${icon('diff')}<span>查看改动</span></button></div></div>
@@ -56,6 +63,7 @@ import { request } from './api';
     const dirty = () => !!editor && editor.text() !== base;
     const current = {dirty, isBusy:()=>busy, notify, confirmLeave:confirmDiscard}; active=current;
     const result = (state,title,detail='',open=false) => { if(!alive)return;$('#pc-result').dataset.state=state;$('#pc-result-title').textContent=title;$('#pc-result-detail').textContent=detail;$('#pc-result').open=open; };
+    let lastSaveLabel='';
     const sync = () => {
       if(!alive)return;
       const loaded=!!revision;
@@ -64,7 +72,10 @@ import { request } from './api';
       for(const id of ['pc-choose','pc-check','pc-reread','pc-search','pc-focus'])$('#'+id).disabled=busy||!serviceReady||(id!=='pc-choose'&&!loaded);
       $('#pc-diff').disabled=busy||!dirty();$('#pc-save').disabled=busy||!loaded||!dirty();
       for(const id of ['pc-http-toggle','pc-http-read','pc-http-url','pc-keep-controller'])$('#'+id).disabled=busy||!serviceReady;
-      setHTML($('#pc-save'), icon('save')+(activeFile?'保存并应用':'保存文件'));
+      // 保存按钮文案只随 activeFile 变化：文案未变时不要重建内容。
+      // sync 会在每次按键后触发，无条件 setHTML 会逐字销毁重建按钮 DOM。
+      const saveLabel=icon('save')+(activeFile?'保存并应用':'保存文件');
+      if(saveLabel!==lastSaveLabel){lastSaveLabel=saveLabel;setHTML($('#pc-save'), saveLabel);}
       $('#pc-core-select').disabled=busy||!serviceReady;$('#pc-core-select').value=core;
       for(const button of root.querySelectorAll('[data-pc-mode],#pc-directory-form button,#pc-directory-parent'))button.disabled=busy||!serviceReady||browsing;
       $('#pc-directory-input').disabled=busy||browsing;
@@ -77,6 +88,7 @@ import { request } from './api';
     const cursor = () => {if(!editor||!alive)return;const selection=editor.view.state.selection.main,line=editor.view.state.doc.lineAt(selection.head);$('#pc-cursor').textContent=`行 ${line.number}，列 ${selection.head-line.from+1}`;$('#pc-lines').textContent=editor.view.state.doc.lines+' 行';};
     const report = error => {
       if(!alive)return;
+      if(error?.proxyConfigAuth){const setup=$('#pc-token-setup');if(setup){setup.hidden=false;setup.open=true;}const state=$('#pc-token-state');if(state){state.textContent='令牌无效或未填写：配置服务拒绝了请求，请在上方保存正确令牌后重试。';state.hidden=false;}}
       const detail=error.body||error;
       result('error',error.message,[detail.detail,detail.backup?'备份：'+detail.backup:''].filter(Boolean).join('\n'),true);
       if(!serviceReady)$('#pc-setup').hidden=false;
@@ -92,10 +104,10 @@ import { request } from './api';
         newline=loaded.content.includes('\r\n')?'\r\n':'\n';base=loaded.content.replace(/\r\n/g,'\n');
         if(!editor){$('#pc-editor').replaceChildren();editor=tools.makeEditor({parent:$('#pc-editor'),doc:base,type:core,onSave:()=>{if(!busy&&dirty())compare(true);},onUpdate:update=>{cursor();if(update.docChanged&&!programmatic)queueMicrotask(()=>{if(!alive)return;editor.diagnostics([]);sync();result('idle','内容已修改，等待检查','保存时会重新执行核心校验。');});}});}
         else{programmatic=true;editor.set(base,core);programmatic=false;}
-        $('#pc-logo').src=brands[core].logo;$('#pc-logo').alt=brands[core].name;$('#pc-name').textContent=path.split('/').pop();$('#pc-path').textContent=path;$('#pc-path').title=path;$('#pc-format').textContent=brands[core].format;
+        $('#pc-logo').src=brandOf(core).logo;$('#pc-logo').alt=brandOf(core).name;$('#pc-name').textContent=path.split('/').pop();$('#pc-path').textContent=path;$('#pc-path').title=path;$('#pc-format').textContent=brandOf(core).format;
         $('#pc-encoding').textContent='UTF-8 · '+(newline==='\r\n'?'CRLF':'LF');
         $('#pc-active-note').textContent=fragmentMode?`运行分片 · 与 ${groupCount} 份文件合并校验，保存后重载整套配置`:activeFile?'启动配置 · 保存后自动重载':'备用配置 · 保存后不切换当前运行配置';
-        $('#pc-http-note').textContent=`保存目标：${path}${activeFile?' · 保存后应用到 '+brands[core].name:' · 备用文件，保存后不应用'}`;
+        $('#pc-http-note').textContent=`保存目标：${path}${activeFile?' · 保存后应用到 '+brandOf(core).name:' · 备用文件，保存后不应用'}`;
         $('.pc-directory-note').textContent=cores.find(item=>item.id===core)?.mode==='fragments'?'运行分片会按完整集合合并校验，目录外备用文件单独保存。':'备用配置仅保存文件；启动配置保存后自动应用。';
         result('idle',fragmentMode?`已读取运行分片 · 共 ${groupCount} 份`:'已读取配置，尚未检查',activeFile?'修改后可检查配置、查看差异，再保存并应用。':'此文件独立校验并保存。当前启动配置：'+cores.find(item=>item.id===core)?.path);
         renderDirectoryFiles();
@@ -187,7 +199,7 @@ import { request } from './api';
     async function chooseFile() {
       if(busy)return;
       let selected=core, directory='';
-      const element=dialog('选择配置文件',`<div class="pc-core-options">${cores.map(item=>`<label class="pc-core-option"><input type="radio" name="pc-core" value="${esc(item.id)}" ${item.id===core?'checked':''} ${item.available?'':'disabled'}/><img src="${brands[item.id].logo}" alt=""/><span>${brands[item.id].name}${item.available?'':' · 未安装'}</span></label>`).join('')}</div><div class="pc-directorybar"><code id="pc-directory"></code><button class="button small" type="button" id="pc-parent">上一级</button></div><div class="pc-files" id="pc-files" aria-live="polite"></div><form id="pc-file-form"><label class="field">配置文件绝对路径<input type="text" id="pc-picker-path" autocomplete="off" spellcheck="false" value="${esc(path)}" required/></label><p class="pc-note" id="pc-picker-roots"></p><p class="pc-form-error" id="pc-picker-error" role="alert" hidden></p></form>`, '<button class="button" data-pc-close>取消</button><button type="submit" form="pc-file-form" class="button primary">读取配置</button>');
+      const element=dialog('选择配置文件',`<div class="pc-core-options">${cores.map(item=>`<label class="pc-core-option"><input type="radio" name="pc-core" value="${esc(item.id)}" ${item.id===core?'checked':''} ${item.available?'':'disabled'}/><img src="${brandOf(item.id).logo}" alt=""/><span>${brandOf(item.id).name}${item.available?'':' · 未安装'}</span></label>`).join('')}</div><div class="pc-directorybar"><code id="pc-directory"></code><button class="button small" type="button" id="pc-parent">上一级</button></div><div class="pc-files" id="pc-files" aria-live="polite"></div><form id="pc-file-form"><label class="field">配置文件绝对路径<input type="text" id="pc-picker-path" autocomplete="off" spellcheck="false" value="${esc(path)}" required/></label><p class="pc-note" id="pc-picker-roots"></p><p class="pc-form-error" id="pc-picker-error" role="alert" hidden></p></form>`, '<button class="button" data-pc-close>取消</button><button type="submit" form="pc-file-form" class="button primary">读取配置</button>');
       const field=element.querySelector('#pc-picker-path'),error=element.querySelector('#pc-picker-error');
       const showError=text=>{error.textContent=text;error.hidden=false;};
       async function browse(nextDirectory) {
@@ -206,7 +218,7 @@ import { request } from './api';
     }
     async function loadCores(loadDefault) {
       try{const response=await request('cores',{signal:abort.signal});if(!alive)return;if(!Array.isArray(response.cores))throw new Error('配置服务返回格式无效，请检查服务版本。');cores=response.cores;serviceReady=true;$('#pc-setup').hidden=true;
-        setHTML($('#pc-core-select'), cores.map(item=>`<option value="${esc(item.id)}" ${item.available?'':'disabled'}>${brands[item.id].name} · ${brands[item.id].format}${item.mode==='fragments'?' 分片':''}${item.available?'':' · 未安装'}</option>`).join(''));
+        setHTML($('#pc-core-select'), cores.map(item=>`<option value="${esc(item.id)}" ${item.available?'':'disabled'}>${brandOf(item.id).name} · ${brandOf(item.id).format}${item.mode==='fragments'?' 分片':''}${item.available?'':' · 未安装'}</option>`).join(''));
         if(loadDefault){let preferred;try{preferred=JSON.parse(preferences.getItem('localdns-proxy-config-file-v1')||'null');}catch{}
           const chosen=cores.find(item=>item.id===preferred?.core&&item.available&&item.exists)||cores.find(item=>item.available&&item.exists);
           if(chosen){await readFile(chosen.id,preferred?.core===chosen.id&&preferred?.path?preferred.path:chosen.path);if(workspace.core===chosen.id&&typeof workspace.directory==='string'){directory=workspace.directory;directoryCore=chosen.id;}setMode(chosen.mode==='fragments'?'directory':mode);}
@@ -223,6 +235,8 @@ import { request } from './api';
     $('#pc-http-toggle').onclick=()=>{const form=$('#pc-http-form');form.hidden=!form.hidden;$('#pc-http-toggle').setAttribute('aria-expanded',String(!form.hidden));if(!form.hidden)$('#pc-http-url').focus();};
     $('#pc-http-form').onsubmit=event=>{event.preventDefault();confirmDiscard(importHTTP);};
     $('#pc-http-url').oninput=()=>{$('#pc-http-error').hidden=true;$('#pc-http-url').removeAttribute('aria-invalid');};
+    $('#pc-token').value=readProxyConfigToken();
+    $('#pc-token-save').onclick=async()=>{const value=$('#pc-token').value.trim();try{if(value)localStorage.setItem(PROXY_CONFIG_TOKEN_KEY,value);else localStorage.removeItem(PROXY_CONFIG_TOKEN_KEY);}catch{} $('#pc-token-state').hidden=true;notify(value?'配置服务令牌已保存':'配置服务令牌已清除');await loadCores(!editor);};
     root.addEventListener('keydown',event=>{if(event.key==='Escape'&&root.classList.contains('pc-focused')&&!document.querySelector('.pc-dialog[open]')){event.preventDefault();$('#pc-focus').click();}});
     $('#pc-back').onclick=()=>navigate('management');
     $('#pc-retry').onclick=async()=>{try{tools=tools||await vendor();await loadCores(true);}catch(error){report(error);}};
@@ -234,12 +248,14 @@ import { request } from './api';
     const beforeUnload=event=>{if(dirty()||busy){event.preventDefault();event.returnValue='';}};
     const resize=()=>editor?.view.requestMeasure();
     window.addEventListener('beforeunload',beforeUnload);window.addEventListener('localdns:layoutchange',resize);window.addEventListener('resize',resize);
-    const dispose=()=>{alive=false;abort.abort();editor?.destroy();root.classList.remove('pc-focused');window.removeEventListener('beforeunload',beforeUnload);window.removeEventListener('localdns:layoutchange',resize);window.removeEventListener('resize',resize);document.querySelectorAll('.pc-dialog').forEach(element=>element.close());if(active===current)active=null;};
+    const dispose=()=>{alive=false;abort.abort();editor?.destroy();root.classList.remove('pc-focused');window.removeEventListener('beforeunload',beforeUnload);window.removeEventListener('localdns:layoutchange',resize);window.removeEventListener('resize',resize);document.querySelectorAll('.pc-dialog').forEach(element=>element.close());if(active===current)active=null;if(fallbackDispose===dispose)fallbackDispose=null;};
     scope?.add(dispose);
     sync();
     try{tools=await vendor();if(alive)await loadCores(true);}
     catch(error){if(alive)report(error);}
-    if(!scope)return dispose;
+    // 无 scope 时把 dispose 暂存模块级：下一次 mount 会先执行它完成清理，
+    // 而不是像原先那样把 dispose 返回给不消费它的调用方后直接泄漏。
+    if(!scope){fallbackDispose=dispose;return dispose;}
   }
 export function requestLeave() {
   if(active?.isBusy()){active.notify('配置操作尚未完成，请等待结果。','info');return false;}

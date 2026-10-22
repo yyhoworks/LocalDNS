@@ -12,9 +12,10 @@ import { groupName } from './groups.js';
   async function renderUpstreams(container, context){
  const renderScope = context.scope, page = container;
 
-    const {config, ecs, groups, rows} = await readUpstreams(renderScope);
-    const model = {config, ecs};
+    const {config, ecs, groups, rows, degraded} = await readUpstreams(renderScope);
+    const model = {config, ecs, groups};
     setHTML(page, `<div class="view-title-row"><div><h1>DNS 管理</h1></div><button type="button" class="glass-btn primary" id="up-add">添加上游节点</button></div><div class="col-12">${workspaceService.upstreams(rows,groups)}</div>`);
+    if(degraded?.metrics||degraded?.ecs){const note=document.createElement('p');note.className='form-note';note.textContent=`部分数据暂不可用：${[degraded.metrics?'上游指标':null,degraded.ecs?'ECS 设置':null].filter(Boolean).join('、')}读取失败，已按空数据展示。`;page.append(note);}
     $$('.up-toggle',page).forEach(x=>x.onchange=()=>toggleUpstream(x.closest('tr'),x.checked));
     $$('.up-edit',page).forEach(x=>x.onclick=()=>openUpstreamModal(x.closest('tr')));
     $$('.up-delete',page).forEach(x=>x.onclick=()=>deleteUpstream(x.closest('tr')));
@@ -32,10 +33,12 @@ import { groupName } from './groups.js';
 
   function openUpstreamModal(row){
     const edit=!!row;
-    const group=edit?row.dataset.group:Object.keys(model.config||{})[0]||'domestic';
+    // 分组选项与默认组都用 tags 接口返回的分组列表（含尚无节点的空分组），
+    // 不再从 config 的键推导——空分组在 config 里不存在，会漏选项、错默认组。
+    const groups=(model.groups&&model.groups.length)?model.groups:Object.keys(model.config||{});
+    const group=edit?row.dataset.group:(groups[0]||'domestic');
     const idx=edit?+row.dataset.index:-1;
     const u=edit?model.config[group][idx]:{tag:'',protocol:'udp',addr:'',enabled:true};
-    const groups=Object.keys(model.config||{});
     // SOCKS5 only for foreign / foreign_ecs; ECS only for foreign_ecs. The timeout takes the place of the fields a group does not have.
     const hasSocks=g=>g==='foreign'||g==='foreign_ecs';
     const fieldsHtml=(g,v)=>{

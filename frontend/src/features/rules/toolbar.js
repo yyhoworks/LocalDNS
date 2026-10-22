@@ -12,7 +12,7 @@ export function initialize() {
     if(!host){
       document.body.classList.remove('has-rules-workbench');
       const heading=$('.view-title-row h1');if(heading&&heading.textContent==='清单工作台')heading.textContent='规则管理';
-      const note=$('.view-title-row .gc-sub');if(note&&note.textContent==='逐条编辑名单，随时切换原文。')note.textContent='维护本地名单、广告拦截与在线分流规则。';
+      const note=$('.view-title-row .gc-sub');if(note&&note.textContent==='逐条编辑名单，随时切换原文。')note.textContent='统一维护本地名单、AdGuard 广告拦截与 SRS 在线分流规则';
     }if(!host)return;
     const raw=host.classList.contains('raw');
     for(const b of host.querySelectorAll('[data-wb-mode]'))b.setAttribute('aria-pressed',String((b.dataset.wbMode==='raw')===raw));
@@ -24,7 +24,7 @@ export function initialize() {
     if(!host){
       document.body.classList.remove('has-rules-workbench');
       const heading=$('.view-title-row h1');if(heading&&heading.textContent==='清单工作台')heading.textContent='规则管理';
-      const note=$('.view-title-row .gc-sub');if(note&&note.textContent==='逐条编辑名单，随时切换原文。')note.textContent='维护本地名单、广告拦截与在线分流规则。';
+      const note=$('.view-title-row .gc-sub');if(note&&note.textContent==='逐条编辑名单，随时切换原文。')note.textContent='统一维护本地名单、AdGuard 广告拦截与 SRS 在线分流规则';
     }
     const titleArea=$('.view-title-row>div:first-child');
     if(host&&titleArea&&!$('h1',titleArea))insertHTML(titleArea, 'afterbegin', '<h1>清单工作台</h1><span class="gc-sub">逐条编辑名单，随时切换原文。</span>');

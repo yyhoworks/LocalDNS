@@ -198,12 +198,38 @@ export function initialize() {
   }
 
   /* ---------- 列表渲染 ---------- */
-  function visibleRows() {
+  /* 搜索可见集合的唯一口径：分组感知（标题/组注释命中→整组显示；规则命中→
+     带出所在标题与注释）。renderList 与「全选」必须共用这一份计算，否则
+     全选集合与界面实际显示不一致（漏选可见行或选到不可见行）。 */
+  function computeShow() {
+    buildGroups();
     var kw = q.trim().toLowerCase();
-    if (!kw) return rows;
+    var hits = function (r) {
+      return String(r.value || '').toLowerCase().indexOf(kw) >= 0 || String(NAME[r.type] || '').toLowerCase().indexOf(kw) >= 0;
+    };
+    var show = {};
+    if (!kw) {
+      rows.forEach(function (r) { show[r.id] = true; });
+      return show;
+    }
+    groups.forEach(function (g) {                        /* 命中标题/注释：整组显示 */
+      if (!hits(g.title) && !g.notes.some(hits)) return;
+      show[g.id] = true;
+      g.notes.forEach(function (n) { show[n.id] = true; });
+      g.children.forEach(function (id) { show[id] = true; });
+    });
+    rows.forEach(function (r) {                           /* 命中规则：把所在标题一起带出来 */
+      if (r.kind === 'blank' || r.kind === 'sep' || !hits(r)) return;
+      show[r.id] = true;
+      var g = groupOf(r.id) || groupById(lineGroup[r.id]);
+      if (g) { show[g.id] = true; g.notes.forEach(function (n) { show[n.id] = true; }); }
+    });
+    return show;
+  }
+  function visibleRows() {
+    var show = computeShow();
     return rows.filter(function (r) {
-      if (r.kind === 'blank' || r.kind === 'sep') return false;
-      return (r.value || '').toLowerCase().indexOf(kw) >= 0 || NAME[r.type].indexOf(kw) >= 0;
+      return show[r.id] && r.kind !== 'blank' && r.kind !== 'sep';
     });
   }
   /* 能勾选的行（规则/原件行）；「全选」只作用于当前筛选结果 */
@@ -348,28 +374,7 @@ export function initialize() {
   }
   function renderList() {
     var box = root.querySelector('.rv-list');
-    buildGroups();
-    var kw = q.trim().toLowerCase();
-    var hits = function (r) {
-      return String(r.value || '').toLowerCase().indexOf(kw) >= 0 || String(NAME[r.type] || '').toLowerCase().indexOf(kw) >= 0;
-    };
-    var show = {};
-    if (!kw) {
-      rows.forEach(function (r) { show[r.id] = true; });
-    } else {
-      groups.forEach(function (g) {                        /* 命中标题/注释：整组显示 */
-        if (!hits(g.title) && !g.notes.some(hits)) return;
-        show[g.id] = true;
-        g.notes.forEach(function (n) { show[n.id] = true; });
-        g.children.forEach(function (id) { show[id] = true; });
-      });
-      rows.forEach(function (r) {                           /* 命中规则：把所在标题一起带出来 */
-        if (r.kind === 'blank' || r.kind === 'sep' || !hits(r)) return;
-        show[r.id] = true;
-        var g = groupOf(r.id) || groupById(lineGroup[r.id]);
-        if (g) { show[g.id] = true; g.notes.forEach(function (n) { show[n.id] = true; }); }
-      });
-    }
+    var show = computeShow();
     var anyReal = rows.some(function (r) { return show[r.id] && r.kind !== 'blank'; });
     if (!anyReal) {
       var hasRows = rows.some(function (r) { return r.kind !== 'blank'; });
@@ -989,8 +994,11 @@ export function initialize() {
     if (rawMode && !v) { say('内容不能为空'); sheet().querySelector('#rv-value').focus(); return; }
     var target;
     if (isNew) {
-      var dup = rows.some(function (r) { return (r.kind === 'rule' || r.kind === 'raw') && r.value === v && r.type === (rawMode?'raw':t); });
-      if (dup) { say('列表里已经有这条：' + (PREFIX[t] || '') + v); sheet().querySelector('#rv-value').focus(); return; }
+      // 查重纳入启停状态：同名同类型但启停相反的规则是两条不同的规则，
+      // 不能按「重复」拦截；给出提示后按本次选择的启停状态保存。
+      var dupRow = rows.find(function (r) { return (r.kind === 'rule' || r.kind === 'raw') && r.value === v && r.type === (rawMode?'raw':t); });
+      if (dupRow && !!dupRow.off === !!sheetOff) { say('列表里已经有这条：' + (PREFIX[t] || '') + v); sheet().querySelector('#rv-value').focus(); return; }
+      if (dupRow) say('已有一条' + (dupRow.off ? '停用' : '启用') + '的同名规则，本次将按' + (sheetOff ? '停用' : '启用') + '保存：' + (PREFIX[t] || '') + v);
       target = { id: 'r' + (++seq), kind: rawMode?'raw':'rule', type: rawMode?'raw':t, value: v, off: sheetOff, touched: true };
       rows.push(target);
     } else if (editing) {
@@ -1320,7 +1328,7 @@ export function initialize() {
   function closePaste() { var wrap=document.getElementById('rp-wrap');if(wrap&&wrap.open)wrap.close(); }
   function pastedRows() {
     var input=document.getElementById('rp-text'),list=parsePaste(input?input.value:''),seen=new Set();
-    function key(r){return r.kind+'|'+r.type+'|'+r.value;}
+    function key(r){return r.kind+'|'+r.type+'|'+r.value+'|'+(r.off?'off':'on');}
     rows.forEach(function(r){if(r.kind==='rule'||r.kind==='raw')seen.add(key(r));});
     var unique=list.filter(function(r){if(r.kind!=='rule'&&r.kind!=='raw')return true;var k=key(r);if(seen.has(k))return false;seen.add(k);return true;});
     return {rows:unique,duplicates:list.length-unique.length};
