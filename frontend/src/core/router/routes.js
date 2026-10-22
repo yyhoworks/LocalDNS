@@ -1,3 +1,4 @@
+// @ts-check
 const routeDefs = [
     {section:'监控', id:'overview', label:'运行概览', icon:'overview', subtitle:'实时查看 DNS 运行状态与关键指标'},
     {section:'监控', id:'logs', label:'查询日志', icon:'logs', subtitle:'搜索、筛选并分析 DNS 请求记录'},

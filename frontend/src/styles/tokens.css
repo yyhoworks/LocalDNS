@@ -1,75 +1,85 @@
+/* Single source of truth for the base tokens. Values below are the ones that
+   previously won the cascade when a second compact :root block overrode the
+   first set; the dead first-pass definitions were removed, computed values
+   are unchanged. */
+:root {
+  --font-sans: 'IBM Plex Sans', 'Noto Sans SC', -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-mono: 'IBM Plex Mono', ui-monospace, SFMono-Regular, monospace;
+  --bg-base: #08090B;
+  --bg-dimmer: .22;
+  --glass-alpha: .48;
+  --glass-blur: 14px;
 
+  --glass-bg: rgba(21,22,26,var(--glass-alpha));
+  --glass-bg-hover: rgba(30,32,37,calc(var(--glass-alpha) + .12));
+  --glass-bg-strong: rgba(18,20,24,.84);
+  --glass-pill: rgba(54,57,64,.28);
+  --glass-pill-active: rgba(112,116,125,.32);
 
-    :root {
-      --font-sans: 'IBM Plex Sans', 'Noto Sans SC', -apple-system, BlinkMacSystemFont, sans-serif;
-      --font-mono: 'IBM Plex Mono', ui-monospace, SFMono-Regular, monospace;
-      --bg-base: #07080B;
-      --bg-dimmer: 0.45;
-      --glass-alpha: 0.66;
-      --glass-blur: 24px;
+  --topo-canvas: rgba(21,22,26,var(--glass-alpha));
+  --topo-node: rgba(29,31,36,var(--glass-alpha));
+  --topo-node-hover: rgba(45,48,55,clamp(0,calc(var(--glass-alpha) + .12),1));
+  --topo-border: rgba(255,255,255,.045);
 
-      --glass-bg: rgba(16, 19, 26, var(--glass-alpha));
-      --glass-bg-hover: rgba(24, 28, 38, calc(var(--glass-alpha) + 0.12));
-      --glass-bg-strong: rgba(14, 16, 22, 0.90);
-      --glass-pill: rgba(28, 33, 44, 0.76);
-      --glass-pill-active: rgba(52, 60, 78, 0.92);
+  --border-glass: rgba(255,255,255,.035);
+  --border-highlight: rgba(255,255,255,0.18);
+  --inner-specular: inset 0 1px 0 0 rgba(255,255,255,0.07);
+  --text-1: #F4F6FB;
+  --text-2: #B0B9C9;
+  --text-3: #8C96A8;
 
-      --topo-canvas: rgba(12, 15, 22, calc(var(--glass-alpha) + 0.08));
-      --topo-node: rgba(21, 25, 35, 0.90);
-      --topo-node-hover: rgba(30, 36, 50, 0.96);
-      --topo-border: rgba(255, 255, 255, 0.08);
+  --primary: #2563EB;
+  --primary-strong: #1D4ED8;
+  --primary-light: #60A5FA;
+  --slate-blue: #3B82F6;
+  --teal: #14B8A6;
+  --green: #10B981;
+  --amber: #F59E0B;
+  --coral: #E11D48;
+  --red: #EF4444;
+  --radius-scale: 1;
+  --radius-card: calc(16px * var(--radius-scale));
+  --radius-node: calc(12px * var(--radius-scale));
+  --blur-filter: blur(var(--glass-blur)) saturate(115%);
 
-      --border-glass: rgba(255, 255, 255, 0.085);
-      --border-highlight: rgba(255, 255, 255, 0.18);
-      --inner-specular: inset 0 1px 0 0 rgba(255, 255, 255, 0.07);
-      --text-1: #F4F6FB;
-      --text-2: #B0B9C9;
-      --text-3: #8C96A8;
-
-      --primary: #2563EB;
-      --primary-strong: #1D4ED8;
-      --primary-light: #60A5FA;
-      --slate-blue: #3B82F6;
-      --teal: #14B8A6;
-      --green: #10B981;
-      --amber: #F59E0B;
-      --coral: #E11D48;
-      --red: #EF4444;
-      --radius-scale: 1;
-      --radius-card: calc(16px * var(--radius-scale));
-      --radius-node: calc(12px * var(--radius-scale));
-      --blur-filter: blur(var(--glass-blur)) saturate(145%);
-    }
-
-    html[data-theme="light-glass"] {
-      --bg-base: #EAEEF5;
-      --glass-bg: rgba(255, 255, 255, 0.78);
-      --glass-bg-hover: rgba(255, 255, 255, 0.92);
-      --glass-bg-strong: rgba(255, 255, 255, 0.95);
-      --glass-pill: rgba(226, 232, 240, 0.85);
-      --glass-pill-active: #FFFFFF;
-      --topo-canvas: rgba(241, 245, 249, 0.84);
-      --topo-node: rgba(255, 255, 255, 0.94);
-      --topo-node-hover: #FFFFFF;
-      --topo-border: rgba(15, 23, 42, 0.10);
-      --border-glass: rgba(15, 23, 42, 0.09);
-      --border-highlight: rgba(37, 99, 235, 0.35);
-      --inner-specular: inset 0 1px 0 0 rgba(255, 255, 255, 0.9);
-      --text-1: #0F172A;
-      --text-2: #334155;
-      --text-3: #475569;
-    }:root {
-  --muted:var(--text-3);--border:var(--border-glass);--surface-2:var(--glass-pill);
-  --orange:var(--amber);--pink:var(--coral);--cyan:var(--teal);
-  --bg-base:#08090B;--glass-alpha:.48;--glass-blur:14px;--bg-dimmer:.22;
-  --glass-bg:rgba(21,22,26,var(--glass-alpha));--glass-bg-hover:rgba(30,32,37,calc(var(--glass-alpha) + .12));
-  --glass-bg-strong:rgba(18,20,24,.84);--glass-pill:rgba(54,57,64,.28);--glass-pill-active:rgba(112,116,125,.32);
-  --topo-canvas:rgba(21,22,26,var(--glass-alpha));--topo-node:rgba(29,31,36,var(--glass-alpha));--topo-node-hover:rgba(45,48,55,clamp(0,calc(var(--glass-alpha) + .12),1));
-  --border-glass:rgba(255,255,255,.035);--topo-border:rgba(255,255,255,.045);--blur-filter:blur(var(--glass-blur)) saturate(115%);
-  --console-panel:var(--glass-bg);--console-success:#6EE7B7;--console-danger:#FCA5A5;--console-info:#93C5FD;
-  --console-line:#60A5FA;--console-shadow:0 10px 26px -20px rgba(0,0,0,.3);
+  --muted: var(--text-3);
+  --border: var(--border-glass);
+  --surface-2: var(--glass-pill);
+  --orange: var(--amber);
+  --pink: var(--coral);
+  --cyan: var(--teal);
+  --console-panel: var(--glass-bg);
+  --console-success: #6EE7B7;
+  --console-danger: #FCA5A5;
+  --console-info: #93C5FD;
+  --console-line: #60A5FA;
+  --console-shadow: 0 10px 26px -20px rgba(0,0,0,.3);
 }
-html[data-theme=light-glass]{--glass-bg:rgba(255,255,255,calc(var(--glass-alpha) * .68 + .28));--glass-bg-hover:rgba(255,255,255,calc(var(--glass-alpha) * .68 + .38));--glass-bg-strong:rgba(250,252,255,.88);--glass-pill:rgba(224,231,241,.34);--glass-pill-active:rgba(255,255,255,.55);--topo-node:rgba(255,255,255,var(--glass-alpha));--topo-node-hover:rgba(255,255,255,clamp(0,calc(var(--glass-alpha) + .12),1));--border-glass:rgba(15,23,42,.045);--console-panel:var(--glass-bg);--console-success:#065F46;--console-danger:#B91C1C;--console-info:#1D4ED8;--console-line:#2563EB;--console-shadow:0 10px 24px -20px rgba(15,23,42,.18)}
+
+html[data-theme="light-glass"] {
+  --bg-base: #EAEEF5;
+  --glass-bg: rgba(255,255,255,calc(var(--glass-alpha) * .68 + .28));
+  --glass-bg-hover: rgba(255,255,255,calc(var(--glass-alpha) * .68 + .38));
+  --glass-bg-strong: rgba(250,252,255,.88);
+  --glass-pill: rgba(224,231,241,.34);
+  --glass-pill-active: rgba(255,255,255,.55);
+  --topo-canvas: rgba(241, 245, 249, 0.84);
+  --topo-node: rgba(255,255,255,var(--glass-alpha));
+  --topo-node-hover: rgba(255,255,255,clamp(0,calc(var(--glass-alpha) + .12),1));
+  --topo-border: rgba(15, 23, 42, 0.10);
+  --border-glass: rgba(15,23,42,.045);
+  --border-highlight: rgba(37, 99, 235, 0.35);
+  --inner-specular: inset 0 1px 0 0 rgba(255, 255, 255, 0.9);
+  --text-1: #0F172A;
+  --text-2: #334155;
+  --text-3: #475569;
+  --console-panel: var(--glass-bg);
+  --console-success: #065F46;
+  --console-danger: #B91C1C;
+  --console-info: #1D4ED8;
+  --console-line: #2563EB;
+  --console-shadow: 0 10px 24px -20px rgba(15,23,42,.18);
+}
 :root{--navbar-height:68px;--navbar-progress:0;--navbar-offset:0px;--navbar-scale:1;--navbar-radius:0px;--navbar-gutter:max(24px,calc((100vw - 1720px)/2 + 24px))}
 @media(max-width:600px){:root{--navbar-height:64px;--navbar-gutter:14px}}
 :root{--font-heading:'Noto Serif SC','Songti SC','SimSun',serif;--font-numeral:'Instrument Serif','Times New Roman',serif}

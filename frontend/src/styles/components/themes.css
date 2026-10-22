@@ -266,18 +266,9 @@ html[data-skin="claude"] .button:hover {
   border-color: var(--border-highlight);
 }
 
-html[data-skin="claude"] .glass-btn.primary,
-html[data-skin="claude"] .button.primary {
-  background: var(--primary);
-  border-color: var(--primary);
-  color: #FAF8F3;
-}
-
-html[data-skin="claude"] .glass-btn.primary:hover,
-html[data-skin="claude"] .button.primary:hover {
-  background: var(--primary-light);
-  border-color: var(--primary-light);
-}
+/* Primary-button colors for this skin are defined once near the end of this
+   file (--claude-primary-button). An earlier var(--primary)-based rule set
+   here was fully overridden by those rules and has been removed. */
 html[data-skin="claude"] .topology-glass-card {
   background: var(--topo-canvas);
 }
@@ -587,8 +578,13 @@ html[data-skin="claude"] .toast {
 @media (prefers-reduced-motion: reduce) {
   html[data-nav="top"] .top-header-grid { transition: none; }
 }
-html[data-skin="claude"] .button.primary,html[data-skin="claude"] .glass-btn.primary{background:#a74d32;border-color:#a74d32;color:#faf8f3}
-html[data-skin="claude"] .button.primary:hover,html[data-skin="claude"] .glass-btn.primary:hover{background:#ad5033;border-color:#ad5033}
+/* Deliberately deeper than the preset --primary (#C96442 light / #D97757
+   cosmos): near-white text on --primary would fall below readable contrast.
+   Point these two tokens at var(--primary) if the button should follow the
+   preset color instead; the values below preserve the previous rendering. */
+html[data-skin="claude"]{--claude-primary-button:#a74d32;--claude-primary-button-hover:#ad5033}
+html[data-skin="claude"] .button.primary,html[data-skin="claude"] .glass-btn.primary{background:var(--claude-primary-button);border-color:var(--claude-primary-button);color:#faf8f3}
+html[data-skin="claude"] .button.primary:hover,html[data-skin="claude"] .glass-btn.primary:hover{background:var(--claude-primary-button-hover);border-color:var(--claude-primary-button-hover)}
 html:not([data-skin="claude"]) .topology-glass-card {
   background: var(--glass-bg);
   backdrop-filter: var(--blur-filter);

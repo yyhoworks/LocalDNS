@@ -1,18 +1,23 @@
+// @ts-check
 import { typographyService } from '../../features/appearance/typography.js';
 import { identityService } from '../../features/identity/index.js';
 import { fontsService } from '../../features/appearance/fonts.js';
 import { proxyPanelService } from '../../features/proxy-panel/index.js';
 import { assetHttp } from '../api/network.ts';
 import { preferences } from './preferences.ts';
+/** @typedef {{ ready: Promise<any>, section: (name: 'localdns' | 'proxy' | 'typography') => Promise<any>, save: (name: 'localdns' | 'proxy' | 'typography', value: unknown) => void, asset: (path: string) => string, follow: () => void, hasOverride: (name: 'localdns' | 'proxy' | 'typography') => boolean, config: any, error: string }} SharedUIService */
+/** @type {SharedUIService | undefined} */
 export let sharedUIService;
 export function initialize() {
 
   'use strict';
   const base = new URL('./', document.baseURI);
   const keys = {localdns:'localdns-identity-v1', proxy:'localdns-proxy-panel-v1', typography:'localdns-typography-v1'};
-  const defaults = {version:1, localdns:{name:'LocalDNS',logo:''}, proxy:{name:'代理面板',url:''}, typography:{heading:'serif',numeral:'serif',body:'plex'}, fonts:[]};
+  const defaults = {version:1, localdns:{name:'LocalDNS',logo:''}, proxy:{name:'代理面板',url:''}, typography:{heading:'serif',numeral:'serif',body:'plex'}, fonts:/** @type {{ id: string, name: string, size: number, path: string, shared?: boolean }[]} */ ([])};
   let config = structuredClone(defaults), error = '';
+  /** @param {string} key */
   const read = key => {try{return JSON.parse(preferences.getItem(key)||'null');}catch{return null;}};
+  /** @param {string} path */
   const asset = path => {
     if(typeof path!=='string'||!/^custom\/(assets|fonts)\/[a-zA-Z0-9._-]+$/.test(path))throw new Error('共享资源路径无效');
     return new URL(path,base).href;
@@ -26,28 +31,33 @@ export function initialize() {
       if(!response.ok)throw new Error('共享配置读取失败');
       const value=await response.json();
       if(value.version!==1||!Array.isArray(value.fonts)||value.fonts.length>128)throw new Error('共享配置格式无效');
-      const fonts=value.fonts.map(font=>{
+      const fonts=/** @type {{ id: string, name: string, size: number, path: string, shared: boolean }[]} */ (value.fonts.map(/** @param {{ id: string, name: string, size: number, path: string }} font */ font=>{
         if(!/^up[a-z0-9_-]+$/i.test(font.id)||typeof font.name!=='string'||!Number.isFinite(font.size)||font.size<=0||font.size>67108864)throw new Error('共享字体清单无效');
         asset(font.path);return {...font,name:font.name.slice(0,200),shared:true};
-      });
+      }));
       if(new Set(fonts.map(f=>f.id)).size!==fonts.length||fonts.reduce((sum,f)=>sum+f.size,0)>134217728)throw new Error('共享字体数量或容量无效');
       config={version:1,localdns:value.localdns||defaults.localdns,proxy:value.proxy||defaults.proxy,typography:value.typography||defaults.typography,fonts};
       return config;
-    }catch(failure){error=failure.name==='AbortError'?'服务器共享配置读取超时':failure.message;return config;}
+    }catch(failure){const f=/** @type {any} */ (failure);error=f.name==='AbortError'?'服务器共享配置读取超时':f.message;return config;}
     finally{clearTimeout(timer);}
   })();
+  /** @param {keyof typeof keys} name */
   async function section(name){await ready;return read(keys[name])||config[name];}
+  /** @param {keyof typeof keys} name */
   function hasOverride(name){try{return preferences.getItem(keys[name])!==null;}catch{return false;}}
+  /** @param {keyof typeof keys} name @param {unknown} value */
   function save(name,value){try{preferences.setItem(keys[name],JSON.stringify(value));}catch{throw new Error('当前浏览器禁止保存设置，请允许站点存储后重试。');}}
-  function follow(){try{for(const key of Object.values(keys))preferences.removeItem(key);location.reload();}catch{const status=document.querySelector('#shared-ui-status');status.textContent='浏览器禁止修改站点存储，无法清除本机设置。';status.dataset.state='error';}}
+  function follow(){try{for(const key of Object.values(keys))preferences.removeItem(key);location.reload();}catch{const status=/** @type {HTMLElement | null} */ (document.querySelector('#shared-ui-status'));if(status){status.textContent='浏览器禁止修改站点存储，无法清除本机设置。';status.dataset.state='error';}}}
 
   // Uncompressed ZIP keeps large font exports bounded, without a third-party dependency.
   const crcTable=Uint32Array.from({length:256},(_,i)=>{let n=i;for(let j=0;j<8;j++)n=(n&1)?0xedb88320^(n>>>1):n>>>1;return n>>>0;});
+  /** @param {Uint8Array} bytes */
   function crc(bytes){let n=0xffffffff;for(const b of bytes)n=crcTable[(n^b)&255]^(n>>>8);return(n^0xffffffff)>>>0;}
+  /** @param {[string, ArrayBuffer | Uint8Array][]} files */
   function zip(files){
     const parts=[],central=[];let offset=0,centralSize=0;
     for(const [path,data]of files){
-      const name=new TextEncoder().encode(path),bytes=data instanceof Uint8Array?data:new Uint8Array(data),sum=crc(bytes);
+      const name=new TextEncoder().encode(path),bytes=/** @type {Uint8Array<ArrayBuffer>} */ (data instanceof Uint8Array?data:new Uint8Array(data)),sum=crc(bytes);
       const head=new Uint8Array(30+name.length),h=new DataView(head.buffer);
       h.setUint32(0,0x04034b50,true);h.setUint16(4,20,true);h.setUint16(6,0x800,true);h.setUint16(12,33,true);h.setUint32(14,sum,true);h.setUint32(18,bytes.length,true);h.setUint32(22,bytes.length,true);h.setUint16(26,name.length,true);head.set(name,30);
       const index=new Uint8Array(46+name.length),v=new DataView(index.buffer);
@@ -58,9 +68,9 @@ export function initialize() {
     return new Blob([...parts,...central,end],{type:'application/zip'});
   }
   async function exportBundle(){
-    await ready;const files=[];
+    await ready;const files=/** @type {[string, ArrayBuffer | Uint8Array][]} */ ([]);
     const identity=identityService.getValue(),proxy=proxyPanelService?.getValue()||await section('proxy');
-    const value={version:1,localdns:{...identity},proxy:{name:proxy.name,url:proxy.url},typography:typographyService.getSelection(),fonts:[]};
+    const value={version:1,localdns:{...identity},proxy:{name:proxy.name,url:proxy.url},typography:typographyService.getSelection(),fonts:/** @type {{ id: string, name: string, size: number, path: string }[]} */ ([])};
     if(identity.logo.startsWith('data:')||identity.logo.startsWith(new URL('custom/assets/',base).href)||identity.logo.startsWith('custom/assets/')){
       const blob=await(await assetHttp.fetch(identity.logo.startsWith('custom/')?new URL(identity.logo,base):identity.logo)).blob();
       const ext=({'image/png':'png','image/jpeg':'jpg','image/webp':'webp','image/gif':'gif'})[blob.type];
@@ -68,15 +78,15 @@ export function initialize() {
       files.push(['assets/logo.'+ext,await blob.arrayBuffer()]);value.localdns.logo='custom/assets/logo.'+ext;
     }
     const fonts=await fontsService.exportRecords();
-    for(const font of fonts){const ext=font.name.split('.').pop().toLowerCase(),path='fonts/'+font.id+'.'+ext;files.push([path,font.data]);value.fonts.push({id:font.id,name:font.name,size:font.data.byteLength,path:'custom/'+path});}
+    for(const font of fonts){const rawExt=font.name.split('.').pop().toLowerCase(),ext=['woff2','woff','ttf','otf'].includes(rawExt)?rawExt:'bin',path='fonts/'+font.id+'.'+ext;files.push([path,font.data]);value.fonts.push({id:font.id,name:font.name,size:font.data.byteLength,path:'custom/'+path});}
     files.unshift(['settings.json',new TextEncoder().encode(JSON.stringify(value,null,2)+'\n')]);
     const url=URL.createObjectURL(zip(files)),a=document.createElement('a');a.href=url;a.download='localdns-ui-settings.zip';a.click();setTimeout(()=>URL.revokeObjectURL(url),10000);
   }
   function setup(){
-    const button=document.querySelector('#export-shared-ui'),status=document.querySelector('#shared-ui-status');
-    button?.addEventListener('click',async()=>{button.disabled=true;status.textContent='正在打包名称、Logo 与字体…';try{await exportBundle();status.textContent='配置包已导出；导入服务器后，其他设备刷新即可同步。';status.dataset.state='saved';}catch(failure){status.textContent='导出失败：'+failure.message;status.dataset.state='error';}finally{button.disabled=false;}});
+    const button=/** @type {HTMLButtonElement | null} */ (document.querySelector('#export-shared-ui')),status=/** @type {HTMLElement | null} */ (document.querySelector('#shared-ui-status'));
+    button?.addEventListener('click',async()=>{if(!button||!status)return;button.disabled=true;status.textContent='正在打包名称、Logo 与字体…';try{await exportBundle();status.textContent='配置包已导出；导入服务器后，其他设备刷新即可同步。';status.dataset.state='saved';}catch(failure){status.textContent='导出失败：'+/** @type {any} */ (failure).message;status.dataset.state='error';}finally{button.disabled=false;}});
     document.querySelector('#use-shared-ui')?.addEventListener('click',follow);
-    ready.then(()=>{if(error){status.textContent=error+'，当前使用默认值或本机设置；可刷新重试。';status.dataset.state='error';}});
+    ready.then(()=>{if(error&&status){status.textContent=error+'，当前使用默认值或本机设置；可刷新重试。';status.dataset.state='error';}});
   }
   sharedUIService ={ready,section,save,asset,follow,hasOverride,get config(){return config;},get error(){return error;}};
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',setup,{once:true});else setup();

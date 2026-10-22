@@ -80,34 +80,44 @@ export function initialize() {
     if (!field) return;
     const status = document.querySelector('#identity-status'), preview = document.querySelector('#identity-preview');
     let uploaded = '', loading = false, generation = 0;
-    const show = (message, error=false) => { status.textContent=message;status.dataset.state=error?'error':'saved'; };
-    function syncFields() { field.value=current.name;url.value=current.logo.startsWith('data:')?'':current.logo;uploaded=current.logo.startsWith('data:')?current.logo:'';file.value='';setImage(preview,current.logo||defaultLogo(),defaultLogo()); }
+    const show = (message, error=false) => { if(status){status.textContent=message;status.dataset.state=error?'error':'saved';} };
+    function syncFields() { field.value=current.name;if(url)url.value=current.logo.startsWith('data:')?'':current.logo;uploaded=current.logo.startsWith('data:')?current.logo:'';if(file)file.value='';setImage(preview,current.logo||defaultLogo(),defaultLogo()); }
     let revision='', ready=false;
     const saveButton=document.querySelector('#identity-save'),resetButton=document.querySelector('#identity-reset'),retryButton=document.querySelector('#identity-retry');
-    const enable=value=>{for(const item of [field,url,file,saveButton,resetButton])item.disabled=!value;};
+    const enable=value=>{for(const item of [field,url,file,saveButton,resetButton])if(item)item.disabled=!value;};
     let legacy=null;try{const raw=JSON.parse(preferences.getItem(key)||'null');if(raw)legacy={name:name(raw.name,defaults.name),logo:logo(raw.logo)};}catch{}
     async function refresh(){
-      enable(false);show('正在读取共享配置…');retryButton.hidden=true;
-      try{const result=await loadSection('localdns',legacy,key);current=result.value?{name:name(result.value.name,defaults.name),logo:logo(result.value.logo)}:{...defaults};revision=result.revision;ready=true;apply();syncFields();show(sharedUIService.hasOverride('localdns')?'正在使用本机设置；导出后可共享到其他设备。':'正在跟随服务器共享配置。');}
-      catch(error){ready=false;show(error.message,true);retryButton.hidden=false;}finally{enable(ready);}
+      enable(false);show('正在读取共享配置…');if(retryButton)retryButton.hidden=true;
+      try{const result=await loadSection('localdns',legacy,key);revision=result.revision;
+        try{current=result.value?{name:name(result.value.name,defaults.name),logo:logo(result.value.logo)}:{...defaults};}
+        catch(validationError){
+          // The shared value itself is invalid: keep the panel editable and load
+          // the raw value into the fields so it can be corrected in place,
+          // instead of locking every control behind a retry button.
+          current={...defaults};ready=true;apply();syncFields();
+          field.value=String(result.value?.name??'');uploaded=result.value?.logo&&String(result.value.logo).startsWith('data:')?String(result.value.logo):'';if(url)url.value=uploaded?'':String(result.value?.logo??'');
+          show(validationError.message+' 已载入服务器上的原始值，请修正后保存。',true);return;
+        }
+        ready=true;apply();syncFields();show(sharedUIService.hasOverride('localdns')?'正在使用本机设置；导出后可共享到其他设备。':'正在跟随服务器共享配置。');}
+      catch(error){ready=false;show(error.message,true);if(retryButton)retryButton.hidden=false;}finally{enable(ready);}
     }
-    syncFields(); apply();refresh();retryButton.onclick=refresh;
-    file.onchange = async () => {
+    syncFields(); apply();refresh();if(retryButton)retryButton.onclick=refresh;
+    if(file) file.onchange = async () => {
       const selected=file.files[0];if(!selected)return;const id=++generation;loading=true;show('正在读取 Logo…');
       try { const result=await upload(selected);if(id!==generation)return;uploaded=result;url.value='';setImage(preview,result,defaultLogo());show('Logo 已选取，点击保存名称与 Logo。'); }
       catch(error){if(id===generation)show(error.message,true);}finally{if(id===generation)loading=false;}
     };
-    url.oninput=()=>{++generation;loading=false;uploaded='';file.value='';};
-    saveButton.onclick=async()=>{
+    if(url) url.oninput=()=>{++generation;loading=false;uploaded='';if(file)file.value='';};
+    if(saveButton) saveButton.onclick=async()=>{
       if(!ready)return;
       if(loading){show('Logo 正在读取，请稍候。');return;}enable(false);const version=generation;
-      try { const next={name:name(field.value,defaults.name),logo:logo(uploaded||url.value)};if(next.logo)await image(next.logo);if(version!==generation)return;const result=await saveSection('localdns',next,revision);current=result.value;revision=result.revision;apply();syncFields();show('已应用到当前浏览器；点击下方“导出共享配置”同步到服务器。'); }
-      catch(error){show(error.message,true);retryButton.hidden=false;}finally{enable(ready);}
+      try { const next={name:name(field.value,defaults.name),logo:logo(uploaded||(url?url.value:''))};if(next.logo)await image(next.logo);if(version!==generation)return;const result=await saveSection('localdns',next,revision);current=result.value;revision=result.revision;apply();syncFields();show('已应用到当前浏览器；点击下方“导出共享配置”同步到服务器。'); }
+      catch(error){show(error.message,true);if(retryButton)retryButton.hidden=false;}finally{enable(ready);}
     };
-    resetButton.onclick=async()=>{
+    if(resetButton) resetButton.onclick=async()=>{
       if(!ready)return;enable(false);++generation;loading=false;
       try {const result=await saveSection('localdns',{...defaults},revision);current=result.value;revision=result.revision;apply();syncFields();show('默认名称与 Logo 已应用到当前浏览器。');}
-      catch(error){show(error.message,true);retryButton.hidden=false;}finally{enable(ready);}
+      catch(error){show(error.message,true);if(retryButton)retryButton.hidden=false;}finally{enable(ready);}
     };
   }
   identityService ={apply,name,logo,upload,image,setImage,defaultProxyLogo,loadSection,saveSection,getValue:()=>({...current}),getName:()=>current.name};

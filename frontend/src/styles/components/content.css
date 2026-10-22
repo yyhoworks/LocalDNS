@@ -339,5 +339,7 @@ table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
   min-width:0;
   line-height:1.35;
 }.version-note{margin:10px 0;color:var(--text-2);font-size:12px;line-height:1.8}
+.version-token{display:block;margin:10px 0;color:var(--text-2);font-size:12px;line-height:1.8}
+.version-token input{display:block;width:100%;margin-top:4px}
 .card { padding:var(--ui-card-padding); }
 .card-header,.card-body { padding:0; }

@@ -29,9 +29,16 @@ describe('parseProm legacy behavior', () => {
     ]);
   });
 
-  it('unescapes quotes then backslashes, but preserves literal backslash-n', () => {
+  it('decodes label escapes in a single pass, including backslash-n as a newline', () => {
     expect(parseProm(String.raw`m{quoted="say \"hi\"",path="C:\\DNS",newline="a\nb"} 1`)).toEqual([
-      { name: 'm', labels: { quoted: 'say "hi"', path: 'C:\\DNS', newline: String.raw`a\nb` }, value: 1 },
+      { name: 'm', labels: { quoted: 'say "hi"', path: 'C:\\DNS', newline: 'a\nb' }, value: 1 },
+    ]);
+  });
+
+  it('accepts a trailing exposition timestamp and ignores its value', () => {
+    expect(parseProm('metric 1 123456')).toEqual([{ name: 'metric', labels: {}, value: 1 }]);
+    expect(parseProm('metric{tag="a"} 2.5 1690000000000')).toEqual([
+      { name: 'metric', labels: { tag: 'a' }, value: 2.5 },
     ]);
   });
 
@@ -42,7 +49,7 @@ describe('parseProm legacy behavior', () => {
   });
 
   it.each([
-    '9invalid 1', 'metric-name 1', 'metric', 'metric 1 123456', 'metric 1 # exemplar',
+    '9invalid 1', 'metric-name 1', 'metric', 'metric 1 # exemplar',
     'metric {tag="a"} 1', 'metric{tag="a" 1', 'metric{tag="a}b"} 1',
   ])('ignores lines outside the original expression: %s', line => {
     expect(parseProm(line)).toEqual([]);
@@ -51,7 +58,7 @@ describe('parseProm legacy behavior', () => {
   it.each([
     ['12', 12], ['-3.5', -3.5], ['+4', 4], ['1.2e3', 1200], ['0x10', 16], ['-0', -0],
     ['Infinity', Infinity], ['-Infinity', -Infinity], ['1e999', Infinity],
-    ['NaN', NaN], ['+Inf', NaN], ['-Inf', NaN], ['nonsense', NaN],
+    ['NaN', NaN], ['+Inf', Infinity], ['-Inf', -Infinity], ['nonsense', NaN],
   ])('keeps Number conversion for %s', (text, value) => {
     expect(parseProm(`metric ${text}`)).toEqual([{ name: 'metric', labels: {}, value }]);
   });
