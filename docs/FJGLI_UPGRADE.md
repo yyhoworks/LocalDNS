@@ -1,6 +1,6 @@
 # FJGLI 更新适配评估
 
-日期：2026-10-22。适用于 FJGLI / UI 2026.10.22.3。已实现接口适配、配置迁移和完整更新工具；运行验收范围见发行说明和验证记录。
+日期：2026-10-23。适用于 FJGLI / UI 2026.10.23.1。已实现接口适配、配置迁移和完整更新工具；运行验收范围见发行说明和验证记录。
 
 ## 结论
 
@@ -24,7 +24,7 @@ python3 upgrade-localdns.py backup --dir /opt/localdns --output /opt/localdns-ba
 ```sh
 # 2. 用 SHA256SUMS.txt 中完整包的值校验发行包，准备新的同盘目录。
 python3 upgrade-localdns.py prepare --dir /opt/localdns \
-  --package /srv/localdns-packages/LocalDNS_FJGLI_UI_2026.10.22.3_Full.zip \
+  --package /srv/localdns-packages/LocalDNS_FJGLI_UI_2026.10.23.1_Full.zip \
   --sha256 <完整包SHA256> --stage /opt/localdns-fjgli-stage
 
 # 3. 自动启动独立目录与回环端口的测试副本，完成后停止并删除副本。

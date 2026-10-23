@@ -1,6 +1,6 @@
 # 一键安装指南
 
-安装器：**1.3.1**（新增跨核心版本拦截：目标版本与已装核心不一致时拒绝 UI 更新；默认仍只安装 DNS 与静态 UI）。安装内容来自 GitHub 最新正式 Release；当前版本为 **FJGLI / UI 2026.10.22.3**。安装器与 UI 独立编号，网页升级选项从 UI 2026.10.19.9 起提供，2026.10.19.10 起无需升级口令。
+安装器：**1.3.1**（新增跨核心版本拦截：目标版本与已装核心不一致时拒绝 UI 更新；默认仍只安装 DNS 与静态 UI）。安装内容来自 GitHub 最新正式 Release；当前版本为 **FJGLI / UI 2026.10.23.1**。安装器与 UI 独立编号，网页升级选项从 UI 2026.10.19.9 起提供，2026.10.19.10 起无需升级口令。
 
 ## 复制这一条命令
 
@@ -55,7 +55,7 @@ sh localdns-install.sh --dir /opt/mydns --dns-port 1053 --http-port 19099
 sh localdns-install.sh --origin http://192.168.1.20:9099
 
 # 安装 / 更新指定正式发行版
-sh localdns-install.sh --version fjgli-ui-v2026.10.22.3
+sh localdns-install.sh --version fjgli-ui-v2026.10.23.1
 
 # 强制要求更新已有 UI；找不到安装时停止
 sh localdns-install.sh --mode ui --dir /opt/localdns

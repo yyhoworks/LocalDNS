@@ -1,6 +1,6 @@
 # LocalDNS 功能与使用指南
 
-适用源码版本：**后端 FJGLI / UI 2026.10.22.3**。
+适用源码版本：**后端 FJGLI / UI 2026.10.23.1**。
 
 [返回首页](../README.md) · [产品图集](SCREENSHOTS.md) · [安装与更新](../INSTALL.md)
 
