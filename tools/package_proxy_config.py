@@ -60,7 +60,7 @@ def main():
     sums = output / 'SHA256SUMS.txt'
     lines = [line for line in sums.read_text(encoding='utf-8').splitlines() if not line.endswith('  ' + name)] if sums.exists() else []
     lines.append(digest + '  ' + name)
-    sums.write_text('\n'.join(sorted(lines)) + '\n', encoding='utf-8')
+    sums.write_bytes(('\n'.join(sorted(lines)) + '\n').encode('utf-8'))
     print(json.dumps({'package': name, 'sha256': digest, 'binaries': binaries}))
 
 

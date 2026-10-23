@@ -299,7 +299,7 @@ def main():
         digest = write_archive(output / name, payload, version, modes)
         sums.append(f'{digest}  {name}\n')
         print(name, digest)
-    (output / 'SHA256SUMS.txt').write_text(''.join(sorted(sums)), encoding='utf-8')
+    (output / 'SHA256SUMS.txt').write_bytes(''.join(sorted(sums)).encode('utf-8'))
 
 
 if __name__ == '__main__':

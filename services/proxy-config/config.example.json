@@ -1,7 +1,6 @@
 {
   "listen": "127.0.0.1:9098",
   "token": "",
-  "importAllowCIDRs": [],
   "origins": [
     "http://127.0.0.1:9099"
   ],

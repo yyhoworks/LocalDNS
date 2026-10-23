@@ -8,7 +8,7 @@
 
 当前版本：**[后端 FJGLI / UI 2026.10.23.1](https://github.com/yyhoworks/LocalDNS/releases/tag/fjgli-ui-v2026.10.23.1)**，提供完整包、UI 升级包、配套配置服务包和 SHA-256 校验文件，见 [本次更新说明](docs/releases/fjgli-ui-v2026.10.23.1.md)。
 
-本次合入全量深审修复（UI 2026.10.23.1）：为本地配置服务与 UI 更新执行端增加 Bearer 令牌鉴权与默认回环监听（兼容存量无令牌部署），收敛 HTTP 导入私网访问边界，修复规则改名/分流模式切换等半应用状态、FJGLI 查询参数透传与 `api.logs()` 空参数清理，并补齐 GitHub Actions CI。已安装 FJGLI 用户只需更新 UI，无需重启 DNS；旧核心跨版本迁移仍按 [FJGLI 更新指南](docs/FJGLI_UPGRADE.md) 操作。
+本次合入全量深审修复（UI 2026.10.23.1）：为本地配置服务与 UI 更新执行端增加 Bearer 令牌鉴权与默认回环监听（兼容存量无令牌部署），保持 HTTP 导入对局域网订阅源开箱即用，修复规则改名/分流模式切换等半应用状态、FJGLI 查询参数透传与 `api.logs()` 空参数清理，并补齐 GitHub Actions CI。已安装 FJGLI 用户只需更新 UI，无需重启 DNS；旧核心跨版本迁移仍按 [FJGLI 更新指南](docs/FJGLI_UPGRADE.md) 操作。
 
 [产品图集](docs/SCREENSHOTS.md) · [功能指南](docs/FEATURES.md) · [安装说明](INSTALL.md) · [下载 Releases](https://github.com/yyhoworks/LocalDNS/releases) · [作者与分工](AUTHORS.md) · [开发说明](docs/DEVELOPMENT.md) · [近期更新](CHANGELOG.md)
 

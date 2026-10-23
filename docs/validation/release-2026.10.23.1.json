@@ -10,19 +10,19 @@
   },
   "frontendTests": 127,
   "pythonToolsTests": 58,
-  "goProxyConfigTests": 8,
+  "goProxyConfigTests": 23,
   "packages": {
     "LocalDNS_FJGLI_UI_2026.10.23.1_Full.zip": {
-      "sha256": "91829b9478938cb29eef10ed479207f65b7075347eb31bcfae44e2c22d1f84b5",
-      "bytes": 14997764
+      "sha256": "52f391a33a2276522d0537179319c8d64b7be71966532c5a5b93b2cd6ee069d8",
+      "bytes": 14997740
     },
     "LocalDNS_ProxyConfig_UI_2026.10.23.1_Service.zip": {
-      "sha256": "279cd0e5c30ab4b8527e7378607a7e5085232ac514a8537a9c20e84eb251c2cc",
-      "bytes": 6425978
+      "sha256": "4c3108b7b865a5c15081a35d2937a87de0ec5625daa49283f9dd28747364c690",
+      "bytes": 6424604
     },
     "LocalDNS_UI_2026.10.23.1_Update.zip": {
-      "sha256": "5f9dc02dfffd685ac87fa85b4f7cc7516f9a4eb791853923b8b5df917199d8bd",
-      "bytes": 1885194
+      "sha256": "df7c772b25012f5fd710cd57a0a596360892bde680952a3d7a47b15d61e16c50",
+      "bytes": 1885168
     }
   },
   "configurationServiceVersion": "1.6.0",

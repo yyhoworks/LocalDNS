@@ -95,31 +95,15 @@ func importURL(value string) (*url.URL, error) {
 }
 
 // importAllowed decides whether the fetch endpoint may connect to a resolved
-// address. Loopback is always allowed (configuration files served on the same
-// host). Link-local addresses — including cloud metadata — multicast and
-// unspecified addresses are never allowed. Public addresses are allowed.
-// Private addresses are allowed only when they fall inside one of the
-// configured importAllowCIDRs networks, so by default this endpoint cannot
-// be used to probe the LAN; every redirect target is re-checked here.
-func importAllowed(ip net.IP, allowCIDRs []string) bool {
-	if ip.IsLinkLocalUnicast() || ip.IsLinkLocalMulticast() || ip.IsMulticast() || ip.IsUnspecified() {
-		return false
-	}
-	if ip.IsLoopback() {
-		return true
-	}
-	if !ip.IsPrivate() {
-		return true
-	}
-	for _, entry := range allowCIDRs {
-		if _, network, err := net.ParseCIDR(entry); err == nil && network.Contains(ip) {
-			return true
-		}
-	}
-	return false
+// address. Private LAN, loopback, and public addresses are allowed so LAN
+// subscription services work without extra configuration. Link-local addresses
+// — including cloud metadata — multicast and unspecified addresses are never
+// allowed; every redirect target is re-checked here.
+func importAllowed(ip net.IP) bool {
+	return !(ip.IsLinkLocalUnicast() || ip.IsLinkLocalMulticast() || ip.IsMulticast() || ip.IsUnspecified())
 }
 
-func (s *Server) importClient() *http.Client {
+func importClient() *http.Client {
 	dialer := &net.Dialer{Timeout: 8 * time.Second}
 	transport := &http.Transport{Proxy: nil, DialContext: func(ctx context.Context, network, address string) (net.Conn, error) {
 		host, port, err := net.SplitHostPort(address)
@@ -131,7 +115,7 @@ func (s *Server) importClient() *http.Client {
 			return nil, err
 		}
 		for _, ip := range ips {
-			if !importAllowed(ip.IP, s.config.ImportAllowCIDRs) {
+			if !importAllowed(ip.IP) {
 				return nil, failure(400, "此配置链接指向不支持的网络地址。")
 			}
 		}
@@ -181,7 +165,7 @@ func (s *Server) fetchConfig(w http.ResponseWriter, r *http.Request) error {
 		return failure(400, "配置链接格式无效。")
 	}
 	req.Header.Set("Accept", "application/json, application/yaml, text/yaml, text/plain, */*;q=0.5")
-	client := s.importClient()
+	client := importClient()
 	defer client.CloseIdleConnections()
 	response, err := client.Do(req)
 	if err != nil {

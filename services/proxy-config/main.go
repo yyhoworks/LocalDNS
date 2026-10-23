@@ -53,15 +53,10 @@ type Config struct {
 	// Token, when set, is required as "Authorization: Bearer <token>" on every
 	// business endpoint. Empty keeps the legacy Host/Origin-only behaviour so
 	// existing deployments keep working; main() warns about it at startup.
-	Token string `json:"token,omitempty"`
-	// ImportAllowCIDRs lists the private networks the fetch endpoint may
-	// retrieve configuration from. Loopback is always allowed, link-local
-	// (including cloud metadata) never is, and public addresses stay allowed;
-	// private addresses need an explicit entry here.
-	ImportAllowCIDRs []string        `json:"importAllowCIDRs,omitempty"`
-	Origins          []string        `json:"origins"`
-	Hosts            []string        `json:"hosts"`
-	Cores            map[string]Core `json:"cores"`
+	Token   string          `json:"token,omitempty"`
+	Origins []string        `json:"origins"`
+	Hosts   []string        `json:"hosts"`
+	Cores   map[string]Core `json:"cores"`
 }
 type Server struct {
 	config      Config
@@ -953,11 +948,6 @@ func main() {
 	}
 	if config.Listen == "" || len(config.Origins) == 0 || len(config.Hosts) == 0 {
 		log.Fatal("incomplete configuration")
-	}
-	for _, cidr := range config.ImportAllowCIDRs {
-		if _, _, err := net.ParseCIDR(cidr); err != nil {
-			log.Fatalf("importAllowCIDRs 包含无效网段 %q：%v", cidr, err)
-		}
 	}
 	if config.Token == "" {
 		log.Print("警告：未配置访问令牌（token 为空），业务接口仅靠 Host/Origin 白名单校验；监听非回环地址时请务必在配置中设置 token。")
