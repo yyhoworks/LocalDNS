@@ -109,21 +109,38 @@ import { icon } from '../../shared/components/icons.js';
       <div style="display:flex;align-items:baseline;gap:12px"><h1>系统管理</h1><span class="gc-sub">多级缓存池、核心功能开关与 Requery 自动分流刷新管理</span></div>
     </div>
     <div class="management-stack">
-      <section class="proxy-panel-management" aria-label="代理面板设置">
-        <div><h2 data-proxy-panel-name>代理面板</h2><code data-proxy-panel-address></code></div>
-        <a class="button small" data-proxy-panel-link target="_blank" rel="noopener noreferrer">打开面板</a>
-        <button type="button" class="button small" data-proxy-panel-settings>面板设置</button>
-        <button type="button" class="button small" data-route="proxy-config">编辑配置</button>
-      </section>
+      <div class="management-top-pair">
+        <section class="proxy-panel-management" aria-label="代理面板设置">
+          <div><h2 data-proxy-panel-name>代理面板</h2><code data-proxy-panel-address></code></div>
+          <a class="button small" data-proxy-panel-link target="_blank" rel="noopener noreferrer">打开面板</a>
+          <button type="button" class="button small" data-proxy-panel-settings>面板设置</button>
+          <button type="button" class="button small" data-route="proxy-config">编辑配置</button>
+        </section>
+        <section class="management-service-actions" aria-label="DNS 服务操作">
+          <div class="service-card-main">
+            <span class="service-card-icon" aria-hidden="true">${icon('power')}</span>
+            <div class="service-card-copy">
+              <div class="service-card-title-row">
+                <h2>DNS 核心服务</h2>
+                <span class="badge success service-card-badge">● 运行中 · :53</span>
+              </div>
+              <p>平滑重启内核进程，重新加载所有配置与上游连接</p>
+            </div>
+          </div>
+          <div id="management-service-controls">
+            <button type="button" class="glass-btn console-restart" id="management-restart-button" title="重启 DNS 核心服务">${icon('power')}<span>重启内核</span></button>
+          </div>
+        </section>
+      </div>
       <div id="management-cache-slot" style="display:contents">${card('缓存管理',skeletonBlock(130),{iconName:'data',className:'data-cache-panel'})}</div>
       <div id="management-feature-slot" style="display:contents">${card('功能开关',skeletonBlock(300),{iconName:'features',subtitle:'常用运行功能集中管理',className:'management-feature-panel'})}</div>
       <div class="management-bottom">
         <div id="management-counts-slot" style="display:contents">${card('域名列表统计',skeletonBlock(150),{iconName:'rules',subtitle:'查看自动分流列表的当前条目数',className:'data-counts-card'})}</div>
         <div id="management-requery-slot" style="display:contents">${card('刷新分流缓存',skeletonBlock(270),{iconName:'refresh',subtitle:'重新扫描域名并更新自动生成的分流列表',className:'data-requery-card'})}</div>
       </div>
-      <section class="management-service-actions" aria-label="DNS 服务操作"><div><h2>DNS 服务</h2><p>管理当前 DNS 核心进程</p></div><div id="management-service-controls"></div></section>
     </div>`);
 
+    $('#management-restart-button')?.addEventListener('click', restartService);
     proxyPanelService?.sync();
     const switchPromise=Promise.all(tags.map(t=>safe(()=>api.request(`/plugins/${t}/show`),'error'))).then(results=>Object.fromEntries(tags.map((t,i)=>[t,String(results[i]).trim()])));
     const metricsPromise=api.metrics();

@@ -85,7 +85,10 @@ def read_kernel_bundle(archive, backend):
     wrapper = anchor[:-len(directory + 'localdns-amd64-v3')]
     suffix = prefix + 'localdns-amd64-v3'
     kernels = {}
-    for platform, machine in [('amd64-v1', 62), ('amd64-v3', 62), ('arm64', 183)]:
+    platforms = [('amd64-v1', 62), ('amd64-v3', 62), ('arm64', 183)]
+    if backend == 'FJGOE' or (wrapper + directory + 'localdns-amd64-v2') in names:
+        platforms.insert(1, ('amd64-v2', 62))
+    for platform, machine in platforms:
         name = prefix + 'localdns-' + platform
         data = archive.read(wrapper + directory + 'localdns-' + platform)
         if len(data) < 64 or data[:6] != b'\x7fELF\x02\x01' or struct.unpack_from('<H', data, 18)[0] != machine:
@@ -248,8 +251,8 @@ def main():
             with ZipFile(args.kernel_archive) as archive:
                 kernels = read_kernel_bundle(archive, backend)
                 if args.runtime_template:
-                    if backend != 'FJGLI':
-                        raise ValueError('The new runtime template currently supports FJGLI only')
+                    if backend not in ('FJGLI', 'FJGOE'):
+                        raise ValueError('The new runtime template currently supports FJGLI/FJGOE only')
                     template = read_runtime_template(archive)
                     full = {name: data for name, data in full.items() if not name.startswith('localdns/')}
                     full.update(template)
@@ -278,8 +281,8 @@ def main():
         full['release.json'] = json_bytes(dict(
             version, packageType='full', baseArchive=args.full_base.name,
             baseArchiveSha256=base_digest, backendBinarySha256=binary_sha,
-            configurationSource='FJGLI upstream runtime template' if args.runtime_template else meta['configurationSource'],
-            templateCleanup='FJGLI: cleared aliases, manual rules, runtime data, task history and private upstream examples' if args.runtime_template else meta.get('templateCleanup', ''),
+            configurationSource=f"{version['backendVersion']} upstream runtime template" if args.runtime_template else meta['configurationSource'],
+            templateCleanup=f"{version['backendVersion']}: cleared aliases, manual rules, runtime data, task history and private upstream examples" if args.runtime_template else meta.get('templateCleanup', ''),
             uiFiles={name: sha(data) for name, data in ui.items()}, **kernel_metadata))
         for name, data in base.items():
             protected = ((name.startswith('localdns/') or re.match(r'LocalDNS_[A-Z0-9]+_Binaries/', name))

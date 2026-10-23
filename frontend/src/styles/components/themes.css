@@ -407,7 +407,8 @@ html[data-skin="claude"] .toast {
 @media (min-width: 901px) {
   html[data-nav="collapsed"] .navigation-tools > span,
   html[data-nav="collapsed"] #side-nav .nav-item > span,
-  html[data-nav="collapsed"] #sidebar .sidebar-status-copy { display: none; }
+  html[data-nav="collapsed"] #sidebar .sidebar-status-copy,
+  html[data-nav="collapsed"] #sidebar .sidebar-restart-btn > span { display: none; }
 }
 
 @media (min-width: 901px) {
@@ -419,11 +420,12 @@ html[data-skin="claude"] .toast {
 }
 
 @media (min-width: 901px) {
-  html[data-nav="collapsed"] #sidebar-status { display: flex; justify-content: center; }
+  html[data-nav="collapsed"] #sidebar-status { display: flex; flex-direction: column; justify-content: center; gap: 8px; padding: 10px 0 4px; }
 }
 
 @media (min-width: 901px) {
   html[data-nav="collapsed"] #sidebar-status > .status-dot { margin: 0; }
+  html[data-nav="collapsed"] #sidebar .sidebar-restart-btn { width: 34px; height: 34px; padding: 0; }
 }
 
 @media (min-width: 901px) {

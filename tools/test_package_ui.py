@@ -39,6 +39,23 @@ class KernelBundleTests(unittest.TestCase):
         self.assertEqual(self.read(self.payload()), self.read(self.payload('LocalDNS_FJGA7/')))
         self.assertEqual(len(self.read(self.payload())), 3)
 
+    def test_fjgoe_bundle_includes_amd64_v2(self):
+        payload = {}
+        for platform, machine in [('amd64-v1', 62), ('amd64-v2', 62), ('amd64-v3', 62), ('arm64', 183)]:
+            data = bytearray(64)
+            data[:6] = b'\x7fELF\x02\x01'
+            struct.pack_into('<H', data, 18, machine)
+            payload[f'LocalDNS_FJGOE/LocalDNS_FJGOE_Binaries/localdns-{platform}'] = bytes(data)
+        payload['LocalDNS_FJGOE/localdns/bin/localdns'] = payload['LocalDNS_FJGOE/LocalDNS_FJGOE_Binaries/localdns-amd64-v3']
+        buffer = io.BytesIO()
+        with ZipFile(buffer, 'w') as archive:
+            for name, data in payload.items():
+                archive.writestr(name, data)
+        with ZipFile(buffer) as archive:
+            kernels = read_kernel_bundle(archive, 'FJGOE')
+        self.assertEqual(len(kernels), 4)
+        self.assertIn('LocalDNS_FJGOE_Binaries/localdns-amd64-v2', kernels)
+
     def test_non_kernel_files_are_not_imported(self):
         source = self.payload()
         source['LocalDNS_FJGA7/localdns/config/localdns.json'] = b'private'

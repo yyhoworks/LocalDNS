@@ -99,7 +99,7 @@ def run(arguments, **kwargs):
 def choose_arch(value=None):
     value = value or platform.machine().lower()
     choices = {'x86_64': 'amd64-v1', 'amd64': 'amd64-v1', 'amd64-v1': 'amd64-v1',
-               'amd64-v3': 'amd64-v3', 'aarch64': 'arm64', 'arm64': 'arm64'}
+               'amd64-v2': 'amd64-v2', 'amd64-v3': 'amd64-v3', 'aarch64': 'arm64', 'arm64': 'arm64'}
     if value not in choices:
         raise InstallError('仅支持 Linux x86-64 / ARM64，当前架构：' + value)
     return choices[value]
@@ -710,7 +710,7 @@ def main(argv=None):
     parser.add_argument('--dir', default='/opt/localdns', help='安装目录，默认 /opt/localdns')
     parser.add_argument('--version', help='指定正式发行标签，默认 GitHub 最新正式版')
     parser.add_argument('--mode', choices=['auto', 'install', 'ui'], default='auto')
-    parser.add_argument('--arch', choices=['amd64-v1', 'amd64-v3', 'arm64'], help='默认 x86-64 v1 或 ARM64')
+    parser.add_argument('--arch', choices=['amd64-v1', 'amd64-v2', 'amd64-v3', 'arm64'], help='默认 x86-64 v1 或 ARM64（可选 amd64-v2 / amd64-v3）')
     parser.add_argument('--dns-port', type=port_number, default=53)
     parser.add_argument('--http-port', type=port_number, default=9099)
     parser.add_argument('--without-service', action='store_true', help=argparse.SUPPRESS)

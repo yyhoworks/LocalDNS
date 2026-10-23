@@ -98,18 +98,26 @@ def dns(port, protocol):
     return {'protocol': protocol, 'answers': answers}
 
 
+SUPPORTED_BACKENDS = ('FJGLI', 'FJGOE')
+
+
 def verify(root, http_port, udp_port, tcp_port):
+    expected_versions = SUPPORTED_BACKENDS
+    if (root / 'ui/version.json').is_file():
+        v = read_json(root / 'ui/version.json').get('backendVersion')
+        if v in SUPPORTED_BACKENDS:
+            expected_versions = (v,)
     status = None
     for _ in range(40):
         try:
             status = api(http_port, '/api/v1/status')
-            if status.get('version') == 'FJGLI':
+            if status.get('version') in expected_versions:
                 break
         except (OSError, ValueError):
             pass
         time.sleep(.25)
-    if not status or status.get('version') != 'FJGLI':
-        raise MigrationError('FJGLI 管理接口未就绪')
+    if not status or status.get('version') not in expected_versions:
+        raise MigrationError(f"{'/'.join(expected_versions)} 管理接口未就绪")
     upstreams = api(http_port, '/api/v1/upstream/config')
     expected = {p.stem: read_json(p)['upstreams'] for p in (root / 'config/upstreams').glob('*.json')}
     if upstreams != expected:
@@ -125,7 +133,7 @@ def verify(root, http_port, udp_port, tcp_port):
                  '/api/v1/querylog/stats', '/api/v1/querylog/entries?limit=2',
                  '/api/v1/route-refresh/status', '/api/v1/route-refresh/schedule', '/api/v1/route-refresh/counts'):
         api(http_port, path)
-    return {'version': 'FJGLI', 'upstreamGroups': len(upstreams), 'cacheMemoryMb': budget,
+    return {'version': status.get('version'), 'upstreamGroups': len(upstreams), 'cacheMemoryMb': budget,
             'dns': [dns(udp_port, 'udp'), dns(tcp_port, 'tcp')]}
 
 
@@ -166,11 +174,12 @@ def prepare(root, package, expected, stage, arch):
     with tempfile.TemporaryDirectory(prefix='.fjgli-package-', dir=stage.parent) as temporary:
         payload = Path(temporary) / 'payload'
         metadata = installer.extract_verified(package, payload)
-        if metadata.get('packageType') != 'full' or metadata.get('backendVersion') != 'FJGLI':
-            raise MigrationError('需要 FJGLI 完整发行包')
+        backend = metadata.get('backendVersion')
+        if metadata.get('packageType') != 'full' or backend not in SUPPORTED_BACKENDS:
+            raise MigrationError('需要 FJGLI/FJGOE 完整发行包')
         installer.require_space(stage.parent, sum(p.stat().st_size for p in payload.rglob('*') if p.is_file()))
         shutil.copytree(payload / 'localdns', stage)
-        binary = payload / 'LocalDNS_FJGLI_Binaries' / ('localdns-' + installer.choose_arch(arch))
+        binary = payload / f'LocalDNS_{backend}_Binaries' / ('localdns-' + installer.choose_arch(arch))
         shutil.copy2(binary, stage / 'bin/localdns')
         (stage / 'bin/localdns').chmod(0o755)
     report = migrate_configuration(root, stage)
@@ -382,7 +391,7 @@ def main(argv=None):
     parser.add_argument('--stage', type=Path)
     parser.add_argument('--package', type=Path)
     parser.add_argument('--sha256')
-    parser.add_argument('--arch', choices=['amd64-v1', 'amd64-v3', 'arm64'])
+    parser.add_argument('--arch', choices=['amd64-v1', 'amd64-v2', 'amd64-v3', 'arm64'])
     parser.add_argument('--backup', type=Path)
     parser.add_argument('--downloaded-backup-sha256')
     parser.add_argument('--http-test-port', type=installer.port_number, default=19098)

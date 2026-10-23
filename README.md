@@ -6,9 +6,9 @@
 
 **DNS 核心主要由折腾日记交流群里的 R 大使用 Rust 编写；[yyhoworks](https://github.com/yyhoworks) 负责 UI 设计。**
 
-当前版本：**[后端 FJGLI / UI 2026.10.23.1](https://github.com/yyhoworks/LocalDNS/releases/tag/fjgli-ui-v2026.10.23.1)**，提供完整包、UI 升级包、配套配置服务包和 SHA-256 校验文件，见 [本次更新说明](docs/releases/fjgli-ui-v2026.10.23.1.md)。
+当前版本：**[后端 FJGOE / UI 2026.10.23.2](https://github.com/yyhoworks/LocalDNS/releases/tag/fjgoe-ui-v2026.10.23.2)**，提供完整包、UI 升级包和 SHA-256 校验文件，见 [本次更新说明](docs/releases/fjgoe-ui-v2026.10.23.2.md)。
 
-本次合入深审修复（UI 2026.10.23.1）：保持局域网配置服务、UI 在线更新与内网 HTTP 订阅源无感直连，修复规则改名/分流模式切换等半应用状态、FJGLI 查询参数透传与 `api.logs()` 空参数清理，统一 sing-box 分片合并 `8MiB` 上限并补齐 GitHub Actions CI。已安装 FJGLI 用户只需更新 UI，无需重启 DNS；旧核心跨版本迁移仍按 [FJGLI 更新指南](docs/FJGLI_UPGRADE.md) 操作。
+本次升级 **FJGOE** 内核（UI 2026.10.23.2）：支持自适应多核 CPU（日常使用推荐双核性能足够，四核压测 QPS 更高），二进制新增 `amd64-v2`（SSE3/SSSE3/SSE4.1/SSE4.2/POPCNT，适合 J4125 等处理器），并采用「系统管理首屏双卡 + 侧边栏底部全局快捷按钮」（方案 A + C）优化「重启内核」入口。跨核心升级可按 [完整更新指南](docs/FJGLI_UPGRADE.md) 备份并恢复上游、手工规则、客户端别名与订阅配置。
 
 [产品图集](docs/SCREENSHOTS.md) · [功能指南](docs/FEATURES.md) · [安装说明](INSTALL.md) · [下载 Releases](https://github.com/yyhoworks/LocalDNS/releases) · [作者与分工](AUTHORS.md) · [开发说明](docs/DEVELOPMENT.md) · [近期更新](CHANGELOG.md)
 

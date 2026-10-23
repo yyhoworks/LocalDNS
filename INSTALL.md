@@ -1,6 +1,6 @@
 # 安装与更新
 
-当前发行版本：**后端 FJGLI / UI 2026.10.23.1**。提供新版 API 适配和完整配置迁移工具，保留 DNS 趋势、静态共享设置、日志目录与 Mihomo / sing-box 配置编辑器。
+当前发行版本：**后端 FJGOE / UI 2026.10.23.2**。提供自适应多核 CPU 的 FJGOE 内核、`amd64-v2` 架构支持（适合 J4125 等）、新版 API 适配与完整配置迁移工具，保留 DNS 趋势、静态共享设置、日志目录与 Mihomo / sing-box 配置编辑器。
 
 ## 名称、Logo 与字体共享
 
@@ -26,14 +26,13 @@ curl -fsSL https://raw.githubusercontent.com/yyhoworks/LocalDNS/main/tools/insta
 
 包含此功能的发行包可一次性安装更新执行端，之后在顶部「版本与更新」中直接发起 UI 更新或恢复上一版。只更新 UI，保留配置与核心。安装方法及 HTTPS 接入见 [网页升级指南](docs/WEB_UPDATE.md)。
 
-从 [本版 Releases](https://github.com/yyhoworks/LocalDNS/releases/tag/fjgli-ui-v2026.10.23.1) 下载；本地构建位于 `dist/fjgli-ui-v2026.10.23.1/`。
+从 [本版 Releases](https://github.com/yyhoworks/LocalDNS/releases/tag/fjgoe-ui-v2026.10.23.2) 下载；本地构建位于 `dist/fjgoe-ui-v2026.10.23.2/`。
 
 | 文件 | 用途 |
 |---|---|
-| `LocalDNS_FJGLI_UI_2026.10.23.1_Full.zip` | 新安装或完整迁移：FJGLI 程序、新配置结构、迁移工具与当前双皮肤 UI |
-| `LocalDNS_UI_2026.10.23.1_Update.zip` | 已安装环境更新界面 |
-| `LocalDNS_ProxyConfig_UI_2026.10.23.1_Service.zip` | 可选的 Mihomo / sing-box 配置服务 1.6.0（含令牌鉴权与导入防护更新） |
-| `SHA256SUMS.txt` | 三个发行包的 SHA-256 校验值 |
+| `LocalDNS_FJGOE_UI_2026.10.23.2_Full.zip` | 新安装或完整迁移：FJGOE 程序（含 v1/v2/v3/arm64）、新配置结构、迁移工具与当前双皮肤 UI |
+| `LocalDNS_UI_2026.10.23.2_Update.zip` | 已安装环境更新界面 |
+| `SHA256SUMS.txt` | 发行包的 SHA-256 校验值 |
 
 在同一目录核对：
 
@@ -61,21 +60,22 @@ sh install-ui.sh /opt/localdns
 
 ## 已安装环境升级后端
 
-**FJGLI 使用新的配置结构和管理接口，不能按旧版方式只替换二进制。** 从完整包解压目录运行 `upgrade-localdns.py`，按 [FJGLI 更新指南](docs/FJGLI_UPGRADE.md#完整更新命令) 完成外置备份、本机下载校验、新目录准备、隔离验证和整体切换。工具会迁移别名文件名、缓存字段、日志及定时计划，保留上游、手工规则、订阅和共享 UI 配置；失败恢复完整旧目录。
+**跨版本升级后端核心时，请先备份原配置与规则。** 从完整包解压目录运行 `upgrade-localdns.py`，按 [更新指南](docs/FJGLI_UPGRADE.md#完整更新命令) 完成外置备份（包含 `config/upstreams`、`rules/manual`、`config/settings/client_aliases.json`、`config/subscriptions`）、本机下载校验、新目录准备、隔离验证和整体切换。工具会保留上游、手工规则、客户端别名、订阅和共享 UI 配置；失败恢复完整旧目录。
 
-普通 UI 更新保留核心；跨核心发行包会在替换前停止并提示迁移。继续使用旧核心时，可用 `--version fjgir-ui-v2026.10.21.2` 指定旧正式版 UI。网页升级仍只处理同核心 UI。
+普通 UI 更新保留核心；跨核心发行包会在替换前停止并提示迁移。继续使用旧核心时，可用 `--version fjgli-ui-v2026.10.23.1` 指定对应正式版 UI。网页升级仍只处理同核心 UI。
 
-已验证的旧配置结构包括 FJGAC 和 FJGIR；其他旧安装遇到未知配置时停止并提示。迁移程序不保证支持尚未核实的任意历史版本。所有架构均提供二进制，实机运行验收目前针对 Alpine x86-64。
+已验证的旧配置结构包括 FJGAC、FJGIR 和 FJGLI；其他旧安装遇到未知配置时停止并提示。迁移程序不保证支持尚未核实的任意历史版本。所有架构均提供二进制，实机运行验收目前针对 Alpine x86-64。
 
 ## 新安装
 
-完整包中的 `localdns/` 放到 `/opt/localdns`。默认程序为 **amd64-v3**；其他二进制位于 `LocalDNS_FJGLI_Binaries/`，按设备架构选择。
+完整包中的 `localdns/` 放到 `/opt/localdns`。默认程序为 **amd64-v3**；其他二进制位于 `LocalDNS_FJGOE_Binaries/`，按设备架构与指令集选择。FJGOE 支持自适应多核 CPU，日常使用推荐双核即可满足性能需求，四核测试 QPS 更高。
 
-| 文件 | 平台 |
+| 文件 | 平台与指令集要求 |
 |---|---|
-| `localdns-amd64-v1` | x86-64 v1 |
-| `localdns-amd64-v3` | x86-64 v3 |
-| `localdns-arm64` | ARM64 |
+| `localdns-amd64-v1` | x86-64 v1（SSE、SSE2 等基础指令） |
+| `localdns-amd64-v2` | x86-64 v2（SSE3、SSSE3、SSE4.1、SSE4.2、POPCNT 等，适合 J4125 等） |
+| `localdns-amd64-v3` | x86-64 v3（AVX、AVX2、FMA、BMI1、BMI2 等） |
+| `localdns-arm64` | ARM64（`aarch64`） |
 
 将所选程序放置为 `/opt/localdns/bin/localdns`，然后运行：
 
@@ -84,9 +84,9 @@ chmod +x /opt/localdns/bin/localdns
 /opt/localdns/bin/localdns --root /opt/localdns --config /opt/localdns/config/localdns.json
 ```
 
-监听地址和端口由 `localdns/config/localdns.json` 决定。完整包使用已清理的 FJGLI 默认结构：客户端别名、手工规则和运行数据为空，上游改为公共示例，默认定时任务关闭。订阅配置保留公开来源，核心重新下载或编译规则；安装后按实际网络调整。
+监听地址和端口由 `localdns/config/localdns.json` 决定。完整包使用已清理的默认结构：客户端别名、手工规则和运行数据为空，上游改为公共示例，默认定时任务关闭。订阅配置保留公开来源，核心重新下载或编译规则；安装后按实际网络调整。
 
-`localdns.service` 是 systemd 服务示例。Alpine/OpenRC 使用对应启动方式，并保留兼容库和环境变量。上游提供 amd64-v1、amd64-v3、arm64；包内默认 amd64-v3，不能用于不支持 v3 的 CPU。一键安装器在 x86-64 上默认选择 amd64-v1。
+`localdns.service` 是 systemd 服务示例。Alpine/OpenRC 使用对应启动方式，并保留兼容库和环境变量。上游提供 amd64-v1、amd64-v2、amd64-v3、arm64；包内默认 amd64-v3，不能用于不支持 v3 的 CPU。一键安装器在 x86-64 上默认选择 amd64-v1，可通过 `--arch amd64-v2` 或 `--arch amd64-v3` 显式指定。
 
 ## 自定义查询日志目录
 

@@ -103,7 +103,7 @@ export function initialize() {
   }
   function apply(){
     observer?.disconnect();
-    try{document.body.dataset.consoleRoute=route();updateBrand();connection();if(route()==='overview'){overview();displayNumerals();}if(route()==='rules')rules();semantics();if(route()==='management'&&!$('.console-restart')){const b=document.createElement('button');b.type='button';b.className='glass-btn console-restart';b.textContent='重启服务';b.onclick=()=>$('#restart-button').click();$('#management-service-controls')?.append(b);}}
+    try{document.body.dataset.consoleRoute=route();updateBrand();connection();if(route()==='overview'){overview();displayNumerals();}if(route()==='rules')rules();semantics();if(route()==='management'&&!$('.console-restart')){const b=document.createElement('button');b.type='button';b.className='glass-btn console-restart';setHTML(b,'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M12 2v8"/><path d="M6.8 4.8a8 8 0 1 0 10.4 0"/></svg><span>重启内核</span>');b.onclick=()=>$('#restart-button').click();$('#management-service-controls')?.append(b);}}
     finally{observer?.observe($('#page-content'),{childList:true,subtree:true});}
   }
   function drawerOpened(){lastFocus=document.activeElement;$('.master-container').inert=true;$('#drawer-close').focus();}

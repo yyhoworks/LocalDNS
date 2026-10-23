@@ -72,8 +72,10 @@ export function initialize() {
     if (favicon) { favicon.removeAttribute('type'); const source = current.logo || fallback; if(favicon.getAttribute('href') !== source)favicon.href=source; }
     const restart = document.querySelector('#restart-button');
     if (restart) { restart.title='重启 '+current.name;restart.setAttribute('aria-label',restart.title); }
+    const sidebarRestart = document.querySelector('#sidebar-restart-button');
+    if (sidebarRestart) { sidebarRestart.title='重启 '+current.name+' 内核';sidebarRestart.setAttribute('aria-label',sidebarRestart.title); }
     const sidebar = document.querySelector('#sidebar-status strong');
-    if(sidebar)sidebar.textContent=current.name+(document.querySelector('#sidebar-status .offline')?' 连接异常':' 运行正常');
+    if(sidebar)sidebar.textContent=current.name+(document.querySelector('#sidebar-status .offline')?' 离线':' 在线');
   }
   function setup() {
     const field = document.querySelector('#identity-name'), url = document.querySelector('#identity-logo-url'), file = document.querySelector('#identity-logo-file');

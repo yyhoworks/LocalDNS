@@ -1,6 +1,6 @@
-# FJGLI 更新适配评估
+# FJGLI / FJGOE 更新适配评估
 
-日期：2026-10-23。适用于 FJGLI / UI 2026.10.23.1。已实现接口适配、配置迁移和完整更新工具；运行验收范围见发行说明和验证记录。
+日期：2026-10-23。适用于 FJGOE / UI 2026.10.23.2（及 FJGLI）。已实现接口适配、配置迁移和完整更新工具；运行验收范围见发行说明和验证记录。
 
 ## 结论
 
@@ -12,11 +12,11 @@
 
 ## 完整更新命令
 
-下载并解压 FJGLI **完整包**至安装目录外，例如 `/srv/localdns-release`，进入该目录。需要 root、Python 3.8+、systemd 或 OpenRC。更新工具保留原服务启动文件；原依赖的兼容库会复制到新目录。
+下载并解压 FJGOE **完整包**至安装目录外，例如 `/srv/localdns-release`，进入该目录。需要 root、Python 3.8+、systemd 或 OpenRC。更新工具保留原服务启动文件；原依赖的兼容库会复制到新目录。
 
 ```sh
 # 1. 备份到安装目录外的全新目录。
-python3 upgrade-localdns.py backup --dir /opt/localdns --output /opt/localdns-backup-20261022
+python3 upgrade-localdns.py backup --dir /opt/localdns --output /opt/localdns-backup-20261023
 ```
 
 将输出的 `localdns-original.tar.gz` 下载到本机，并在本机计算 SHA-256，与服务器输出一致后继续。**后续 apply 的摘要参数必须填写本机下载文件的计算结果。** Windows 可用 `Get-FileHash -Algorithm SHA256 <本机文件>`，Linux/macOS 可用 `sha256sum`。备份可能包含私有信息，应妥善保管。
@@ -24,19 +24,19 @@ python3 upgrade-localdns.py backup --dir /opt/localdns --output /opt/localdns-ba
 ```sh
 # 2. 用 SHA256SUMS.txt 中完整包的值校验发行包，准备新的同盘目录。
 python3 upgrade-localdns.py prepare --dir /opt/localdns \
-  --package /srv/localdns-packages/LocalDNS_FJGLI_UI_2026.10.23.1_Full.zip \
-  --sha256 <完整包SHA256> --stage /opt/localdns-fjgli-stage
+  --package /srv/localdns-packages/LocalDNS_FJGOE_UI_2026.10.23.2_Full.zip \
+  --sha256 <完整包SHA256> --stage /opt/localdns-fjgoe-stage
 
 # 3. 自动启动独立目录与回环端口的测试副本，完成后停止并删除副本。
-python3 upgrade-localdns.py preflight --dir /opt/localdns --stage /opt/localdns-fjgli-stage
+python3 upgrade-localdns.py preflight --dir /opt/localdns --stage /opt/localdns-fjgoe-stage
 
 # 4. 短暂停服、切换整个目录并验收；失败自动恢复完整旧目录。
-python3 upgrade-localdns.py apply --dir /opt/localdns --stage /opt/localdns-fjgli-stage \
-  --backup /opt/localdns-backup-20261022/localdns-original.tar.gz \
+python3 upgrade-localdns.py apply --dir /opt/localdns --stage /opt/localdns-fjgoe-stage \
+  --backup /opt/localdns-backup-20261023/localdns-original.tar.gz \
   --downloaded-backup-sha256 <本机下载备份的SHA256>
 ```
 
-`prepare` 默认在 x86-64 选择 amd64-v1、ARM64 选择 arm64；确认 CPU 支持时可显式 `--arch amd64-v3`。测试端口默认 HTTP 19098、DNS 2054，可用 `--http-test-port` 和 `--dns-test-port` 调整。已有同名暂存目录不会被删除或覆盖。
+`prepare` 默认在 x86-64 选择 amd64-v1、ARM64 选择 arm64；确认 CPU 支持时可显式 `--arch amd64-v2`（适合 J4125 等）或 `--arch amd64-v3`。测试端口默认 HTTP 19098、DNS 2054，可用 `--http-test-port` 和 `--dns-test-port` 调整。已有同名暂存目录不会被删除或覆盖。
 
 工具比对备份、准备时及停服前的设置；有变化则停止，需要重新备份、下载和准备。已启用订阅的本地来源文件缺失时也停止，先在旧版补全下载。旧版在线来源可复制到新目录供核心重新编译，旧编译状态和缓存不复制。新版启动后会继续按原订阅更新计划运行。
 

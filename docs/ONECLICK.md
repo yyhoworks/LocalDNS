@@ -1,6 +1,6 @@
 # 一键安装指南
 
-安装器：**1.3.1**（新增跨核心版本拦截：目标版本与已装核心不一致时拒绝 UI 更新；默认仍只安装 DNS 与静态 UI）。安装内容来自 GitHub 最新正式 Release；当前版本为 **FJGLI / UI 2026.10.23.1**。安装器与 UI 独立编号，网页升级选项从 UI 2026.10.19.9 起提供，2026.10.19.10 起无需升级口令。
+安装器：**1.3.1**（新增跨核心版本拦截：目标版本与已装核心不一致时拒绝 UI 更新；默认仍只安装 DNS 与静态 UI）。安装内容来自 GitHub 最新正式 Release；当前版本为 **FJGOE / UI 2026.10.23.2**。安装器与 UI 独立编号，网页升级选项从 UI 2026.10.19.9 起提供，2026.10.19.10 起无需升级口令。
 
 ## 复制这一条命令
 
@@ -20,7 +20,7 @@ wget -O localdns-install.sh https://raw.githubusercontent.com/yyhoworks/LocalDNS
 
 ## 运行条件
 
-- Linux x86-64 或 ARM64，运行中的 systemd 或 OpenRC；x86-64 默认选择 `amd64-v1`。
+- Linux x86-64 或 ARM64，运行中的 systemd 或 OpenRC；x86-64 默认选择 `amd64-v1`（可通过 `--arch amd64-v2` 或 `--arch amd64-v3` 指定）。
 - root 权限，以及访问 GitHub API、raw 文件和 Release 下载的网络。
 - Python 3.8 或更新版本。未安装 Python 时，入口脚本通过 apk / apt-get / dnf / yum 安装 Python 和 CA 证书；已有版本太旧时停止并提示。
 - 建议在安装目录所在分区预留至少 **300 MiB**。系统依赖另计；Alpine 的编译依赖占用较多空间。下载、解压和备份前还会检查剩余空间。
@@ -55,7 +55,7 @@ sh localdns-install.sh --dir /opt/mydns --dns-port 1053 --http-port 19099
 sh localdns-install.sh --origin http://192.168.1.20:9099
 
 # 安装 / 更新指定正式发行版
-sh localdns-install.sh --version fjgli-ui-v2026.10.23.1
+sh localdns-install.sh --version fjgoe-ui-v2026.10.23.2
 
 # 强制要求更新已有 UI；找不到安装时停止
 sh localdns-install.sh --mode ui --dir /opt/localdns
@@ -69,7 +69,7 @@ sh localdns-install.sh --with-ui-updater --origin http://192.168.1.20:9099
 | `--dir` | `/opt/localdns`，必须是独立的 Linux 绝对路径，不含空格 |
 | `--mode auto/install/ui` | `auto`；`install` 只接受不存在或为空的目标 |
 | `--version` | GitHub 最新正式版；也可指定正式 Release 标签 |
-| `--arch` | 自动选择 `amd64-v1` 或 `arm64`；可显式选 `amd64-v3`，需 CPU 支持 |
+| `--arch` | 自动选择 `amd64-v1` 或 `arm64`；可显式选 `amd64-v2`（适合 J4125 等）或 `amd64-v3`，需 CPU 支持 |
 | `--dns-port` / `--http-port` | 新装为 `53` / `9099`；UI 更新沿用已有 API 端口 |
 | `--origin` | 安装完成后显示的 UI 地址；默认使用探测到的本机 IPv4 和 UI 端口 |
 | `--with-ui-updater` | 可选安装网页 UI 升级执行端，默认端口 9100；需要包含对应工具的新发行包 |

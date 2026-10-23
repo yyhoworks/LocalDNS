@@ -216,9 +216,29 @@
 }
 .management-bottom { align-items:start; gap:var(--ui-section-gap); }
 .management-bottom>.card { height:auto; min-height:0; }
-.management-service-actions { display:flex; align-items:center; justify-content:space-between; gap:16px; padding:16px 0 0; border-top:1px solid var(--border-glass); }
-.management-service-actions h2 { font-size:15px; font-weight:500; margin:0; }
-.management-service-actions p { font-size:12px; color:var(--text-2); margin:4px 0 0; }
+.management-top-pair { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:14px; align-items:stretch; }
+.management-service-actions { display:flex; align-items:center; justify-content:space-between; gap:16px; padding:16px 18px; border:1px solid var(--border-glass); border-radius:var(--radius-card); background:var(--glass-bg); backdrop-filter:var(--blur-filter); -webkit-backdrop-filter:var(--blur-filter); min-width:0; }
+.service-card-main { display:flex; align-items:center; gap:12px; flex:1; min-width:0; }
+.service-card-icon { width:36px; height:36px; border-radius:calc(10px * var(--radius-scale)); background:rgba(245,158,11,.12); border:1px solid rgba(245,158,11,.28); color:var(--amber,#F59E0B); display:inline-flex; align-items:center; justify-content:center; flex-shrink:0; }
+.service-card-icon svg { width:17px; height:17px; }
+.service-card-copy { min-width:0; flex:1; }
+.service-card-title-row { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+.management-service-actions h2 { font-size:14px; font-weight:600; margin:0; color:var(--text-1); }
+.management-service-actions p { font-size:12px; color:var(--text-2); margin:4px 0 0; line-height:1.45; }
+#management-service-controls { display:flex; align-items:center; gap:8px; flex-shrink:0; }
+.console-restart { padding:8px 14px; font-size:12.5px; font-weight:600; gap:7px; color:#FBBF24; background:rgba(245,158,11,.13); border-color:rgba(245,158,11,.34); }
+.console-restart svg { width:14px; height:14px; flex-shrink:0; }
+.console-restart:hover { background:rgba(245,158,11,.22); border-color:rgba(245,158,11,.50); color:#FDE68A; }
+html[data-theme="light-glass"] .service-card-icon { color:#B45309; background:rgba(217,119,6,.11); border-color:rgba(217,119,6,.28); }
+html[data-theme="light-glass"] .console-restart { color:#92400E; background:rgba(217,119,6,.11); border-color:rgba(217,119,6,.30); }
+html[data-theme="light-glass"] .console-restart:hover { color:#78350F; background:rgba(217,119,6,.18); border-color:rgba(217,119,6,.44); }
+@media(max-width:1120px) { .management-top-pair { grid-template-columns:1fr; } }
+@media(max-width:600px) {
+  .management-service-actions { flex-wrap:wrap; gap:12px; }
+  .service-card-main { flex-basis:100%; }
+  #management-service-controls { width:100%; }
+  #management-service-controls .console-restart { width:100%; min-height:44px; }
+}
 .data-cache-grid { grid-template-columns:repeat(4,minmax(0,1fr)); gap:12px; }
 .cache-card-compact { min-width:0; padding:12px; border-radius:12px; }
 .cache-card-compact .cache-card-head { display:flex; align-items:center; justify-content:space-between; gap:8px; min-width:0; margin:0; flex-wrap:wrap; }

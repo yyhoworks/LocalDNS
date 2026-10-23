@@ -200,6 +200,7 @@ import { loadAliases } from '../logs/aliases.js';
     document.addEventListener('click',e=>{const b=e.target.closest('[data-route]');if(!b)return;navigate(b.dataset.route)});
     $('#refresh-button').onclick=()=>renderRoute(true);
     $('#restart-button').onclick=restartService;
+    if ($('#sidebar-restart-button')) $('#sidebar-restart-button').onclick=restartService;
     if (!skinService?.toggleTheme) {
       $('#theme-toggle').onclick=()=>{
         const cur=document.documentElement.dataset.theme;

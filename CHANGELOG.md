@@ -1,5 +1,12 @@
 # LocalDNS 更新记录
 
+## FJGOE / UI 2026.10.23.2 · 自适应多核内核、AMD64-V2 支持与重启入口优化
+
+- **升级 FJGOE 内核（自适应多核 CPU）**：日常使用推荐双核即可满足性能需求，使用四核测试可获得更高 QPS 表现。
+- **新增 `amd64-v2` 二进制架构（适合 J4125 等）**：发行包 `LocalDNS_FJGOE_Binaries/` 与安装/更新工具新增 `localdns-amd64-v2` 支持，完整覆盖 `amd64-v1`（SSE、SSE2 等基础指令）、`amd64-v2`（SSE3、SSSE3、SSE4.1、SSE4.2、POPCNT 等，适合 J4125 等）、`amd64-v3`（AVX、AVX2、FMA、BMI1、BMI2 等）及 `arm64`。
+- **「重启内核」双入口组合优化（方案 A + C）**：`系统管理` 页将 `DNS 核心服务` 卡片移至首屏第一行与 `代理面板` 并列，提供运行状态徽章与琥珀色「重启内核」按钮；左侧导航栏底部状态区新增全局「重启内核」快捷按钮（支持侧栏折叠态），任意页面均可一键重启内核。
+- **配置备份与平滑恢复**：跨核心升级保留 `config/upstreams`、`rules/manual`、`config/settings/client_aliases.json` 与 `config/subscriptions` 等全部自定义设置。
+
 ## FJGLI / UI 2026.10.23.1 · 局域网体验精简与深审修复
 
 - **保持局域网开箱即用**：保留 `localdns-proxy-config` 与 `ui_updater.py` 无令牌直连体验、默认局域网监听及内网 HTTP 配置直读，不引入多余的令牌输入框或内网抓取限制。

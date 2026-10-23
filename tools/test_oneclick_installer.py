@@ -149,6 +149,7 @@ class InstallerTests(unittest.TestCase):
             with self.subTest(value=value), self.assertRaises(installer.InstallError):
                 installer.origin(value, 9099)
         self.assertEqual(installer.choose_arch('x86_64'), 'amd64-v1')
+        self.assertEqual(installer.choose_arch('amd64-v2'), 'amd64-v2')
         self.assertEqual(installer.choose_arch('aarch64'), 'arm64')
         self.assertEqual(installer.origin('http://example.com:80', 9099), 'http://example.com')
         self.assertEqual(installer.origin('https://example.com:443', 9099), 'https://example.com')

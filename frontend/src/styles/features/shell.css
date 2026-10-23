@@ -198,10 +198,16 @@
 @media (max-width: 600px) {
   .brand-box .brand-name { max-width: 44vw; }
 }
-#sidebar-status{position:relative;display:grid;grid-template-columns:12px minmax(0,1fr) 12px;gap:0;align-items:center;padding:13px 0 4px;text-align:center}
+#sidebar-status{position:relative;display:grid;grid-template-columns:9px minmax(0,1fr) auto;gap:8px;align-items:center;padding:12px 2px 4px;text-align:left}
 #sidebar-status>.status-dot{grid-column:1;justify-self:start}
-#sidebar-status>.sidebar-status-copy{grid-column:2;overflow:visible;min-width:0;text-align:center}
-#sidebar-status strong{display:block;font-family:var(--font-sans);font-size:12px;line-height:1.6;white-space:nowrap}
+#sidebar-status>.sidebar-status-copy{grid-column:2;overflow:hidden;min-width:0;text-align:left}
+#sidebar-status strong{display:block;font-family:var(--font-sans);font-size:11.5px;line-height:1.4;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#sidebar-status #api-endpoint-label{text-align:left;font-size:10.5px;line-height:1.35;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sidebar-restart-btn{grid-column:3;appearance:none;display:inline-flex;align-items:center;justify-content:center;gap:4px;padding:5px 8px;border-radius:calc(8px * var(--radius-scale));font-family:var(--font-sans);font-size:11px;font-weight:600;line-height:1.2;color:#FBBF24;background:rgba(245,158,11,.12);border:1px solid rgba(245,158,11,.30);cursor:pointer;white-space:nowrap;transition:background-color .15s ease,border-color .15s ease,color .15s ease}
+.sidebar-restart-btn svg{width:12px;height:12px;flex-shrink:0}
+.sidebar-restart-btn:hover{background:rgba(245,158,11,.22);border-color:rgba(245,158,11,.48);color:#FDE68A}
+html[data-theme="light-glass"] .sidebar-restart-btn{color:#92400E;background:rgba(217,119,6,.10);border-color:rgba(217,119,6,.28)}
+html[data-theme="light-glass"] .sidebar-restart-btn:hover{color:#78350F;background:rgba(217,119,6,.18);border-color:rgba(217,119,6,.42)}
 .nav-item.active{background:var(--selection-fill);border:1px solid var(--selection-edge);box-shadow:none}
 .cmd-search-bar:focus-within{outline:none;border-color:var(--control-focus)}
 .navigation-tools {

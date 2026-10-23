@@ -31,9 +31,9 @@ fi
 UI_VERSION=$(sed -n 's/^LocalDNS UI //p' VERSION.txt)
 case "$UI_VERSION" in ''|*[!A-Za-z0-9._-]*) echo "UI 版本信息无效" >&2; exit 1;; esac
 PACKAGE_BACKEND=$(sed -n 's/^Backend //p' VERSION.txt)
-if [ "$PACKAGE_BACKEND" = FJGLI ] && [ -f "$INSTALL_DIR/ui/version.json" ]; then
-  grep -Eq '"backendVersion"[[:space:]]*:[[:space:]]*"FJGLI"' "$INSTALL_DIR/ui/version.json" || {
-    echo '此 UI 包需要 FJGLI。请先使用完整包的 upgrade-localdns.py 备份并迁移，或下载原核心的 UI 包。' >&2
+if { [ "$PACKAGE_BACKEND" = FJGLI ] || [ "$PACKAGE_BACKEND" = FJGOE ]; } && [ -f "$INSTALL_DIR/ui/version.json" ]; then
+  grep -Eq "\"backendVersion\"[[:space:]]*:[[:space:]]*\"$PACKAGE_BACKEND\"" "$INSTALL_DIR/ui/version.json" || {
+    echo "此 UI 包需要 $PACKAGE_BACKEND。请先使用完整包的 upgrade-localdns.py 备份并迁移，或下载原核心的 UI 包。" >&2
     exit 1
   }
 fi
