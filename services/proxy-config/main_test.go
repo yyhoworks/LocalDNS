@@ -54,6 +54,51 @@ func TestDirectLocalReadWithoutSession(t *testing.T) {
 		t.Fatal("did not directly read the local file")
 	}
 }
+func callWithToken(s *Server, path string, input any, token string) *httptest.ResponseRecorder {
+	b, _ := json.Marshal(input)
+	req := httptest.NewRequest("POST", "http://localdns.test:9098"+apiPrefix+path, strings.NewReader(string(b)))
+	req.Header.Set("Origin", "http://localdns.test:9099")
+	req.Header.Set("Content-Type", "application/json")
+	if token != "" {
+		req.Header.Set("Authorization", "Bearer "+token)
+	}
+	rr := httptest.NewRecorder()
+	s.ServeHTTP(rr, req)
+	return rr
+}
+func TestTokenAuthentication(t *testing.T) {
+	s, path := testServer(t)
+	s.config.Token = "test-token-123"
+	input := request{Core: "mihomo", Path: path}
+	if rr := callWithToken(s, "read", input, ""); rr.Code != http.StatusUnauthorized {
+		t.Fatalf("missing token accepted: %d %s", rr.Code, rr.Body.String())
+	}
+	if rr := callWithToken(s, "read", input, "wrong-token"); rr.Code != http.StatusUnauthorized {
+		t.Fatalf("wrong token accepted: %d %s", rr.Code, rr.Body.String())
+	}
+	if rr := callWithToken(s, "read", input, "test-token-123"); rr.Code != http.StatusOK {
+		t.Fatalf("correct token rejected: %d %s", rr.Code, rr.Body.String())
+	}
+	// healthz stays exempt so local probes work without the token.
+	req := httptest.NewRequest("GET", "http://localdns.test:9098/healthz", nil)
+	rr := httptest.NewRecorder()
+	s.ServeHTTP(rr, req)
+	if rr.Code != http.StatusOK {
+		t.Fatalf("healthz requires token: %d", rr.Code)
+	}
+	// CORS preflight never carries Authorization and stays exempt, while
+	// Host/Origin checks still apply to it.
+	req = httptest.NewRequest("OPTIONS", "http://localdns.test:9098"+apiPrefix+"read", nil)
+	req.Header.Set("Origin", "http://localdns.test:9099")
+	rr = httptest.NewRecorder()
+	s.ServeHTTP(rr, req)
+	if rr.Code != http.StatusNoContent {
+		t.Fatalf("preflight requires token: %d", rr.Code)
+	}
+	if rr.Header().Get("Access-Control-Allow-Headers") != "Content-Type, Authorization" {
+		t.Fatal("preflight does not allow the Authorization header")
+	}
+}
 func TestOriginAndHostRestrictions(t *testing.T) {
 	s, _ := testServer(t)
 	for _, origin := range []string{"", "http://evil.test"} {

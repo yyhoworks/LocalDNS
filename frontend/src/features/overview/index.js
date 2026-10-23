@@ -8,7 +8,7 @@ import { clientsService } from '../logs/clients.js';
 import { setHTML } from '../../core/security/safe-dom.ts';
 import { loadAliases, openAliasModal } from '../logs/aliases.js';
 import { api } from '../../core/api/api.js';
-import { safe } from '../../shared/async.js';
+import { safe, safeResult } from '../../shared/async.js';
 import { parseProm } from '../../shared/metrics/prometheus.ts';
 import { parseSystem, parseCaches } from './model.js';
 import { $, state, page, $$, storage, API_BASE } from '../../core/context.js';
@@ -30,17 +30,21 @@ import { cacheName } from '../management/index.js';
 
     await renderScope.guard(loadAliases(renderScope).catch(()=>{}));
     const switchTags = ['switch1','switch5','switch7','switch6','switch13','switch4','switch2','switch12'];
-    const [stats,domains,clients,slowest,sets,metricsRaw,engineStatus,upCfg,switchVals] = await renderScope.guard(Promise.all([
-      api.stats(),
-      api.rank('domain',1000),
-      api.rank('client',1000),
-      api.rank('slowest',1000),
-      api.rank('domain_set',64),
-      api.metrics(),
+    const [statsR,domainsR,clientsR,slowestR,setsR,metricsR,engineStatus,upCfg,switchVals] = await renderScope.guard(Promise.all([
+      safeResult(()=>api.stats()),
+      safeResult(()=>api.rank('domain',1000)),
+      safeResult(()=>api.rank('client',1000)),
+      safeResult(()=>api.rank('slowest',1000)),
+      safeResult(()=>api.rank('domain_set',64)),
+      safeResult(()=>api.metrics()),
       safe(()=>api.request('/api/v1/status'),{}),
       safe(()=>api.request('/api/v1/upstream/config'),{}),
       Promise.all(switchTags.map(t=>safe(()=>api.request(`/plugins/${t}/show`),'B')))
     ]));
+    // 首屏数据分项降级：stats/rank/metrics 任一失败时用空数据继续渲染，
+    // 不再让单个接口失败拖垮整页；失败项在渲染完成后汇总提示（见 degradedParts）。
+    const stats=statsR.ok?statsR.data:{}, domains=domainsR.ok?domainsR.data:[], clients=clientsR.ok?clientsR.data:[], slowest=slowestR.ok?slowestR.data:[], sets=setsR.ok?setsR.data:[], metricsRaw=metricsR.ok?metricsR.data:'';
+    const degradedParts=[!statsR.ok&&'运行统计',(!domainsR.ok||!clientsR.ok||!slowestR.ok||!setsR.ok)&&'排行数据',!metricsR.ok&&'系统指标'].filter(Boolean);
     const sw = Object.fromEntries(switchTags.map((t,i)=>[t, String(switchVals[i]||'').trim().toUpperCase()]));
     const enabledCount = Object.values(sw).filter(v => v === 'A').length;
 
@@ -66,9 +70,12 @@ import { cacheName } from '../management/index.js';
     const cacheValue = cacheDisabled ? '已关闭' : pct(overallHitRate);
 
     const now = Date.now();
-    let cpuPct = sys.uptime > 0 ? Math.max(0, sys.cpu / sys.uptime * 100) : 0;
+    // CPU 占用统一用相邻两次渲染的增量口径（ΔCPU 秒 / Δ墙钟秒），并钳制到
+    // 100% 以内。首帧没有前值样本时显示「—」，不再用「进程生命周期平均」
+    // 冒充当前占用（旧实现首帧与后续帧口径不一致，且多核可超过 100%）。
+    let cpuPct = null;
     if (cpuSample.total != null && cpuSample.at != null && sys.cpu >= cpuSample.total && now > cpuSample.at) {
-      cpuPct = Math.max(0, (sys.cpu - cpuSample.total) / ((now - cpuSample.at) / 1000) * 100);
+      cpuPct = Math.min(100, Math.max(0, (sys.cpu - cpuSample.total) / ((now - cpuSample.at) / 1000) * 100));
     }
     cpuSample.total = sys.cpu; cpuSample.at = now;
 
@@ -81,8 +88,10 @@ import { cacheName } from '../management/index.js';
     const ds = outcomes.shown;
     const slowGroups = aggregateSlowest(slowest, Infinity);
 
-    // 客户端分流策略状态（对应真实 switch2 / switch12）
-    const clientMode = sw.switch2 === 'A' ? 'fakeip' : (sw.switch12 === 'A' ? 'realip' : 'all');
+    // 客户端分流策略状态（对应真实 switch2 / switch12，以本次回读值为准）。
+    // 两个开关同时为 A 是后端不应出现的冲突态：不再按 switch2 优先猜成
+    // fakeip，显式记为 conflict（无按钮高亮），避免掩盖 switch12 仍开启。
+    const clientMode = sw.switch2 === 'A' && sw.switch12 === 'A' ? 'conflict' : sw.switch2 === 'A' ? 'fakeip' : (sw.switch12 === 'A' ? 'realip' : 'all');
 
     // === 构造五阶段全链路拓扑真实数据 ===
     const totalQ = Math.max(1, +stats.total_queries || 0);
@@ -120,7 +129,9 @@ import { cacheName } from '../management/index.js';
       { id: 'g1', code: 'CN', codeColor: isClaude ? '#2D6A4F' : '#34D399', codeBg: isClaude ? 'rgba(45,106,79,0.12)' : 'rgba(16,185,129,0.14)', name: '国内组 (domestic)', sub: `并发竞速 · ${groupAvgMs('domestic')} · ${num(eStats.domestic || 0)} 次` },
       { id: 'g2', code: 'GL', codeColor: isClaude ? '#3D6B66' : '#2DD4BF', codeBg: isClaude ? 'rgba(61,107,102,0.12)' : 'rgba(20,184,166,0.14)', name: '国外组 (foreign)', sub: `无污染解析 · ${groupAvgMs('foreign')} · ${num(eStats.foreign || 0)} 次` },
       { id: 'g3', code: 'ECS', codeColor: isClaude ? '#C96442' : '#93C5FD', codeBg: isClaude ? 'rgba(201,100,66,0.12)' : 'rgba(59,130,246,0.16)', name: '国外 ECS (foreign_ecs)', sub: `EDNS 子网 · ${groupAvgMs('foreign_ecs')} · ${num(eStats.foreign_ecs || 0)} 次` },
-      { id: 'g4', code: 'PX', codeColor: isClaude ? '#B45309' : '#FBBF24', codeBg: isClaude ? 'rgba(180,83,9,0.12)' : 'rgba(245,158,11,0.15)', name: '代理组 (proxy)', sub: `远端解析 · ${groupAvgMs('proxy')} · ${num(eStats.fakeip || 0)} 次` },
+      // 状态接口没有独立的 proxy 组计数：这里展示的是 FakeIP 映射次数，
+      // 与 r4 节点同源，文案明确标注口径，避免被误读为代理组查询量。
+      { id: 'g4', code: 'PX', codeColor: isClaude ? '#B45309' : '#FBBF24', codeBg: isClaude ? 'rgba(180,83,9,0.12)' : 'rgba(245,158,11,0.15)', name: '代理组 (proxy)', sub: `远端解析 · ${groupAvgMs('proxy')} · FakeIP 映射 ${num(eStats.fakeip || 0)} 次` },
       { id: 'g5', code: 'BLK', codeColor: isClaude ? '#B91C1C' : '#F87171', codeBg: isClaude ? 'rgba(185,28,28,0.12)' : 'rgba(239,68,68,0.15)', name: '本地拦截黑洞', sub: `0.0.0.0 / NXDOMAIN · ${num(eStats.blocked || 0)} 拦截` }
     ];
 
@@ -249,7 +260,7 @@ import { cacheName } from '../management/index.js';
           </div>
           <div class="service-metric" data-service-metric="start"><div class="service-metric-label"><span>启动时间</span>${icon('clock')}</div><div class="service-value service-start-value">${startTimeMarkup(sys.start)}</div></div>
           <div class="service-metric" data-service-metric="uptime"><div class="service-metric-label"><span>运行时长</span>${icon('uptime')}</div><div class="service-value service-uptime-value">${sys.start?overviewUptimeMarkup(sys.uptime):'—'}</div></div>
-          <div class="service-metric" data-service-metric="cpu"><div class="service-metric-label"><span>进程 CPU</span>${icon('cpu')}</div><div class="service-value" data-display-number>${metrics.some(m=>m.name==='process_cpu_seconds_total')?cpuPct.toFixed(1)+'%':'—'}</div></div>
+          <div class="service-metric" data-service-metric="cpu"><div class="service-metric-label"><span>进程 CPU</span>${icon('cpu')}</div><div class="service-value" data-display-number>${cpuPct!=null?cpuPct.toFixed(1)+'%':'—'}</div></div>
           <div class="service-metric" data-service-metric="memory"><div class="service-metric-label"><span>内存占用</span>${icon('memory')}</div><div class="service-value" data-display-number>${metrics.some(m=>m.name==='process_resident_memory_bytes')?fmtBytesBrief(sys.rss):'—'}</div></div>
         </div>
       </section>
@@ -623,6 +634,7 @@ import { cacheName } from '../management/index.js';
 
     // 绘制发布版五阶段拓扑连线，并叠加可停止的流光示意。
     const topologyWrap = $('#topo-stage-wrap');
+    if (degradedParts.length) toast('部分数据暂不可用', 'info', `${degradedParts.join('、')}读取失败，相关区域已按空数据展示。`);
     const redraw = () => { if (topologyWrap?.isConnected && $('#topo-stage-wrap') === topologyWrap) drawTopoCurves(topoEdges); };
     requestAnimationFrame(() => requestAnimationFrame(redraw));
     const onResize = () => requestAnimationFrame(redraw);
@@ -662,26 +674,39 @@ import { cacheName } from '../management/index.js';
     $$('[data-client-mode]', page).forEach(btn => {
       btn.onclick = async () => {
         const m = btn.dataset.clientMode;
+        // 目标组合 [switch2, switch12]；两个 POST 必须串行（先关后开，
+        // 避免并发写入下中间态长期停留），写完回读校验，不一致视为失败。
+        const targets = { all: ['B', 'B'], fakeip: ['A', 'B'], realip: ['B', 'A'] };
+        const target = targets[m];
+        if (!target) return;
+        const original = [sw.switch2, sw.switch12];
+        const postSwitch = (tag, value) => api.json(`/plugins/${tag}/post`, 'POST', { value });
+        const readSwitches = async () => {
+          const [v2, v12] = await Promise.all([api.request('/plugins/switch2/show'), api.request('/plugins/switch12/show')]);
+          return [String(v2 || '').trim().toUpperCase(), String(v12 || '').trim().toUpperCase()];
+        };
         try {
-          if (m === 'all') {
-            await Promise.all([
-              api.json('/plugins/switch2/post', 'POST', { value: 'B' }),
-              api.json('/plugins/switch12/post', 'POST', { value: 'B' })
-            ]);
-            toast('已切换为全员分流模式');
-          } else if (m === 'fakeip') {
-            await api.json('/plugins/switch2/post', 'POST', { value: 'A' });
-            await api.json('/plugins/switch12/post', 'POST', { value: 'B' });
-            toast('已启用：指定 Client FakeIP');
-          } else if (m === 'realip') {
-            await api.json('/plugins/switch12/post', 'POST', { value: 'A' });
-            await api.json('/plugins/switch2/post', 'POST', { value: 'B' });
-            toast('已启用：指定 Client RealIP');
-          }
-          renderRoute(true, true);
+          const steps = [{ tag: 'switch2', value: target[0] }, { tag: 'switch12', value: target[1] }]
+            .sort((a, b) => (a.value === 'A') - (b.value === 'A'));
+          for (const step of steps) await postSwitch(step.tag, step.value);
+          const actual = await readSwitches();
+          if (actual[0] !== target[0] || actual[1] !== target[1]) throw new Error(`开关状态与目标不一致（当前 switch2=${actual[0] || '?'}, switch12=${actual[1] || '?'}）`);
+          toast(m === 'all' ? '已切换为全员分流模式' : m === 'fakeip' ? '已启用：指定 Client FakeIP' : '已启用：指定 Client RealIP');
         } catch (e) {
-          toast('切换失败', 'error', e.message);
+          // 第二步失败会留下半应用状态：回滚到切换前组合；回滚也失败时
+          // 如实报错并展示后端回读的实际状态，不假装已恢复。
+          let note;
+          try {
+            await postSwitch('switch2', original[0]);
+            await postSwitch('switch12', original[1]);
+            const actual = await readSwitches();
+            note = (actual[0] === original[0] && actual[1] === original[1])
+              ? '已恢复切换前状态。'
+              : `回滚未完全生效，当前实际状态：switch2=${actual[0] || '?'}, switch12=${actual[1] || '?'}。`;
+          } catch { note = '回滚失败，请刷新页面确认当前分流状态。'; }
+          toast('切换失败', 'error', `${e.message} ${note}`);
         }
+        renderRoute(true, true);
       };
     });
 
@@ -707,8 +732,10 @@ import { cacheName } from '../management/index.js';
       $('#btn-flush-all-cache').onclick = async () => {
         if (!confirm('确定清空全部 DNS 缓存？将同时清空全部、国内、国外与国外 ECS 缓存。')) return;
         const ct = ['cache_main', 'cache_domestic', 'cache_foreign', 'cache_foreign_ecs'];
-        await Promise.allSettled(ct.map(t => api.request(`/plugins/${t}/flush`)));
-        toast('全部 4 个 DNS 缓存池已清空');
+        const results = await Promise.allSettled(ct.map(t => api.request(`/plugins/${t}/flush`)));
+        const failedTags = ct.filter((t, i) => results[i].status === 'rejected');
+        if (!failedTags.length) toast('全部 4 个 DNS 缓存池已清空');
+        else toast('清空缓存未全部成功', 'error', `未清掉：${failedTags.map(cacheName).join('、')}，其余缓存池已清空。`);
         renderRoute(true, true);
       };
     }

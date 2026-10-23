@@ -2,6 +2,9 @@
 /*
 !/.gitignore
 !/.gitattributes
+!/.github/
+!/.github/workflows/
+!/.github/workflows/ci.yml
 !/README.md
 !/AUTHORS.md
 !/INSTALL.md
@@ -24,10 +27,6 @@ __pycache__/
 node_modules/
 /frontend/.vite/
 /frontend/coverage/
-/frontend/test-results/
-/frontend/playwright-report/
-/frontend/screenshots/
-/frontend/dist/
 /dist/
 /releases/
 /deployment/

@@ -3,11 +3,13 @@ const assert=require('node:assert/strict');
 const fs=require('node:fs');
 const path=require('node:path');
 const {createPreviewServer}=require('./preview_ui.cjs');
-const {chromium}=require(process.env.LOCALDNS_PLAYWRIGHT||'C:/Users/dev/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/node_modules/playwright');
+const {chromium}=require(process.env.LOCALDNS_PLAYWRIGHT||'playwright');
 const out=path.resolve(__dirname,'../dist/appearance-layout-verification');
 fs.mkdirSync(out,{recursive:true});
 (async()=>{
-  const server=createPreviewServer({backend:'http://192.168.1.7:9099'});
+  const backend=process.env.LOCALDNS_PREVIEW_BACKEND;
+  if(!backend){console.error('Set LOCALDNS_PREVIEW_BACKEND to an isolated LocalDNS backend (e.g. http://127.0.0.1:9099); this script no longer defaults to a hard-coded LAN address.');process.exit(2);}
+  const server=createPreviewServer({backend});
   await new Promise(r=>server.listen(0,'127.0.0.1',r));
   const origin=process.env.LOCALDNS_VERIFY_URL||`http://127.0.0.1:${server.address().port}/ui/`;
   const browser=await chromium.launch({headless:true,channel:'msedge'});
@@ -23,7 +25,7 @@ fs.mkdirSync(out,{recursive:true});
     let mockFlushes=0;
     await c.route('**/plugins/cache_main/flush',r=>{mockFlushes++;return r.fulfill({contentType:'text/plain',body:'OK'});});
     const p=await c.newPage();p.on('pageerror',e=>report.errors.push(e.message));
-    const baseline=await c.newPage();await baseline.goto('http://192.168.1.7:9099/ui/');
+    const baseline=await c.newPage();await baseline.goto(backend.replace(/\/+$/,'')+'/ui/');
     const oldIDs=await baseline.locator('#bg-customizer-popover [id]').evaluateAll(els=>els.map(el=>el.id));await baseline.close();
     await p.goto(origin);await p.locator('.overview-cache-pool').first().waitFor();
     assert.equal(await p.locator('.overview-scheme-bar').count(),0);

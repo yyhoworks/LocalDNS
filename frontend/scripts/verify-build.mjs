@@ -9,9 +9,25 @@ import { readFile } from 'node:fs/promises';
 
 const root = fileURLToPath(new URL('../..', import.meta.url));
 const output = path.join(root, 'dist/ui');
-const metadata = JSON.parse(await readFile(path.join(output, 'build-meta.json'), 'utf8'));
+// On a fresh clone dist/ui does not exist yet; say what is missing and which
+// command creates it instead of surfacing a bare ENOENT stack.
+async function readBuiltFile(name) {
+  try {
+    return await readFile(path.join(output, name), 'utf8');
+  } catch (error) {
+    if (error && error.code === 'ENOENT') {
+      throw new Error(
+        `Missing built UI file dist/ui/${name}. The frontend has not been built yet — ` +
+          'run `npm run build` first (or `npm run check`, which builds before verifying).',
+        { cause: error },
+      );
+    }
+    throw error;
+  }
+}
+const metadata = JSON.parse(await readBuiltFile('build-meta.json'));
 const version = JSON.parse(await readFile(path.join(root, 'VERSION.json'), 'utf8'));
-const html = await readFile(path.join(output, 'index.html'), 'utf8');
+const html = await readBuiltFile('index.html');
 assert(html.includes(`data-backend-version="${version.backendVersion}">${version.backendVersion}</span>`), 'The initial core label must match VERSION.json on direct page entry.');
 assert.equal(metadata.sourceDigest, await sourceDigest(), 'Source changed; run npm run --prefix frontend build.');
 const current = await files(output);

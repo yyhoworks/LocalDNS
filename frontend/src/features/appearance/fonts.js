@@ -66,7 +66,7 @@ export function initialize() {
         try {
           if (!/\.(ttf|otf|woff2?)$/i.test(file.name)) throw new Error('仅支持 ttf、otf、woff、woff2');
           if (!file.size || file.size > 64 * 1048576) throw new Error('单个文件需大于 0 且不超过 64 MB');
-          if (records.concat(additions).reduce((sum, record) => sum + record.size, 0) + file.size > 128 * 1048576) throw new Error('字体总量不能超过 128 MB');
+          if (records.filter(record => !record.shared).concat(additions).reduce((sum, record) => sum + record.size, 0) + file.size > 128 * 1048576) throw new Error('本机字体总量不能超过 128 MB');
           const id='up'+(crypto.randomUUID?.().replaceAll('-','')||Date.now().toString(36)+Math.random().toString(36).slice(2)),data=await file.arrayBuffer();
           const face = new FontFace(`LocalDNSUploaded_${id}`, data); await face.load();
           additions.push({ id, name: file.name, size: file.size, data }); loaded.set(id, face);

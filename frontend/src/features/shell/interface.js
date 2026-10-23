@@ -34,7 +34,23 @@ export function initialize() {
     const mobile=$('.console-mobile-status');if(mobile){mobile.classList.toggle('offline',connected===false);mobile.textContent=(connected===null?'连接中':connected?'已连接':'连接已断开')+(time?` · ${connected===false?'最后更新':'更新于'} ${time}`:'');}
     const health=$('.console-service-health');if(health){health.classList.toggle('offline',connected===false);$('#service-summary-title',health).textContent=connected===false?'DNS 服务连接已断开':connected===true?'DNS 服务运行中':'正在读取服务状态';$('.service-connection',health).textContent=connected===null?'连接中':connected?'已连接':'已断开';$('[data-service-check]',health).setAttribute('d',connected===false?'m8 8 8 8m0-8-8 8':'m7 12 3 3 7-7');}
   }
-  function recordMetrics() { /* Throughput sampling runs on the device. */ }
+  function recordMetrics(metrics) {
+    // 概览每次渲染都会带当前真实指标调用（见 overview 的 recordMetrics 调用点）：
+    // 把数值采样追加进会话级 series，供 KPI 卡火花线绘制。原实现是空函数，
+    // series 恒为空，火花线永远被 overview() 删除——属于死功能。
+    // 相同采样点（无新数据的重复渲染）不重复入列，序列上限 120 点。
+    if (!metrics || typeof metrics !== 'object') return;
+    const point = {};
+    for (const key of ['total','latency','cache','clients','domains','blocked']) {
+      const value = Number(metrics[key]);
+      if (Number.isFinite(value)) point[key] = value;
+    }
+    if (!Object.keys(point).length) return;
+    const last = series[series.length - 1];
+    if (last && Object.keys(point).every(key => last[key] === point[key])) return;
+    series.push(point);
+    if (series.length > 120) series.splice(0, series.length - 120);
+  }
   function tinyPath(values,width=100,height=32){const min=Math.min(...values),max=Math.max(...values),span=max-min||1;return values.map((v,i)=>`${i?'L':'M'}${(i/(values.length-1)*(width-4)+2).toFixed(1)},${(height-4-(v-min)/span*(height-10)).toFixed(1)}`).join(' ');}
   function drawTraffic(container,minutes=trafficRange){
     trafficClientService.mount(container,minutes);

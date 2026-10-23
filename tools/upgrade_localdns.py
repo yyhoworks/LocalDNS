@@ -183,6 +183,26 @@ def prepare(root, package, expected, stage, arch):
             'missingSubscriptionFiles': report['missingSubscriptionFiles']}
 
 
+def preflight_failure_hint(error, process, log_path):
+    """Explain the port-probe race instead of reporting a bare failure.
+
+    The free-port probe is only true at the instant it runs (TOCTOU): the
+    isolated core binds the same ports a moment later, and another process
+    can win the gap. When the core died with a bind/listen failure in its
+    log, say so explicitly so the failure is not mistaken for corrupt
+    migration content.
+    """
+    try:
+        tail = log_path.read_bytes()[-4096:].decode('utf-8', 'replace').lower()
+    except OSError:
+        tail = ''
+    if (process is not None and process.poll() is not None
+            and ('bind' in tail or 'listen' in tail or 'address already in use' in tail)):
+        return MigrationError(str(error) + '；隔离核心未能绑定预检端口（端口可能在预检后被其他进程占用），'
+                                           '请关闭占用进程后重试')
+    return error
+
+
 def preflight(stage, http_port, dns_port):
     safe_tree(stage)
     record = read_json(stage / MARKER)
@@ -190,9 +210,19 @@ def preflight(stage, http_port, dns_port):
     with tempfile.TemporaryDirectory(prefix='.fjgli-test-', dir=stage.parent) as directory:
         test = Path(directory) / 'runtime'
         shutil.copytree(stage, test)
-        for port, kind in [(http_port, socket.SOCK_STREAM), (dns_port, socket.SOCK_STREAM), (dns_port, socket.SOCK_DGRAM)]:
-            with socket.socket(socket.AF_INET, kind) as stream:
-                stream.bind(('127.0.0.1', port))
+        # Hold the probe sockets open until the core is about to start: this
+        # shrinks (but cannot fully eliminate) the window in which another
+        # process can claim a port between the probe and the core's bind.
+        probes = []
+        try:
+            for port, kind in [(http_port, socket.SOCK_STREAM), (dns_port, socket.SOCK_STREAM), (dns_port, socket.SOCK_DGRAM)]:
+                probe = socket.socket(socket.AF_INET, kind)
+                probe.bind(('127.0.0.1', port))
+                probes.append(probe)
+        except OSError:
+            for probe in probes:
+                probe.close()
+            raise
         for path in (test / 'config').rglob('*.json'):
             value = read_json(path)
             def isolate(item):
@@ -223,12 +253,17 @@ def preflight(stage, http_port, dns_port):
             if (test / 'bin' / name).is_file():
                 environment['LD_PRELOAD'] = str(test / 'bin' / name)
                 break
+        for probe in probes:
+            probe.close()
         process = None
         with (Path(directory) / 'core.log').open('w+b') as output:
             try:
                 process = subprocess.Popen([str(test / 'bin/localdns'), '--root', str(test), '--config', str(test / 'config/localdns.json')],
                                            cwd=test, env=environment, stdin=subprocess.DEVNULL, stdout=output, stderr=output)
-                result = verify(test, http_port, dns_port, dns_port)
+                try:
+                    result = verify(test, http_port, dns_port, dns_port)
+                except MigrationError as error:
+                    raise preflight_failure_hint(error, process, Path(directory) / 'core.log') from error
             finally:
                 if process is not None:
                     process.terminate()

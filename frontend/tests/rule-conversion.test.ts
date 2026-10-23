@@ -37,6 +37,30 @@ describe('subscription save completion', () => {
     }
   });
 
+  it('never triggers the subscription update for lightweight config-only saves', async () => {
+    // 启停开关等轻量保存走 configOnly：PUT 响应未带 detected_format 时
+    // 也绝不能调用 refresh（refresh 会对订阅源发起真实更新请求）。
+    const refresh = vi.fn().mockResolvedValue({ name: 'pending', changed: true });
+    const pending = { name: 'pending' };
+    expect(await ruleConversionService.finishSave(pending, refresh, { configOnly: true })).toBe(pending);
+    expect(refresh).not.toHaveBeenCalled();
+    const known = { name: 'known', detected_format: 'txt' };
+    expect(await ruleConversionService.finishSave(known, refresh, { configOnly: true })).toBe(known);
+    expect(refresh).not.toHaveBeenCalled();
+  });
+
+  it('retries deleting the renamed rule once and reports persistent failure', async () => {
+    const ok = vi.fn().mockResolvedValue(undefined);
+    await expect(ruleConversionService.deleteOriginalWithRetry(ok)).resolves.toBe(true);
+    expect(ok).toHaveBeenCalledOnce();
+    const flaky = vi.fn().mockRejectedValueOnce(new Error('busy')).mockResolvedValue(undefined);
+    await expect(ruleConversionService.deleteOriginalWithRetry(flaky)).resolves.toBe(true);
+    expect(flaky).toHaveBeenCalledTimes(2);
+    const failing = vi.fn().mockRejectedValue(new Error('gone wrong'));
+    await expect(ruleConversionService.deleteOriginalWithRetry(failing)).resolves.toBe(false);
+    expect(failing).toHaveBeenCalledTimes(2);
+  });
+
   it('does not invent a zero count or claim a format from the filename', () => {
     expect(ruleConversionService.message({ name: 'new', files: 'test.srs' })).toBe('规则更新完成');
     expect(ruleConversionService.message({ name: 'new', rule_count: null })).toBe('规则更新完成');

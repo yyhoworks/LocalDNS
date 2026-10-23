@@ -51,13 +51,23 @@ export function initialize() {
     const field = panel.querySelector('#proxy-panel-url');
     const error = panel.querySelector('#proxy-panel-error');
     const nameField=panel.querySelector('#proxy-panel-name'), preview=panel.querySelector('#proxy-panel-preview'),logoStatus=panel.querySelector('#proxy-logo-status');
-    let returnFocus=opener, sequence=0, revision='', ready=false, loadError='';
+    let returnFocus=opener, sequence=0, revision='', ready=false, loadError='', draft=null;
     const submit = form.querySelector('[type=submit]'), retry = panel.querySelector('#proxy-panel-retry');
-    const enable = value => { for(const item of [nameField,field,submit])item.disabled=!value; };
+    const enable = value => { for(const item of [nameField,field,submit])if(item)item.disabled=!value; };
     let legacy = null;try { const raw=JSON.parse(preferences.getItem(STORAGE_KEY)||'null');if(raw)legacy=configFrom(raw); }catch{}
     async function refresh() {
       enable(false);retry.hidden=true;
-      try{const result=await identity.loadSection('proxy',legacy,STORAGE_KEY);config=configFrom(result.value||DEFAULT);revision=result.revision;ready=true;loadError='';sync();if(!panel.hidden)open(returnFocus);}
+      try{const result=await identity.loadSection('proxy',legacy,STORAGE_KEY);revision=result.revision;
+        try{config=configFrom(result.value||DEFAULT);draft=null;}
+        catch(validationError){
+          // The shared value itself is invalid: keep the form editable with the
+          // raw value loaded, so it can be corrected here instead of locking
+          // the whole panel behind the retry button.
+          draft={name:String(result.value?.name??''),url:String(result.value?.url??'')};
+          ready=true;loadError=validationError.message+' 已载入服务器上的原始值，请修正后保存。';
+          error.textContent=loadError;error.hidden=false;sync();if(!panel.hidden)open(returnFocus);return;
+        }
+        ready=true;loadError='';sync();if(!panel.hidden)open(returnFocus);}
       catch(failure){ready=false;loadError=failure.message;error.textContent=loadError;error.hidden=false;retry.hidden=false;}finally{enable(ready);}
     }
     retry.onclick=refresh;
@@ -100,10 +110,10 @@ export function initialize() {
         return;
       }
       returnFocus = origin;
-      error.hidden = ready;error.textContent=loadError||'正在读取服务器设置…';retry.hidden=ready||!loadError;
+      error.hidden = ready && !draft;error.textContent=loadError||'正在读取服务器设置…';retry.hidden=ready||!loadError;
       field.removeAttribute('aria-invalid');
-      field.value = config.url;
-      nameField.value=config.name;previewLogo();
+      field.value = draft ? draft.url : config.url;
+      nameField.value= draft ? draft.name : config.name;previewLogo();
       panel.hidden = false;
       opener.setAttribute('aria-expanded', 'true');
       place();
@@ -119,7 +129,7 @@ export function initialize() {
         const next = configFrom({name:nameField.value,url:field.value});
         if (generation !== sequence || panel.hidden) return;
         const result = await identity.saveSection('proxy',next,revision);
-        config = configFrom(result.value); revision = result.revision; sync(); close(); notify('面板地址已应用到当前浏览器');
+        config = configFrom(result.value); revision = result.revision; draft=null; loadError=''; sync(); close(); notify('面板地址已应用到当前浏览器');
       } catch (failure) {
         if(generation !== sequence || panel.hidden)return;
         error.textContent = failure.message;error.hidden = false;retry.hidden=false;place();

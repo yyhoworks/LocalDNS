@@ -92,7 +92,11 @@ export class BackendClient {
   }
 
   async request(path: string, options: HttpRequestOptions = {}): Promise<unknown> {
-    const [route, query = ''] = path.split('?');
+    // Split on the first '?' only: a query value may itself contain '?', and
+    // every translated branch below must keep the original query string.
+    const queryIndex = path.indexOf('?');
+    const route = queryIndex < 0 ? path : path.slice(0, queryIndex);
+    const query = queryIndex < 0 ? '' : path.slice(queryIndex + 1);
     const method = String(options.method || 'GET').toUpperCase();
     if (route === '/metrics' || route === '/api/v1/status' || (route.startsWith('/api/v1/upstream/') && method === 'GET') || route === '/api/v1/system/restart') {
       return this.http.request(path, options);
@@ -119,15 +123,17 @@ export class BackendClient {
     if (match) return this.switchOperation(match[1], match[2], options);
     match = route.match(/^\/plugins\/([^/]+)\/(show|post)$/);
     if (match && lists[match[1]]) {
-      const target = '/api/v1/lists/' + lists[match[1]];
+      // Query parameters are part of the caller's contract (rules screens pass
+      // ?all=1 for a full list); forward them verbatim instead of dropping them.
+      const target = '/api/v1/lists/' + lists[match[1]] + suffix;
       return match[2] === 'show' ? this.http.request(target, options) : this.json(target, options, 'PUT', body(options));
     }
     match = route.match(/^\/plugins\/cache_(main|domestic|foreign|foreign_ecs)\/(show|save|flush)$/);
-    if (match) return this.http.request('/api/v1/caches/' + match[1] + (match[2] === 'show' ? '' : '/' + match[2]),
+    if (match) return this.http.request('/api/v1/caches/' + match[1] + (match[2] === 'show' ? '' : '/' + match[2]) + suffix,
       { ...options, method: match[2] === 'show' ? 'GET' : 'POST' });
     match = route.match(/^\/plugins\/(domain_stats|fakeip|realip|nodata)\/(show|save|flush)$/);
     if (match) return this.http.request('/api/v1/' + (match[1] === 'domain_stats' ? 'domain-stats' : 'learned/' + match[1]) +
-      (match[2] === 'show' ? '' : '/' + match[2]), { ...options, method: match[2] === 'show' ? 'GET' : 'POST' });
+      (match[2] === 'show' ? '' : '/' + match[2]) + suffix, { ...options, method: match[2] === 'show' ? 'GET' : 'POST' });
     if (route.startsWith('/plugins/requery/')) {
       const actions: Record<string, string> = { status: 'status', trigger: 'start', cancel: 'cancel', reset: 'reset',
         'scheduler/config': 'schedule', 'stats/source_file_counts': 'counts' };

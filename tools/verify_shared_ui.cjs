@@ -1,7 +1,7 @@
 /* Functional acceptance; all writes and panel icons stay in isolated fixtures. */
 const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),cp=require('node:child_process');
 const {createPreviewServer}=require('./preview_ui.cjs');
-const {chromium}=require(process.env.LOCALDNS_PLAYWRIGHT||'C:/Users/dev/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/node_modules/playwright');
+const {chromium}=require(process.env.LOCALDNS_PLAYWRIGHT||'playwright');
 const root=path.resolve(__dirname,'..'),out=path.join(root,'dist/shared-ui-verification');fs.mkdirSync(out,{recursive:true});
 const font=fs.readFileSync(path.join(root,'_src/ui/assets/fonts/instrument-serif-numerals.woff2'));
 const logo=fs.readFileSync(path.join(root,'_src/ui/assets/img/logo-04-light.png'));

@@ -1,3 +1,4 @@
+// @ts-check
 import { beginRoute, currentScope } from './route-lifetime';
 import { resolveRoute } from './resolve-route';
 import { toast } from '../../shared/components/toast.js';
@@ -26,7 +27,10 @@ import { esc } from '../../shared/format/number.js';
 import { icon } from '../../shared/components/icons.js';
 
   let navigationSeq=0;
-  function routeModule(id){return {overview:overviewRoute,logs:logsRoute,upstreams:upstreamsRoute,rules:rulesRoute,management:managementRoute,'proxy-config':proxyConfigRoute}[id];}
+  const routeModules={overview:overviewRoute,logs:logsRoute,upstreams:upstreamsRoute,rules:rulesRoute,management:managementRoute,'proxy-config':proxyConfigRoute};
+  /** @param {string} id */
+  function routeModule(id){return routeModules[/** @type {keyof typeof routeModules} */ (id)];}
+  /** @param {string} id @param {boolean} [write] */
   async function navigate(id,write=true){
     const sequence=++navigationSeq;
     id=resolveRoute(id);
@@ -39,23 +43,29 @@ import { icon } from '../../shared/components/icons.js';
     state.route=id;if(write&&location.hash!==`#/${id}`)history.pushState(null,'',`#/${id}`);return renderRoute(false,false,true);
   }
 
-  function updateNav(){ const r=routeDefs.find(x=>x.id===state.route); $('#page-title').textContent=r.label;$('#page-subtitle').textContent=r.subtitle;$$('[data-route]').forEach(x=>x.classList.toggle('active',x.dataset.route===state.route)); }
+  function updateNav(){ const r=routeDefs.find(x=>x.id===state.route); if(!r)return; /** @type {HTMLElement} */ ($('#page-title')).textContent=r.label; /** @type {HTMLElement} */ ($('#page-subtitle')).textContent=r.subtitle;$$('[data-route]').forEach(x=>x.classList.toggle('active',/** @type {HTMLElement} */ (x).dataset.route===state.route)); }
 
+  /** @param {() => void} fn */
   function trackRouteCleanup(fn){ return currentScope().add(fn); }
 
   function cleanupRouteUi(){ currentScope().dispose(); }
 
   // 自动刷新（silent）：不清空页面、不显示“加载中”，新数据取回后原地替换，并保留滚动位置与未提交的输入。
+  /** @typedef {{ y: number, inner: [number, number][], fields: [string, string | boolean][], dirty: Set<string> }} ViewSnapshot */
+
+  /** @returns {ViewSnapshot} */
   function viewSnapshot(){
     const scrollers=[...page.querySelectorAll('.rank-list,.table-wrap,.overview-donut-legend,textarea')];
     const fields=[...page.querySelectorAll('input[id],select[id],textarea[id]')];
     return {
       y:window.scrollY,
       inner:scrollers.map(el=>[el.scrollTop,el.scrollLeft]),
-      fields:fields.map(el=>[el.id,el.type==='checkbox'?el.checked:el.value])
+      fields:fields.map(el=>{const field=/** @type {HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement} */ (el);return /** @type {[string, string | boolean]} */ ([field.id,field.type==='checkbox'&&'checked' in field?field.checked:field.value]);}),
+      dirty:new Set()
     };
   }
 
+  /** @param {ViewSnapshot | null} snap */
   function viewRestore(snap){
     if(!snap)return;
     const el=document.documentElement,prev=el.style.scrollBehavior;
@@ -64,11 +74,13 @@ import { icon } from '../../shared/components/icons.js';
     el.style.scrollBehavior=prev;
     const scrollers=[...page.querySelectorAll('.rank-list,.table-wrap,.overview-donut-legend,textarea')];
     if(scrollers.length===snap.inner.length)scrollers.forEach((n,i)=>{n.scrollTop=snap.inner[i][0];n.scrollLeft=snap.inner[i][1]});
-    snap.fields.forEach(([id,v])=>{const n=document.getElementById(id);if(!n||!page.contains(n))return;if(n.type==='checkbox')n.checked=v;else if(n.value!==v)n.value=v});
+    snap.fields.forEach(([id,v])=>{if(snap.dirty?.has(id))return;const n=document.getElementById(id);if(!n||!page.contains(n))return;const field=/** @type {HTMLInputElement} */ (n);if(field.type==='checkbox')field.checked=/** @type {boolean} */ (v);else if(field.value!==v)field.value=/** @type {string} */ (v)});
   }
 
+  /** @type {{ route: string, y: number } | null} */
   let pendingScroll=null;
 
+  /** @type {ReturnType<typeof setTimeout> | number} */
   let scrollSaveTimer=0,userScrolled=false;
 
   const saveScroll=()=>{if(pendingScroll)return;try{sessionPreferences.setItem('localdnsScroll',JSON.stringify({route:state.route,y:Math.round(window.scrollY)}))}catch{}};
@@ -87,7 +99,8 @@ import { icon } from '../../shared/components/icons.js';
 
   async function renderRoute(force=false,silent=false,approved=false){
     const activeRoute=state.route;
-    if(!approved&&routeModule(activeRoute).canLeave&&!await routeModule(activeRoute).canLeave())return;
+    const activeModule=routeModule(activeRoute);
+    if(!approved&&activeModule?.canLeave&&!await activeModule.canLeave())return;
     if(state.route!==activeRoute)return;
     shellInterfaceService?.rememberDraft();
     const scope = beginRoute();
@@ -97,6 +110,11 @@ import { icon } from '../../shared/components/icons.js';
     const seq=(state.renderSeq||0)+1;state.renderSeq=seq;
 
     const snap=silent?viewSnapshot():null;
+    // While the silent refresh is in flight, remember which fields the user
+    // edits so viewRestore never overwrites fresh input with the snapshot.
+    const markDirty=snap?/** @param {Event} event */ event=>{const id=/** @type {HTMLElement | null} */ (event.target)?.id;if(id)snap.dirty.add(id)}:null;
+    if(markDirty){page.addEventListener('input',markDirty,true);page.addEventListener('change',markDirty,true)}
+    const stopMarking=()=>{if(markDirty){page.removeEventListener('input',markDirty,true);page.removeEventListener('change',markDirty,true)}};
     const oldCharts=silent?takeCharts():null;
     scope.add(()=>{if(oldCharts){oldCharts.forEach(chart=>{try{chart.destroy()}catch{}});oldCharts.length=0}});
     state.silent=silent;
@@ -108,20 +126,23 @@ import { icon } from '../../shared/components/icons.js';
       const route=routeModule(state.route);
       const cleanup = await route.mount(page, { signal: scope.signal, scope, navigate, notify: toast });
       if(typeof cleanup==='function')scope.add(cleanup);
-      if(seq!==state.renderSeq)return;
+      if(seq!==state.renderSeq){stopMarking();return;}
       shellInterfaceService?.apply();
       workspaceService.finish(page);
       if(!silent){playViewEnter();animateCountUps(page)}
       syncAllSegThumbs();
       state.silent=false;
       viewRestore(snap);
+      stopMarking();
       setApiStatus(true);
     } catch(e){
-      if(seq!==state.renderSeq||e?.name==='AbortError')return;
-      console.error(e); setApiStatus(false,e.message);
+      stopMarking();
+      const failure=/** @type {any} */ (e);
+      if(seq!==state.renderSeq||failure?.name==='AbortError')return;
+      console.error(e); setApiStatus(false,failure.message);
       if(silent){ // 自动刷新失败：保留旧内容，旧图表也留着，只更新连接状态
         if(oldCharts){restoreCharts(oldCharts);oldCharts.length=0}
-      } else { setHTML(page, `<div class="error-panel"><strong>无法加载当前页面</strong><p>${esc(e.message)}</p><button class="button" id="retry-page">${icon('refresh')}重新加载</button></div>`); $('#retry-page').onclick=()=>renderRoute(true);
+      } else { setHTML(page, `<div class="error-panel"><strong>无法加载当前页面</strong><p>${esc(failure.message)}</p><button class="button" id="retry-page">${icon('refresh')}重新加载</button></div>`); /** @type {HTMLElement} */ ($('#retry-page')).onclick=()=>renderRoute(true);
       }
     }
     if(oldCharts)oldCharts.forEach(c=>{try{c.destroy()}catch{}});

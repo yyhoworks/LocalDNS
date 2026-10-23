@@ -25,7 +25,7 @@ from datetime import datetime
 from pathlib import Path, PurePosixPath
 from urllib.error import HTTPError, URLError
 from urllib.parse import quote, urlsplit
-from urllib.request import ProxyHandler, Request, build_opener, urlopen
+from urllib.request import HTTPRedirectHandler, ProxyHandler, Request, build_opener, urlopen
 from zipfile import BadZipFile, ZipFile
 
 REPO = 'https://github.com/yyhoworks/LocalDNS'
@@ -111,13 +111,29 @@ def safe_name(name):
     return name
 
 
+class HttpsRedirectHandler(HTTPRedirectHandler):
+    """Follow at most a few redirects, and only while staying on HTTPS."""
+
+    max_followed = 5
+
+    def redirect_request(self, request, fp, code, message, headers, newurl):
+        followed = getattr(self, '_followed', 0)
+        if followed >= self.max_followed:
+            raise InstallError('下载重定向次数过多，已中止')
+        if urlsplit(newurl).scheme != 'https':
+            raise InstallError('拒绝降级或非 HTTPS 重定向：' + newurl)
+        self._followed = followed + 1
+        return super().redirect_request(request, fp, code, message, headers, newurl)
+
+
 def fetch(url, destination=None):
     if not url.startswith('https://'):
         raise InstallError('下载地址必须使用 HTTPS')
     request = Request(url, headers={'User-Agent': 'LocalDNS-installer/' + INSTALLER_VERSION,
                                    'Accept': 'application/vnd.github+json' if url.startswith(API) else '*/*'})
+    opener = build_opener(HttpsRedirectHandler())
     try:
-        with urlopen(request, timeout=60) as response:
+        with opener.open(request, timeout=60) as response:
             if destination is None:
                 return response.read(4 * 1024 * 1024)
             with destination.open('wb') as output:
@@ -129,6 +145,13 @@ def fetch(url, destination=None):
         raise InstallError('无法下载，请检查网络及系统 CA 证书：' + url) from error
 
 
+# Trust model: online installs anchor integrity on the same GitHub Release's
+# SHA256SUMS.txt plus each asset's API digest -- both are published together
+# with the packages, so a compromised release process could re-sign malicious
+# sums and stay undetected. The only out-of-band anchor today is the engine
+# hash pinned in install.sh. A future release-process step should add a
+# detached signature (e.g. minisign) over SHA256SUMS.txt and verify it here
+# before the sums are trusted.
 class Packages:
     def __init__(self, work, version=None, directory=None):
         self.work = work
@@ -173,10 +196,18 @@ class Packages:
         if url != expected:
             raise InstallError('发行文件不属于预期 GitHub 仓库')
         require_space(destination.parent, asset.get('size', 0))
-        fetch(url, destination)
-        expected_digest = asset.get('digest')
-        if expected_digest and expected_digest != 'sha256:' + digest(destination.read_bytes()):
-            raise InstallError('GitHub 附件摘要校验失败：' + name)
+        # Download to a random sibling first; the file only takes its final
+        # name after the digest check passes, so unverified bytes are never
+        # picked up under the release file name.
+        temporary = destination.with_name(destination.name + '.part-' + uuid.uuid4().hex)
+        try:
+            fetch(url, temporary)
+            expected_digest = asset.get('digest')
+            if expected_digest and expected_digest != 'sha256:' + digest(temporary.read_bytes()):
+                raise InstallError('GitHub 附件摘要校验失败：' + name)
+            os.replace(temporary, destination)
+        finally:
+            temporary.unlink(missing_ok=True)
 
     def get(self, kind):
         suffix = {'full': '_Full.zip', 'ui': '_Update.zip'}[kind]
@@ -614,7 +645,7 @@ def install_new(root, logical_root, payload, metadata, arch, dns_port, http_port
         compatibility = runtime_check(binary)
         files = service_files(logical_root, bool(compatibility))
         check_ports(dns_port, http_port)
-    staging = root.parent / ('.' + root.name + '-stage-' + str(os.getpid()))
+    staging = root.parent / ('.' + root.name + '-stage-' + uuid.uuid4().hex[:12])
     if staging.exists():
         raise InstallError('暂存目录已存在：' + str(staging))
     require_space(root.parent, sum(p.stat().st_size for p in source.rglob('*') if p.is_file()))

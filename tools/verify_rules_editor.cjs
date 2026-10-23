@@ -1,7 +1,7 @@
 /* Rule-editor regression tests. All writes use fixtures and never reach a device. */
 const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path');
 const {createPreviewServer}=require('./preview_ui.cjs');
-const {chromium}=require(process.env.LOCALDNS_PLAYWRIGHT||'C:/Users/dev/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/node_modules/playwright');
+const {chromium}=require(process.env.LOCALDNS_PLAYWRIGHT||'playwright');
 const output=path.resolve(__dirname,'../dist/rules-editor-verification');fs.mkdirSync(output,{recursive:true});
 (async()=>{
  const server=createPreviewServer();await new Promise(r=>server.listen(0,'127.0.0.1',r));

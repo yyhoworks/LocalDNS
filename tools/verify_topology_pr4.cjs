@@ -1,7 +1,7 @@
 /* Browser acceptance for the reviewed PR #4 integration. */
 const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path');
 const {createPreviewServer}=require('./preview_ui.cjs');
-const {chromium}=require(process.env.LOCALDNS_PLAYWRIGHT||'C:/Users/dev/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/node_modules/playwright');
+const {chromium}=require(process.env.LOCALDNS_PLAYWRIGHT||'playwright');
 const fixtures=require('../frontend/tests/fixtures/api.json');
 const root=path.resolve(__dirname,'..'),out=path.join(root,'dist/topology-pr4-verification');fs.mkdirSync(out,{recursive:true});
 (async()=>{

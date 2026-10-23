@@ -11,7 +11,9 @@
 
 .rule-layout {
   display: grid;
-  grid-template-columns: 220px minmax(0, 1fr);
+  /* 列宽只在此处定义一次：原 220px 定义被文件后段的紧凑覆盖（178px）压过，
+     两处重复定义已合并为实际生效的 178px。 */
+  grid-template-columns: 178px minmax(0, 1fr);
   gap: 16px;
   min-height: 520px;
 }
@@ -44,9 +46,8 @@
 }
 .rule-editor { display: flex; flex-direction: column; gap: 12px; height: 100%; }
 .rule-editor-footer { display: flex; justify-content: space-between; align-items: center; color: var(--text-3); font-size: 12px; }
-.console-rule-state{display:flex;align-items:center;gap:7px;color:var(--text-3);font-size:11px;margin-top:5px}.console-rule-state.dirty{color:var(--console-info)}.console-rule-state::before{content:'';width:5px;height:5px;border-radius:50%;background:currentColor}.rule-layout{grid-template-columns:178px minmax(0,1fr)}.rule-menu{padding-right:10px}
+.console-rule-state{display:flex;align-items:center;gap:7px;color:var(--text-3);font-size:11px;margin-top:5px}.console-rule-state.dirty{color:var(--console-info)}.console-rule-state::before{content:'';width:5px;height:5px;border-radius:50%;background:currentColor}.rule-menu{padding-right:10px}
 @media(max-width:600px){.rule-layout{display:block;min-height:450px}}
-@media(max-width:600px){.rule-menu{display:none}}
 @media(max-width:600px){.rule-editor{height:auto}}
 @media(max-width:600px){.rule-editor-footer{align-items:flex-start;gap:12px}}
 @media(max-width:600px){.rule-editor-footer span{font-size:11px}}
@@ -564,3 +565,8 @@ body[data-console-route="rules"] .rp-foot{flex-wrap:wrap}
 @media(max-width:600px) {
   #rv-root button,.wb-list-tools button,.collection-switch button { min-width:44px; }
 }
+/* 移动端隐藏名单菜单：控制台内改用 shell 注入的类别下拉（console-rule-select）切换。
+   此规则必须放在文件末尾——上方 console 层的 body[data-console-route="rules"] .rule-menu
+   带 display:flex 且特异性更高，原先位于文件中段的 .rule-menu{display:none} 在真实
+   控制台路由下从不生效；同特异性、更靠后才能真正隐藏。 */
+@media(max-width:600px){.rule-menu,body[data-console-route="rules"] .rule-menu{display:none}}

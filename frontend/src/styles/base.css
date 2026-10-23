@@ -28,12 +28,9 @@
       background-repeat: no-repeat;
       transition: opacity 0.3s ease;
     }
-    .wallpaper-layer[data-preset="cosmos"] {
-      background-image:
-        radial-gradient(circle at 26% 38%, rgba(196, 138, 69, 0.24) 0%, rgba(120, 78, 34, 0.10) 30%, transparent 64%),
-        radial-gradient(circle at 65% 75%, rgba(168, 118, 58, 0.16) 0%, rgba(37, 99, 235, 0.06) 44%, transparent 72%),
-        radial-gradient(circle at 82% 18%, rgba(37, 99, 235, 0.11) 0%, transparent 50%);
-    }
+    /* The cosmos background-image is defined once by the compact rule near
+       the end of this file; an earlier three-layer definition here was fully
+       overridden by it and has been removed. */
     .wallpaper-layer[data-preset="aurora"] {
       background-image:
         radial-gradient(circle at 22% 30%, rgba(37, 99, 235, 0.26) 0%, rgba(20, 184, 166, 0.11) 36%, transparent 68%),

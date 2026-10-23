@@ -3,6 +3,7 @@
     "target": "ES2020",
     "lib": [
       "ES2020",
+      "ES2022",
       "DOM",
       "DOM.Iterable"
     ],
@@ -16,6 +17,12 @@
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
     "allowJs": true,
+    "allowImportingTsExtensions": true,
+    // checkJs stays off globally: turning it on checks every JS file in the
+    // import graph at once (thousands of legacy errors). Rollout is per-file
+    // instead: every src/core/**/*.js file carries `// @ts-check` and is fully
+    // type-checked by `npm run typecheck`. Next: src/shared, then src/features
+    // directory by directory. See docs/DEVELOPMENT.md.
     "checkJs": false
   },
   "include": [

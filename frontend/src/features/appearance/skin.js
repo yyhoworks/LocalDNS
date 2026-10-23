@@ -116,16 +116,23 @@ export function initialize() {
     }
   }
 
+  // Single preset migration shared by applyTheme() and the data-theme observer:
+  // entering cosmos always remembers the current light preset first, so coming
+  // back to light restores what the user actually selected.
+  function migrateClaudePreset(theme) {
+    if (theme === 'cosmos-glass' && prefs.claude.preset !== 'obsidian') {
+      prefs.claude.lastLightPreset = prefs.claude.preset;
+      prefs.claude.preset = 'obsidian';
+    } else if (theme === 'light-glass' && prefs.claude.preset === 'obsidian') {
+      prefs.claude.preset = prefs.claude.lastLightPreset || 'parchment';
+    }
+  }
+
   function applyTheme(nextTheme) {
     const theme = normalizeTheme(nextTheme);
     prefs[prefs.active].theme = theme;
     if (prefs.active === 'claude') {
-      if (theme === 'cosmos-glass' && prefs.claude.preset !== 'obsidian') {
-        prefs.claude.lastLightPreset = prefs.claude.preset;
-        prefs.claude.preset = 'obsidian';
-      } else if (theme === 'light-glass' && prefs.claude.preset === 'obsidian') {
-        prefs.claude.preset = prefs.claude.lastLightPreset || 'parchment';
-      }
+      migrateClaudePreset(theme);
       document.documentElement.dataset.claudePreset = prefs.claude.preset;
     }
     document.documentElement.dataset.theme = theme;
@@ -218,11 +225,7 @@ export function initialize() {
       const theme = normalizeTheme(document.documentElement.dataset.theme);
       prefs[prefs.active].theme = theme;
       if (prefs.active === 'claude') {
-        if (theme === 'cosmos-glass' && prefs.claude.preset !== 'obsidian') {
-          prefs.claude.preset = 'obsidian';
-        } else if (theme === 'light-glass' && prefs.claude.preset === 'obsidian') {
-          prefs.claude.preset = prefs.claude.lastLightPreset || 'parchment';
-        }
+        migrateClaudePreset(theme);
         document.documentElement.dataset.claudePreset = prefs.claude.preset;
       }
       savePrefs();

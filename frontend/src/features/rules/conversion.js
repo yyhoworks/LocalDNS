@@ -31,10 +31,14 @@ export function initialize() {
     }
     return result;
   }
-  async function finishSave(result, refresh) {
+  async function finishSave(result, refresh, options = {}) {
     const source = updated(result);
     // FJGAC may save a pending DAT subscription and ask for its dataset only on update.
     if (source?.detected_format) return source;
+    // Lightweight saves (options.configOnly, e.g. enable/disable toggles) stop
+    // here: the refresh below performs a real subscription update against the
+    // provider, which a config-only toggle must never trigger.
+    if (options.configOnly) return source || result;
     const response = await refresh();
     const converted = updated(response);
     // FJGLI confirms a completed update with changed, including an unchanged source,
@@ -42,6 +46,13 @@ export function initialize() {
     if (!converted || (!converted.detected_format && typeof response.changed !== 'boolean')) throw new Error('配置已保存，但来源尚未识别，请检查订阅地址后重试更新。');
     return converted;
   }
-  ruleConversionService = {label, updated, message, withMetadata, finishSave};
+  // 改名/换组保存后删除旧配置：失败自动重试一次。两次都失败返回 false，
+  // 由调用方如实提示「新配置已保存，旧配置未能删除」并提供重试入口，
+  // 不再把已成功的保存整体误报为失败。
+  async function deleteOriginalWithRetry(remove) {
+    try { await remove(); return true; }
+    catch { try { await remove(); return true; } catch { return false; } }
+  }
+  ruleConversionService = {label, updated, message, withMetadata, finishSave, deleteOriginalWithRetry};
 
 }

@@ -10,6 +10,24 @@ INSTALL_DIR=$(CDPATH= cd -- "$INSTALL_DIR" && pwd -P)
 [ -f "$PACKAGE_DIR/ui/index.html" ] || { echo "升级包不完整" >&2; exit 1; }
 cd "$PACKAGE_DIR"
 sha256sum -c MANIFEST.sha256
+# Match the Python installer's standard: the manifest must cover the ui/
+# tree exactly. Extra files (possibly planted) or missing files abort here,
+# before anything is copied into the installation.
+LIST_EXPECTED=$(mktemp "${TMPDIR:-/tmp}/localdns-manifest.XXXXXX")
+LIST_ACTUAL=$(mktemp "${TMPDIR:-/tmp}/localdns-package.XXXXXX")
+trap 'rm -f "$LIST_EXPECTED" "$LIST_ACTUAL"' EXIT HUP INT TERM
+sed -n 's/^[0-9a-fA-F]\{64\}  //p' MANIFEST.sha256 | grep '^ui/' | LC_ALL=C sort > "$LIST_EXPECTED"
+(cd ui && find . -type f -print | sed 's|^\./|ui/|' | LC_ALL=C sort) > "$LIST_ACTUAL"
+EXTRA=$(comm -13 "$LIST_EXPECTED" "$LIST_ACTUAL")
+MISSING=$(comm -23 "$LIST_EXPECTED" "$LIST_ACTUAL")
+rm -f "$LIST_EXPECTED" "$LIST_ACTUAL"
+trap - EXIT HUP INT TERM
+if [ -n "$EXTRA" ] || [ -n "$MISSING" ]; then
+  [ -z "$EXTRA" ] || printf '%s\n' "清单外多余文件：$EXTRA" >&2
+  [ -z "$MISSING" ] || printf '%s\n' "清单内缺失文件：$MISSING" >&2
+  echo '升级包文件集合与 MANIFEST.sha256 不一致，已中止' >&2
+  exit 1
+fi
 UI_VERSION=$(sed -n 's/^LocalDNS UI //p' VERSION.txt)
 case "$UI_VERSION" in ''|*[!A-Za-z0-9._-]*) echo "UI 版本信息无效" >&2; exit 1;; esac
 PACKAGE_BACKEND=$(sed -n 's/^Backend //p' VERSION.txt)

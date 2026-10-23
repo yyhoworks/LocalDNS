@@ -16,7 +16,9 @@ python tools/test_package_ui.py
 python tools/package_ui.py
 ```
 
-`check` 执行严格 TS 类型检查、Vitest、ESLint 和 `verify:generated`。迁移后的业务 JS 全部纳入 lint；JS 采用显式 ESM，尚未开启全量 `checkJs`，基础设施和新增查询模型使用严格 TypeScript。构建输出到忽略的 `dist/ui/`，包含哈希 JS/CSS、生成 HTML、所有公共资源以及 `build-meta.json`。不输出 source map，不提交普通 bundle，保留已授权的 Chart.js vendor。源 CSS 使用 cascade layers，构建时编译层级以保留较旧浏览器的 CSS 语法兼容性。
+`check` 先执行 `build`，再依次执行严格 TS 类型检查、Vitest、ESLint 和 `verify:generated`，因此新克隆无需预先构建即可直接运行。迁移后的业务 JS 全部纳入 lint；JS 采用显式 ESM，尚未开启全量 `checkJs`：`src/core/` 的 JS 文件已逐个以 `// @ts-check` 纳入类型检查，后续按 `src/shared/`、再 `src/features/` 逐目录扩围（见 `frontend/tsconfig.json` 注释），基础设施和新增查询模型使用严格 TypeScript。仓库版本号以根目录 `VERSION.json` 为唯一来源；`frontend/package.json` 的 `version` 只是占位（`0.0.0`），不参与发布，打包时由构建读取 `VERSION.json` 注入。构建输出到忽略的 `dist/ui/`，包含哈希 JS/CSS、生成 HTML、所有公共资源以及 `build-meta.json`。不输出 source map，不提交普通 bundle，保留已授权的 Chart.js vendor。源 CSS 使用 cascade layers，构建时编译层级以保留较旧浏览器的 CSS 语法兼容性。
+
+持续集成由 `.github/workflows/ci.yml` 提供：每次推送与 PR 自动运行前端 `check`、`tools/` 的 Python 单元测试与配置服务（`services/proxy-config/`）的 Go 测试；其中 `tools/test_proxy_config_installer.py` 依赖发行打包产物，未纳入 CI。
 
 `verify:generated` 先检查源指纹和文件清单，再在系统临时目录干净重建，逐文件比较 SHA-256，最后清理临时目录。共用指纹实现为普通 `.mjs`，不要求 Node 原生加载 TypeScript。打包工具不隐式执行 npm，拒绝缺失、过期、篡改或多出文件的构建。
 
@@ -118,32 +120,24 @@ default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src
 ## 源码范围
 
 本仓库提供当前 Web UI 的 HTML、CSS、JavaScript、Logo 和本地字体。
-DNS 核心主要由折腾日记交流群的 R 大使用 Rust 编写；当前工作目录没有提供核心 Rust 源码，当前工作版本使用 FJGAC 预编译程序。
+DNS 核心主要由折腾日记交流群的 R 大使用 Rust 编写；当前工作目录没有提供核心 Rust 源码，当前工作版本使用 FJGLI 预编译程序。
 
 ## 主要文件
 
 | 文件 | 作用 |
 |---|---|
-| `_src/ui/index.html` | 页面入口；静态资源基址为 `/ui/` |
-| `_src/ui/config.js` | UI 配置；默认通过同源地址访问 API |
-| `frontend/src/legacy/app.js` | API 调用、路由与页面业务交互的维护源码 |
-| `frontend/src/shared/metrics/prometheus.ts` | Prometheus 解析与指标查找纯函数 |
-| `_src/ui/assets/js/app.js` | Vite 生成的经典 IIFE，提交并用于静态打包 |
-| `_src/ui/assets/js/console.js` | 布局、真实采样、草稿、语义与数字排版 |
-| `_src/ui/assets/js/material.js` | 外观参数与静态背景光影 |
-| `_src/ui/assets/js/navbar.js` | 顶部滚动联动 |
-| `_src/ui/assets/js/navigation.js` | 垂直 / 水平导航与折叠偏好；布局换位不重建业务页面 |
-| `_src/ui/assets/css/navigation.css` | 两种导航布局、外观面板布局选项与手机回退 |
-| `_src/ui/assets/js/appearance.js` | 字体偏好提前恢复、组合选择与输入方式识别 |
-| `_src/ui/assets/js/skin.js` | 人文羊皮纸（Claude）与流光毛玻璃双皮肤切换、纸张色调预设与每套皮肤独立偏好恢复 |
-| `_src/ui/assets/js/font-uploads.js` | 浏览器本地字体上传、事务确认与分项字体选择 |
-| `_src/ui/assets/js/topology-flow.js` | 可关闭的路径流光示意、交互暂停与切页清理 |
-| `_src/ui/assets/css/interaction.css` | 状态文字居中、柔白细边与键盘焦点 |
-| `_src/ui/assets/css/skin-claude.css` | 人文羊皮纸（Claude 风格）与流光毛玻璃双皮肤变量、宣纸噪点层与组件定制 |
-| `_src/ui/assets/js/wallpaper.js` | 单张壁纸验证、保存、旧版当前壁纸兼容与失败反馈 |
-| `_src/ui/assets/css/overview.css` | 服务摘要与指标分组 |
-| `_src/ui/assets/css/typography.css` | 宋体标题与衬线数字 |
-| `_src/ui/assets/css/fonts.css` | 本地字体声明 |
+| `frontend/index.html` | 页面入口模板；静态资源基址为 `/ui/`，构建时由 Vite 处理 |
+| `frontend/src/entry/app.ts` | 前端启动入口 |
+| `frontend/src/core/` | 路由、API 客户端、持久化与安全 DOM 等基础设施（JS 文件已逐个开启 `// @ts-check`） |
+| `frontend/src/features/` | 按功能划分的页面与面板模块 |
+| `frontend/src/shared/` | 跨功能共用的组件、图表适配与指标解析（如 `shared/metrics/prometheus.ts`） |
+| `frontend/src/styles/` | 源 CSS（cascade layers，构建时编译层级） |
+| `frontend/scripts/build-integrity.ts` | 构建后写入 `dist/ui/build-meta.json`（源指纹与文件清单） |
+| `frontend/scripts/build-inputs.mjs` | 构建输入清单与源指纹计算（与 `verify-build.mjs` 共用） |
+| `frontend/scripts/verify-build.mjs` | 校验 `dist/ui` 与干净重建结果逐文件一致 |
+| `_src/ui/` | 随静态 UI 一同部署的资源与 `config.js`（UI 配置；默认通过同源地址访问 API） |
+| `services/proxy-config/` | 独立 Go 配置服务（ProxyConfig Service）源码与安装脚本 |
+| `tools/package_ui.py` | 发行打包：生成完整包、UI 升级包与 ProxyConfig Service 包 |
 
 ## 调试
 
@@ -275,4 +269,4 @@ UI 2026.10.16.1 / FJG4O 增加字体选择、状态文字居中和单层焦点�
 
 运行 `python tools/test_shared_ui.py`、`python tools/test_oneclick_installer.py`、`node tools/test_traffic.cjs` 做定向回归；设置 `LOCALDNS_TEST_BACKEND` 后运行 `node tools/verify_shared_ui.cjs` 验证跨浏览器共享、按需字体加载和图标回退。名单测试为 `node tools/verify_rules_workbench.cjs` 与 `node tools/verify_rules_editor.cjs`，所有写入使用夹具。
 
-当前打包只生成完整包、UI 升级包和 `SHA256SUMS.txt`；两包均包含 `configure-ui.py`。完整包的 FJGAC 三架构核心、默认 DNS 配置和规则沿用已校验的 `.5` 完整包。
+当时打包只生成完整包、UI 升级包和 `SHA256SUMS.txt`；两包均包含 `configure-ui.py`。（2026.10.21.1 起发行恢复为三包，新增 ProxyConfig Service 包，见 [配置服务](PROXY_CONFIG.md)。）完整包的 FJGAC 三架构核心、默认 DNS 配置和规则沿用已校验的 `.5` 完整包。

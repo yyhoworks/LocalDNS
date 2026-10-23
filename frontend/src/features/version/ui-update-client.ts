@@ -16,9 +16,25 @@ function parts(value: string): number[] | undefined {
   return /^(\d{4}\.\d+\.\d+\.\d+)(?:-local[\w.-]*)?$/.exec(value)?.[1].split('.').map(Number);
 }
 
+/** localStorage key holding the optional ui-updater service token (see tools/ui_updater.py). */
+export const UI_UPDATE_TOKEN_KEY = 'localdns-ui-update-token-v1';
+
+export function readUIUpdateToken(): string {
+  try { return localStorage.getItem(UI_UPDATE_TOKEN_KEY) || ''; } catch { return ''; }
+}
+
+export function saveUIUpdateToken(token: string): void {
+  try {
+    if (token) localStorage.setItem(UI_UPDATE_TOKEN_KEY, token);
+    else localStorage.removeItem(UI_UPDATE_TOKEN_KEY);
+  } catch { /* storage unavailable: requests simply go out without a token */ }
+}
+
 export function upgradeTarget(installed: InstalledUI | null, release: UIRelease | null): { tag?: string; reason: string } {
   if (!installed || !release) return { reason: '先检查更新，获取可安装的正式版本。' };
-  if (release.backend !== installed.backendVersion?.toUpperCase()) return { reason: '此发行版需要不同的 DNS 核心，请先查看发布说明。' };
+  // A release tag without a backend prefix carries no core requirement; only
+  // block when it names a different backend (mirrors assess() in index.js).
+  if (release.backend && release.backend !== installed.backendVersion?.toUpperCase()) return { reason: '此发行版需要不同的 DNS 核心，请先查看发布说明。' };
   const current = parts(installed.uiVersion), target = parts(release.version);
   if (!current || !target) return { reason: '版本信息无效，请重新检查更新。' };
   const different = target.findIndex((value, index) => value !== current[index]);
@@ -42,6 +58,11 @@ export class UIUpdateClient {
   }
   private async request(path: string, data?: object): Promise<unknown> {
     const headers: Record<string, string> = { Accept: 'application/json' };
+    // Send the token on every request when one is configured. Servers with an
+    // empty token configured ignore it, so this stays compatible with both
+    // token-protected and legacy updaters (read endpoints may be exempt there).
+    const token = readUIUpdateToken();
+    if (token) headers.Authorization = 'Bearer ' + token;
     if (data) headers['Content-Type'] = 'application/json';
     return this.http.request(path, {
         method: data ? 'POST' : 'GET', credentials: 'omit', cache: 'no-store', headers,

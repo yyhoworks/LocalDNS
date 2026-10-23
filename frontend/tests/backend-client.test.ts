@@ -58,7 +58,7 @@ describe('backend compatibility', () => {
     expect(await client.request('/api/v2/audit/logs?page=3&client_contains=192.0.2.1')).toMatchObject({
       path: '/api/v1/querylog/entries?page=3&client_contains=192.0.2.1', method: 'GET' });
     expect(await client.request('/plugins/client_name', { method: 'PUT', body: '{}' })).toMatchObject({ path: '/api/v1/client-aliases', method: 'PUT' });
-    expect(await client.request('/plugins/greylist/show?all=1')).toMatchObject({ path: '/api/v1/lists/proxy' });
+    expect(await client.request('/plugins/greylist/show?all=1')).toMatchObject({ path: '/api/v1/lists/proxy?all=1' });
     expect(await client.request('/plugins/whitelist/post', { method: 'POST', body: '{"values":[]}' })).toMatchObject({
       path: '/api/v1/lists/direct', method: 'PUT', body: '{"values":[]}' });
     expect(await client.request('/plugins/geosite_cn/update/a%2Fb', { method: 'POST', timeout: 300000 })).toMatchObject({
@@ -68,6 +68,20 @@ describe('backend compatibility', () => {
     expect(await client.request('/plugins/cache_foreign_ecs/flush')).toMatchObject({
       path: '/api/v1/caches/foreign_ecs/flush', method: 'POST' });
     expect(await client.request('/plugins/fakeip/save')).toMatchObject({ path: '/api/v1/learned/fakeip/save', method: 'POST' });
+  });
+
+  it('forwards query parameters through the lists, cache and learned translations', async () => {
+    const { client } = fixture();
+    expect(await client.request('/plugins/greylist/post?all=1', { method: 'POST', body: '{"values":[]}' })).toMatchObject({
+      path: '/api/v1/lists/proxy?all=1', method: 'PUT', body: '{"values":[]}' });
+    expect(await client.request('/plugins/cache_main/show?detail=1')).toMatchObject({
+      path: '/api/v1/caches/main?detail=1', method: 'GET' });
+    expect(await client.request('/plugins/cache_main/flush?force=1')).toMatchObject({
+      path: '/api/v1/caches/main/flush?force=1', method: 'POST' });
+    expect(await client.request('/plugins/domain_stats/show?range=7d')).toMatchObject({
+      path: '/api/v1/domain-stats?range=7d', method: 'GET' });
+    expect(await client.request('/plugins/fakeip/show?note=a?b')).toMatchObject({
+      path: '/api/v1/learned/fakeip?note=a?b', method: 'GET' });
   });
 
   it('preserves the selected client policy when old screens disable the opposite switch', async () => {

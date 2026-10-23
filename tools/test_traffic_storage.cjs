@@ -1,6 +1,24 @@
 const test=require('node:test'),assert=require('node:assert/strict'),path=require('node:path');
-const {loadFeature}=require('./frontend_test_module.cjs');
-let IDB;try{IDB=require('fake-indexeddb');}catch{IDB=require(path.resolve(process.env.LOCALDNS_TEST_DEPS||'deployment/tools/wallpaper-test-deps/node_modules','fake-indexeddb'));}
+// Every dependency is optional at load time: when one is missing the whole
+// file reports a single skipped test with the reason instead of crashing
+// with a module error (which used to make the suite silently absent in
+// clean environments). fake-indexeddb resolves from, in order: normal
+// node_modules lookup, the frontend workspace's node_modules, or an
+// explicit LOCALDNS_TEST_DEPS directory -- never a path outside this
+// repository.
+const missing=[];
+let loadFeature=null;
+try{ ({loadFeature}=require('./frontend_test_module.cjs')); }catch{ missing.push('frontend 依赖（esbuild 等）'); }
+let IDB=null;
+for(const candidate of [
+  () => require('fake-indexeddb'),
+  () => require(path.resolve(__dirname,'..','frontend','node_modules','fake-indexeddb')),
+  () => process.env.LOCALDNS_TEST_DEPS ? require(path.resolve(process.env.LOCALDNS_TEST_DEPS,'fake-indexeddb')) : (()=>{throw new Error('unset')})(),
+]){ try{ IDB=candidate(); break; }catch{} }
+if(!IDB)missing.push('fake-indexeddb');
+if(missing.length){
+ test('traffic storage repository', {skip:'缺少依赖：'+missing.join('、')+'。请在 frontend/ 执行 npm install，或设置 LOCALDNS_TEST_DEPS 指向含 fake-indexeddb 的 node_modules'}, ()=>{});
+}else{
 global.IDBKeyRange=IDB.IDBKeyRange;
 const TrafficRepository=loadFeature('features/overview/traffic/repository.ts','TrafficRepository',false);
 test('persists across instances, isolates API addresses, keeps newest same-slot sample and prunes at 24 hours',async()=>{
@@ -22,3 +40,4 @@ test('reports unavailable storage without pretending the history was saved',asyn
  await assert.rejects(repo.load('a'),/blocked/);
  await assert.rejects(repo.save('a',{time:1000,total:1}),/blocked/);
 });
+}

@@ -100,7 +100,7 @@ class BuiltUITests(unittest.TestCase):
         self.version = {'uiVersion': 'test'}
         source = {'frontend/src/entry/app.ts': b'entry', '_src/ui/config.js': b'config'}
         source.update({name: b'input' for name in ['frontend/index.html', 'frontend/package.json',
-            'frontend/package-lock.json', 'frontend/vite.config.ts', 'frontend/tsconfig.json', 'frontend/scripts/build-integrity.ts', 'frontend/scripts/build-inputs.mjs', 'VERSION.json']})
+            'frontend/package-lock.json', 'frontend/vite.config.ts', 'frontend/tsconfig.json', 'frontend/scripts/build-integrity.ts', 'frontend/scripts/build-inputs.mjs', 'frontend/scripts/verify-build.mjs', 'VERSION.json']})
         for name, data in source.items():
             file = self.root / name
             file.parent.mkdir(parents=True, exist_ok=True)

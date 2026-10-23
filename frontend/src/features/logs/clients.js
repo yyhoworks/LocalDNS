@@ -36,7 +36,14 @@ const clientsService = (() => {
 
   function topology(clients, names, total, compact = String) {
     const observed = (Array.isArray(clients) ? clients : []).filter(c => typeof c.key === 'string' && Number.isFinite(+c.count) && +c.count > 0);
-    const denominator = Math.max(1, +total || 0);
+    // 百分比口径统一为「当前保留记录」窗口：分子来自 rank('client')（本文件
+    // 别名弹窗与慢查询面板均按此口径标注）。调用方传入的 total 是 audit
+    // stats 的 total_queries，前端无法确证它与 rank 的保留窗口一致（状态
+    // 胶囊处将其标为「累计」），混用会让各节点百分比之和系统性偏离 100%。
+    // 改用同一份 rank 数据的计数之和作分母，百分比恒为同窗口内占比；
+    // observed 为空时才回退到 total。
+    const observedTotal = observed.reduce((sum, c) => sum + +c.count, 0);
+    const denominator = Math.max(1, observedTotal || +total || 0);
     const result = observed.slice(0, 4).map((client, i) => ({
       id:'c' + (i + 1), ip:client.key, muted:false, name:names[client.key] || client.key,
       sub:client.key + ' · ' + compact(client.count) + ' 次', val:Math.round(+client.count / denominator * 100) + '%',

@@ -48,7 +48,7 @@ def read_built_ui(directory, version, source_root=ROOT):
             if file.is_file():
                 actual_inputs.add(file.relative_to(source_root).as_posix())
     actual_inputs.update(['frontend/index.html', 'frontend/package.json', 'frontend/package-lock.json',
-                          'frontend/vite.config.ts', 'frontend/tsconfig.json', 'frontend/scripts/build-integrity.ts', 'frontend/scripts/build-inputs.mjs', 'VERSION.json'])
+                          'frontend/vite.config.ts', 'frontend/tsconfig.json', 'frontend/scripts/build-integrity.ts', 'frontend/scripts/build-inputs.mjs', 'frontend/scripts/verify-build.mjs', 'VERSION.json'])
     if set(inputs) != actual_inputs:
         raise ValueError('Built UI inputs changed; rebuild the frontend')
     for name, expected in inputs.items():

@@ -6,6 +6,7 @@ export function initialize() {
     if (!panel || panel.querySelector('.appearance-tabs')) return;
     panel.classList.add('appearance-panel');
     const title = panel.querySelector('.bcp-title');
+    if (!title) return;
     title.id = 'appearance-title';
     panel.setAttribute('aria-labelledby', title.id);
     const tabs = document.createElement('div');
@@ -64,18 +65,23 @@ export function initialize() {
       verRow.classList.add('appearance-select');
       const label = verRow.querySelector('label'), select = verRow.querySelector('select');
       const value = verRow.querySelector('#val-brand-ver'), input = verRow.querySelector('#input-brand-ver');
-      const fields = document.createElement('div'); fields.className = 'appearance-select-fields';
-      fields.append(select, input);
-      input.setAttribute('aria-label', '自定义版本标签文字');
-      value.classList.add('appearance-visually-hidden'); verRow.replaceChildren(label, fields, value);
+      if (label && select && input && value) {
+        const fields = document.createElement('div'); fields.className = 'appearance-select-fields';
+        fields.append(select, input);
+        input.setAttribute('aria-label', '自定义版本标签文字');
+        value.classList.add('appearance-visually-hidden'); verRow.replaceChildren(label, fields, value);
+      }
     }
     const uploadRow = panel.querySelector('#btn-font-upload')?.closest('.bcp-row');
     if (uploadRow) {
       uploadRow.classList.add('appearance-upload');
       const heading = uploadRow.querySelector('.bcp-row-head'), actions = uploadRow.querySelector('.bcp-inline');
-      const status = heading.querySelector('#val-font-upload');
-      heading.querySelector('span').textContent = '自定义字体';
-      heading.append(status, actions);
+      if (heading) {
+        const status = heading.querySelector('#val-font-upload');
+        const span = heading.querySelector('span');
+        if (span) span.textContent = '自定义字体';
+        heading.append(...[status, actions].filter(Boolean));
+      }
     }
     const fonts = panel.querySelector('.bcp-fonts');
     if (fonts) {
