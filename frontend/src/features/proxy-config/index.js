@@ -1,7 +1,7 @@
 /* Direct local configuration editing. Configuration contents are never persisted in browser storage. */
 import { setHTML } from '../../core/security/safe-dom.ts';
 import { preferences } from '../../core/persistence/preferences.ts';
-import { request, readProxyConfigToken, PROXY_CONFIG_TOKEN_KEY } from './api';
+import { request } from './api';
   const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const icons = {
     back:'<path d="m14 6-6 6 6 6M8 12h12"/>', folder:'<path d="M3 7a2 2 0 0 1 2-2h5l2 2h7a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z"/>',
@@ -48,7 +48,6 @@ import { request, readProxyConfigToken, PROXY_CONFIG_TOKEN_KEY } from './api';
       <div class="pc-sourcebar"><label for="pc-core-select">配置核心</label><select id="pc-core-select"><option value="mihomo">Mihomo · YAML</option><option value="sing-box">sing-box · JSON</option></select><div class="pc-source-modes" role="group" aria-label="文件浏览方式"><button type="button" data-pc-mode="file" aria-pressed="true">单文件</button><button type="button" data-pc-mode="directory" aria-pressed="false">目录</button></div><button type="button" class="button small" id="pc-http-toggle" aria-expanded="false" aria-controls="pc-http-form">HTTP 获取</button></div>
       <form class="pc-http-form" id="pc-http-form" hidden><label for="pc-http-url">HTTP(S) 配置链接</label><div class="pc-http-fields"><input id="pc-http-url" type="url" placeholder="https://example.com/config.yaml" autocomplete="off" spellcheck="false" required aria-describedby="pc-http-note pc-http-error"/><button type="submit" class="button" id="pc-http-read">读取到编辑器</button></div><label class="pc-keep-controller"><input type="checkbox" id="pc-keep-controller" checked/>保留目标核心的控制地址和密钥</label><p id="pc-http-note">先选择目标配置文件。读取成功后进入草稿，保存时写入该文件。</p><p id="pc-http-error" class="pc-form-error" role="alert" hidden></p></form>
       <details class="pc-setup" id="pc-setup" hidden><summary>恢复配置服务</summary><p>在核心所在服务器安装配套配置服务，然后重新读取。默认端口为 9098；自定义地址可在 ui/config.js 设置 proxyConfigBase。</p><code>sh install-proxy-config.sh http://服务器IP:9099</code><a href="help/proxy-config.txt" target="_blank" rel="noopener noreferrer">查看安装说明</a></details>
-      <details class="pc-setup" id="pc-token-setup"><summary>配置服务令牌</summary><p>配置服务启用令牌校验时，填入安装时生成的令牌；令牌只保存在此浏览器，服务未启用校验时可留空。</p><div class="pc-http-fields"><input id="pc-token" type="password" placeholder="配置服务令牌" autocomplete="off" spellcheck="false"/><button type="button" class="button" id="pc-token-save">保存令牌</button></div><p id="pc-token-state" class="pc-form-error" role="alert" hidden></p></details>
       <button type="button" class="pc-mobile-files" id="pc-toggle-files" aria-expanded="false" aria-controls="pc-directory-panel" hidden><span>切换配置文件</span><span>展开列表</span></button>
       <div class="pc-workspace" data-mode="file"><aside class="pc-directory-panel" id="pc-directory-panel" aria-label="目录配置文件" hidden><form id="pc-directory-form"><label for="pc-directory-input">配置目录</label><div><input id="pc-directory-input" type="text" placeholder="/etc/mihomo" autocomplete="off" spellcheck="false" required/><button type="submit" class="button small">读取</button></div></form><div class="pc-directory-heading"><span id="pc-file-count" role="status">尚未读取目录</span><button type="button" class="button small" id="pc-directory-parent">上一级</button></div><input id="pc-file-filter" type="search" placeholder="筛选配置文件" aria-label="筛选配置文件"/><div id="pc-directory-list" class="pc-directory-list" aria-live="polite"></div><p class="pc-directory-note">备用配置仅保存文件；启动配置保存后自动应用。</p></aside>
       <section class="pc-card" id="pc-card"><div class="pc-filebar"><img id="pc-logo" src="assets/img/proxy-panel.svg" alt="" width="34" height="34"/><div class="pc-filename"><div><strong id="pc-name">选择配置文件</strong><span class="pc-format" id="pc-format">YAML</span></div><button type="button" class="pc-path" id="pc-choose"><span id="pc-path">读取服务器配置…</span>${icon('folder')}</button></div><div class="pc-editor-tools"><button type="button" class="icon-button" id="pc-search" aria-label="查找配置">${icon('search')}</button><button type="button" class="icon-button" id="pc-focus" aria-label="专注编辑" aria-pressed="false">${icon('expand')}</button><button type="button" class="button small" id="pc-diff">${icon('diff')}<span>查看改动</span></button></div></div>
@@ -88,7 +87,6 @@ import { request, readProxyConfigToken, PROXY_CONFIG_TOKEN_KEY } from './api';
     const cursor = () => {if(!editor||!alive)return;const selection=editor.view.state.selection.main,line=editor.view.state.doc.lineAt(selection.head);$('#pc-cursor').textContent=`行 ${line.number}，列 ${selection.head-line.from+1}`;$('#pc-lines').textContent=editor.view.state.doc.lines+' 行';};
     const report = error => {
       if(!alive)return;
-      if(error?.proxyConfigAuth){const setup=$('#pc-token-setup');if(setup){setup.hidden=false;setup.open=true;}const state=$('#pc-token-state');if(state){state.textContent='令牌无效或未填写：配置服务拒绝了请求，请在上方保存正确令牌后重试。';state.hidden=false;}}
       const detail=error.body||error;
       result('error',error.message,[detail.detail,detail.backup?'备份：'+detail.backup:''].filter(Boolean).join('\n'),true);
       if(!serviceReady)$('#pc-setup').hidden=false;
@@ -235,8 +233,6 @@ import { request, readProxyConfigToken, PROXY_CONFIG_TOKEN_KEY } from './api';
     $('#pc-http-toggle').onclick=()=>{const form=$('#pc-http-form');form.hidden=!form.hidden;$('#pc-http-toggle').setAttribute('aria-expanded',String(!form.hidden));if(!form.hidden)$('#pc-http-url').focus();};
     $('#pc-http-form').onsubmit=event=>{event.preventDefault();confirmDiscard(importHTTP);};
     $('#pc-http-url').oninput=()=>{$('#pc-http-error').hidden=true;$('#pc-http-url').removeAttribute('aria-invalid');};
-    $('#pc-token').value=readProxyConfigToken();
-    $('#pc-token-save').onclick=async()=>{const value=$('#pc-token').value.trim();try{if(value)localStorage.setItem(PROXY_CONFIG_TOKEN_KEY,value);else localStorage.removeItem(PROXY_CONFIG_TOKEN_KEY);}catch{} $('#pc-token-state').hidden=true;notify(value?'配置服务令牌已保存':'配置服务令牌已清除');await loadCores(!editor);};
     root.addEventListener('keydown',event=>{if(event.key==='Escape'&&root.classList.contains('pc-focused')&&!document.querySelector('.pc-dialog[open]')){event.preventDefault();$('#pc-focus').click();}});
     $('#pc-back').onclick=()=>navigate('management');
     $('#pc-retry').onclick=async()=>{try{tools=tools||await vendor();await loadCores(true);}catch(error){report(error);}};

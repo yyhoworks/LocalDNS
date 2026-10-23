@@ -4,13 +4,11 @@ from __future__ import annotations
 
 import argparse
 import contextlib
-import hmac
 import json
 import re
 import secrets
 import shutil
 import socket
-import sys
 import tempfile
 import threading
 from datetime import datetime, timezone
@@ -180,8 +178,6 @@ class UpdateServer(ThreadingHTTPServer):
     def __init__(self, address, config, manager):
         self.config = config
         self.manager = manager
-        token = config.get('token')
-        self.token = token if isinstance(token, str) and token else None
         self.origins = {canonical_origin(value) for value in config['allowedOrigins']}
         self.hosts = {urlsplit(value).hostname for value in self.origins}
         self.hosts.update(config.get('allowedHosts', []))
@@ -229,7 +225,7 @@ class UpdateHandler(BaseHTTPRequestHandler):
         if origin in self.server.origins:
             self.send_header('Access-Control-Allow-Origin', origin)
             self.send_header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
-            self.send_header('Access-Control-Allow-Headers', 'Content-Type, Authorization')
+            self.send_header('Access-Control-Allow-Headers', 'Content-Type')
         self.end_headers()
         self.wfile.write(payload)
 
@@ -247,17 +243,6 @@ class UpdateHandler(BaseHTTPRequestHandler):
             raise UpdateError('更新请求必须来自已配置的网页', 403)
         if self.headers.get('Transfer-Encoding'):
             raise UpdateError('不支持此请求编码')
-
-    def check_token(self):
-        # Write operations additionally require the install-time token once one
-        # is configured. Legacy configurations without a token keep the old
-        # origin-only behaviour; main() warns about them at startup.
-        token = self.server.token
-        if not token:
-            return
-        header = self.headers.get('Authorization', '')
-        if not header.startswith('Bearer ') or not hmac.compare_digest(header[len('Bearer '):], token):
-            raise UpdateError('更新请求缺少有效的访问令牌', 401)
 
     def body(self):
         if self.headers.get('Content-Type', '').split(';')[0].strip() != 'application/json':
@@ -282,12 +267,10 @@ class UpdateHandler(BaseHTTPRequestHandler):
                     raise UpdateError('网页来源未被允许', 403)
                 self.respond(200, {})
             elif self.command == 'GET' and path == '/upgrade/ui':
-                self.respond(200, {'protocol': PROTOCOL, 'repository': installer.REPO,
-                                   'requiresAuth': self.server.token is not None})
+                self.respond(200, {'protocol': PROTOCOL, 'repository': installer.REPO, 'requiresAuth': False})
             elif self.command == 'GET' and path == '/upgrade/ui/status':
                 self.respond(200, self.server.manager.status())
             elif self.command == 'POST' and path in ('/upgrade/ui', '/upgrade/ui/rollback'):
-                self.check_token()
                 body = self.body()
                 rollback = path.endswith('/rollback')
                 if set(body) != (set() if rollback else {'releaseTag'}):
@@ -312,12 +295,6 @@ def main():
     installer.no_symlinks(args.config)
     config = json.loads(args.config.read_text(encoding='utf-8'))
     root = installer.install_path(config['installDir'])
-    if not (isinstance(config.get('token'), str) and config['token']):
-        print('警告：更新执行端未配置访问令牌（token），升级与回滚仅靠来源校验保护；'
-              '请重新运行 install_ui_updater.py 生成令牌。', file=sys.stderr)
-    elif str(config.get('listenHost')) not in ('127.0.0.1', '::1', 'localhost'):
-        print('提示：更新执行端监听非回环地址 ' + str(config.get('listenHost')) +
-              '，写操作由访问令牌保护。', file=sys.stderr)
     manager = UpdateManager(root)
     server = UpdateServer((config['listenHost'], int(config['port'])), config, manager)
     with contextlib.closing(server):

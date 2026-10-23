@@ -16,19 +16,6 @@ sh install-proxy-config.sh http://服务器IP:9099
 
 可用第二个参数设置新安装的端口：`sh install-proxy-config.sh http://服务器IP:9099 9198`。已有配置原样保留，改端口时需要相应修改 `listen`、`hosts`。UI 默认使用 DNS API 所在主机的 9098；自定义入口在 `ui/config.js` 设置 `proxyConfigBase: "http://服务器IP:9198"`。
 
-### 监听地址与访问令牌
-
-**能到达本服务端口并通过校验，就等于能改核心配置**，请按这个等级保护它。
-
-- 服务默认只监听 `127.0.0.1`（回环）。此时局域网浏览器无法直达服务，需在本机浏览器使用，或按下方「HTTPS 与同源入口」用反向代理同源路径暴露。
-- 要在局域网内直达，安装时用第三个参数显式指定监听地址：`sh install-proxy-config.sh http://服务器IP:9099 9098 服务器IP`。非回环监听必须配置访问令牌：首次安装时安装器会自动生成随机令牌写入服务配置（0600），并在安装结束时打印一次；在 LocalDNS 界面的代理配置面板填入该令牌后，界面请求会以 `Authorization: Bearer <令牌>` 发送。
-- 配置中的 `token` 为空时服务沿用旧行为（仅 Host/Origin 白名单校验，启动日志会给出警告），仅适合回环监听；升级旧部署时请补上令牌：自行生成一段随机字符串写入配置 `token` 后重启服务，再在界面填入同一令牌。
-- `origins` / `hosts` 白名单只防浏览器跨站请求，请求头可被非浏览器客户端任意伪造，不能替代令牌。
-
-### 其他配置项
-
-- 旧字段 `ruleBackupDirectory`、`trafficDirectory`、`metricsURL`、`interfaceFile` 是早期版本的遗留声明，本服务现已不读取，配置中出现会被忽略（对应的共享设置等功能由现版其他实现承担）。
-
 ## HTTPS 与同源入口
 
 HTTPS 页面需要 HTTPS 配置服务入口。可让服务监听 `127.0.0.1:9098`，由已有反向代理暴露同源路径。示例：
@@ -41,7 +28,7 @@ location /_config/ {
 }
 ```
 
-UI 设置 `proxyConfigBase: "/_config"`；服务 `origins` 写浏览器实际来源，`hosts` 写转发保留的 Host。前缀会保留，UI 请求 `/_config/api/proxy-config/...`。配置了 `token` 时界面经同源路径同样发送令牌；`origins` / `hosts` 与允许目录限制是纵深防线，不是用户登录认证。
+UI 设置 `proxyConfigBase: "/_config"`；服务 `origins` 写浏览器实际来源，`hosts` 写转发保留的 Host。前缀会保留，UI 请求 `/_config/api/proxy-config/...`。`origins` / `hosts` 与允许目录限制是纵深防线，不是用户登录认证。
 
 ## HTTP 获取与保存目标
 

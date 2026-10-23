@@ -11,11 +11,6 @@ respawn_delay=5
 respawn_max=5
 export GOMEMLIMIT=24MiB
 export GOGC=50
-# OpenRC has no equivalents for the systemd sandbox directives shipped in
-# localdns-proxy-config.service (NoNewPrivileges, PrivateTmp, ProtectHome,
-# ...). On OpenRC the service therefore relies on the configuration file
-# permissions (0600) and the installer's umask; see the systemd unit for the
-# hardened variant.
 depend() {
     need net
 }

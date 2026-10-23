@@ -1,13 +1,10 @@
 import { setHTML } from '../../core/security/safe-dom';
 import { ApiError } from '../../core/api/api-error';
-import { UIUpdateClient, upgradeTarget, readUIUpdateToken, saveUIUpdateToken, type InstalledUI, type UIRelease, type UIUpdateStatus } from './ui-update-client';
+import { UIUpdateClient, upgradeTarget, type InstalledUI, type UIRelease, type UIUpdateStatus } from './ui-update-client';
 
 export function createUIUpdatePanel(container: HTMLElement) {
   setHTML(container, `<h3>在线升级 UI</h3>
     <p class="version-note" data-update-connection>正在连接服务器升级入口…</p>
-    <label class="version-token">更新服务令牌
-      <input type="password" data-update-token placeholder="安装时生成；未启用令牌保护可留空" autocomplete="off" spellcheck="false">
-    </label>
     <p class="version-note" data-update-target></p>
     <div class="version-update-progress" hidden><progress aria-label="UI 升级正在进行"></progress></div>
     <p class="version-update-result" role="status" aria-live="polite" hidden></p>
@@ -29,17 +26,9 @@ export function createUIUpdatePanel(container: HTMLElement) {
   let client: UIUpdateClient | undefined, available = false, busy = false, reading = false, error = '';
   let installed: InstalledUI | null = null, latest: UIRelease | null = null;
   let task: UIUpdateStatus = { state: 'idle', canRollback: false }, timer: ReturnType<typeof setTimeout> | undefined;
-  const tokenInput = get<HTMLInputElement>('[data-update-token]');
-  tokenInput.value = readUIUpdateToken();
-  tokenInput.addEventListener('change', () => {
-    saveUIUpdateToken(tokenInput.value.trim());
-    if (available) { error = ''; void readStatus(); }
-  });
   const running = () => task.state === 'queued' || task.state === 'running';
   const currentUI = () => installed && task.installedVersion ? { ...installed, uiVersion: task.installedVersion } : installed;
-  const describe = (failure: unknown) => failure instanceof ApiError && failure.status === 401
-    ? '更新服务要求提供令牌：请填写安装时生成的更新服务令牌后重试。'
-    : failure instanceof Error ? failure.message : '连接失败，请重试。';
+  const describe = (failure: unknown) => failure instanceof Error ? failure.message : '连接失败，请重试。';
 
   function paint() {
     const target = upgradeTarget(currentUI(), latest);

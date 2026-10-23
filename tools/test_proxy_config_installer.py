@@ -1,11 +1,4 @@
-"""Exercise service installation in a temporary staging root without starting services.
-
-Installer contract (as implemented by install-proxy-config.sh): the
-arguments are ``origin [port] [host]``. Without a host argument the service
-keeps the loopback listen address 127.0.0.1; passing a non-loopback host
-rewrites listen/hosts to that host. On first install the script always
-generates a random access token into the configuration's ``token`` field.
-"""
+"""Exercise service installation in a temporary staging root without starting services."""
 import argparse
 import json
 import os
@@ -60,12 +53,8 @@ def main():
             if os.name == 'nt':
                 environment['PATH'] = str(shell.parent) + os.pathsep + os.environ.get('PATH', '')
 
-            def install(origin, succeeds=True, port=None, host=None):
-                arguments = [str(shell), script, origin]
-                if port is not None or host is not None:
-                    arguments.append(str(port if port is not None else 9098))
-                if host is not None:
-                    arguments.append(str(host))
+            def install(origin, succeeds=True, port=None):
+                arguments = [str(shell), script, origin] + ([str(port)] if port is not None else [])
                 result = subprocess.run(arguments, env=environment,
                                         capture_output=True, encoding='utf-8')
                 if succeeds and result.returncode:
@@ -76,11 +65,10 @@ def main():
             install('http://10.0.0.2:9099')
             config_path = stage / 'etc/localdns-proxy-config.json'
             config = json.loads(config_path.read_text(encoding='utf-8'))
-            assert config['listen'] == '127.0.0.1:9098'
+            assert config['listen'] == '10.0.0.2:9098'
             assert config['origins'] == ['http://10.0.0.2:9099']
-            assert config['hosts'] == ['127.0.0.1:9098']
-            generated = config.get('token', '')
-            assert len(generated) == 64 and all(c in '0123456789abcdef' for c in generated)
+            assert config['hosts'] == ['10.0.0.2:9098']
+            assert not any(key.startswith('auth') for key in config)
             binary = stage / 'opt/localdns-proxy-config/bin/localdns-proxy-config'
             assert binary.read_bytes() == payload['bin/localdns-proxy-config-linux-' + arch]
             config['cores']['mihomo']['postReload'] = ['/opt/example/post-reload.sh']
@@ -103,25 +91,13 @@ def main():
                 install('http://10.0.0.2:9099', succeeds=False, port=port)
                 assert config_path.read_bytes() == saved
                 checked += 1
-            lan_stage = temporary / (arch + '-lan')
-            lan_stage.mkdir()
-            environment['DESTDIR'] = posix(lan_stage)
-            install('http://10.0.0.2:9099', host='10.0.0.2')
-            lan = json.loads((lan_stage / 'etc/localdns-proxy-config.json').read_text(encoding='utf-8'))
-            assert lan['listen'] == '10.0.0.2:9098'
-            assert lan['hosts'] == ['10.0.0.2:9098']
-            lan_token = lan.get('token', '')
-            assert len(lan_token) == 64 and all(c in '0123456789abcdef' for c in lan_token)
-            checked += 1
             custom_stage = temporary / (arch + '-custom')
             custom_stage.mkdir()
             environment['DESTDIR'] = posix(custom_stage)
-            install('http://10.0.0.2:9099', port=9198, host='10.0.0.2')
+            install('http://10.0.0.2:9099', port=9198)
             custom = json.loads((custom_stage / 'etc/localdns-proxy-config.json').read_text(encoding='utf-8'))
             assert custom['listen'] == '10.0.0.2:9198'
             assert custom['hosts'] == ['10.0.0.2:9198']
-            custom_token = custom.get('token', '')
-            assert len(custom_token) == 64 and all(c in '0123456789abcdef' for c in custom_token)
             checked += 1
         print(json.dumps({'stagingChecks': checked, 'platforms': ['amd64', 'arm64'],
                           'configurationAndHooksPreserved': True, 'backupBinaryNotOverwritten': True,

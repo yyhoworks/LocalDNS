@@ -1,4 +1,4 @@
-"""Exercise real update transactions and token-gated HTTP against isolated files."""
+"""Exercise real update transactions and password-free HTTP against isolated files."""
 import contextlib
 import io
 import json
@@ -151,17 +151,12 @@ class UIUpdaterTests(_UpdateFixture):
             self.assertEqual(setup.main(arguments), 0)
         config = json.loads((self.root / '.ui-updater/config.json').read_text())
         self.assertNotIn('password', config)
-        self.assertEqual(config['listenHost'], '127.0.0.1')
-        self.assertRegex(config['token'], r'^[0-9a-f]{64}$')
-        self.assertIn(config['token'], output.getvalue())
         self.assertIn('http://dns.example:9100', (self.root / 'ui/config.js').read_text())
         self.assertTrue((self.root / 'bin/ui-updater/ui_updater.py').is_file())
         legacy = dict(config, passwordSalt='legacy-salt', passwordHash='legacy-hash')
         installer.atomic_json(self.root / '.ui-updater/config.json', legacy)
-        reinstall = io.StringIO()
-        with contextlib.redirect_stdout(reinstall):
+        with contextlib.redirect_stdout(io.StringIO()):
             setup.main(arguments)
-        self.assertNotIn(config['token'], reinstall.getvalue())
         again = json.loads((self.root / '.ui-updater/config.json').read_text())
         self.assertEqual(config, again)
         self.assertNotIn('passwordSalt', again)
@@ -223,12 +218,10 @@ class UIUpdaterHTTPTests(_UpdateFixture):
         self.serving.join(2)
         super().tearDown()
 
-    def request(self, path, body=None, origin=None, host=None, content_type='application/json', token=None):
+    def request(self, path, body=None, origin=None, host=None, content_type='application/json'):
         headers = {'Origin': self.origin if origin is None else origin, 'Content-Type': content_type}
         if host:
             headers['Host'] = host
-        if token is not None:
-            headers['Authorization'] = 'Bearer ' + token
         request = Request(self.base_url + path, data=json.dumps(body).encode() if body is not None else None, headers=headers)
         try:
             response = self.opener.open(request, timeout=4)
@@ -250,9 +243,7 @@ class UIUpdaterHTTPTests(_UpdateFixture):
             self.assertEqual(self.request('/upgrade/ui', {'releaseTag': 'fjgac-ui-v2026.10.19.6'}, origin=origin)[0], 403)
         self.assertEqual(self.request('/session', {'password': 'obsolete'})[0], 404)
 
-    def test_http_runs_update_and_rollback_without_token_when_unconfigured_and_rejects_arbitrary_parameters(self):
-        # Legacy configurations without a token keep the origin-only
-        # behaviour; token enforcement is covered by UIUpdaterHTTPTokenTests.
+    def test_http_runs_update_and_rollback_without_password_and_rejects_arbitrary_parameters(self):
         self.assertEqual(self.request('/upgrade/ui', {'releaseTag': 'fjgac-ui-v2026.10.19.6', 'url': 'https://evil.example'})[0], 400)
         with patch.object(installer, 'Packages', side_effect=self.package), patch.object(installer, 'local_json', side_effect=self.core):
             self.assertEqual(self.request('/upgrade/ui', {'releaseTag': 'fjgac-ui-v2026.10.19.6'})[0], 202)
@@ -265,57 +256,6 @@ class UIUpdaterHTTPTests(_UpdateFixture):
         self.assertEqual(self.request('/upgrade/ui', {}, content_type='text/plain')[0], 415)
         for path, body in [('/upgrade/ui', {'releaseTag': 123}), ('/upgrade/ui/rollback', {'path': '/tmp'}), ('/execute', {})]:
             self.assertIn(self.request(path, body)[0], (400, 404))
-
-
-class UIUpdaterHTTPTokenTests(_UpdateFixture):
-    TOKEN = 'ab' * 32
-
-    def setUp(self):
-        super().setUp()
-        self.origin = 'http://127.0.0.1:9099'
-        self.server = updater.UpdateServer(('127.0.0.1', 0), {
-            'allowedOrigins': [self.origin], 'token': self.TOKEN}, self.manager)
-        self.serving = threading.Thread(target=self.server.serve_forever, daemon=True)
-        self.serving.start()
-        self.base_url = 'http://127.0.0.1:' + str(self.server.server_port)
-        self.opener = build_opener(ProxyHandler({}))
-
-    def tearDown(self):
-        self.server.shutdown()
-        self.server.server_close()
-        self.serving.join(2)
-        super().tearDown()
-
-    def request(self, path, body=None, origin=None, host=None, content_type='application/json', token=None):
-        headers = {'Origin': self.origin if origin is None else origin, 'Content-Type': content_type}
-        if host:
-            headers['Host'] = host
-        if token is not None:
-            headers['Authorization'] = 'Bearer ' + token
-        request = Request(self.base_url + path, data=json.dumps(body).encode() if body is not None else None, headers=headers)
-        try:
-            response = self.opener.open(request, timeout=4)
-        except HTTPError as error:
-            response = error
-        with response:
-            return response.code, json.load(response), response.headers
-
-    def test_read_only_endpoints_stay_open_and_report_auth(self):
-        status, data, _headers = self.request('/upgrade/ui')
-        self.assertEqual(status, 200)
-        self.assertTrue(data['requiresAuth'])
-        self.assertEqual(self.request('/upgrade/ui/status')[0], 200)
-
-    def test_writes_require_the_configured_token(self):
-        self.assertEqual(self.request('/upgrade/ui', {'releaseTag': 'fjgac-ui-v2026.10.19.6'})[0], 401)
-        self.assertEqual(self.request('/upgrade/ui', {'releaseTag': 'fjgac-ui-v2026.10.19.6'}, token='cd' * 32)[0], 401)
-        self.assertEqual(self.request('/upgrade/ui/rollback', {}, token='')[0], 401)
-        with patch.object(installer, 'Packages', side_effect=self.package), \
-                patch.object(installer, 'local_json', side_effect=self.core):
-            self.assertEqual(self.request('/upgrade/ui', {'releaseTag': 'fjgac-ui-v2026.10.19.6'}, token=self.TOKEN)[0], 202)
-            self.assertEqual(self.finish()['state'], 'succeeded')
-            self.assertEqual(self.request('/upgrade/ui/rollback', {}, token=self.TOKEN)[0], 202)
-            self.assertEqual(self.finish()['installedVersion'], VERSION['uiVersion'])
 
 
 if __name__ == '__main__':

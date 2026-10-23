@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { proxyConfigBase, proxyConfigAuthHeaders, readProxyConfigToken, PROXY_CONFIG_TOKEN_KEY } from '../src/features/proxy-config/api';
+import { proxyConfigBase } from '../src/features/proxy-config/api';
 import { prepareHTTPDraft, syntaxCheck, differences } from '../src/features/proxy-config/editor.js';
 import { parseDocument } from 'yaml';
 import { parse as parseJSONC } from 'jsonc-parser';
@@ -11,17 +11,6 @@ describe('proxy configuration address', () => {
     expect(proxyConfigBase('https://dns.test/_config/api/proxy-config/', '', 'https://dns.test')).toBe('https://dns.test/_config/api/proxy-config/');
     expect(() => proxyConfigBase('file:///etc/config', '', 'https://dns.test')).toThrow();
     expect(() => proxyConfigBase('https://user:pass@dns.test', '', 'https://dns.test')).toThrow();
-  });
-});
-
-describe('proxy configuration service token', () => {
-  it('uses the agreed localStorage key and builds a bearer header only when a token exists', () => {
-    expect(PROXY_CONFIG_TOKEN_KEY).toBe('localdns-proxy-config-token-v1');
-    expect(proxyConfigAuthHeaders('')).toEqual({});
-    expect(proxyConfigAuthHeaders('   ')).toEqual({});
-    expect(proxyConfigAuthHeaders(' secret-token ')).toEqual({ Authorization: 'Bearer secret-token' });
-    // Node test environment has no localStorage: reading must degrade to empty, not throw.
-    expect(readProxyConfigToken()).toBe('');
   });
 });
 

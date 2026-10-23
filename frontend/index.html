@@ -46,7 +46,7 @@
           </button>
 
           <div class="proxy-launcher" id="proxy-launcher" role="group" aria-label="代理面板快捷入口">
-            <a data-proxy-panel-link href="#" target="_blank" rel="noopener noreferrer" title="打开代理面板" aria-label="打开代理面板（新标签页）"><img src="assets/img/proxy-panel.svg" alt="" width="22" height="22" /></a>
+            <a data-proxy-panel-link href="http://192.168.1.7:9090/ui" target="_blank" rel="noopener noreferrer" title="打开代理面板" aria-label="打开代理面板（新标签页）"><img src="assets/img/proxy-panel.svg" alt="" width="22" height="22" /></a>
             <button type="button" aria-label="设置代理名称、Logo 与地址" title="代理面板设置" aria-expanded="false" aria-controls="proxy-panel-popover"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button>
           </div>
 
@@ -303,7 +303,7 @@
     <form novalidate>
       <div class="field"><label for="proxy-panel-name">代理名称</label><input type="text" id="proxy-panel-name" maxlength="32" placeholder="例如：家庭代理" autocomplete="off" /></div>
       <div class="identity-preview"><img id="proxy-panel-preview" src="assets/img/proxy-panel.svg" alt="面板图标预览" width="32" height="32" /><span id="proxy-logo-status" role="status" aria-live="polite">根据面板地址自动读取图标</span></div>
-      <div class="field"><label for="proxy-panel-url">面板地址</label><input type="url" id="proxy-panel-url" placeholder="http://服务器地址:9090/ui" inputmode="url" autocomplete="url" spellcheck="false" autocapitalize="none" required aria-describedby="proxy-panel-note proxy-panel-error" /></div>
+      <div class="field"><label for="proxy-panel-url">面板地址</label><input type="url" id="proxy-panel-url" placeholder="http://192.168.1.7:9090/ui" inputmode="url" autocomplete="url" spellcheck="false" autocapitalize="none" required aria-describedby="proxy-panel-note proxy-panel-error" /></div>
       <p id="proxy-panel-note" class="proxy-panel-note">点击图标打开面板。本机修改可通过“外观 → 品牌与字体”导出共享配置。</p>
       <button type="button" class="button small" id="proxy-panel-retry" hidden>重新读取配置</button>
       <p id="proxy-panel-error" class="proxy-panel-error" role="alert" hidden></p>

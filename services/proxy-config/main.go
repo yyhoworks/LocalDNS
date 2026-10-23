@@ -4,7 +4,6 @@ package main
 import (
 	"context"
 	"crypto/sha256"
-	"crypto/subtle"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
@@ -49,11 +48,7 @@ type Core struct {
 	PostReload              []string `json:"postReload,omitempty"`
 }
 type Config struct {
-	Listen string `json:"listen"`
-	// Token, when set, is required as "Authorization: Bearer <token>" on every
-	// business endpoint. Empty keeps the legacy Host/Origin-only behaviour so
-	// existing deployments keep working; main() warns about it at startup.
-	Token   string          `json:"token,omitempty"`
+	Listen  string          `json:"listen"`
 	Origins []string        `json:"origins"`
 	Hosts   []string        `json:"hosts"`
 	Cores   map[string]Core `json:"cores"`
@@ -115,15 +110,6 @@ func decode(r *http.Request, w http.ResponseWriter, value any) error {
 	}
 	return nil
 }
-func validToken(r *http.Request, token string) bool {
-	const prefix = "Bearer "
-	header := r.Header.Get("Authorization")
-	if !strings.HasPrefix(header, prefix) {
-		return false
-	}
-	provided := strings.TrimPrefix(header, prefix)
-	return subtle.ConstantTimeCompare([]byte(provided), []byte(token)) == 1
-}
 func contains(list []string, value string) bool {
 	for _, item := range list {
 		if item == value {
@@ -154,15 +140,9 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if r.Method == "OPTIONS" {
-		// Preflight requests never carry Authorization, so they are exempt
-		// from the token check; Host and Origin above still apply.
 		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
-		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
+		w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
 		w.WriteHeader(204)
-		return
-	}
-	if s.config.Token != "" && !validToken(r, s.config.Token) {
-		writeError(w, failure(401, "访问令牌无效或缺失，请在 LocalDNS 界面中填写配置服务令牌后重试。"))
 		return
 	}
 	if !strings.HasPrefix(r.URL.Path, apiPrefix) {
@@ -948,9 +928,6 @@ func main() {
 	}
 	if config.Listen == "" || len(config.Origins) == 0 || len(config.Hosts) == 0 {
 		log.Fatal("incomplete configuration")
-	}
-	if config.Token == "" {
-		log.Print("警告：未配置访问令牌（token 为空），业务接口仅靠 Host/Origin 白名单校验；监听非回环地址时请务必在配置中设置 token。")
 	}
 	s := newServer(config)
 	httpServer := &http.Server{Addr: config.Listen, Handler: s, ReadHeaderTimeout: 5 * time.Second, ReadTimeout: 15 * time.Second, WriteTimeout: 110 * time.Second, IdleTimeout: 30 * time.Second, MaxHeaderBytes: 16 << 10}

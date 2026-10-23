@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { UIUpdateClient, upgradeTarget, saveUIUpdateToken, UI_UPDATE_TOKEN_KEY } from '../src/features/version/ui-update-client';
+import { UIUpdateClient, upgradeTarget } from '../src/features/version/ui-update-client';
 
 const installed = { uiVersion: '2026.10.19.8', backendVersion: 'FJGAC' };
 const release = { tag: 'fjgac-ui-v2026.10.19.9', version: '2026.10.19.9', backend: 'FJGAC', packages: ['UI 升级包'] };
@@ -22,7 +22,7 @@ describe('UI upgrade eligibility', () => {
 describe('UI update requests', () => {
   it('submits fixed operations directly without credentials or a session', async () => {
     const fetcher = vi.fn<typeof fetch>()
-      .mockResolvedValueOnce(json({ protocol: 'localdns-ui-updater/v1', repository: 'https://github.com/yyhoworks/LocalDNS', requiresAuth: false }))
+      .mockResolvedValueOnce(json({ protocol: 'localdns-ui-updater/v1', repository: 'https://github.com/yyhoworks/LocalDNS' }))
       .mockResolvedValueOnce(json({ state: 'idle', canRollback: false }))
       .mockResolvedValueOnce(json({ state: 'queued', jobId: 'test-job', canRollback: false }, 202))
       .mockResolvedValueOnce(json({ state: 'queued', canRollback: true }, 202));
@@ -37,32 +37,6 @@ describe('UI update requests', () => {
     ]);
     expect(fetcher.mock.calls[2][1]).toMatchObject({ method: 'POST', credentials: 'omit', body: JSON.stringify({ releaseTag: release.tag }) });
     expect(fetcher.mock.calls[3][1]).toMatchObject({ method: 'POST', body: '{}' });
-    for (const [, request] of fetcher.mock.calls) expect(request?.headers).not.toHaveProperty('Authorization');
-  });
-  it('sends the stored service token as a Bearer header on every request', async () => {
-    const store = new Map<string, string>();
-    vi.stubGlobal('localStorage', {
-      getItem: (key: string) => store.get(key) ?? null,
-      setItem: (key: string, value: string) => { store.set(key, value); },
-      removeItem: (key: string) => { store.delete(key); },
-    });
-    try {
-      saveUIUpdateToken('test-token');
-      expect(store.get(UI_UPDATE_TOKEN_KEY)).toBe('test-token');
-      const fetcher = vi.fn<typeof fetch>()
-        .mockResolvedValueOnce(json({ protocol: 'localdns-ui-updater/v1', repository: 'https://github.com/yyhoworks/LocalDNS', requiresAuth: true }))
-        .mockResolvedValueOnce(json({ state: 'idle', canRollback: false }))
-        .mockResolvedValueOnce(json({ state: 'queued', jobId: 'test-job', canRollback: false }, 202));
-      const client = new UIUpdateClient('http://dns.example:9100', 'http://dns.example:9099/ui/', fetcher);
-      await client.discover();
-      await client.status();
-      await client.upgrade(release.tag);
-      for (const [, request] of fetcher.mock.calls) expect(request?.headers).toMatchObject({ Authorization: 'Bearer test-token' });
-      saveUIUpdateToken('');
-      expect(store.has(UI_UPDATE_TOKEN_KEY)).toBe(false);
-    } finally {
-      vi.unstubAllGlobals();
-    }
   });
   it('supports a same-origin reverse proxy and refuses insecure or executable addresses', async () => {
     const fetcher = vi.fn<typeof fetch>().mockResolvedValue(json({ protocol: 'localdns-ui-updater/v1', repository: 'https://github.com/yyhoworks/LocalDNS' }));

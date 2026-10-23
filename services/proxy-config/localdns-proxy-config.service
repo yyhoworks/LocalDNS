@@ -11,20 +11,6 @@ Environment=GOGC=50
 Restart=on-failure
 RestartSec=5
 UMask=0077
-# Basic sandboxing. The service must keep write access to the core
-# configuration roots named in its own configuration (anywhere on disk,
-# administrator-defined) and must signal root-owned core processes, so
-# ProtectSystem=, a dedicated User= and capability restrictions are
-# intentionally not used; the directives below do not conflict with that.
-NoNewPrivileges=true
-PrivateTmp=true
-ProtectHome=true
-ProtectKernelTunables=true
-ProtectKernelModules=true
-ProtectControlGroups=true
-ProtectClock=true
-RestrictRealtime=true
-LockPersonality=true
 
 [Install]
 WantedBy=multi-user.target

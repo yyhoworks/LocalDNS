@@ -10,27 +10,13 @@ export function proxyConfigBase(configured = '', apiBase = '', origin = location
   return url.href;
 }
 
-// 配置服务令牌（H1）：安装时生成，保存在浏览器本地；服务侧配置为空时不校验。
-export const PROXY_CONFIG_TOKEN_KEY = 'localdns-proxy-config-token-v1';
-
-export function readProxyConfigToken(): string {
-  try { return localStorage.getItem(PROXY_CONFIG_TOKEN_KEY) || ''; } catch { return ''; }
-}
-
-export function proxyConfigAuthHeaders(token = readProxyConfigToken()): Record<string, string> {
-  const value = String(token || '').trim();
-  return value ? { Authorization: `Bearer ${value}` } : {};
-}
-
 export async function request(path: string, { method = 'GET', body, signal }: { method?: string; body?: unknown; signal?: AbortSignal } = {}) {
   const settings = (window as typeof window & { LOCALDNS_UI_CONFIG?: { proxyConfigBase?: string; apiBase?: string } }).LOCALDNS_UI_CONFIG || {};
   const base = proxyConfigBase(settings.proxyConfigBase, settings.apiBase);
   const client = new HttpClient({ base, timeout: path === 'save' ? 105000 : path === 'check' ? 55000 : 20000 });
   try {
-    return await client.request(path, { method, signal, credentials: 'omit', cache: 'no-store', headers: { ...proxyConfigAuthHeaders(), ...(body === undefined ? {} : { 'Content-Type': 'application/json' }) }, body: body === undefined ? undefined : JSON.stringify(body) });
+    return await client.request(path, { method, signal, credentials: 'omit', cache: 'no-store', headers: body === undefined ? {} : { 'Content-Type': 'application/json' }, body: body === undefined ? undefined : JSON.stringify(body) });
   } catch (error) {
-    // 401 需要让面板区分「令牌问题」与普通失败，标记后原样抛出。
-    if (error instanceof ApiError && error.status === 401) Object.assign(error, { proxyConfigAuth: true });
     if (path === 'fetch' && error instanceof ApiError && [404, 405].includes(error.status)) {
       const failure = new Error('当前配置服务不支持 HTTP 获取，请安装 1.6.0 或更新的配套服务后重试。');
       Object.assign(failure, { cause: error }); throw failure;
