@@ -31,5 +31,7 @@ const esc = (v='') => String(v).replace(/[&<>'"]/g, c => ({'&':'&amp;','<':'&lt;
 
   const duration = seconds => { let s=Math.max(0,Math.floor(+seconds||0)); const d=Math.floor(s/86400);s%=86400;const h=Math.floor(s/3600);s%=3600;const m=Math.floor(s/60);return `${d?d+'天 ':''}${h? h+'小时 ':''}${m}分钟`; };
 
-  const overviewUptimeMarkup = seconds => { const s=Math.max(0,Math.floor(+seconds||0)); const h=Math.floor(s/3600); const m=Math.floor((s%3600)/60); const sec=s%60; const part=(n,u)=>`<span class="overview-duration-part"><span class="overview-duration-num">${n}</span><span class="overview-duration-unit">${u}</span></span>`; if(h)return `${part(h,'小时')}${part(m,'分钟')}`; if(m)return part(m,'分钟'); return part(sec,'秒'); };
+  // 运行时长按「天 / 小时 / 分钟 / 秒」分档，最多显示两段：满 24 小时进位到天
+  // （不再出现「46 小时 49 分钟」这类读数），与 duration() 的天数口径保持一致。
+  const overviewUptimeMarkup = seconds => { const s=Math.max(0,Math.floor(+seconds||0)); const d=Math.floor(s/86400); const h=Math.floor((s%86400)/3600); const m=Math.floor((s%3600)/60); const sec=s%60; const part=(n,u)=>`<span class="overview-duration-part"><span class="overview-duration-num">${n}</span><span class="overview-duration-unit">${u}</span></span>`; if(d)return `${part(d,'天')}${part(h,'小时')}`; if(h)return `${part(h,'小时')}${part(m,'分钟')}`; if(m)return part(m,'分钟'); return part(sec,'秒'); };
 export { esc, num, pct, compactNum, fullNum, compactPct, ms, fmtBytesBrief, rankCount, startTimeMarkup, fmtDate, duration, overviewUptimeMarkup };
