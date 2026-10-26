@@ -2,6 +2,7 @@
 const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),cp=require('node:child_process');
 const {createPreviewServer}=require('./preview_ui.cjs');
 const {chromium}=require(process.env.LOCALDNS_PLAYWRIGHT||'playwright');
+const {launchBrowser,FJGOE_FEATURES,fixtureKey}=require('./verify_support.cjs');
 const root=path.resolve(__dirname,'..'),out=path.join(root,'dist/shared-ui-verification');fs.mkdirSync(out,{recursive:true});
 const font=fs.readFileSync(path.join(root,'_src/ui/assets/fonts/instrument-serif-numerals.woff2'));
 const logo=fs.readFileSync(path.join(root,'_src/ui/assets/img/logo-04-light.png'));
@@ -10,13 +11,13 @@ let shared={version:1,localdns:{name:'共享测试 DNS',logo:'custom/assets/serv
 let imported=null;
 (async()=>{
  const server=createPreviewServer({backend:process.env.LOCALDNS_TEST_BACKEND||'http://127.0.0.1:9099'});await new Promise(r=>server.listen(0,'127.0.0.1',r));
- const origin=`http://127.0.0.1:${server.address().port}/ui/`,browser=await chromium.launch({headless:true,channel:'msedge'});
+ const origin=`http://127.0.0.1:${server.address().port}/ui/`,browser=await launchBrowser(chromium);
  const report={checks:[],pageErrors:[],companionRequests:[],unexpectedWrites:[],fontRequests:[],panelRequests:[]};
  async function context(){
   const c=await browser.newContext({viewport:{width:1440,height:1000},reducedMotion:'reduce'});
   c.on('request',r=>{if(new URL(r.url()).port==='9098')report.companionRequests.push(r.url());if(new URL(r.url()).hostname==='panel.test')report.panelRequests.push(r.url());if(!['GET','HEAD'].includes(r.method()))report.unexpectedWrites.push(r.url());});
   const fixtures=require('../frontend/tests/fixtures/api.json');
-  await c.route(/\/(api|plugins)\//,route=>{const p=new URL(route.request().url()).pathname;if(/^\/plugins\/switch\d+\/show$/.test(p))return route.fulfill({contentType:'text/plain',body:'A'});return route.fulfill({contentType:'application/json',body:JSON.stringify(fixtures[p]??{})});});
+  await c.route(/\/(api|plugins)\//,route=>{const p=fixtureKey(new URL(route.request().url()).pathname);if(p==='/api/v1/features')return route.fulfill({contentType:'application/json',body:JSON.stringify(FJGOE_FEATURES)});if(/^\/plugins\/switch\d+\/show$/.test(p))return route.fulfill({contentType:'text/plain',body:'A'});return route.fulfill({contentType:'application/json',body:JSON.stringify(fixtures[p]??{})});});
   await c.route('**/metrics',r=>r.fulfill({contentType:'text/plain',body:fs.readFileSync(path.join(root,'frontend/tests/fixtures/metrics.prom'),'utf8')}));
   await c.route('**/custom/**',async r=>{
    const relative=new URL(r.request().url()).pathname.split('/custom/')[1];
@@ -39,7 +40,8 @@ let imported=null;
   assert.equal(await p.locator('#proxy-panel-logo-file').count(),0);assert.equal(await p.locator('#proxy-panel-logo-url').count(),0);
   const urls=report.panelRequests;
   assert(urls.every(u=>u.startsWith('http://panel.test/')&&!u.includes('secret')&&!u.includes('#')));
-  assert((await p.locator('.traffic-caption').innerText()).includes('当前会话'));
+  // Traffic history stays in this browser (overview/traffic/model.js); it is never part of shared settings.
+  assert((await p.locator('.traffic-caption').innerText()).includes('本浏览器保留 24 小时'));
   report.checks.push('shared name, logo and selected font load without companion','unused server fonts are not downloaded','panel logo uses /ui/ favicon without forwarding URL secrets');
   const other=await context(),otherPage=await open(other);assert.equal(await otherPage.title(),'共享测试 DNS 控制台');await other.close();
   report.checks.push('fresh independent browser reads the same name, logo and font');

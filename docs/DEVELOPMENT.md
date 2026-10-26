@@ -34,7 +34,7 @@ node tools/preview_ui.cjs
 
 ### 可重复验收
 
-Playwright 模块需可被 Node 加载，或者将 `LOCALDNS_PLAYWRIGHT` 设为现有模块的绝对路径。默认使用已安装的 Edge；`LOCALDNS_BROWSER` 可指定可用的 Playwright channel。
+Playwright 模块需可被 Node 加载，或者将 `LOCALDNS_PLAYWRIGHT` 设为现有模块的绝对路径。默认使用已安装的 Edge；`LOCALDNS_BROWSER` 可指定可用的 Playwright channel。`verify_frontend_build`、`verify_frontend_routes`、`verify_frontend_matrix` 与 `verify_shared_ui` 还支持 `LOCALDNS_BROWSER_PATH`，指向本机 Chromium 等可执行文件（如 Linux 上 `LOCALDNS_BROWSER_PATH=/usr/bin/chromium`），设置后忽略 channel。这四个脚本的夹具按正式版后端 FJGOE（FJGLI 接口）应答 `/api/v1/features`，共用逻辑见 `tools/verify_support.cjs`。
 
 ```sh
 node --test tools/test_countup.cjs tools/test_traffic.cjs tools/test_rule_conversion.cjs tools/test_query_path.cjs tools/test_rank_latency.cjs tools/test_overview_insights.cjs tools/test_clients.cjs tools/test_wallpaper.cjs
