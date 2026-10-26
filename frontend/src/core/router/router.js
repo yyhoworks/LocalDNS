@@ -24,6 +24,7 @@ import { playViewEnter, animateCountUps, syncAllSegThumbs } from '../../shared/c
 import { setApiStatus } from '../../features/shell/connection.js';
 import { esc } from '../../shared/format/number.js';
 import { icon } from '../../shared/components/icons.js';
+import { focusSelectors, restoreFocus } from './focus-restore.js';
 
   let navigationSeq=0;
   const routeModules={overview:overviewRoute,logs:logsRoute,upstreams:upstreamsRoute,rules:rulesRoute,management:managementRoute,'proxy-config':proxyConfigRoute};
@@ -50,7 +51,7 @@ import { icon } from '../../shared/components/icons.js';
   function cleanupRouteUi(){ currentScope().dispose(); }
 
   // 自动刷新（silent）：不清空页面、不显示“加载中”，新数据取回后原地替换，并保留滚动位置与未提交的输入。
-  /** @typedef {{ y: number, inner: [number, number][], fields: [string, string | boolean][], dirty: Set<string> }} ViewSnapshot */
+  /** @typedef {{ y: number, inner: [number, number][], fields: [string, string | boolean][], dirty: Set<string>, focus: string[] }} ViewSnapshot */
 
   /** @returns {ViewSnapshot} */
   function viewSnapshot(){
@@ -60,7 +61,8 @@ import { icon } from '../../shared/components/icons.js';
       y:window.scrollY,
       inner:scrollers.map(el=>[el.scrollTop,el.scrollLeft]),
       fields:fields.map(el=>{const field=/** @type {HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement} */ (el);return /** @type {[string, string | boolean]} */ ([field.id,field.type==='checkbox'&&'checked' in field?field.checked:field.value]);}),
-      dirty:new Set()
+      dirty:new Set(),
+      focus:focusSelectors(document.activeElement,page)
     };
   }
 
@@ -74,6 +76,7 @@ import { icon } from '../../shared/components/icons.js';
     const scrollers=[...page.querySelectorAll('.rank-list,.table-wrap,.overview-donut-legend,textarea')];
     if(scrollers.length===snap.inner.length)scrollers.forEach((n,i)=>{n.scrollTop=snap.inner[i][0];n.scrollLeft=snap.inner[i][1]});
     snap.fields.forEach(([id,v])=>{if(snap.dirty?.has(id))return;const n=document.getElementById(id);if(!n||!page.contains(n))return;const field=/** @type {HTMLInputElement} */ (n);if(field.type==='checkbox')field.checked=/** @type {boolean} */ (v);else if(field.value!==v)field.value=/** @type {string} */ (v)});
+    if(snap.focus?.length)restoreFocus(snap.focus,page);
   }
 
   /** @type {{ route: string, y: number } | null} */
@@ -148,12 +151,20 @@ import { icon } from '../../shared/components/icons.js';
     if(['logs','overview'].includes(state.route)){scope.interval(()=>{if(document.visibilityState==='visible'&&!busyViewing()&&!(state.route==='logs'&&state.logsPaused))renderRoute(true,true)},CONFIG.refreshInterval*1000)}
   }
 
-  // 正在输入、弹窗或抽屉打开时不自动刷新
+  // 正在输入、键盘焦点停在页面控件上、悬停拓扑、弹窗或抽屉打开时不自动刷新
   function busyViewing(){
-    const a=document.activeElement;
-    if(a&&a.closest?.('main')&&['INPUT','TEXTAREA','SELECT'].includes(a.tagName))return true;
+    const a=/** @type {HTMLElement | null} */ (document.activeElement);
+    const main=a?.closest?.('main');
+    if(a&&main&&['INPUT','TEXTAREA','SELECT'].includes(a.tagName))return true;
+    // 路由切换后程序聚焦的 main / 页面标题（tabindex=-1）不算“正在操作”，否则自动刷新会一直暂停。
+    if(a&&main&&a!==document.body&&a!==main&&!(a.tagName==='H1'&&a.tabIndex===-1)&&keyboardFocus(a))return true;
+    if(document.querySelector('#topo-stage-wrap:hover'))return true;
     return !!document.querySelector('dialog[open], .drawer.open');
   }
+  // 鼠标点击按钮后焦点也会停留在按钮上；只把键盘焦点（:focus-visible）视为正在浏览，
+  // 避免点一次按钮后自动刷新就一直暂停。浏览器不支持该伪类时按保守处理（视为键盘焦点）。
+  /** @param {Element} el */
+  function keyboardFocus(el){try{return el.matches(':focus-visible')}catch{return true}}
 export { navigate, updateNav, trackRouteCleanup, cleanupRouteUi, viewSnapshot, viewRestore, pendingScroll, scrollSaveTimer, userScrolled, saveScroll, restoreScroll, renderRoute, busyViewing };
 export function initialize() {
 try{history.scrollRestoration='manual'}catch{}
