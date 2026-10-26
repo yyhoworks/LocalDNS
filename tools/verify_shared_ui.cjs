@@ -34,7 +34,7 @@ let imported=null;
  async function open(c){const p=await c.newPage();p.on('pageerror',e=>report.pageErrors.push(e.message));await p.goto(origin);await p.locator('.console-service-summary').waitFor();await p.waitForFunction(()=>document.fonts.check('12px LocalDNSUploaded_'+document.querySelector('#font-heading').value));return p;}
  try{
   const c=await context(),p=await open(c);
-  await p.waitForFunction(()=>document.title==='共享测试 DNS 控制台');
+  await p.waitForFunction(()=>document.title.endsWith(' · 共享测试 DNS'));
   await p.waitForFunction(()=>document.querySelector('#proxy-launcher img').src==='http://panel.test/ui/favicon.svg');
   assert(report.fontRequests.includes('fonts/shared.woff2'));assert(!report.fontRequests.includes('fonts/unused.woff2'));
   assert.equal(await p.locator('#proxy-panel-logo-file').count(),0);assert.equal(await p.locator('#proxy-panel-logo-url').count(),0);
@@ -43,12 +43,12 @@ let imported=null;
   // Traffic history stays in this browser (overview/traffic/model.js); it is never part of shared settings.
   assert((await p.locator('.traffic-caption').innerText()).includes('本浏览器保留 24 小时'));
   report.checks.push('shared name, logo and selected font load without companion','unused server fonts are not downloaded','panel logo uses /ui/ favicon without forwarding URL secrets');
-  const other=await context(),otherPage=await open(other);assert.equal(await otherPage.title(),'共享测试 DNS 控制台');await other.close();
+  const other=await context(),otherPage=await open(other);assert.equal(await otherPage.title(),'运行概览 · 共享测试 DNS');await other.close();
   report.checks.push('fresh independent browser reads the same name, logo and font');
   await p.locator('#btn-open-bg-customizer').click();await p.locator('[data-appearance-tab=brand]').click();await p.locator('.identity-settings summary').click();
   await p.locator('#identity-name').fill('新共享名称');await p.locator('#identity-logo-file').setInputFiles({name:'local.svg',mimeType:'image/svg+xml',buffer:Buffer.from(svg)});
   await p.waitForFunction(()=>document.querySelector('#identity-preview').src.startsWith('data:image/png'));
-  await p.locator('#identity-save').click();await p.waitForFunction(()=>document.title==='新共享名称 控制台');
+  await p.locator('#identity-save').click();await p.waitForFunction(()=>document.title.endsWith(' · 新共享名称'));
   assert((await p.locator('#identity-status').innerText()).includes('当前浏览器'));
   await p.locator('#font-heading').selectOption('upunused');
   await p.locator('#input-font-upload').setInputFiles(path.join(root,'_src/ui/assets/fonts/instrument-serif-numerals.woff2'));
@@ -59,7 +59,7 @@ let imported=null;
   const result=cp.spawnSync('python',[path.join(root,'tools/configure_ui.py'),'--dir',installed,'--import',bundle],{encoding:'utf8'});assert.equal(result.status,0,result.stderr+result.stdout);
   imported=path.join(installed,'ui/custom');shared=JSON.parse(fs.readFileSync(path.join(imported,'settings.json'),'utf8'));
   assert.equal(shared.localdns.name,'新共享名称');assert.equal(shared.fonts.length,3);assert.equal(shared.typography.body,localId);assert(!('logo'in shared.proxy));
-  const fresh=await context(),freshPage=await open(fresh);await freshPage.waitForFunction(()=>document.title==='新共享名称 控制台');assert.equal(await freshPage.evaluate(()=>localStorage.getItem('localdns-identity-v1')),null);
+  const fresh=await context(),freshPage=await open(fresh);await freshPage.waitForFunction(()=>document.title.endsWith(' · 新共享名称'));assert.equal(await freshPage.evaluate(()=>localStorage.getItem('localdns-identity-v1')),null);
   await freshPage.waitForFunction(()=>document.fonts.check('12px LocalDNSUploaded_'+document.querySelector('#font-body').value));await fresh.close();
   report.checks.push('local preview copy is accurate','export ZIP imports with real Python tool','another device sees imported name, PNG logo, font files and role choices');
   await p.locator('#btn-close-bg-popover').click();await p.locator('#proxy-launcher button').click();await p.locator('#proxy-panel-url').fill('javascript:alert(1)');await p.locator('#proxy-panel-popover [type=submit]').click();assert(await p.locator('#proxy-panel-error').isVisible());

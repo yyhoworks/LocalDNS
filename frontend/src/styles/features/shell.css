@@ -110,7 +110,7 @@
     }.glass-sidebar{top:76px;height:calc(100vh - 100px);box-shadow:var(--console-shadow)}
 .nav-group-head{display:none}.nav-item{margin-bottom:7px;min-height:42px}.nav-group{margin-bottom:0}
 .brand-box{padding-left:8px}.cmd-search-bar{width:380px;box-shadow:none;border-radius: calc(12px * var(--radius-scale));min-height:38px}
-.cmd-search-left{min-width:0}.cmd-search-bar:focus-within{outline:2px solid var(--primary-light);outline-offset:3px}
+.cmd-search-left{min-width:0}
 .top-actions-dock{gap:10px}
 .view-title-row{padding:6px 0 7px;gap:16px;align-items:flex-start}.view-title-row>div:first-child{flex-wrap:wrap}
 .view-title-row .gc-sub{font-size:12px;line-height:1.6}.view-title-row h1{font-size:24px;line-height:1.3}

@@ -22,10 +22,6 @@ export function initialize() {
     root.style.setProperty('--font-numeral',family('numeral'));
     root.style.setProperty('--font-sans',family('body'));
     root.dataset.numeral=current.numeral;
-    if(window.Chart){
-      window.Chart.defaults.font.family=family('body');
-      Object.values(window.Chart.instances||{}).forEach(chart=>chart.update('none'));
-    }
     sync();
     window.dispatchEvent(new Event('localdns-font-selection'));
   }

@@ -2,7 +2,7 @@
 
 ## 当前前端维护入口（Phase 0–7）
 
-维护源码是 `frontend/index.html` 和 `frontend/src/`，入口为 `src/entry/app.ts`。业务按 `features/` 分目录；`core/` 负责 HTTP、生命周期、路由、安全 DOM 与存储；`shared/` 提供格式、图表与交互组件。`_src/ui/` 只保留公共静态资源与运行时配置，不再维护业务 bundle 或 CSS。完整结构与边界见 [前端架构](refactor/frontend-architecture.md)。
+维护源码是 `frontend/index.html` 和 `frontend/src/`，入口为 `src/entry/app.ts`。业务按 `features/` 分目录；`core/` 负责 HTTP、生命周期、路由、安全 DOM 与存储；`shared/` 提供格式与交互组件。`_src/ui/` 只保留公共静态资源与运行时配置，不再维护业务 bundle 或 CSS。完整结构与边界见 [前端架构](refactor/frontend-architecture.md)。
 
 ### 安装、构建和检查
 
@@ -16,7 +16,7 @@ python tools/test_package_ui.py
 python tools/package_ui.py
 ```
 
-`check` 先执行 `build`，再依次执行严格 TS 类型检查、Vitest、ESLint 和 `verify:generated`，因此新克隆无需预先构建即可直接运行。迁移后的业务 JS 全部纳入 lint；JS 采用显式 ESM，尚未开启全量 `checkJs`：`src/core/` 的 JS 文件已逐个以 `// @ts-check` 纳入类型检查，后续按 `src/shared/`、再 `src/features/` 逐目录扩围（见 `frontend/tsconfig.json` 注释），基础设施和新增查询模型使用严格 TypeScript。仓库版本号以根目录 `VERSION.json` 为唯一来源；`frontend/package.json` 的 `version` 只是占位（`0.0.0`），不参与发布，打包时由构建读取 `VERSION.json` 注入。构建输出到忽略的 `dist/ui/`，包含哈希 JS/CSS、生成 HTML、所有公共资源以及 `build-meta.json`。不输出 source map，不提交普通 bundle，保留已授权的 Chart.js vendor。源 CSS 使用 cascade layers，构建时编译层级以保留较旧浏览器的 CSS 语法兼容性。
+`check` 先执行 `build`，再依次执行严格 TS 类型检查、Vitest、ESLint 和 `verify:generated`，因此新克隆无需预先构建即可直接运行。迁移后的业务 JS 全部纳入 lint；JS 采用显式 ESM，尚未开启全量 `checkJs`：`src/core/` 的 JS 文件已逐个以 `// @ts-check` 纳入类型检查，后续按 `src/shared/`、再 `src/features/` 逐目录扩围（见 `frontend/tsconfig.json` 注释），基础设施和新增查询模型使用严格 TypeScript。仓库版本号以根目录 `VERSION.json` 为唯一来源；`frontend/package.json` 的 `version` 只是占位（`0.0.0`），不参与发布，打包时由构建读取 `VERSION.json` 注入。构建输出到忽略的 `dist/ui/`，包含哈希 JS/CSS、生成 HTML、所有公共资源以及 `build-meta.json`。不输出 source map，不提交普通 bundle；趋势图为自绘 SVG，不再分发 Chart.js vendor。源 CSS 使用 cascade layers，构建时编译层级以保留较旧浏览器的 CSS 语法兼容性。
 
 持续集成由 `.github/workflows/ci.yml` 提供：每次推送与 PR 自动运行前端 `check`、`tools/` 的 Python 单元测试与配置服务（`services/proxy-config/`）的 Go 测试；其中 `tools/test_proxy_config_installer.py` 依赖发行打包产物，未纳入 CI。
 
@@ -130,7 +130,7 @@ DNS 核心主要由折腾日记交流群的 R 大使用 Rust 编写；当前工�
 | `frontend/src/entry/app.ts` | 前端启动入口 |
 | `frontend/src/core/` | 路由、API 客户端、持久化与安全 DOM 等基础设施（JS 文件已逐个开启 `// @ts-check`） |
 | `frontend/src/features/` | 按功能划分的页面与面板模块 |
-| `frontend/src/shared/` | 跨功能共用的组件、图表适配与指标解析（如 `shared/metrics/prometheus.ts`） |
+| `frontend/src/shared/` | 跨功能共用的组件与指标解析（如 `shared/metrics/prometheus.ts`） |
 | `frontend/src/styles/` | 源 CSS（cascade layers，构建时编译层级） |
 | `frontend/scripts/build-integrity.ts` | 构建后写入 `dist/ui/build-meta.json`（源指纹与文件清单） |
 | `frontend/scripts/build-inputs.mjs` | 构建输入清单与源指纹计算（与 `verify-build.mjs` 共用） |

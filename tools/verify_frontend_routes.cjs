@@ -46,7 +46,7 @@ let server,browser;
   await page.clock.setFixedTime(new Date('2026-10-19T08:00:00Z'));
   page.on('pageerror',e=>report.errors.push(e.message));
   await page.goto(origin+'/ui/');await page.locator(routeSelectors.overview).waitFor();
-  assert.equal(await page.title(),'LocalDNS 控制台');
+  assert.equal(await page.title(),'运行概览 · LocalDNS');
   assert.equal(await page.locator('vite-error-overlay').count(),0);
   if(!baselineRoot)assert(await page.evaluate(()=>!Object.keys(window).some(k=>/^LocalDNS[A-Z]/.test(k))));
   for(const name of Object.keys(routeSelectors)){

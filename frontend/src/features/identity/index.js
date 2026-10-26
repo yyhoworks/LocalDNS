@@ -1,5 +1,6 @@
 import { sharedUIService } from '../../core/persistence/shared-ui.js';
 import { preferences } from '../../core/persistence/preferences.ts';
+import { syncDocumentTitle } from '../../core/router/page-title.js';
 export let identityService;
 export function initialize() {
 
@@ -67,7 +68,7 @@ export function initialize() {
       if (element.textContent !== current.name) element.textContent = current.name;
       element.title = current.name;
     }
-    document.title = current.name + ' 控制台';
+    syncDocumentTitle();
     const favicon = document.querySelector('#dynamic-favicon');
     if (favicon) { favicon.removeAttribute('type'); const source = current.logo || fallback; if(favicon.getAttribute('href') !== source)favicon.href=source; }
     const restart = document.querySelector('#restart-button');

@@ -7,7 +7,7 @@
   --font-mono: 'IBM Plex Mono', ui-monospace, SFMono-Regular, monospace;
   --bg-base: #08090B;
   --bg-dimmer: .22;
-  --glass-alpha: .48;
+  --glass-alpha: .55;
   --glass-blur: 14px;
 
   --glass-bg: rgba(21,22,26,var(--glass-alpha));

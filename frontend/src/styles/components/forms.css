@@ -59,7 +59,7 @@ input:focus, select:focus, textarea:focus { border-color: var(--primary-light); 
   resize: vertical;
 }
 .settings-refresh-row input { flex: 1; }::selection{background:rgba(59,130,246,.35);color:var(--text-1)}
-button,input,textarea,select{font-family:var(--font-sans)}.cmd-search-left input{min-width:0}.switch input{display:block;position:absolute;width:36px;height:30px;opacity:0;margin:0;cursor:pointer;z-index:1}.switch:has(input:focus-visible) .switch-track{outline:2px solid var(--primary-light);outline-offset:4px}
+button,input,textarea,select{font-family:var(--font-sans)}.cmd-search-left input{min-width:0}.switch input{display:block;position:absolute;width:36px;height:30px;opacity:0;margin:0;cursor:pointer;z-index:1}
 .field label{display:block;margin-bottom:6px}.field input,.field select{width:100%;min-width:0}.field label,.form-note{color:var(--text-2)}
 .console-rule-select{display:none}.rule-textarea{background:var(--glass-bg-strong)}
 @media(max-width:600px){.log-filter-grid input,.log-filter-grid select{min-height:44px}}

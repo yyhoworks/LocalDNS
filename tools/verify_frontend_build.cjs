@@ -104,7 +104,7 @@ async function main() {
           await page.goto(origin + '/ui/');
           await page.locator('.console-service-summary').waitFor();
           await page.waitForFunction(() => document.querySelectorAll('.console-kpi .display-number').length === 6);
-          assert.equal(await page.title(), 'LocalDNS 控制台');
+          assert.equal(await page.title(), '运行概览 · LocalDNS');
           assert.equal(await page.locator('vite-error-overlay,.error-panel').count(), 0);
           assert(await page.locator('#page-content').innerText());
           const nav = page.locator(width === 390 ? '#mobile-nav' : '#side-nav');

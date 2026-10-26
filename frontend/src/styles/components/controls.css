@@ -292,7 +292,7 @@ button:active{transform:translateY(1px)}button:disabled{opacity:.45;cursor:not-a
 .client-manager button{min-height:44px;white-space:nowrap}
 .collection-switch button{display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:32px;padding:6px 10px;border:0;border-radius:calc(7px * var(--radius-scale));background:transparent;color:var(--text-2);font:inherit;font-size:11px;white-space:nowrap;cursor:pointer}
 .collection-switch button svg{width:15px;height:15px;flex-shrink:0}.collection-switch button:hover{background:var(--glass-bg-hover)}
-.collection-switch button[aria-pressed=true]{background:var(--glass-bg-strong);color:var(--text-1)}.collection-switch button:focus-visible{outline:2px solid var(--primary-light);outline-offset:2px}.collection-surface[data-collection-layout=cards] table.collection-table td:last-child button{width:auto;flex:none}
+.collection-switch button[aria-pressed=true]{background:var(--glass-bg-strong);color:var(--text-1)}.collection-surface[data-collection-layout=cards] table.collection-table td:last-child button{width:auto;flex:none}
 @media(max-width:760px){.collection-switch button{min-height:40px;padding:7px 11px;font-size:12px}}
 @media(max-width:760px){.collection-surface[data-collection-layout=list] table.collection-table td:last-child button{min-height:40px;width:auto}}
 .proxy-launcher a, .proxy-launcher button { display: grid; place-items: center; padding: 0; min-width: 0; border: 0; border-radius: 0; background: transparent; color: var(--text-2); cursor: pointer; }

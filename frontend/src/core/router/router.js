@@ -13,7 +13,6 @@ import { sessionPreferences } from '../persistence/preferences.ts';
 import { routeDefs } from './routes.js';
 import { state, $, $$, page, CONFIG } from '../context.js';
 import { closeUpstreamErrorPopover } from '../../features/upstreams/errors.js';
-import { destroyCharts, takeCharts, restoreCharts } from '../../shared/charts/chart-adapter.js';
 import { loadingPage } from '../../shared/components/templates.js';
 import { overviewRoute } from '../../features/overview/route';
 import { logsRoute } from '../../features/logs/route';
@@ -25,6 +24,8 @@ import { playViewEnter, animateCountUps, syncAllSegThumbs } from '../../shared/c
 import { setApiStatus } from '../../features/shell/connection.js';
 import { esc } from '../../shared/format/number.js';
 import { icon } from '../../shared/components/icons.js';
+import { focusSelectors, restoreFocus } from './focus-restore.js';
+import { setPageLabel, focusPageHeading, markPageHeading } from './page-title.js';
 
   let navigationSeq=0;
   const routeModules={overview:overviewRoute,logs:logsRoute,upstreams:upstreamsRoute,rules:rulesRoute,management:managementRoute,'proxy-config':proxyConfigRoute};
@@ -43,7 +44,7 @@ import { icon } from '../../shared/components/icons.js';
     state.route=id;if(write&&location.hash!==`#/${id}`)history.pushState(null,'',`#/${id}`);return renderRoute(false,false,true);
   }
 
-  function updateNav(){ const r=routeDefs.find(x=>x.id===state.route); if(!r)return; /** @type {HTMLElement} */ ($('#page-title')).textContent=r.label; /** @type {HTMLElement} */ ($('#page-subtitle')).textContent=r.subtitle;$$('[data-route]').forEach(x=>x.classList.toggle('active',/** @type {HTMLElement} */ (x).dataset.route===state.route)); }
+  function updateNav(){ const r=routeDefs.find(x=>x.id===state.route); if(!r)return; setPageLabel(r.label); /** @type {HTMLElement} */ ($('#page-title')).textContent=r.label; /** @type {HTMLElement} */ ($('#page-subtitle')).textContent=r.subtitle;$$('[data-route]').forEach(x=>x.classList.toggle('active',/** @type {HTMLElement} */ (x).dataset.route===state.route)); }
 
   /** @param {() => void} fn */
   function trackRouteCleanup(fn){ return currentScope().add(fn); }
@@ -51,7 +52,7 @@ import { icon } from '../../shared/components/icons.js';
   function cleanupRouteUi(){ currentScope().dispose(); }
 
   // 自动刷新（silent）：不清空页面、不显示“加载中”，新数据取回后原地替换，并保留滚动位置与未提交的输入。
-  /** @typedef {{ y: number, inner: [number, number][], fields: [string, string | boolean][], dirty: Set<string> }} ViewSnapshot */
+  /** @typedef {{ y: number, inner: [number, number][], fields: [string, string | boolean][], dirty: Set<string>, focus: string[] }} ViewSnapshot */
 
   /** @returns {ViewSnapshot} */
   function viewSnapshot(){
@@ -61,7 +62,8 @@ import { icon } from '../../shared/components/icons.js';
       y:window.scrollY,
       inner:scrollers.map(el=>[el.scrollTop,el.scrollLeft]),
       fields:fields.map(el=>{const field=/** @type {HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement} */ (el);return /** @type {[string, string | boolean]} */ ([field.id,field.type==='checkbox'&&'checked' in field?field.checked:field.value]);}),
-      dirty:new Set()
+      dirty:new Set(),
+      focus:focusSelectors(document.activeElement,page)
     };
   }
 
@@ -75,10 +77,14 @@ import { icon } from '../../shared/components/icons.js';
     const scrollers=[...page.querySelectorAll('.rank-list,.table-wrap,.overview-donut-legend,textarea')];
     if(scrollers.length===snap.inner.length)scrollers.forEach((n,i)=>{n.scrollTop=snap.inner[i][0];n.scrollLeft=snap.inner[i][1]});
     snap.fields.forEach(([id,v])=>{if(snap.dirty?.has(id))return;const n=document.getElementById(id);if(!n||!page.contains(n))return;const field=/** @type {HTMLInputElement} */ (n);if(field.type==='checkbox')field.checked=/** @type {boolean} */ (v);else if(field.value!==v)field.value=/** @type {string} */ (v)});
+    if(snap.focus?.length)restoreFocus(snap.focus,page);
   }
 
   /** @type {{ route: string, y: number } | null} */
   let pendingScroll=null;
+
+  /** 上一次完成非静默渲染的路由；首屏加载不抢焦点，之后切换路由时聚焦新页面的 h1。 @type {string | null} */
+  let lastRenderedRoute=null;
 
   /** @type {ReturnType<typeof setTimeout> | number} */
   let scrollSaveTimer=0,userScrolled=false;
@@ -115,11 +121,9 @@ import { icon } from '../../shared/components/icons.js';
     const markDirty=snap?/** @param {Event} event */ event=>{const id=/** @type {HTMLElement | null} */ (event.target)?.id;if(id)snap.dirty.add(id)}:null;
     if(markDirty){page.addEventListener('input',markDirty,true);page.addEventListener('change',markDirty,true)}
     const stopMarking=()=>{if(markDirty){page.removeEventListener('input',markDirty,true);page.removeEventListener('change',markDirty,true)}};
-    const oldCharts=silent?takeCharts():null;
-    scope.add(()=>{if(oldCharts){oldCharts.forEach(chart=>{try{chart.destroy()}catch{}});oldCharts.length=0}});
     state.silent=silent;
     if(silent){page.style.minHeight=page.offsetHeight+'px'}
-    else{destroyCharts();page.style.minHeight=''}
+    else{page.style.minHeight=''}
     updateNav();
     if(!silent)setHTML(page, loadingPage());
     try {
@@ -130,8 +134,10 @@ import { icon } from '../../shared/components/icons.js';
       shellInterfaceService?.apply();
       workspaceService.finish(page);
       if(!silent){playViewEnter();animateCountUps(page)}
+      if(!silent){if(lastRenderedRoute!==null&&lastRenderedRoute!==state.route)focusPageHeading(page);lastRenderedRoute=state.route}
       syncAllSegThumbs();
       state.silent=false;
+      markPageHeading(page);
       viewRestore(snap);
       stopMarking();
       setApiStatus(true);
@@ -140,12 +146,10 @@ import { icon } from '../../shared/components/icons.js';
       const failure=/** @type {any} */ (e);
       if(seq!==state.renderSeq||failure?.name==='AbortError')return;
       console.error(e); setApiStatus(false,failure.message);
-      if(silent){ // 自动刷新失败：保留旧内容，旧图表也留着，只更新连接状态
-        if(oldCharts){restoreCharts(oldCharts);oldCharts.length=0}
-      } else { setHTML(page, `<div class="error-panel"><strong>无法加载当前页面</strong><p>${esc(failure.message)}</p><button class="button" id="retry-page">${icon('refresh')}重新加载</button></div>`); /** @type {HTMLElement} */ ($('#retry-page')).onclick=()=>renderRoute(true);
+      // 自动刷新失败：保留旧内容，只更新连接状态
+      if(!silent){ setHTML(page, `<div class="error-panel"><strong>无法加载当前页面</strong><p>${esc(failure.message)}</p><button class="button" id="retry-page">${icon('refresh')}重新加载</button></div>`); /** @type {HTMLElement} */ ($('#retry-page')).onclick=()=>renderRoute(true);
       }
     }
-    if(oldCharts)oldCharts.forEach(c=>{try{c.destroy()}catch{}});
     if(seq!==state.renderSeq)return;
     state.silent=false;
     if(silent)scope.timeout(()=>{if(seq===state.renderSeq)page.style.minHeight=''},1500);
@@ -153,18 +157,26 @@ import { icon } from '../../shared/components/icons.js';
     if(['logs','overview'].includes(state.route)){scope.interval(()=>{if(document.visibilityState==='visible'&&!busyViewing()&&!(state.route==='logs'&&state.logsPaused))renderRoute(true,true)},CONFIG.refreshInterval*1000)}
   }
 
-  // 正在输入、弹窗或抽屉打开时不自动刷新
+  // 正在输入、键盘焦点停在页面控件上、悬停拓扑、弹窗或抽屉打开时不自动刷新
   function busyViewing(){
-    const a=document.activeElement;
-    if(a&&a.closest?.('main')&&['INPUT','TEXTAREA','SELECT'].includes(a.tagName))return true;
+    const a=/** @type {HTMLElement | null} */ (document.activeElement);
+    const main=a?.closest?.('main');
+    if(a&&main&&['INPUT','TEXTAREA','SELECT'].includes(a.tagName))return true;
+    // 路由切换后程序聚焦的 main / 页面标题（tabindex=-1）不算“正在操作”，否则自动刷新会一直暂停。
+    if(a&&main&&a!==document.body&&a!==main&&!(a.tagName==='H1'&&a.tabIndex===-1)&&keyboardFocus(a))return true;
+    if(document.querySelector('#topo-stage-wrap:hover'))return true;
     return !!document.querySelector('dialog[open], .drawer.open');
   }
+  // 鼠标点击按钮后焦点也会停留在按钮上；只把键盘焦点（:focus-visible）视为正在浏览，
+  // 避免点一次按钮后自动刷新就一直暂停。浏览器不支持该伪类时按保守处理（视为键盘焦点）。
+  /** @param {Element} el */
+  function keyboardFocus(el){try{return el.matches(':focus-visible')}catch{return true}}
 export { navigate, updateNav, trackRouteCleanup, cleanupRouteUi, viewSnapshot, viewRestore, pendingScroll, scrollSaveTimer, userScrolled, saveScroll, restoreScroll, renderRoute, busyViewing };
 export function initialize() {
 try{history.scrollRestoration='manual'}catch{}
 try{const v=JSON.parse(sessionPreferences.getItem('localdnsScroll')||'null');if(v&&typeof v.route==='string'&&v.y>0)pendingScroll=v}catch{}
 window.addEventListener('scroll',()=>{clearTimeout(scrollSaveTimer);scrollSaveTimer=setTimeout(saveScroll,120)},{passive:true});
-window.addEventListener('pagehide',()=>{saveScroll();currentScope().dispose();destroyCharts();});
+window.addEventListener('pagehide',()=>{saveScroll();currentScope().dispose();});
 window.addEventListener('pageshow',event=>{if(event.persisted)renderRoute(true)});
 for(const ev of ['wheel','touchstart','keydown','mousedown'])window.addEventListener(ev,()=>{userScrolled=true;pendingScroll=null},{passive:true,capture:true});
 }
