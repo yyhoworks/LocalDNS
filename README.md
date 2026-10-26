@@ -163,7 +163,7 @@ curl -fsSL https://raw.githubusercontent.com/yyhoworks/LocalDNS/main/tools/insta
 
 ```text
 frontend/             前端入口、功能模块、分层 CSS、锁定工具链和测试
-_src/ui/              公共静态资源、Chart.js、字体、Logo 与共享默认配置
+_src/ui/              公共静态资源、字体、Logo 与共享默认配置
 dist/ui/              Vite 生成的完整静态界面（忽略，不提交）
 tools/                UI / 服务打包、验证与更新脚本
 docs/                 开发、验证与第三方说明
@@ -196,7 +196,7 @@ python tools/package_ui.py
 
 项目作者与职责以 [AUTHORS.md](AUTHORS.md) 为准。仓库暂未指定覆盖全部项目代码的统一开源许可证。
 
-字体、Chart.js 等第三方组件遵循各自许可，见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。
+字体、DOMPurify 等第三方组件遵循各自许可，见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。
 
 
 ## 本地开发构建：代理配置器恢复

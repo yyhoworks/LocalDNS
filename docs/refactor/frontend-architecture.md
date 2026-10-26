@@ -25,7 +25,7 @@ frontend/
     appearance/              皮肤、字体、壁纸与材质
     rules/                   名单、草稿、转换、冲突核对与工作台
     version/ identity/ proxy-panel/
-  src/shared/                交互组件、格式、图表、指标与工作区组合
+  src/shared/                交互组件、格式、指标与工作区组合
   src/styles/                tokens、base、components、features 与工具层
   tests/                     特征、基础设施与安全测试、API fixture
   scripts/                   构建完整性与临时重建验证
@@ -33,7 +33,7 @@ _src/ui/                     公共资源；不包含业务入口或手写业务
 dist/ui/                     构建生成的完整静态目录；不提交
 ```
 
-组合根通过 ESM imports 和明确初始化调用连接依赖，业务模块不通过 window 查找服务。HTML 最终加载运行时 `config.js`、本地 Chart.js 和一个哈希应用入口；CSS 由构建入口生成。`window.LOCALDNS_UI_CONFIG` 是保留的配置接口，`window.Chart` 是必要 vendor，不属于已删除的 `window.LocalDNS*` 服务层。
+组合根通过 ESM imports 和明确初始化调用连接依赖，业务模块不通过 window 查找服务。HTML 最终加载运行时 `config.js` 和一个哈希应用入口；CSS 由构建入口生成。`window.LOCALDNS_UI_CONFIG` 是保留的配置接口，不属于已删除的 `window.LocalDNS*` 服务层。
 
 迁移后的业务模块保留 JS，新增基础设施与查询模型采用严格 TS。没有引入框架或重型状态库；当前 JS 未开启 `checkJs`，不声称全部业务已静态类型化。
 
@@ -41,7 +41,7 @@ dist/ui/                     构建生成的完整静态目录；不提交
 
 统一接口为 `RouteModule.mount(container, context)`，context 包含 signal、CleanupScope、navigate 和 notify。五个现有 hash 路由保留；外观是 Shell 面板，版本检查与代理入口也是 Shell/管理能力，不另造路由。
 
-每次刷新/切换创建新的路由作用域：取消旧读取、销毁定时器与监听、关闭抽屉/弹窗/临时浮层、停止拓扑动画。图表实例由适配器统一持有并销毁，静默刷新单独暂存旧图表，以便读取失败时保留当前画面。已取消页面的响应不会覆盖新页面。
+每次刷新/切换创建新的路由作用域：取消旧读取、销毁定时器与监听、关闭抽屉/弹窗/临时浮层、停止拓扑动画。静默刷新读取失败时保留当前画面。趋势图为自绘 SVG，随页面 DOM 一并替换，不再有 Chart.js 实例需要销毁。已取消页面的响应不会覆盖新页面。
 
 规则路由的 async `canLeave` 等待继续/放弃决定，保留原文、面板和批量粘贴草稿保护。内部名单/标签使用 `LatestView` 子作用域，切换后取消旧读取；过期结果不会写回当前标签。概览到规则标签的跳转等待 mount 完成，不再依赖固定延时。
 

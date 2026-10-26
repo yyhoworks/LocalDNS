@@ -13,7 +13,6 @@ import { sessionPreferences } from '../persistence/preferences.ts';
 import { routeDefs } from './routes.js';
 import { state, $, $$, page, CONFIG } from '../context.js';
 import { closeUpstreamErrorPopover } from '../../features/upstreams/errors.js';
-import { destroyCharts, takeCharts, restoreCharts } from '../../shared/charts/chart-adapter.js';
 import { loadingPage } from '../../shared/components/templates.js';
 import { overviewRoute } from '../../features/overview/route';
 import { logsRoute } from '../../features/logs/route';
@@ -115,11 +114,9 @@ import { icon } from '../../shared/components/icons.js';
     const markDirty=snap?/** @param {Event} event */ event=>{const id=/** @type {HTMLElement | null} */ (event.target)?.id;if(id)snap.dirty.add(id)}:null;
     if(markDirty){page.addEventListener('input',markDirty,true);page.addEventListener('change',markDirty,true)}
     const stopMarking=()=>{if(markDirty){page.removeEventListener('input',markDirty,true);page.removeEventListener('change',markDirty,true)}};
-    const oldCharts=silent?takeCharts():null;
-    scope.add(()=>{if(oldCharts){oldCharts.forEach(chart=>{try{chart.destroy()}catch{}});oldCharts.length=0}});
     state.silent=silent;
     if(silent){page.style.minHeight=page.offsetHeight+'px'}
-    else{destroyCharts();page.style.minHeight=''}
+    else{page.style.minHeight=''}
     updateNav();
     if(!silent)setHTML(page, loadingPage());
     try {
@@ -140,12 +137,10 @@ import { icon } from '../../shared/components/icons.js';
       const failure=/** @type {any} */ (e);
       if(seq!==state.renderSeq||failure?.name==='AbortError')return;
       console.error(e); setApiStatus(false,failure.message);
-      if(silent){ // 自动刷新失败：保留旧内容，旧图表也留着，只更新连接状态
-        if(oldCharts){restoreCharts(oldCharts);oldCharts.length=0}
-      } else { setHTML(page, `<div class="error-panel"><strong>无法加载当前页面</strong><p>${esc(failure.message)}</p><button class="button" id="retry-page">${icon('refresh')}重新加载</button></div>`); /** @type {HTMLElement} */ ($('#retry-page')).onclick=()=>renderRoute(true);
+      // 自动刷新失败：保留旧内容，只更新连接状态
+      if(!silent){ setHTML(page, `<div class="error-panel"><strong>无法加载当前页面</strong><p>${esc(failure.message)}</p><button class="button" id="retry-page">${icon('refresh')}重新加载</button></div>`); /** @type {HTMLElement} */ ($('#retry-page')).onclick=()=>renderRoute(true);
       }
     }
-    if(oldCharts)oldCharts.forEach(c=>{try{c.destroy()}catch{}});
     if(seq!==state.renderSeq)return;
     state.silent=false;
     if(silent)scope.timeout(()=>{if(seq===state.renderSeq)page.style.minHeight=''},1500);
@@ -164,7 +159,7 @@ export function initialize() {
 try{history.scrollRestoration='manual'}catch{}
 try{const v=JSON.parse(sessionPreferences.getItem('localdnsScroll')||'null');if(v&&typeof v.route==='string'&&v.y>0)pendingScroll=v}catch{}
 window.addEventListener('scroll',()=>{clearTimeout(scrollSaveTimer);scrollSaveTimer=setTimeout(saveScroll,120)},{passive:true});
-window.addEventListener('pagehide',()=>{saveScroll();currentScope().dispose();destroyCharts();});
+window.addEventListener('pagehide',()=>{saveScroll();currentScope().dispose();});
 window.addEventListener('pageshow',event=>{if(event.persisted)renderRoute(true)});
 for(const ev of ['wheel','touchstart','keydown','mousedown'])window.addEventListener(ev,()=>{userScrolled=true;pendingScroll=null},{passive:true,capture:true});
 }
