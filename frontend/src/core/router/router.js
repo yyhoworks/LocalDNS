@@ -25,6 +25,7 @@ import { setApiStatus } from '../../features/shell/connection.js';
 import { esc } from '../../shared/format/number.js';
 import { icon } from '../../shared/components/icons.js';
 import { focusSelectors, restoreFocus } from './focus-restore.js';
+import { setPageLabel, focusPageHeading, markPageHeading } from './page-title.js';
 
   let navigationSeq=0;
   const routeModules={overview:overviewRoute,logs:logsRoute,upstreams:upstreamsRoute,rules:rulesRoute,management:managementRoute,'proxy-config':proxyConfigRoute};
@@ -43,7 +44,7 @@ import { focusSelectors, restoreFocus } from './focus-restore.js';
     state.route=id;if(write&&location.hash!==`#/${id}`)history.pushState(null,'',`#/${id}`);return renderRoute(false,false,true);
   }
 
-  function updateNav(){ const r=routeDefs.find(x=>x.id===state.route); if(!r)return; /** @type {HTMLElement} */ ($('#page-title')).textContent=r.label; /** @type {HTMLElement} */ ($('#page-subtitle')).textContent=r.subtitle;$$('[data-route]').forEach(x=>x.classList.toggle('active',/** @type {HTMLElement} */ (x).dataset.route===state.route)); }
+  function updateNav(){ const r=routeDefs.find(x=>x.id===state.route); if(!r)return; setPageLabel(r.label); /** @type {HTMLElement} */ ($('#page-title')).textContent=r.label; /** @type {HTMLElement} */ ($('#page-subtitle')).textContent=r.subtitle;$$('[data-route]').forEach(x=>x.classList.toggle('active',/** @type {HTMLElement} */ (x).dataset.route===state.route)); }
 
   /** @param {() => void} fn */
   function trackRouteCleanup(fn){ return currentScope().add(fn); }
@@ -81,6 +82,9 @@ import { focusSelectors, restoreFocus } from './focus-restore.js';
 
   /** @type {{ route: string, y: number } | null} */
   let pendingScroll=null;
+
+  /** 上一次完成非静默渲染的路由；首屏加载不抢焦点，之后切换路由时聚焦新页面的 h1。 @type {string | null} */
+  let lastRenderedRoute=null;
 
   /** @type {ReturnType<typeof setTimeout> | number} */
   let scrollSaveTimer=0,userScrolled=false;
@@ -130,8 +134,10 @@ import { focusSelectors, restoreFocus } from './focus-restore.js';
       shellInterfaceService?.apply();
       workspaceService.finish(page);
       if(!silent){playViewEnter();animateCountUps(page)}
+      if(!silent){if(lastRenderedRoute!==null&&lastRenderedRoute!==state.route)focusPageHeading(page);lastRenderedRoute=state.route}
       syncAllSegThumbs();
       state.silent=false;
+      markPageHeading(page);
       viewRestore(snap);
       stopMarking();
       setApiStatus(true);

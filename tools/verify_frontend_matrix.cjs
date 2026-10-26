@@ -80,7 +80,7 @@ async function ready(page, route) {
                 return {x:box.x,y:box.y,width:box.width,height:box.height,color:style.color,background:style.backgroundColor,font:style.fontFamily};
               })};
           });
-          assert.equal(info.title,'LocalDNS 控制台'); assert.equal(info.hash,'#/'+name);
+          assert(info.title.endsWith(' · LocalDNS'),info.title); assert.equal(info.hash,'#/'+name);
           assert.equal(info.skin,skin); assert.equal(info.theme,theme); assert.equal(info.nav,nav);
           assert(info.text.trim()); assert(info.overflow<=1,`${name}/${width}/${skin}/${theme}/${nav} overflows`);
           assert.equal(await page.locator('vite-error-overlay,.error-panel').count(),0);

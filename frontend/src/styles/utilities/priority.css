@@ -83,6 +83,8 @@ html[data-theme=light-glass] .tn-pill,html[data-theme=light-glass] .tec-badge{co
 .switch input[type="checkbox"]{border-radius:calc(8px * var(--radius-scale))!important}
 html[data-input-modality=pointer] :focus-visible{outline:none!important}
 .cmd-search-bar input:focus-visible{outline:none!important}
+/* 路由切换后程序聚焦的页面标题只为读屏播报，不画焦点环。 */
+h1[tabindex="-1"]:focus-visible{outline:none}
 
 html[data-skin="claude"] .wallpaper-layer,
 html[data-skin="claude"] .wallpaper-dimmer {
