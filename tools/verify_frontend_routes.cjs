@@ -4,6 +4,7 @@ const fs=require('node:fs');
 const path=require('node:path');
 const {createPreviewServer}=require('./preview_ui.cjs');
 const {chromium}=require(process.env.LOCALDNS_PLAYWRIGHT||'playwright');
+const {launchBrowser,FJGOE_FEATURES,fixtureKey}=require('./verify_support.cjs');
 const baselineRoot=process.env.LOCALDNS_FRONTEND_BASELINE_ROOT;
 const root=path.resolve(__dirname,'..'),out=path.join(root,baselineRoot?'dist/frontend-routes-baseline':'dist/frontend-routes-verification');
 const fixtures=require('../frontend/tests/fixtures/api.json');
@@ -14,19 +15,20 @@ const routeSelectors={overview:'.console-service-summary',logs:'#log-search',ups
 let server,browser;
 (async()=>{
  fs.mkdirSync(out,{recursive:true});server=createPreviewServer(baselineRoot?{uiRoot:baselineRoot}:{});await new Promise(r=>server.listen(0,'127.0.0.1',r));
- browser=await chromium.launch({channel:process.env.LOCALDNS_BROWSER||'msedge',headless:true});
+ browser=await launchBrowser(chromium);
  const origin=`http://127.0.0.1:${server.address().port}`;
  for(const [width,height] of [[1440,1000],[1024,768],[390,844]]){
   const context=await browser.newContext({viewport:{width,height},reducedMotion:'reduce',locale:'zh-CN',timezoneId:'Asia/Shanghai'});
   let state='success',delayPath='',release,late='';
   await context.route('**/*',async route=>{
-   const request=route.request(),url=new URL(request.url()),p=url.pathname;
+   const request=route.request(),url=new URL(request.url()),p=fixtureKey(url.pathname);
    if(url.hostname==='api.github.com')return route.fulfill({contentType:'application/json',body:JSON.stringify({tag_name:version.releaseTag,draft:false,prerelease:false,assets:[]})});
    if(!p.startsWith('/api/')&&!p.startsWith('/plugins/')&&p!=='/metrics')return route.continue();
    report.requests.push({method:request.method(),path:p});
    if(request.method()!=='GET'){report.writes.push(p);return route.fulfill({contentType:'application/json',body:'{}'});}
    if(p===delayPath){delayPath='';await new Promise(r=>release=r);}
    if(state==='error')return route.fulfill({status:503,contentType:'application/json',body:'{"error":"fixture temporarily unavailable"}'});
+   if(p==='/api/v1/features')return route.fulfill({contentType:'application/json',body:JSON.stringify(FJGOE_FEATURES)});
    if(p==='/metrics')return route.fulfill({contentType:'text/plain',body:state==='empty'?'':metrics});
    if(/^\/plugins\/switch\d+\/show$/.test(p))return route.fulfill({contentType:'text/plain',body:'A'});
    if(/^\/plugins\/[\w-]+\/show$/.test(p))return route.fulfill({contentType:'text/plain',body:state==='empty'?'':'domain:example.com'});
@@ -75,12 +77,16 @@ let server,browser;
    const deadline=Date.now()+5000;while(!release&&Date.now()<deadline)await new Promise(r=>setTimeout(r,10));assert(release);
    await page.evaluate(()=>location.hash='#/upstreams');release();await page.locator('#up-add').waitFor();assert(!(await page.locator('#page-content').innerText()).includes('late-response'));late='';
    for(const name of ['overview','logs','upstreams','rules','management']){
-    state='error';await page.evaluate(route=>location.hash='#/'+route,name);await page.locator('.error-panel').first().waitFor();
+    state='error';await page.evaluate(route=>location.hash='#/'+route,name);
+    // Overview degrades per source instead of failing the page (features/overview/index.js degradedParts):
+    // it still renders and reports every unavailable part in one toast. Other routes show .error-panel.
+    if(name==='overview'){await page.locator(routeSelectors.overview).waitFor();await page.locator('.toast',{hasText:'部分数据暂不可用'}).filter({hasText:'运行统计、排行数据、系统指标读取失败'}).first().waitFor();}
+    else await page.locator('.error-panel').first().waitFor();
     state='success';const retry=page.locator('#retry-page,#rule-retry');
     if(await retry.count())await retry.first().click();else await page.reload();
     await page.locator(routeSelectors[name]).waitFor();
    }
-   report.checks.push('All routes report fixture failures and recover; stale async logs never overwrite upstreams');
+   report.checks.push('All routes report fixture failures (overview as degraded-data toast) and recover; stale async logs never overwrite upstreams');
    for(const [name,endpoint] of Object.entries({overview:'/api/v2/audit/stats',logs:'/api/v2/audit/logs',upstreams:'/api/v1/upstream/config',rules:'/plugins/whitelist/show',management:'/metrics'})){
     release=null;delayPath=endpoint;
     await page.evaluate(route=>location.hash='#/'+route,name);

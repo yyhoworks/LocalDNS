@@ -6,6 +6,7 @@ const http = require('node:http');
 const path = require('node:path');
 const {chromium} = require(process.env.LOCALDNS_PLAYWRIGHT || 'playwright');
 const {createPreviewServer} = require('./preview_ui.cjs');
+const {launchBrowser, browserLabel, FJGOE_FEATURES, fixtureKey} = require('./verify_support.cjs');
 
 const root = path.resolve(__dirname, '..');
 const output = path.join(root, 'dist/frontend-build-verification');
@@ -32,6 +33,7 @@ const fixture = http.createServer((request, response) => {
   report.fixtureMethods.push(request.method);
   if (request.method !== 'GET') { response.writeHead(405).end(); return; }
   const url = new URL(request.url, 'http://fixture.test');
+  url.pathname = fixtureKey(url.pathname);
   let body;
   if (url.pathname === '/metrics') {
     response.writeHead(200, {'Content-Type': 'text/plain'}).end(metrics); return;
@@ -40,6 +42,7 @@ const fixture = http.createServer((request, response) => {
     response.writeHead(200, {'Content-Type': 'text/plain'}).end('A'); return;
   }
   switch (url.pathname) {
+    case '/api/v1/features': body = FJGOE_FEATURES; break;
     case '/plugins/client_name': body = {'192.0.2.10': '测试客户端'}; break;
     case '/api/v1/status': body = {stats: {adguard_blocked: 10}, rules: {geosite_cn: 100}}; break;
     case '/api/v1/audit/status': body = {capturing: true}; break;
@@ -67,13 +70,13 @@ async function main() {
   const origin = `http://127.0.0.1:${server.address().port}`;
   report.origin = origin + '/ui/';
   report.baseline = baseline || null;
-  for (const [method, endpoint] of [['POST', '/api/v1/upstream/config'], ['PUT', '/plugins/client_name'], ['DELETE', '/api/v1/upstream/config'], ['GET', '/plugins/cache_main/flush']]) {
+  for (const [method, endpoint] of [['POST', '/api/v1/upstream/config'], ['PUT', '/plugins/client_name'], ['DELETE', '/api/v1/upstream/config'], ['GET', '/plugins/cache_main/flush'], ['GET', '/api/v1/caches/main/flush'], ['GET', '/api/v1/rule-groups/geosite_cn/default/update']]) {
     assert.equal((await fetch(origin + endpoint, {method})).status, 403);
   }
   report.checks.push('Preview rejects POST/PUT/DELETE and mutating GET before the fixture backend');
   assert.equal((await fetch(origin + '/ui/')).status, 200);
-  browser = await chromium.launch({headless: true, channel: process.env.LOCALDNS_BROWSER || 'msedge'});
-  report.browser = {channel: process.env.LOCALDNS_BROWSER || 'msedge', version: browser.version()};
+  browser = await launchBrowser(chromium);
+  report.browser = {channel: browserLabel(), version: browser.version()};
   for (const width of widths) {
     for (const reducedMotion of ['reduce', 'no-preference']) {
       const snapshots = {};

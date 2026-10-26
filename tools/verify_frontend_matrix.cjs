@@ -5,6 +5,7 @@ const path = require('node:path');
 const {execFileSync} = require('node:child_process');
 const {createPreviewServer} = require('./preview_ui.cjs');
 const {chromium} = require(process.env.LOCALDNS_PLAYWRIGHT || 'playwright');
+const {launchBrowser, FJGOE_FEATURES, fixtureKey} = require('./verify_support.cjs');
 const root = path.resolve(__dirname, '..'), out = path.join(root, 'dist/frontend-matrix-verification');
 const fixtures = require('../frontend/tests/fixtures/api.json');
 const metrics = fs.readFileSync(path.join(root, 'frontend/tests/fixtures/metrics.prom'), 'utf8');
@@ -29,7 +30,7 @@ async function ready(page, route) {
   fs.mkdirSync(out, {recursive:true});
   server = createPreviewServer(); await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
   const origin = `http://127.0.0.1:${server.address().port}`;
-  browser = await chromium.launch({channel:process.env.LOCALDNS_BROWSER || 'msedge', headless:true});
+  browser = await launchBrowser(chromium);
   report.browser = browser.version(); report.baseline = baseline || null;
   for (const [width,height] of [[1440,1000],[1024,768],[390,844]]) {
     for (const skin of ['claude','glass']) for (const theme of ['light-glass','cosmos-glass']) for (const nav of width===390 ? ['left'] : ['left','top']) {
@@ -43,13 +44,14 @@ async function ready(page, route) {
         }, {skin,theme,nav});
         let delay = '', release, requested;
         await context.route('**/*', async route => {
-          const request = route.request(), url = new URL(request.url()), p = url.pathname;
+          const request = route.request(), url = new URL(request.url()), p = fixtureKey(url.pathname);
           if (url.hostname==='api.github.com') return route.fulfill({contentType:'application/json', body:JSON.stringify({tag_name:version.releaseTag,draft:false,prerelease:false,assets:[]})});
           if (url.port==='9090') return route.fulfill({contentType:'image/svg+xml',body:'<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32"><rect width="32" height="32" fill="#386b89"/></svg>'});
           if (p==='/metrics' || p.startsWith('/api/') || p.startsWith('/plugins/')) {
             report.requests.push({mode,width,skin,theme,nav,method:request.method(),url:p+url.search});
             assert.equal(request.method(), 'GET', 'Matrix must never perform backend writes');
             if (p===delay) { requested?.(); await new Promise(resolve => { release=resolve; }); delay=''; }
+            if (p==='/api/v1/features') return route.fulfill({contentType:'application/json',body:JSON.stringify(FJGOE_FEATURES)});
             if (p==='/metrics') return route.fulfill({contentType:'text/plain',body:metrics});
             if (/^\/plugins\/switch\d+\/show$/.test(p)) return route.fulfill({contentType:'text/plain',body:'A'});
             if (/^\/plugins\/[\w-]+\/show$/.test(p)) return route.fulfill({contentType:'text/plain',body:'domain:example.com'});

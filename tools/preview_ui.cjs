@@ -9,7 +9,15 @@ function isReadEndpoint(url) {
     /^\/api\/v2\/audit\/(stats|rank\/[\w-]+|logs(?:\/[\w-]+)?)$/.test(url) ||
     url === '/plugins/client_name' || url === '/plugins/adguard/rules' ||
     /^\/plugins\/[\w-]+\/(show|config|status)$/.test(url) ||
-    /^\/plugins\/requery\/(scheduler\/config|stats\/source_file_counts)$/.test(url);
+    /^\/plugins\/requery\/(scheduler\/config|stats\/source_file_counts)$/.test(url) || isFjgliReadEndpoint(url);
+}
+// Read-only routes of the released FJGOE (FJGLI API) backend, as rewritten by frontend/src/core/api/backend-client.ts.
+function isFjgliReadEndpoint(url) {
+  return url === '/api/v1/features' || url === '/api/v1/client-aliases' || url === '/api/v1/domain-stats' ||
+    /^\/api\/v1\/querylog\/(status|capacity|settings|stats|entries|rank\/[\w-]+)$/.test(url) ||
+    /^\/api\/v1\/(lists|caches|learned)\/[\w-]+$/.test(url) ||
+    /^\/api\/v1\/route-refresh\/(status|counts|schedule)$/.test(url) || url === '/api/v1/adguard/rules' ||
+    /^\/api\/v1\/rule-groups\/[\w-]+(?:\/[^/]+)?$/.test(url);
 }
 function createPreviewServer({ backend = '', onBlocked = () => {}, uiRoot = process.env.LOCALDNS_UI_ROOT || '../dist/ui', csp = process.env.LOCALDNS_UI_CSP || '' } = {}) {
   const root = path.resolve(__dirname, uiRoot);
