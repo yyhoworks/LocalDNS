@@ -41,3 +41,16 @@ describe('appearance contrast floors', () => {
     expect(clampMaterial('blur', 2, 4, 48)).toBe(4);
   });
 });
+
+describe('focus ring', () => {
+  it('defines the visible focus outline once; others only adjust offset or hide it', () => {
+    const rules = sources(path.join(frontend, 'src/styles'), ['.css']).flatMap(file =>
+      [...readFileSync(file, 'utf8').replace(/\/\*[\s\S]*?\*\//g, '').matchAll(/([^{}]*)\{([^{}]*)\}/g)]
+        .map(([, selector, body]) => ({ selector: selector.trim(), body })));
+    const rings = rules.filter(({ selector, body }) =>
+      selector.includes(':focus-visible') && !selector.includes(':has(') && /(^|[;\s])outline\s*:\s*(?!none)/.test(body));
+    expect(rings).toHaveLength(1);
+    expect(rings[0].selector).toBe(':focus-visible');
+    expect(rings[0].body.replace(/\s/g, '')).toBe('outline:2pxsolidvar(--focus-ring);outline-offset:2px');
+  });
+});

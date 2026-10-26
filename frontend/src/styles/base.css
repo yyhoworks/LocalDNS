@@ -14,10 +14,6 @@
     .tabular, .mono, td {
       font-variant-numeric: tabular-nums;
     }
-    :focus-visible {
-      outline: 2px solid var(--primary-light);
-      outline-offset: 2px;
-    }
     .wallpaper-layer {
       position: fixed;
       inset: 0;
@@ -318,7 +314,6 @@ tr:hover td { background: rgba(255, 255, 255, 0.03); }
 html{color-scheme:dark;scroll-padding-top:82px}
 body{overflow-x:clip;font-size:13px}
 *{scrollbar-width:thin;scrollbar-color:var(--glass-pill-active) transparent}
-:focus-visible{outline-offset:3px}
 .master-container{max-width:1720px;padding:0 24px 32px}.glass-action-capsule{box-shadow:none}.top-main-bar{gap:16px}.floating-status-pill{display:none}.console-restart{color:var(--console-danger)}.console-trend{order:3}.console-donut{order:3}.console-lower{order:5}
 .console-shortcuts{grid-column:span 12;order:2;border:1px solid var(--border-glass);border-radius: calc(12px * var(--radius-scale));background:var(--glass-bg);overflow:hidden}
 .console-shortcuts>summary{cursor:pointer;list-style:none;display:flex;align-items:center;justify-content:space-between;padding:12px 16px;color:var(--text-2);font-size:12px}
@@ -442,7 +437,6 @@ td.td-domain[data-blocked="1"]::before { background: rgba(239,68,68,.18); color:
   .mobile-records td.td-domain::before { display: block; }
 }
 #api-endpoint-label{display:block;text-align:center;font-family:var(--font-mono);font-size:11px;line-height:1.6;overflow-wrap:anywhere;white-space:normal}
-:focus-visible{outline-offset:3px}
 .font-setting{display:grid;grid-template-columns:66px minmax(0,1fr);gap:8px;align-items:center;margin-top:10px}
 .font-setting label{font-size:12px;color:var(--text-2)}
 .paper-grain-layer {
@@ -471,7 +465,6 @@ td.td-domain[data-blocked="1"]::before { background: rgba(239,68,68,.18); color:
 .client-alias-identity small{display:block;font-size:12px;color:var(--text-2);line-height:1.6;margin-top:5px}
 .client-alias-label{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
 .client-alias-add{display:grid;grid-template-columns:minmax(140px,1fr) minmax(140px,1fr) auto;align-items:end;gap:12px;padding-top:4px}
-.client-manager :focus-visible{outline:2px solid var(--primary-light);outline-offset:3px}
 @media(max-width:760px){.client-alias-row{grid-template-columns:minmax(0,1fr) auto;gap:10px}}
 @media(max-width:760px){.client-alias-identity{grid-column:1/-1}}
 @media(max-width:760px){.client-alias-add{grid-template-columns:minmax(0,1fr)}}
@@ -487,13 +480,12 @@ td.td-domain[data-blocked="1"]::before { background: rgba(239,68,68,.18); color:
 .identity-preview { display: flex; align-items: center; gap: 12px; margin: 12px 0; min-width: 0; }
 .identity-preview img { width: 36px; height: 36px; object-fit: contain; flex: none; }
 .identity-upload { position: relative; cursor: pointer; margin-block: 8px; }
-.identity-upload:focus-within { outline: 2px solid var(--primary); outline-offset: 3px; }
+.identity-upload:focus-within { outline: 2px solid var(--focus-ring); outline-offset: 2px; }
 .identity-actions { display: flex; justify-content: flex-end; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
 .proxy-launcher { display: flex; flex: none; width: 64px; height: 38px; margin-right: 4px; border: 1px solid var(--border-glass); border-radius: calc(10px * var(--radius-scale)); background: var(--glass-pill); overflow: hidden; }
 .proxy-launcher a { flex: 1; }
 .proxy-launcher img { display: block; width: 22px; height: 22px; object-fit: contain; }
 .proxy-launcher svg { width: 12px; height: 12px; }
-.proxy-launcher :focus-visible { outline: 2px solid var(--control-focus, var(--primary)); outline-offset: -3px; }
 @media (max-width: 600px) {
   .proxy-launcher { width: 62px; height: 44px; }
 }

@@ -12,7 +12,7 @@
     .topo-edge.is-active { stroke-opacity: 0.95 !important; stroke-width: 2.2px !important; }
 .table-empty { padding: 28px !important; }
 .search-input input { padding-left: 32px !important; }
-:focus-visible{outline:2px solid var(--primary-light)!important}.view-title-row>div:first-child{gap:6px 14px!important}
+.view-title-row>div:first-child{gap:6px 14px!important}
 .console-kpi{grid-column:span 2!important}.console-trend{grid-column:span 8!important}.console-donut{grid-column:span 4!important}
 .console-topology{grid-column:span 12!important}.console-lower{grid-column:span 4!important}
 html[data-theme=light-glass] .tn-pill,html[data-theme=light-glass] .tec-badge{color:var(--console-info)!important}html[data-theme=light-glass] .tn-val{color:var(--text-2)!important}html[data-theme=light-glass] .sk-val[style]{color:#92400E!important}.switch input:focus-visible{outline:none!important}
@@ -68,16 +68,18 @@ html[data-theme=light-glass] .tn-pill,html[data-theme=light-glass] .tec-badge{co
 @media (prefers-reduced-motion: reduce) {
   .drawer, .drawer-backdrop, .toast, .seg-thumb, .t-node, .management-feature-card { transition: none !important; }
 }
-:focus-visible{outline:2px solid var(--focus-ring)!important}
+/* 全站唯一焦点环。放在最后的 overrides 层，因而无需 !important 也能压过组件里的
+   outline:none 重置（输入框等）；各组件只在需要内缩（proxy-launcher）或隐藏
+   （指针输入模式、视觉隐藏的原生控件）时在下方覆盖，不要在 feature CSS 里重复定义。 */
+:focus-visible{outline:2px solid var(--focus-ring);outline-offset:2px}
 /* 浏览器按元素自身的圆角绘制 outline。下列可聚焦元素的圆角是 0，焦点框会被画成方角
    矩形，与全站圆角语言不符；其中最显眼的是可滚动表格容器——它为了键盘滚动而可聚焦，
-   焦点框会画成整张表那么大的方角。这里补齐圆角，并统一留出偏移，别贴着文字。 */
-:focus-visible{outline-offset:3px!important}
+   焦点框会画成整张表那么大的方角。这里补齐圆角；焦点环与偏移见上方统一规则。 */
 .overview-slow-table-wrap,.table-wrap,.glass-table-wrap,.workspace-rank-table{border-radius:calc(12px * var(--radius-scale))!important}
 .workspace-rank-table tr,.workspace-rank-table th,.workspace-rank-table td{border-radius:calc(8px * var(--radius-scale))!important}
 .workspace-text-button,summary,.gc-sub[tabindex],span[tabindex]{border-radius:calc(8px * var(--radius-scale))!important}
 .proxy-launcher a,.proxy-launcher button{border-radius:calc(8px * var(--radius-scale))!important}
-.proxy-launcher a:focus-visible,.proxy-launcher button:focus-visible{outline-offset:-3px!important}
+.proxy-launcher a:focus-visible,.proxy-launcher button:focus-visible{outline-offset:-3px}
 .switch input[type="checkbox"]{border-radius:calc(8px * var(--radius-scale))!important}
 html[data-input-modality=pointer] :focus-visible{outline:none!important}
 .cmd-search-bar input:focus-visible{outline:none!important}

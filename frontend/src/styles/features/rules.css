@@ -115,7 +115,7 @@ body[data-console-route="rules"] .rv-menu-pop[hidden]{display:none}
 body[data-console-route="rules"] .rv-menu-pop button{appearance:none;display:flex;flex-direction:column;align-items:flex-start;gap:2px;width:100%;
   padding:8px 10px;border:0;border-radius:calc(7px * var(--radius-scale));background:transparent;color:var(--text-1);
   font-size:12.5px;text-align:left;cursor:pointer}
-body[data-console-route="rules"] .rv-menu-pop button:hover,body[data-console-route="rules"] .rv-menu-pop button:focus-visible{background:rgba(255,255,255,.07);outline:none}
+body[data-console-route="rules"] .rv-menu-pop button:hover,body[data-console-route="rules"] .rv-menu-pop button:focus-visible{background:rgba(255,255,255,.07)}
 body[data-console-route="rules"] .rv-menu-pop .k{font-size:10.5px;color:var(--text-3)}
 
 body[data-console-route="rules"] .rv-menu-float{position:fixed;z-index:90;max-height:min(60vh,420px);overflow:auto;min-width:240px;max-width:320px}
@@ -175,7 +175,6 @@ body[data-console-route="rules"] .rv-row.grp.over{box-shadow:none;outline:2px da
 body[data-console-route="rules"] .rv-ck{appearance:none;width:16px;height:16px;margin:0;border:1.5px solid rgba(255,255,255,.28);border-radius:5px;background:transparent;cursor:pointer;position:relative}
 body[data-console-route="rules"] .rv-ck:checked{background:var(--primary);border-color:transparent}
 body[data-console-route="rules"] .rv-ck:checked::after{content:"";position:absolute;left:4px;top:1px;width:4px;height:8px;border:solid #fff;border-width:0 2px 2px 0;transform:rotate(42deg)}
-body[data-console-route="rules"] .rv-ck:focus-visible{outline:2px solid var(--primary-light);outline-offset:2px}
 body[data-console-route="rules"] .rv-ck-na{display:block;text-align:center;color:var(--text-3);font-size:11px;opacity:.4}
 body[data-console-route="rules"] .rv-type{font-size:11px;color:var(--text-2);background:rgba(255,255,255,.06);border:1px solid var(--border-glass);
   border-radius:6px;padding:2px 6px;text-align:center;white-space:nowrap}
@@ -541,7 +540,6 @@ body[data-console-route="rules"] .rv-discard-prompt[hidden]{display:none}
 body[data-console-route="rules"] .rv-discard-prompt p{margin:0 0 10px;font-size:13px;line-height:1.6}
 body[data-console-route="rules"] .rv-discard-prompt>div{display:flex;gap:8px;flex-wrap:wrap}
 body[data-console-route="rules"] .rv-value[role=button]{cursor:pointer}
-body[data-console-route="rules"] .rv-sheet :focus-visible,body[data-console-route="rules"] .rp-wrap :focus-visible,body[data-console-route="rules"] .rv-value[role=button]:focus-visible{outline:2px solid var(--primary-light);outline-offset:3px}
 body[data-console-route="rules"] .rp-panel{max-height:calc(100dvh - 40px);overflow:auto}
 body[data-console-route="rules"] .rp-foot{flex-wrap:wrap}
 @media(max-width:600px){
