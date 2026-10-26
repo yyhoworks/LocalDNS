@@ -1,0 +1,37 @@
+{
+  "schema": 1,
+  "version": {
+    "product": "LocalDNS",
+    "uiVersion": "2026.10.26.1",
+    "backendVersion": "FJGOE",
+    "releaseTag": "fjgoe-ui-v2026.10.26.1",
+    "channel": "stable",
+    "builtAt": "Mon 2026-10-26 11:35 PM CST (UTC+08:00)"
+  },
+  "frontendTests": 144,
+  "pythonToolsTests": 57,
+  "packageUiTests": 15,
+  "browserVerification": {
+    "browser": "Chromium 156.0.8078.47 (LOCALDNS_BROWSER_PATH)",
+    "verify_frontend_build": true,
+    "verify_frontend_routes": true,
+    "verify_frontend_matrix": true,
+    "verify_shared_ui": true
+  },
+  "packages": {
+    "LocalDNS_FJGOE_UI_2026.10.26.1_Full.zip": {
+      "sha256": "8de2d1400605ad3ad11973dd9643ac30866e5fe5091183454f86e9b6e59fe42a",
+      "bytes": 17816179
+    },
+    "LocalDNS_UI_2026.10.26.1_Update.zip": {
+      "sha256": "77629b368fff5e151e570e7245b0ff86f7b922b677287695c7b899f94e10f7f8",
+      "bytes": 1819170
+    }
+  },
+  "fullBase": {
+    "archive": "LocalDNS_FJGOE_UI_2026.10.23.3_Full.zip",
+    "sha256": "5cd80d84594f59cbfa2d1877b8712f80988714d8e6e33326edfdda91e1b4c710"
+  },
+  "backendBinariesUnchanged": true,
+  "productionCoreRestarted": false
+}

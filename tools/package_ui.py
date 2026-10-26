@@ -16,6 +16,17 @@ def sha(data):
     return hashlib.sha256(data).hexdigest()
 
 
+def parse_built_at(value):
+    """Accept ISO 8601 or the release style 'Mon 2026-10-26 11:40 PM CST (UTC+08:00)'."""
+    try:
+        return datetime.fromisoformat(value)
+    except ValueError:
+        match = re.match(r'(?:[A-Za-z]{3} )?(\d{4}-\d{2}-\d{2} \d{1,2}:\d{2} [AP]M)\b', value)
+        if not match:
+            raise
+        return datetime.strptime(match.group(1), '%Y-%m-%d %I:%M %p')
+
+
 def json_bytes(value):
     return (json.dumps(value, ensure_ascii=False, indent=2) + '\n').encode('utf-8')
 
@@ -132,7 +143,7 @@ def write_archive(path, payload, version, modes=None):
         f'{sha(data)}  {name}\n' for name, data in sorted(payload.items())
         if not name.endswith('/')).encode()
     verify_manifest(payload)
-    stamp = datetime.fromisoformat(version['builtAt']).timetuple()[:6]
+    stamp = parse_built_at(version['builtAt']).timetuple()[:6]
     with ZipFile(path, 'w', ZIP_DEFLATED) as archive:
         for name, data in sorted(payload.items()):
             info = ZipInfo(name, date_time=stamp)
