@@ -1,4 +1,16 @@
 import { preferences } from '../../core/persistence/preferences.ts';
+
+/* 对比度下限：遮盖度与背景暗化过低时玻璃上的文字会看不清（WCAG 对比度不足）。
+   旧版本可能存了更低的值（alpha 25%、dimmer 0%），读取时按新下限钳制并回写。 */
+export const MATERIAL_FLOORS=Object.freeze({alpha:55,dimmer:15});
+export const MATERIAL_DEFAULTS=Object.freeze({blur:14,alpha:55,dimmer:22,radius:100});
+/** @param {string} name @param {unknown} raw @param {number} min @param {number} max */
+export function clampMaterial(name,raw,min,max){
+  const floor=Math.max(min,MATERIAL_FLOORS[name]??min);
+  const value=Number.isFinite(Number(raw))&&raw!==null&&raw!==''?Number(raw):MATERIAL_DEFAULTS[name];
+  return Math.min(max,Math.max(floor,value));
+}
+
 export function initialize() {
 
   'use strict';
@@ -93,10 +105,11 @@ export function initialize() {
       else if(name==='radius')root.setProperty('--radius-scale',(value/100).toFixed(2));
       else root.setProperty('--glass-'+name,name==='blur'?value+'px':(value/100).toFixed(2));
     }
-    const defaults={blur:14,alpha:48,dimmer:22,radius:100},units={blur:'px',alpha:'%',dimmer:'%',radius:'%'};
+    const units={blur:'px',alpha:'%',dimmer:'%',radius:'%'};
     for(const name of ['blur','alpha','dimmer','radius']){
       const input=document.querySelector('#slider-'+name),label=document.querySelector('#val-'+name);if(!input)continue;
-      const value=Math.min(+input.max,Math.max(+input.min,Number.isFinite(+saved[name])?+saved[name]:defaults[name]));input.value=value;
+      const value=clampMaterial(name,saved[name],+input.min,+input.max);input.value=value;
+      if(name in saved&&+saved[name]!==value)store({[name]:value});
       applyMaterial(name,value);if(label)label.textContent=value+units[name];
       input.addEventListener('input',()=>{const v=+input.value;applyMaterial(name,v);if(label)label.textContent=v+units[name];store({[name]:v});});
     }
