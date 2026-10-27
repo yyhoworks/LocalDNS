@@ -298,7 +298,7 @@ if(!approved&&rulesWorkbenchService?.canLeave(()=>renderRuleTab(tab,true))===fal
             failed+=Math.max(0,Number(item.data?.failed||0)-transportErrors.length);
             uncertain+=transportErrors.length;
             datasetNeeded+=Number(item.data?.dataset_required||0);
-            details.push(...batchErrors.map(e=>e?.transport===true?`${e.name}：未收到更新结果，服务器可能仍在处理，请稍后刷新查看更新时间}`:`${e.name}：${e.error}`));
+            details.push(...batchErrors.map(e=>e?.transport===true?`${e.name}：未收到更新结果，服务器可能仍在处理，请稍后刷新查看更新时间`:`${e.name}：${e.error}`));
           }
         });
         const detailText=details.join('；');
