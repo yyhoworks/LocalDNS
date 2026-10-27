@@ -111,6 +111,7 @@ export function initialize() {
       }
       returnFocus = origin;
       error.hidden = ready && !draft;error.textContent=loadError||'正在读取服务器设置…';retry.hidden=ready||!loadError;
+      enable(ready);
       field.removeAttribute('aria-invalid');
       field.value = draft ? draft.url : config.url;
       nameField.value= draft ? draft.name : config.name;previewLogo();
@@ -123,15 +124,22 @@ export function initialize() {
     panel.querySelectorAll('[data-proxy-panel-close]').forEach(button => button.addEventListener('click', () => close()));
     form.addEventListener('submit', async event => {
       event.preventDefault(); error.hidden = true; field.removeAttribute('aria-invalid');
-      if (!ready) return;
+      if (!ready) { error.textContent='设置尚未读取完成，请先点重试';error.hidden=false;retry.hidden=false;if(submit)submit.disabled=true;place();return; }
       const generation = sequence;enable(false);
+      // 保存飞行中输入框已由 enable(false) 禁用；下面两处世代号失配
+      // （飞行中面板被关闭等）不再静默 return，一律明确提示重新保存。
+      const discarded=()=>{
+        if(!panel.hidden){error.textContent='保存期间内容有变化，请重新保存';error.hidden=false;place();}
+        else notify('保存期间内容有变化，请重新保存','error');
+      };
       try {
         const next = configFrom({name:nameField.value,url:field.value});
         if (generation !== sequence || panel.hidden) return;
         const result = await identity.saveSection('proxy',next,revision);
+        if (generation !== sequence || panel.hidden) { discarded();return; }
         config = configFrom(result.value); revision = result.revision; draft=null; loadError=''; sync(); close(); notify('面板地址已应用到当前浏览器');
       } catch (failure) {
-        if(generation !== sequence || panel.hidden)return;
+        if(generation !== sequence || panel.hidden){discarded();return;}
         error.textContent = failure.message;error.hidden = false;retry.hidden=false;place();
       } finally { enable(ready); }
     });

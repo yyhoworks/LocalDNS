@@ -32,7 +32,7 @@ export function initialize() {
 
   var PREFIX = { domain: 'domain:', full: 'full:', keyword: 'keyword:', regexp: 'regexp:' };
   var NAME = { domain: '域名', full: '完整域名', keyword: '关键字', regexp: '正则', raw: '原文', comment: '注释' };
-  var HOST_RE = /^(\*\.)?[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+$/i;
+  var HOST_RE = /^(\*\.)?[a-z0-9_]([a-z0-9_-]*[a-z0-9_])?(\.[a-z0-9_]([a-z0-9_-]*[a-z0-9_])?)+$/i;
   var REGEX_CHAR_RE = /[\\^$[\](){}|?+]/;
   var PREFIX_RE = /^\s*(domain|full|keyword|regexp)\s*[:：]\s*/i;
   var esc = function (s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]; }); };
@@ -160,7 +160,7 @@ export function initialize() {
     renderList(); renderStat();
     histLock = false;
     syncSiteState();
-    var counter=document.getElementById("rule-lines");if(counter)counter.textContent="共 "+ta.value.split("\n").filter(Boolean).length+" 行";
+    var counter=document.getElementById("rule-lines");if(counter)counter.textContent="共 "+ta.value.split("\n").filter(function(x){return x.trim();}).length+" 行";
     paintHist();
   }
   function undo() {
@@ -269,6 +269,10 @@ export function initialize() {
   var ANNO_KEY = /^(?:注意|注释|提示|匹配|仅处理|仅|另外|补充|来源)/;   /* 一眼像注释的 # 行 */
   var DOC_COLON = /^说明\s*[:：]/;                                     /* 「# 说明：…」= 名单说明 */
   var DOC_PUNCT = /[，。；、]/;                                        /* 整句话的 # 行也按名单说明，不当标题 */
+  /* 裸 # 行的值本身就是域名 / IP / 网段：这是手写停用行，不是分组标题。
+     判为 doc（名单说明）而非 note：它谁都不领养，也不会被当成下一条规则的
+     备注（note 会被 prevNote 认领，规则编辑清备注时可能误删/改写这一行）。 */
+  var VALUE_LIKE_RE = /^(?:(\*\.)?[a-z0-9_]([a-z0-9_-]*[a-z0-9_])?(\.[a-z0-9_]([a-z0-9_-]*[a-z0-9_])?)+|(?:\d{1,3}\.){3}\d{1,3}(?:\/\d{1,2})?|[0-9a-fA-F]*:[0-9a-fA-F:]+(?:\/\d{1,3})?)$/i;
   function isAnno(r) { return ANNO_KEY.test(commentLine(r).replace(/^#\s*/, '').trim()); }
   function commentLine(r) {                                     /* 这一行现在长什么样（编辑过的以现值算） */
     return String(r.touched ? lineOf(r) : (r.line != null ? r.line : '# ' + r.value));
@@ -280,6 +284,7 @@ export function initialize() {
     if (NOTE_RE_ANY.test(t)) return 'note';                     /* 显式备注，位置无关 */
     if (TITLE_RE.test(t)) return 'title';                       /* 显式标题，位置无关 */
     var body = t.replace(/^#\s*/, '').trim();
+    if (VALUE_LIKE_RE.test(body)) return 'doc';                 /* 裸 # 域名/IP/网段 = 手写停用行，不当标题 */
     if (isAnno(r)) return cur && !cur.children.length ? 'gnote' : 'note';
     if (DOC_COLON.test(body) || DOC_PUNCT.test(body)) return 'doc';   /* 名单说明：不领养下面的规则 */
     return 'title';                                             /* 其余裸 # 行一律是标题 */
@@ -314,6 +319,12 @@ export function initialize() {
   /* 名单说明行：当成「只有一个标题行、没有注释、没有规则」的组来编辑，登录的仍是它自己那一行 */
   function openCommentSheet(row) {
     openGroupSheet({ id: row.id, title: row, notes: [], lines: [row], children: [], docOnly: true });
+  }
+  /* 末尾无后续规则的 # 行：同样只改它自己那一行，但角色跟它现有的 role 走
+     （备注仍是备注、说明仍是说明），不强制写成说明，也不当成规则 */
+  function openSingleCommentSheet(row) {
+    if (!row.role) row.role = commentRole(row, null);
+    openGroupSheet({ id: row.id, title: row, notes: [], lines: [row], children: [] });
   }
   function groupById(id) {
     for (var i = 0; i < groups.length; i++) if (groups[i].id === id) return groups[i];
@@ -429,17 +440,20 @@ export function initialize() {
       var rb = el.querySelector('[data-act=role]');
       if (rb) rb.onclick = function (e) { e.stopPropagation(); openRolePicker(this, row); };
       if (!host) return;
-      /* 「# 备注：…」这类说明行，点开的是它下面那条规则的编辑面板 */
-      var target = row;
+      /* 「# 备注：…」这类说明行，点开的是它下面那条规则的编辑面板；
+         末尾无后续规则时不再回退为规则面板，改走 # 行自身编辑路径，
+         否则提交后 kind 会被改写为 rule、# 前缀丢失 */
+      var target = row, hasNextRule = false;
       if (row.kind === 'comment') {
         for (var k = rows.indexOf(row) + 1; k < rows.length; k++) {
-          if (rows[k].kind === 'rule' || rows[k].kind === 'raw') { target = rows[k]; break; }
+          if (rows[k].kind === 'rule' || rows[k].kind === 'raw') { target = rows[k]; hasNextRule = true; break; }
         }
       }
       var openRow = function () {
         lastTrigger = el.querySelector('[data-act=edit]');
         /* 名单说明行谁都不属于，点开改的是它自己那段文字 */
         if (row.kind === 'comment' && row.role === 'doc') openCommentSheet(row);
+        else if (row.kind === 'comment' && !hasNextRule) openSingleCommentSheet(row);
         else openSheet(target, false);
       };
       host.setAttribute('role','button');host.tabIndex=0;host.setAttribute('aria-label','编辑 '+row.value);
@@ -1002,7 +1016,13 @@ export function initialize() {
       target = { id: 'r' + (++seq), kind: rawMode?'raw':'rule', type: rawMode?'raw':t, value: v, off: sheetOff, touched: true };
       rows.push(target);
     } else if (editing) {
+      /* 编辑分支复用新增分支的查重逻辑（排除自身）：同值同类型同启停状态拦截，
+         启停相反只提示、不拦截 */
+      dupRow = rows.find(function (r) { return r !== editing && (r.kind === 'rule' || r.kind === 'raw') && r.value === v && r.type === (rawMode ? 'raw' : t); });
+      if (dupRow && !!dupRow.off === !!sheetOff) { say('列表里已经有这条：' + (PREFIX[t] || '') + v); sheet().querySelector('#rv-value').focus(); return; }
+      if (dupRow) say('已有一条' + (dupRow.off ? '停用' : '启用') + '的同名规则，本次将按' + (sheetOff ? '停用' : '启用') + '保存：' + (PREFIX[t] || '') + v);
       if (rawMode) { editing.type = 'raw'; editing.value = v; editing.kind = 'raw'; }
+      else if (editing.kind === 'comment') { editing.value = v; }
       else { editing.type = t; editing.value = v; editing.kind = 'rule'; }
       editing.off=sheetOff;
       editing.touched = true;
@@ -1137,8 +1157,17 @@ export function initialize() {
         var act = b.dataset.bulk, n = sel.length;
         if (act === 'clear') { sel = []; renderList(); return; }
         if (!n) return;
-        if (act === 'del' && !window.confirm('删除选中的 ' + n + ' 条规则？')) return;
-        if (act === 'del') rows = rows.filter(function (r) { return sel.indexOf(r.id) < 0; });
+        /* 批量删除复用单条 dropRow 的备注连带逻辑：先按原下标算出每条选中规则的
+           prevNote 行，一并剔除，否则残留备注会被下一条规则继承 */
+        var dropIdx = {};
+        if (act === 'del') rows.forEach(function (r, i) {
+          if (sel.indexOf(r.id) < 0) return;
+          var pn = prevNote(r);
+          if (pn.idx >= 0) dropIdx[pn.idx] = true;
+        });
+        var dropNotes = Object.keys(dropIdx).length;
+        if (act === 'del' && !window.confirm('删除选中的 ' + n + ' 条规则？' + (dropNotes ? '\n（' + dropNotes + ' 行备注一起删掉）' : ''))) return;
+        if (act === 'del') rows = rows.filter(function (r, i) { return sel.indexOf(r.id) < 0 && !dropIdx[i]; });
         else rows.forEach(function (r) {
           if (sel.indexOf(r.id) < 0) return;
           if (r.kind === 'comment' || r.kind === 'blank' || r.kind === 'sep') return;   /* 注释/分隔线不参与启停 */
