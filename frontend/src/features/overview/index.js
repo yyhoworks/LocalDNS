@@ -39,14 +39,18 @@ import { cacheName } from '../management/index.js';
       safeResult(()=>api.metrics()),
       safe(()=>api.request('/api/v1/status'),{}),
       safe(()=>api.request('/api/v1/upstream/config'),{}),
-      Promise.all(switchTags.map(t=>safe(()=>api.request(`/plugins/${t}/show`),'B')))
+      Promise.all(switchTags.map(t=>safeResult(()=>api.request(`/plugins/${t}/show`))))
     ]));
     // 首屏数据分项降级：stats/rank/metrics 任一失败时用空数据继续渲染，
     // 不再让单个接口失败拖垮整页；失败项在渲染完成后汇总提示（见 degradedParts）。
+    // C-04：开关回读改用 safeResult 而不用 safe(..., 'B') 兜底——失败时记为
+    // '?'（未知）而非静默默认为关，避免把读取失败当作真实“关”展示。
     const stats=statsR.ok?statsR.data:{}, domains=domainsR.ok?domainsR.data:[], clients=clientsR.ok?clientsR.data:[], slowest=slowestR.ok?slowestR.data:[], sets=setsR.ok?setsR.data:[], metricsRaw=metricsR.ok?metricsR.data:'';
-    const degradedParts=[!statsR.ok&&'运行统计',(!domainsR.ok||!clientsR.ok||!slowestR.ok||!setsR.ok)&&'排行数据',!metricsR.ok&&'系统指标'].filter(Boolean);
-    const sw = Object.fromEntries(switchTags.map((t,i)=>[t, String(switchVals[i]||'').trim().toUpperCase()]));
+    const switchFailed = switchTags.filter((t,i)=>!switchVals[i]?.ok);
+    const degradedParts=[!statsR.ok&&'运行统计',(!domainsR.ok||!clientsR.ok||!slowestR.ok||!setsR.ok)&&'排行数据',!metricsR.ok&&'系统指标',switchFailed.length&&'开关状态'].filter(Boolean);
+    const sw = Object.fromEntries(switchTags.map((t,i)=>[t, switchVals[i]?.ok ? String(switchVals[i].data||'').trim().toUpperCase() : '?']));
     const enabledCount = Object.values(sw).filter(v => v === 'A').length;
+    const unknownSwitchCount = switchFailed.length;
 
     const metrics = parseProm(metricsRaw), sys = parseSystem(metrics), caches = parseCaches(metrics);
     // 品牌区版本标签按外观设置显示（hidden/custom 时不覆盖用户选择）
@@ -57,8 +61,12 @@ import { cacheName } from '../management/index.js';
     if ($('#float-stat-top')) $('#float-stat-top').textContent = `↑ 累计 ${compactNum(stats.total_queries)} 次`;
     if ($('#float-stat-bot')) $('#float-stat-bot').textContent = `↓ ${ms(stats.average_duration_ms)}`;
 
-    const cacheDisabled = sw.switch13 === 'B';
-    const lazyEnabled   = sw.switch4 === 'A';
+    // C-04：开关未知态（'?'）不折算为开/关；C-05：综合命中率统一为全池加权，
+    // 不再主池有查询时就取主池命中率冒充综合口径。
+    const cacheState = sw.switch13 === 'A' ? 'on' : sw.switch13 === 'B' ? 'off' : 'unknown';
+    const lazyState = sw.switch4 === 'A' ? 'on' : sw.switch4 === 'B' ? 'off' : 'unknown';
+    const cacheDisabled = cacheState === 'off';
+    const lazyEnabled   = lazyState === 'on';
     const cMain = caches.find(x=>x.tag==='cache_main') || {hit:0,lazy:0,q:0,h:0,size:0};
     const cDom  = caches.find(x=>x.tag==='cache_domestic') || {hit:0,lazy:0,q:0,h:0,size:0};
     const cFor  = caches.find(x=>x.tag==='cache_foreign') || {hit:0,lazy:0,q:0,h:0,size:0};
@@ -66,8 +74,9 @@ import { cacheName } from '../management/index.js';
 
     const totalCacheQ = caches.reduce((s,c)=>s+(c.q||0),0);
     const totalCacheH = caches.reduce((s,c)=>s+(c.h||0),0);
-    const overallHitRate = cMain.q > 0 ? cMain.hit : (totalCacheQ > 0 ? (totalCacheH / totalCacheQ * 100) : 0);
-    const cacheValue = cacheDisabled ? '已关闭' : pct(overallHitRate);
+    const activeCachePoolCount = caches.filter(c => (+c.q || 0) > 0).length;
+    const overallHitRate = totalCacheQ > 0 ? (totalCacheH / totalCacheQ * 100) : 0;
+    const cacheValue = cacheState === 'off' ? '已关闭' : cacheState === 'unknown' ? '未知' : pct(overallHitRate);
 
     const now = Date.now();
     // CPU 占用统一用相邻两次渲染的增量口径（ΔCPU 秒 / Δ墙钟秒），并钳制到
@@ -91,10 +100,17 @@ import { cacheName } from '../management/index.js';
     // 客户端分流策略状态（对应真实 switch2 / switch12，以本次回读值为准）。
     // 两个开关同时为 A 是后端不应出现的冲突态：不再按 switch2 优先猜成
     // fakeip，显式记为 conflict（无按钮高亮），避免掩盖 switch12 仍开启。
-    const clientMode = sw.switch2 === 'A' && sw.switch12 === 'A' ? 'conflict' : sw.switch2 === 'A' ? 'fakeip' : (sw.switch12 === 'A' ? 'realip' : 'all');
+    // C-04：switch2/switch12 任一回读失败时分流模式记为未知，不猜成 all。
+    const clientMode = sw.switch2 === '?' || sw.switch12 === '?' ? 'unknown' : sw.switch2 === 'A' && sw.switch12 === 'A' ? 'conflict' : sw.switch2 === 'A' ? 'fakeip' : (sw.switch12 === 'A' ? 'realip' : 'all');
 
     // === 构造五阶段全链路拓扑真实数据 ===
-    const totalQ = Math.max(1, +stats.total_queries || 0);
+    // C-02：分母只取审计统计实值，取不到（运行统计失败时 stats 为空）不
+    // 再用 Math.max(1, ...) 伪造分母 1；分子来自引擎 /api/v1/status、分母
+    // 来自审计 /api/v2/audit/stats，两者窗口未必一致，故不在此拼同一接口
+    // 口径，只做钳制 + 缺分母时显示“—”并标注。
+    const statsTotalQ = Number.isFinite(+stats.total_queries) ? +stats.total_queries : null;
+    const blockedPct = statsTotalQ != null && statsTotalQ > 0 ? Math.min(100, Math.max(0, adguardBlocked / statsTotalQ * 100)) : null;
+    const blockedPctText = blockedPct != null ? pct(blockedPct) : '—';
     // Aliases only name recorded clients; never add inactive aliases as topology nodes.
     const topoClients = clientsService.topology(clients, clientAliases, stats.total_queries, compactNum);
 
@@ -104,7 +120,9 @@ import { cacheName } from '../management/index.js';
     const eStats = engineStatus?.stats || {};
     const topoRules = [
       { id: 'r1', tab: 'diversion', name: 'geosite_cn', sub: `国内大陆域名直连 · ${num(rRules.geosite_cn || 0)} 条规则`, val: compactNum(eStats.domestic || 0), iconColor: isClaude ? '#2D6A4F' : '#10B981', icon: 'globe' },
-      { id: 'r2', tab: 'lists', name: 'whitelist / custom_cn', sub: `白名单与自定义国内 · ${num(rRules.force_domestic || 0)} 条规则`, val: `${num(rRules.force_domestic || 0)} 条`, iconColor: isClaude ? '#C96442' : '#60A5FA', icon: 'check' },
+      // C-06：引擎统计里没有该类对应的查询量计数，val 不再用规则数冒充
+      // 查询量；显示“—”，规则数只保留在 sub 里。
+      { id: 'r2', tab: 'lists', name: 'whitelist / custom_cn', sub: `白名单与自定义国内 · ${num(rRules.force_domestic || 0)} 条规则`, val: '—', iconColor: isClaude ? '#C96442' : '#60A5FA', icon: 'check' },
       { id: 'r3', tab: 'diversion', name: 'geosite_non_cn', sub: `海外无污染分流 · ${num(rRules.geosite_non_cn || 0)} 条规则`, val: compactNum((+eStats.foreign || 0) + (+eStats.foreign_ecs || 0)), iconColor: isClaude ? '#3D6B66' : '#14B8A6', icon: 'split' },
       { id: 'r4', tab: 'lists', name: 'force_fakeip / 灰名单', sub: `FakeIP 分流映射 · ${num(rRules.force_foreign_fakeip || 0)} 条规则`, val: compactNum(eStats.fakeip || 0), iconColor: isClaude ? '#B45309' : '#F59E0B', icon: 'spark' },
       { id: 'r5', tab: 'adguard', name: 'adguard_block', sub: `广告与追踪器拦截 · ${num(engineStatus?.adguard_rules || 0)} 条规则`, val: compactNum(adguardBlocked), iconColor: isClaude ? '#B91C1C' : '#EF4444', icon: 'shield' },
@@ -274,9 +292,9 @@ import { cacheName } from '../management/index.js';
           </div>
           <div class="cb-right">
             <div class="seg-group" role="group" aria-label="客户端分流策略">
-              <button type="button" class="seg-item ${clientMode==='all'?'active':''}" data-client-mode="all" title="所有客户端均按分流规则正常解析">全员分流</button>
-              <button type="button" class="seg-item ${clientMode==='fakeip'?'active':''}" data-client-mode="fakeip" title="switch2：只允许指定客户端科学">指定 FakeIP</button>
-              <button type="button" class="seg-item ${clientMode==='realip'?'active':''}" data-client-mode="realip" title="switch12：指定客户端不允许科学">指定 RealIP</button>
+              <button type="button" class="seg-item ${clientMode==='all'?'active':''}" data-client-mode="all" ${clientMode==='unknown'?'disabled':''} title="${clientMode==='unknown'?'分流开关读取失败，状态未知，暂不可切换':'所有客户端均按分流规则正常解析'}">全员分流</button>
+              <button type="button" class="seg-item ${clientMode==='fakeip'?'active':''}" data-client-mode="fakeip" ${clientMode==='unknown'?'disabled':''} title="${clientMode==='unknown'?'分流开关读取失败，状态未知，暂不可切换':'switch2：只允许指定客户端科学'}">指定 FakeIP</button>
+              <button type="button" class="seg-item ${clientMode==='realip'?'active':''}" data-client-mode="realip" ${clientMode==='unknown'?'disabled':''} title="${clientMode==='unknown'?'分流开关读取失败，状态未知，暂不可切换':'switch12：指定客户端不允许科学'}">指定 RealIP</button>
             </div>
             <button type="button" class="glass-btn" id="manage-alias">别名</button>
           </div>
@@ -291,8 +309,8 @@ import { cacheName } from '../management/index.js';
           </div>
           <div class="cb-right">
             <div class="seg-group" role="group" aria-label="缓存功能开关">
-              <button type="button" class="seg-item ${!cacheDisabled?'active':''}" id="btn-toggle-switch13" title="点击切换核心缓存 (switch13)">核心缓存 ${!cacheDisabled?'开':'关'}</button>
-              <button type="button" class="seg-item ${lazyEnabled?'active':''}" id="btn-toggle-switch4" title="点击切换乐观过期缓存 (switch4)">过期缓存 ${lazyEnabled?'开':'关'}</button>
+              <button type="button" class="seg-item ${cacheState==='on'?'active':''}" id="btn-toggle-switch13" ${cacheState==='unknown'?'disabled':''} title="${cacheState==='unknown'?'核心缓存开关读取失败，状态未知，暂不可切换':'点击切换核心缓存 (switch13)'}">核心缓存 ${cacheState==='on'?'开':cacheState==='off'?'关':'未知'}</button>
+              <button type="button" class="seg-item ${lazyEnabled?'active':''}" id="btn-toggle-switch4" ${lazyState==='unknown'?'disabled':''} title="${lazyState==='unknown'?'乐观过期缓存开关读取失败，状态未知，暂不可切换':'点击切换乐观过期缓存 (switch4)'}">过期缓存 ${lazyState==='on'?'开':lazyState==='off'?'关':'未知'}</button>
             </div>
             <button type="button" class="glass-btn" id="btn-flush-all-cache">清空</button>
           </div>
@@ -306,8 +324,8 @@ import { cacheName } from '../management/index.js';
             <span style="color:var(--text-1);font-weight:600">运行中 · ${duration(sys.uptime)}</span>
           </div>
           <div class="cb-right">
-            <button type="button" class="glass-btn" id="btn-toggle-switch7" title="点击切换 AdGuard 广告屏蔽 (switch7)">AdGuard ${sw.switch7==='A'?'已开启':'已关闭'}</button>
-            <span style="font-size:12px;color:var(--text-2);cursor:pointer" data-route="management">${enabledCount}/8 项开启 ›</span>
+            <button type="button" class="glass-btn" id="btn-toggle-switch7" ${sw.switch7==='?'?'disabled':''} title="${sw.switch7==='?'?'AdGuard 开关读取失败，状态未知，暂不可切换':'点击切换 AdGuard 广告屏蔽 (switch7)'}">AdGuard ${sw.switch7==='A'?'已开启':sw.switch7==='B'?'已关闭':'未知'}</button>
+            <span style="font-size:12px;color:var(--text-2);cursor:pointer" data-route="management">${enabledCount}/8 项开启${unknownSwitchCount?` · ${unknownSwitchCount} 项未知`:''} ›</span>
           </div>
         </div>
       </div>
@@ -320,7 +338,7 @@ import { cacheName } from '../management/index.js';
             <div class="sk-val tabular">${num(stats.total_queries)}</div>
             <svg class="sk-chart" viewBox="0 0 100 34" fill="none" aria-hidden="true"></svg>
           </div>
-          <div class="sk-note">${cacheDisabled ? '缓存已关闭' : '缓存命中占 ' + pct(overallHitRate)}</div>
+          <div class="sk-note">${cacheState==='off' ? '缓存已关闭' : cacheState==='unknown' ? '缓存开关状态未知' : '缓存命中占 ' + pct(overallHitRate)}</div>
         </div>
       </div>
 
@@ -331,7 +349,7 @@ import { cacheName } from '../management/index.js';
             <div class="sk-val tabular">${cacheValue}</div>
             <svg class="sk-chart" viewBox="0 0 100 34" fill="none" aria-hidden="true"></svg>
           </div>
-          <div class="sk-note">${caches.filter(c => (+c.q || 0) > 0).length} 个活跃缓存池</div>
+          <div class="sk-note">${activeCachePoolCount} 个活跃缓存池</div>
         </div>
       </div>
 
@@ -348,12 +366,12 @@ import { cacheName } from '../management/index.js';
 
       <div class="col-2">
         <div class="glass-card spark-kpi-card" data-route="rules">
-          <div class="sk-top"><span class="sk-title">拦截请求</span><svg viewBox="0 0 24 24" fill="none" stroke="#EF4444" stroke-width="2" aria-hidden="true"><path d="M12 3 4 7v5c0 5 3.4 9.3 8 10 4.6-.7 8-5 8-10V7l-8-4Z"/></svg></div>
+          <div class="sk-top"><span class="sk-title">AdGuard 拦截</span><svg viewBox="0 0 24 24" fill="none" stroke="#EF4444" stroke-width="2" aria-hidden="true"><path d="M12 3 4 7v5c0 5 3.4 9.3 8 10 4.6-.7 8-5 8-10V7l-8-4Z"/></svg></div>
           <div class="sk-bottom">
             <div class="sk-val tabular">${fullNum(adguardBlocked)}</div>
             <svg class="sk-chart" viewBox="0 0 100 34" fill="none" aria-hidden="true"></svg>
           </div>
-          <div class="sk-note">${pct(totalQ > 0 ? (adguardBlocked / totalQ) * 100 : 0)} 的请求被拦截</div>
+          <div class="sk-note">${blockedPct != null ? `${blockedPctText} 的请求被 AdGuard 拦截（引擎拦截数 ÷ 审计累计请求，窗口可能不一致）` : '— 的请求被 AdGuard 拦截（运行统计暂不可用，分母缺失）'}</div>
         </div>
       </div>
 
@@ -410,10 +428,10 @@ import { cacheName } from '../management/index.js';
                   <div class="t-node t-engine-card" data-node-id="e_core" data-route="management">
                     <div>
                       <div class="tec-top">
-                        <span class="tec-big tabular">${cacheDisabled ? '—' : overallHitRate.toFixed(1) + '%'}</span>
+                        <span class="tec-big tabular">${cacheState==='on' ? overallHitRate.toFixed(1) + '%' : '—'}</span>
                         <span class="tec-badge">${compactNum(stats.total_queries)} 请求</span>
                       </div>
-                      <div class="tec-desc">多级内存缓存命中 · ${cacheDisabled ? '核心缓存已关闭' : '4 个活跃缓存池'}</div>
+                      <div class="tec-desc">多级内存缓存命中 · ${cacheState==='off' ? '核心缓存已关闭' : cacheState==='unknown' ? '核心缓存状态未知' : `${activeCachePoolCount} 个活跃缓存池`}</div>
                     </div>
 
                     <div class="tec-bars">
@@ -538,7 +556,7 @@ import { cacheName } from '../management/index.js';
                 <circle cx="21" cy="21" r="15.915" fill="transparent" stroke="rgba(148,163,184,0.14)" stroke-width="4.8"></circle>
                 ${ringCircles}
               </svg>
-              <div class="ring-center" title="${fullNum(outcomes.total)} 次查询" aria-label="总查询 ${fullNum(outcomes.total)} 次">
+              <div class="ring-center" title="${fullNum(outcomes.total)} 次查询 · 当前保留日志窗口内" aria-label="总查询 ${fullNum(outcomes.total)} 次，当前保留日志窗口内">
                 <span class="ring-total">${compactNum(outcomes.total)}</span>
                 <span class="ring-caption">总查询</span>
               </div>
@@ -568,10 +586,10 @@ import { cacheName } from '../management/index.js';
             <div>
               <div class="gc-title-row">
                 <div class="gc-title">多级缓存池状态</div>
-                <span class="cache-status-pill ${cacheDisabled ? 'is-off' : 'is-on'}">${cacheDisabled ? '● 核心缓存已关闭' : '● 核心缓存运行中'}</span>
-                <span class="cache-status-pill ${lazyEnabled ? 'is-lazy' : 'is-muted'}">乐观过期 ${lazyEnabled ? '开启' : '关闭'}</span>
+                <span class="cache-status-pill ${cacheState==='off' ? 'is-off' : cacheState==='unknown' ? 'is-muted' : 'is-on'}">${cacheState==='off' ? '● 核心缓存已关闭' : cacheState==='unknown' ? '● 核心缓存状态未知' : '● 核心缓存运行中'}</span>
+                <span class="cache-status-pill ${lazyEnabled ? 'is-lazy' : 'is-muted'}">乐观过期 ${lazyState==='on' ? '开启' : lazyState==='off' ? '关闭' : '未知'}</span>
               </div>
-              <p class="workspace-subline cache-panel-subline">4 级独立缓存池实时命中率、请求量与驻留条目数 · 综合命中率 ${pct(overallHitRate)}</p>
+              <p class="workspace-subline cache-panel-subline">4 级独立缓存池实时命中率、请求量与驻留条目数 · 综合命中率（全池加权） ${pct(overallHitRate)}</p>
             </div>
             <div class="cache-head-actions">
               <span class="gc-sub" style="cursor:pointer" data-route="management">缓存管理 ›</span>
@@ -671,6 +689,9 @@ import { cacheName } from '../management/index.js';
       };
     }
 
+    // C-01：在途防护 = 切换期间禁用同组按钮 + 代次号。代次号过期（已有更新
+    // 的切换在途）的完成/回滚直接丢弃，不覆盖更新的有效状态、不重复渲染。
+    let clientModeGen = 0;
     $$('[data-client-mode]', page).forEach(btn => {
       btn.onclick = async () => {
         const m = btn.dataset.clientMode;
@@ -679,6 +700,12 @@ import { cacheName } from '../management/index.js';
         const targets = { all: ['B', 'B'], fakeip: ['A', 'B'], realip: ['B', 'A'] };
         const target = targets[m];
         if (!target) return;
+        // C-04：分流开关未知时按钮已置 disabled，此处再防一层。
+        if (sw.switch2 === '?' || sw.switch12 === '?') return;
+        const gen = ++clientModeGen;
+        const isStale = () => gen !== clientModeGen;
+        const modeBtns = $$('[data-client-mode]', page);
+        modeBtns.forEach(b => { b.disabled = true; });
         const original = [sw.switch2, sw.switch12];
         const postSwitch = (tag, value) => api.json(`/plugins/${tag}/post`, 'POST', { value });
         const readSwitches = async () => {
@@ -688,24 +715,39 @@ import { cacheName } from '../management/index.js';
         try {
           const steps = [{ tag: 'switch2', value: target[0] }, { tag: 'switch12', value: target[1] }]
             .sort((a, b) => (a.value === 'A') - (b.value === 'A'));
-          for (const step of steps) await postSwitch(step.tag, step.value);
+          for (const step of steps) { await postSwitch(step.tag, step.value); if (isStale()) return; }
           const actual = await readSwitches();
+          if (isStale()) return;
           if (actual[0] !== target[0] || actual[1] !== target[1]) throw new Error(`开关状态与目标不一致（当前 switch2=${actual[0] || '?'}, switch12=${actual[1] || '?'}）`);
           toast(m === 'all' ? '已切换为全员分流模式' : m === 'fakeip' ? '已启用：指定 Client FakeIP' : '已启用：指定 Client RealIP');
         } catch (e) {
-          // 第二步失败会留下半应用状态：回滚到切换前组合；回滚也失败时
-          // 如实报错并展示后端回读的实际状态，不假装已恢复。
+          if (isStale()) return;
+          // 回滚前先回读当前状态：已是切换前组合则不重复回写；已是目标组合
+          // 说明校验报错时目标其实已生效，不回滚以免覆盖有效状态；其余
+          // 半应用态才回滚到切换前组合。回滚也失败时如实报错，不假装已恢复。
           let note;
-          try {
-            await postSwitch('switch2', original[0]);
-            await postSwitch('switch12', original[1]);
-            const actual = await readSwitches();
-            note = (actual[0] === original[0] && actual[1] === original[1])
-              ? '已恢复切换前状态。'
-              : `回滚未完全生效，当前实际状态：switch2=${actual[0] || '?'}, switch12=${actual[1] || '?'}。`;
-          } catch { note = '回滚失败，请刷新页面确认当前分流状态。'; }
+          let beforeRollback;
+          try { beforeRollback = await readSwitches(); } catch { beforeRollback = null; }
+          if (isStale()) return;
+          if (beforeRollback && beforeRollback[0] === original[0] && beforeRollback[1] === original[1]) {
+            note = '回滚前回读已是切换前状态，未重复回写。';
+          } else if (beforeRollback && beforeRollback[0] === target[0] && beforeRollback[1] === target[1]) {
+            note = '回滚前回读显示目标组合已生效，未执行回滚，请刷新页面确认。';
+          } else {
+            try {
+              await postSwitch('switch2', original[0]);
+              await postSwitch('switch12', original[1]);
+              const actual = await readSwitches();
+              note = (actual[0] === original[0] && actual[1] === original[1])
+                ? '已恢复切换前状态。'
+                : `回滚未完全生效，当前实际状态：switch2=${actual[0] || '?'}, switch12=${actual[1] || '?'}。`;
+            } catch { note = '回滚失败，请刷新页面确认当前分流状态。'; }
+          }
+          if (isStale()) return;
           toast('切换失败', 'error', `${e.message} ${note}`);
         }
+        if (isStale()) return;
+        modeBtns.forEach(b => { b.disabled = false; });
         renderRoute(true, true);
       };
     });
@@ -714,12 +756,17 @@ import { cacheName } from '../management/index.js';
       const el = $(sel);
       if (!el) return;
       el.onclick = async () => {
+        // C-01/C-04：未知态按钮已 disabled，此处再防一层；在途禁用防连点。
+        if (curVal !== 'A' && curVal !== 'B') return;
+        if (el.disabled) return;
+        el.disabled = true;
         const nextVal = curVal === 'A' ? 'B' : 'A';
         try {
           await api.json(`/plugins/${tag}/post`, 'POST', { value: nextVal });
           toast(`${label}已${nextVal === 'A' ? '开启' : '关闭'}`);
           renderRoute(true, true);
         } catch (e) {
+          el.disabled = false;
           toast('操作失败', 'error', e.message);
         }
       };
