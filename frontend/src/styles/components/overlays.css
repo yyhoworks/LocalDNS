@@ -78,7 +78,7 @@
   gap: 10px;
   box-shadow: 0 12px 32px rgba(0, 0, 0, 0.5);
 }
-.toast-close { appearance: none; flex: none; margin-left: auto; width: 28px; height: 28px; display: inline-flex; align-items: center; justify-content: center; border: 0; background: none; color: var(--text-2); border-radius: calc(8px * var(--radius-scale)); cursor: pointer; }
+.toast-close { appearance: none; flex: none; margin-left: auto; width: 28px; height: 28px; min-width: 44px; min-height: 44px; display: inline-flex; align-items: center; justify-content: center; border: 0; background: none; color: var(--text-2); border-radius: calc(8px * var(--radius-scale)); cursor: pointer; }
 .toast-close:hover { color: var(--text-1); background: var(--glass-pill); }
 .toast-close svg { width: 14px; height: 14px; }
 .drawer{box-shadow:-12px 0 48px rgba(0,0,0,.2)}.drawer-content h3{font-size:13px;margin:20px 0 10px}

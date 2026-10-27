@@ -214,6 +214,12 @@
   color:var(--console-danger,#F87171);
   border-color:rgba(239,68,68,.35);
 }
+@media(max-width:600px){
+  .cache-pool-btn{
+    min-width:44px;
+    min-height:44px;
+  }
+}
 .management-bottom { align-items:start; gap:var(--ui-section-gap); }
 .management-bottom>.card { height:auto; min-height:0; }
 .management-top-pair { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:14px; align-items:stretch; }

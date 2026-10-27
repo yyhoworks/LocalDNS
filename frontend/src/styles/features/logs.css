@@ -87,6 +87,9 @@
   .log-filter-bar #log-set { grid-column:2/-1; }
 }
 @media(max-width:600px) {
+  .log-filter-bar #log-q, .log-filter-bar #log-type, .log-filter-bar #log-set { font-size:16px; }
+}
+@media(max-width:600px) {
   .logs-top-pagination { display:block; }
 }
 @media(max-width:600px) {

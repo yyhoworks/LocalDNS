@@ -53,6 +53,9 @@ html[data-theme=light-glass] .tn-pill,html[data-theme=light-glass] .tec-badge{co
 }
 @media(prefers-reduced-transparency:reduce){.glass-card,.card,.glass-sidebar,.console-shortcuts{background:rgba(18,20,24,.95)!important}}
 @media(prefers-reduced-transparency:reduce){html[data-theme=light-glass] .glass-card,html[data-theme=light-glass] .card,html[data-theme=light-glass] .glass-sidebar,html[data-theme=light-glass] .console-shortcuts{background:rgba(250,252,255,.95)!important}}
+@media(prefers-reduced-transparency:reduce){.modal,.drawer,.toast,.proxy-panel-popover,.bg-customizer-popover,.glass-btn,.glass-action-capsule{background:rgba(18,20,24,.95)!important;backdrop-filter:none!important;-webkit-backdrop-filter:none!important}}
+@media(prefers-reduced-transparency:reduce){html[data-theme=light-glass] .modal,html[data-theme=light-glass] .drawer,html[data-theme=light-glass] .toast,html[data-theme=light-glass] .proxy-panel-popover,html[data-theme=light-glass] .bg-customizer-popover,html[data-theme=light-glass] .glass-btn,html[data-theme=light-glass] .glass-action-capsule{background:rgba(250,252,255,.95)!important}}
+@media(prefers-reduced-transparency:reduce){html[data-skin="claude"] .paper-grain-layer{opacity:0!important}}
 @media(max-width:1400px){.console-service-summary .console-kpi{grid-column:span 4!important}}
 @media(min-width:1401px){.console-service-summary .console-kpi{grid-column:span 2!important}}
 @media(max-width:600px){.console-service-summary .console-kpi{grid-column:span 6!important}}
@@ -211,7 +214,7 @@ body[data-console-route="rules"] .rv-list{height:auto!important}
   .overview-slow-table .overview-slow-type,.overview-slow-table .overview-slow-client,.overview-slow-table th:nth-child(3),.overview-slow-table th:nth-child(4),.slow-duration-bar{display:none!important}
 }
 @media(max-width:600px){.shared-ui-actions button,.appearance-panel .identity-actions button{min-height:44px!important}}
-@media(max-width:600px){.appearance-panel .appearance-tab,.appearance-panel .bcp-title>.glass-btn,.appearance-panel .bcp-input,.appearance-panel .font-setting select,.appearance-panel #btn-font-upload,.appearance-panel .identity-upload,.appearance-panel summary{min-height:44px!important}}.appearance-panel .preset-btn{min-height:32px!important;min-width:0!important}
+@media(max-width:600px){.appearance-panel .appearance-tab,.appearance-panel .bcp-title>.glass-btn,.appearance-panel .bcp-input,.appearance-panel .font-setting select,.appearance-panel #btn-font-upload,.appearance-panel .identity-upload,.appearance-panel summary{min-height:44px!important}}@media(max-width:600px){.appearance-panel .preset-btn{min-height:44px!important;min-width:44px!important}}
 .appearance-panel .appearance-inline{flex-wrap:nowrap!important}
 .appearance-panel .appearance-inline .glass-btn{min-height:34px!important}
 html:not([data-skin=claude]) [data-appearance-skin=claude]{display:none!important}

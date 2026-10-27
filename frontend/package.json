@@ -14,6 +14,7 @@
     "test:coverage": "vitest run --coverage",
     "lint": "eslint . --max-warnings 0",
     "verify:generated": "node scripts/verify-build.mjs",
+    "check:fonts": "node scripts/check-font-subset.mjs",
     "check": "npm run build && npm run typecheck && npm run test && npm run lint && npm run verify:generated"
   },
   "devDependencies": {

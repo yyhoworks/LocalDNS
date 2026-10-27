@@ -101,7 +101,7 @@ const versionService = (() => {
             latest = releaseInfo(await fetchJSON(ENDPOINT)); checkedAt = Date.now();
             try { preferences.setItem(cacheKey, JSON.stringify({checkedAt, release: {tag_name: latest.tag,
               assets: latest.assetNames.map(name => ({name}))}})); } catch {}
-          } catch (failure) { error = failure.name === 'AbortError' ? '连接 GitHub 超时。' : failure.message || '无法连接 GitHub。'; }
+          } catch (failure) { error = failure.name === 'AbortError' ? '连接 GitHub 超时。' : failure instanceof TypeError || /Failed to fetch|NetworkError/.test(failure.message || '') ? '无法连接 GitHub，请检查网络后重试。' : failure.message || '无法连接 GitHub。'; }
           finally { checking = false; pending = null; paint(); }
         })();
         return pending;

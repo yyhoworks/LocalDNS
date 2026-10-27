@@ -193,6 +193,7 @@ button:active{transform:translateY(1px)}button:disabled{opacity:.45;cursor:not-a
 @media(max-width:600px){.icon-action-btn{min-width:40px;min-height:44px;padding:9px}}
 @media(max-width:600px){.icon-action-btn svg{width:17px;height:17px}}
 @media(max-width:600px){.seg-item,.glass-btn,.button,.button.small,.icon-button{min-height:44px}}
+@media(max-width:600px){.icon-button{min-width:44px}}
 @media(max-width:600px){.seg-item{padding:8px 10px}}
 @media(max-width:600px){.console-range button{min-height:32px;padding:4px 6px}}
 @media(max-width:600px){.mobile-records td:last-child>button{width:100%}}
