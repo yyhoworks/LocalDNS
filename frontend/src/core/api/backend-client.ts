@@ -158,13 +158,17 @@ export class BackendClient {
           const result = await this.http.request('/api/v1/rule-groups/' + match![1] + '/' + encodeURIComponent(item.name) + '/update', options);
           return { ok: true, name: item.name, result };
         } catch (error) {
-          // A transport failure means the server may still be working; preserve that distinction.
-          if (!(error instanceof ApiError) || ['timeout', 'network', 'invalid-json'].includes(error.code)) throw error;
-          return { ok: false, name: item.name, error };
+          // A-M3: a transport failure used to reject the whole Promise.all,
+          // discarding groups that had already updated. Record it per group
+          // instead, marked transport (the server may still be working), so
+          // the caller can return the partial result {updated, failed, errors}.
+          const transport = !(error instanceof ApiError) || ['timeout', 'network', 'invalid-json'].includes(error.code);
+          return { ok: false, name: item.name, error: error as ApiError, transport };
         }
       }));
       const errors = results.filter(item => !item.ok).map(item => ({ name: item.name,
-        error: item.error!.message, code: (item.error!.body as { code?: string } | null)?.code }));
+        error: item.error!.message, code: (item.error!.body as { code?: string } | null)?.code,
+        transport: item.transport === true }));
       return { updated: results.length - errors.length, failed: errors.length,
         dataset_required: errors.filter(error => error.code === 'dataset_required').length, errors };
     }

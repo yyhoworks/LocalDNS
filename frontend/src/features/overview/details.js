@@ -153,8 +153,12 @@ import { navigate } from '../../core/router/router.js';
   }
 
   function openOutcomeDetail(rows,total,otherOnly=false){
-    const content=`<p class="overview-outcome-note">当前审计保留日志的最终处理结果。主缓存命中不会展开原本的国内或国外去向；占比以本次返回分类的查询总数为基准。</p><div class="overview-outcome-detail-list">${rows.map(row=>`<button type="button" class="overview-outcome-detail-row" data-outcome-filter="${esc(row.key)}"><span><strong>${esc(row.label)}</strong><small class="mono">${esc(row.key||'未分类')}</small></span><span>${num(row.count)} 次<small>${total ? (row.count/total*100).toFixed(1) : '0.0'}%</small></span></button>`).join('')||'<p>暂无分类统计。</p>'}</div>`;
-    openDrawer(otherOnly?'其他处理结果':'全部处理结果',`当前保留日志 · ${rows.length} 类 · ${num(rows.reduce((n,row)=>n+row.count,0))} 次查询`,content);
+    // C-16：抽屉内百分比改按抽屉内合计计算，与抽屉头合计同分母。total
+    // 参数保留兼容调用方，不再用作分母（“其他”抽屉的 rows 只是子集时，
+    // 用全量 total 会使行占比之和远小于 100%，与头部合计口径不一致）。
+    const drawerTotal = (rows||[]).reduce((n,row)=>n+(+row.count||0),0);
+    const content=`<p class="overview-outcome-note">当前审计保留日志的最终处理结果。主缓存命中不会展开原本的国内或国外去向；占比以本抽屉合计为基准。</p><div class="overview-outcome-detail-list">${rows.map(row=>`<button type="button" class="overview-outcome-detail-row" data-outcome-filter="${esc(row.key)}"><span><strong>${esc(row.label)}</strong><small class="mono">${esc(row.key||'未分类')}</small></span><span>${num(row.count)} 次<small>${drawerTotal ? (row.count/drawerTotal*100).toFixed(1) : '0.0'}%</small></span></button>`).join('')||'<p>暂无分类统计。</p>'}</div>`;
+    openDrawer(otherOnly?'其他处理结果':'全部处理结果',`当前保留日志 · ${rows.length} 类 · ${num(drawerTotal)} 次查询`,content);
     $$('#drawer [data-outcome-filter]').forEach(button=>button.onclick=()=>{
       Object.assign(state.logs,{page:1,q:'',exact:false,type:'',set:button.dataset.outcomeFilter,code:'',client:''});
       closeDrawer();navigate('logs');

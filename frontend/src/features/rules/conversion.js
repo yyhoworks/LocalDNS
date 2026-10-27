@@ -13,6 +13,7 @@ export function initialize() {
     return source && typeof source === 'object' && typeof source.name === 'string' ? source : null;
   }
   function message(result) {
+    if (result?.savedButUnrecognized) return '配置已保存，但来源尚未识别';
     const source = updated(result);
     if (!source) return '规则更新完成';
     const parts = [];
@@ -43,7 +44,9 @@ export function initialize() {
     const converted = updated(response);
     // FJGLI confirms a completed update with changed, including an unchanged source,
     // and may omit format/count metadata. Older pending responses still need it.
-    if (!converted || (!converted.detected_format && typeof response.changed !== 'boolean')) throw new Error('配置已保存，但来源尚未识别，请检查订阅地址后重试更新。');
+    // PUT 本身已成功：未识别不再抛错（抛错会让调用方按失败呈现且不刷新列表，
+    // 还会跳过改名后的旧配置清理），改返回标记，由调用方走成功/警告通道并刷新列表。
+    if (!converted || (!converted.detected_format && typeof response.changed !== 'boolean')) return {savedButUnrecognized:true};
     return converted;
   }
   // 改名/换组保存后删除旧配置：失败自动重试一次。两次都失败返回 false，

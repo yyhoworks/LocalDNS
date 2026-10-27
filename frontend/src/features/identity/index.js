@@ -114,7 +114,7 @@ export function initialize() {
     if(saveButton) saveButton.onclick=async()=>{
       if(!ready)return;
       if(loading){show('Logo 正在读取，请稍候。');return;}enable(false);const version=generation;
-      try { const next={name:name(field.value,defaults.name),logo:logo(uploaded||(url?url.value:''))};if(next.logo)await image(next.logo);if(version!==generation)return;const result=await saveSection('localdns',next,revision);current=result.value;revision=result.revision;apply();syncFields();show('已应用到当前浏览器；点击下方“导出共享配置”同步到服务器。'); }
+      try { const next={name:name(field.value,defaults.name),logo:logo(uploaded||(url?url.value:''))};if(next.logo)await image(next.logo);if(version!==generation){show('内容已更改，请重新保存。',true);return;}const result=await saveSection('localdns',next,revision);current=result.value;revision=result.revision;apply();syncFields();show('已应用到当前浏览器；点击下方“导出共享配置”同步到服务器。'); }
       catch(error){show(error.message,true);if(retryButton)retryButton.hidden=false;}finally{enable(ready);}
     };
     if(resetButton) resetButton.onclick=async()=>{

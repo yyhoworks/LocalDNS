@@ -22,6 +22,10 @@ export function toast(message, type='success', detail='') {
       el.addEventListener('mouseenter',pause);el.addEventListener('mouseleave',resume);
       el.addEventListener('focusin',pause);el.addEventListener('focusout',event=>{if(!el.contains(event.relatedTarget))resume()});
     }
+    // A-L2: error toasts never auto-dismiss, so without a cap repeated
+    // failures pile up indefinitely. Keep at most 3 error toasts, dropping
+    // the oldest first; non-error toasts auto-dismiss and are unaffected.
+    if(error){const stack=$('#toast-stack');while(stack.querySelectorAll('.toast.error').length>=3)stack.querySelector('.toast.error')?.remove();}
     $('#toast-stack').appendChild(el);
     void el.offsetWidth; el.classList.remove('toast-enter');
     resume();

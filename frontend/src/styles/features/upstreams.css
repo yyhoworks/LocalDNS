@@ -38,6 +38,11 @@
   color: var(--text-2);
   font-size: 16px;
   cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 44px;
+  min-height: 44px;
 }
 .up-error-reason-row, .up-error-meta-row, .slow-type-popover-row {
   display: flex;

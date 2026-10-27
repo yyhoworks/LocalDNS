@@ -15,7 +15,7 @@ import { groupName } from './groups.js';
     const {config, ecs, groups, rows, degraded} = await readUpstreams(renderScope);
     const model = {config, ecs, groups};
     setHTML(page, `<div class="view-title-row"><div><h1>DNS 管理</h1></div><button type="button" class="glass-btn primary" id="up-add">添加上游节点</button></div><div class="col-12">${workspaceService.upstreams(rows,groups)}</div>`);
-    if(degraded?.metrics||degraded?.ecs){const note=document.createElement('p');note.className='form-note';note.textContent=`部分数据暂不可用：${[degraded.metrics?'上游指标':null,degraded.ecs?'ECS 设置':null].filter(Boolean).join('、')}读取失败，已按空数据展示。`;page.append(note);}
+    if(degraded?.metrics||degraded?.ecs){const note=document.createElement('p');note.className='form-note';note.textContent=`部分数据暂不可用：${[degraded.metrics?'上游指标':null,degraded.ecs?'ECS 设置':null].filter(Boolean).join('、')}读取失败，已按空数据展示。`;const titleRow=page.querySelector('.view-title-row');if(titleRow)titleRow.after(note);else page.append(note);}
     $$('.up-toggle',page).forEach(x=>x.onchange=()=>toggleUpstream(x.closest('tr'),x.checked));
     $$('.up-edit',page).forEach(x=>x.onclick=()=>openUpstreamModal(x.closest('tr')));
     $$('.up-delete',page).forEach(x=>x.onclick=()=>deleteUpstream(x.closest('tr')));
@@ -51,7 +51,10 @@ import { groupName } from './groups.js';
       ${g==='foreign_ecs'?f('u-ecs','ECS',v.ecs,'placeholder="一个 IPv4 或 IPv6，可留空；IPv4 默认 /24，IPv6 默认 /56"'):''}
       ${f('u-timeout','查询超时（ms）',v.timeout,'type="number" min="0"')}`;
     };
-    const readForm=()=>({tag:$('#u-tag').value,protocol:$('#u-protocol').value,addr:$('#u-addr').value,dial:$('#u-dial').value,socks:$('#u-socks')?$('#u-socks').value:'',ecs:$('#u-ecs')?$('#u-ecs').value:(model.ecs||''),timeout:$('#u-timeout').value});
+    // modal 内缓存上次输入的 ECS：切换分组导致 ECS 输入框被移除时，
+    // 下次切回 foreign_ecs 优先用缓存值而非全局 model.ecs，避免丢掉已输入值。
+    let cachedEcs=null;
+    const readForm=()=>{const ecsField=$('#u-ecs');if(ecsField)cachedEcs=ecsField.value;return {tag:$('#u-tag').value,protocol:$('#u-protocol').value,addr:$('#u-addr').value,dial:$('#u-dial').value,socks:$('#u-socks')?$('#u-socks').value:'',ecs:ecsField?ecsField.value:((cachedEcs??model.ecs)||''),timeout:$('#u-timeout').value};};
     const initial={tag:u.tag||'',protocol:u.protocol||'udp',addr:u.addr||u.server_addr||'',dial:u.dial_addr||'',socks:u.socks5||'',ecs:model.ecs||'',timeout:u.upstream_query_timeout||0};
     modalOpen(edit?'编辑上游 DNS':'添加上游 DNS','保存后立即生效',`<div class="grid grid-2">
       <div class="field"><label>所属组</label><select id="u-group" ${edit?'disabled':''}>${groups.map(g=>`<option value="${esc(g)}" ${g===group?'selected':''}>${esc(groupName(g))}</option>`).join('')}</select></div>
@@ -66,7 +69,10 @@ import { groupName } from './groups.js';
       if(hasSocks(g))item.socks5=v.socks.trim();else delete item.socks5;
       const timeout=+v.timeout||0;
       if(timeout>0)item.upstream_query_timeout=timeout;else delete item.upstream_query_timeout;
-      for(const k of ['bootstrap','enable_http3','enable_pipeline','account_id','access_key_id','access_key_secret','server_addr','ecs_client_ip','ecs_client_mask','ecs_mask'])delete item[k];
+      // 编辑时保留原节点未管理字段、只覆盖表单字段：不删下面 10 个字段。
+      // 无论后端是全量替换还是合并写入，提交的都是完整节点，因此两种语义下都安全。
+      // 新增路径保持原样（新节点本无这些字段，删除是空操作，仍执行以防万一）。
+      if(!edit)for(const k of ['bootstrap','enable_http3','enable_pipeline','account_id','access_key_id','access_key_secret','server_addr','ecs_client_ip','ecs_client_mask','ecs_mask'])delete item[k];
       const candidate=(model.config[g]||[]).slice();
       if(edit)candidate[idx]=item;
       else candidate.push(item);

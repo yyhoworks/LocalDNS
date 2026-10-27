@@ -139,6 +139,9 @@ import { setPageLabel, focusPageHeading, markPageHeading } from './page-title.js
       state.silent=false;
       markPageHeading(page);
       viewRestore(snap);
+      // A-L14: clear the silent-refresh minHeight once the silent render has
+      // actually completed, not on a fixed timer that can fire mid-request.
+      if(silent)page.style.minHeight='';
       stopMarking();
       setApiStatus(true);
     } catch(e){
@@ -152,7 +155,6 @@ import { setPageLabel, focusPageHeading, markPageHeading } from './page-title.js
     }
     if(seq!==state.renderSeq)return;
     state.silent=false;
-    if(silent)scope.timeout(()=>{if(seq===state.renderSeq)page.style.minHeight=''},1500);
     if(!silent)restoreScroll();
     if(['logs','overview'].includes(state.route)){scope.interval(()=>{if(document.visibilityState==='visible'&&!busyViewing()&&!(state.route==='logs'&&state.logsPaused))renderRoute(true,true)},CONFIG.refreshInterval*1000)}
   }

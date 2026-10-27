@@ -172,9 +172,9 @@ body[data-console-route="rules"] .rv-handle:active{cursor:grabbing}
 body[data-console-route="rules"] .rv-row.dragging{opacity:.45}
 body[data-console-route="rules"] .rv-row.over{box-shadow:inset 0 2px 0 0 var(--primary)}
 body[data-console-route="rules"] .rv-row.grp.over{box-shadow:none;outline:2px dashed rgba(96,165,250,.6);outline-offset:-2px;background:rgba(37,99,235,.10)}
-body[data-console-route="rules"] .rv-ck{appearance:none;width:16px;height:16px;margin:0;border:1.5px solid rgba(255,255,255,.28);border-radius:5px;background:transparent;cursor:pointer;position:relative}
+body[data-console-route="rules"] .rv-ck{appearance:none;width:24px;height:24px;flex:none;margin:0;border:1.5px solid rgba(255,255,255,.28);border-radius:5px;background:transparent;cursor:pointer;position:relative}
 body[data-console-route="rules"] .rv-ck:checked{background:var(--primary);border-color:transparent}
-body[data-console-route="rules"] .rv-ck:checked::after{content:"";position:absolute;left:4px;top:1px;width:4px;height:8px;border:solid #fff;border-width:0 2px 2px 0;transform:rotate(42deg)}
+body[data-console-route="rules"] .rv-ck:checked::after{content:"";position:absolute;left:7px;top:3px;width:5px;height:11px;border:solid #fff;border-width:0 2px 2px 0;transform:rotate(42deg)}
 body[data-console-route="rules"] .rv-ck-na{display:block;text-align:center;color:var(--text-3);font-size:11px;opacity:.4}
 body[data-console-route="rules"] .rv-type{font-size:11px;color:var(--text-2);background:rgba(255,255,255,.06);border:1px solid var(--border-glass);
   border-radius:6px;padding:2px 6px;text-align:center;white-space:nowrap}
@@ -447,7 +447,7 @@ body[data-console-route="rules"] .wb-no-backup{padding:10px 0 15px}
 @media(max-width:600px){
   body[data-console-route="rules"] .wb-modes{grid-column:3/5;grid-row:2;margin-left:0;justify-content:center}
 }
-@media(max-width:600px){body[data-console-route="rules"] .wb-modes button{flex:1;min-height:34px}
+@media(max-width:600px){body[data-console-route="rules"] .wb-modes button{flex:1;min-width:44px;min-height:44px}
 }
 @media(max-width:600px){
   body[data-console-route="rules"] .rv-toolbar .section-header-actions{grid-column:1/-1;justify-content:space-between;gap:8px}
@@ -460,7 +460,7 @@ body[data-console-route="rules"] .wb-no-backup{padding:10px 0 15px}
 @media(max-width:600px){
   body[data-console-route="rules"] .rv-row .rv-handle{display:none}
 }
-@media(max-width:600px){body[data-console-route="rules"] .rv-row .rv-ck{grid-column:1;grid-row:1;justify-self:center;min-height:18px}
+@media(max-width:600px){body[data-console-route="rules"] .rv-row .rv-ck{grid-column:1;grid-row:1;justify-self:center;min-width:24px;min-height:24px}
 }
 @media(max-width:600px){
   body[data-console-route="rules"] .rv-row .rv-type{grid-column:2;grid-row:1;padding:2px 3px;font-size:10px}
@@ -513,9 +513,10 @@ body[data-console-route="rules"] .wb-no-backup{padding:10px 0 15px}
 }
 @media(max-width:600px){body[data-console-route="rules"] .rv-fields{gap:20px}
 }
-@media(max-width:600px){body[data-console-route="rules"] .rv-inp{height:44px}
+@media(max-width:600px){body[data-console-route="rules"] #rv-sheet .rv-inp{height:44px;font-size:16px}
+@media(max-width:600px){body[data-console-route="rules"] #rv-root .rv-search input{font-size:16px}}
 }
-@media(max-width:600px){body[data-console-route="rules"] .rv-seg button{min-height:40px;font-size:12px;padding:0 11px}
+@media(max-width:600px){body[data-console-route="rules"] .rv-seg button{min-width:44px;min-height:44px;font-size:12px;padding:0 11px}
 }
 @media(max-width:600px){body[data-console-route="rules"] .rv-foot{padding:14px 20px 24px}
 }

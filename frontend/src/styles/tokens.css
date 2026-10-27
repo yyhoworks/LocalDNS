@@ -167,4 +167,4 @@ html[data-skin="claude"][data-theme="light-glass"]{--text-3:#6e675e;--muted:#6e6
   :root { --ui-card-padding:16px; }
 }
 
-:root { --control-compact-height:32px; --control-touch-height:40px; }
+:root { --control-compact-height:32px; --control-touch-height:44px; }

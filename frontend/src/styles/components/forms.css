@@ -60,7 +60,7 @@ input:focus, select:focus, textarea:focus { border-color: var(--primary-light); 
 }
 .settings-refresh-row input { flex: 1; }::selection{background:rgba(59,130,246,.35);color:var(--text-1)}
 button,input,textarea,select{font-family:var(--font-sans)}.cmd-search-left input{min-width:0}.switch input{display:block;position:absolute;width:36px;height:30px;opacity:0;margin:0;cursor:pointer;z-index:1}
-.field label{display:block;margin-bottom:6px}.field input,.field select{width:100%;min-width:0}.field label,.form-note{color:var(--text-2)}
+.field label{display:block}.field input,.field select{width:100%;min-width:0}.field label,.form-note{color:var(--text-2)}
 .console-rule-select{display:none}.rule-textarea{background:var(--glass-bg-strong)}
 @media(max-width:600px){.log-filter-grid input,.log-filter-grid select{min-height:44px}}
 @media(max-width:600px){.console-rule-select{display:block;margin-bottom:16px}}
@@ -199,15 +199,15 @@ body[data-console-route="rules"] .rv-sheet input,body[data-console-route="rules"
   border-radius:8px;
 }
 @media(max-width:600px){
-  .overview-slow-tools select{min-height:44px}
+  .overview-slow-tools select{min-height:44px;font-size:16px}
 }
-@media(max-width:600px){.appearance-panel .bcp-input,.appearance-panel .font-setting select{height:44px}}
 @media(max-width:600px){.proxy-panel-popover input,.proxy-panel-popover .button,.proxy-panel-popover button{min-height:44px}}
 .appearance-tab[aria-selected=true]{background:var(--glass-pill-active);color:var(--text-1);box-shadow:0 2px 5px rgb(0 0 0 / .12)}
 .appearance-panel .appearance-inline .bcp-input{flex:1 1 0;min-width:0;width:0;height:34px;min-height:34px}
 .appearance-panel #btn-select-bg-file{flex:1 1 auto;text-align:center}
 .appearance-panel .appearance-select,.appearance-panel .font-setting{display:grid;grid-template-columns:76px minmax(0,1fr);gap:8px;align-items:center;margin:0;font-size:12px}
 .appearance-panel .appearance-select-fields{display:grid;gap:7px;min-width:0}.appearance-panel .bcp-input,.appearance-panel .font-setting select{width:100%;min-width:0;min-height:34px;height:34px;padding:5px 26px 5px 9px;font:12px var(--font-sans);color:var(--text-1);border:1px solid var(--border-glass);border-radius:8px;background-color:var(--glass-pill);box-sizing:border-box}
+@media(max-width:600px){.appearance-panel .bcp-input,.appearance-panel .font-setting select{height:44px;font-size:16px}}
 .appearance-panel .font-setting select{padding-right:4px}.appearance-panel .appearance-select input{padding-right:9px}
 @media(max-width:600px){.appearance-panel .appearance-inline .bcp-input,.appearance-panel .bcp-input,.appearance-panel .font-setting select{height:40px;min-height:40px}}
 @media(max-width:600px){.appearance-panel .appearance-select,.appearance-panel .font-setting{grid-template-columns:64px minmax(0,1fr);gap:6px}}

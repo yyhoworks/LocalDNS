@@ -46,7 +46,7 @@ import { icon } from '../../shared/components/icons.js';
       const interval=+$('#rq-interval').value||0;
       const days=+$('#rq-days').value||0;
       if(enabled&&interval<=0)throw new Error('启用定时任务时，执行间隔必须大于 0');
-      if(days<1)throw new Error('域名刷新天数必须大于 0');
+      if(enabled&&days<1)throw new Error('域名刷新天数必须大于 0');
       const raw=$('#rq-start').value;
       const payload={enabled,interval_minutes:interval,start_datetime:raw?new Date(raw).toISOString():'',date_range_days:days};
       await api.json('/plugins/requery/scheduler/config','POST',payload);
@@ -74,7 +74,7 @@ import { icon } from '../../shared/components/icons.js';
     return `<div class="table-wrap"><table><thead><tr><th>列表</th><th>条目数</th></tr></thead><tbody>${entries.map(x=>`<tr><td>${esc(x.alias||x.name||x.file||x.path||'未知')}</td><td>${num(x.count??x.rule_count??x.entries??x.value??0)}</td></tr>`).join('')}</tbody></table></div>`;
   }
 
-  async function multiPluginAction(paths,msg){await Promise.all(paths.map(p=>api.request(`/plugins/${p}`)));toast(msg);renderRoute(true)}
+  async function multiPluginAction(paths,msg){const result=await Promise.allSettled(paths.map(p=>api.request(`/plugins/${p}`)));const failed=result.filter(x=>x.status==='rejected').length;failed?toast(`已保存 ${result.length-failed} 项，${failed} 项失败`,'error'):toast(msg);renderRoute(true)}
 
   async function clearShuntData(){
     const warning='确定完全清空自动分流数据？\n\n将清空：\n• 域名全集及 A/AAAA Activity\n• 自动生成的 FakeIP / RealIP / NODATA 分流记忆\n• 刷新分流缓存的历史进度与统计\n\n定时任务设置不会改变。\n清空后将从零重新收集域名并生成分流规则。';
@@ -122,7 +122,7 @@ import { icon } from '../../shared/components/icons.js';
             <div class="service-card-copy">
               <div class="service-card-title-row">
                 <h2>DNS 核心服务</h2>
-                <span class="badge success service-card-badge">● 运行中 · :53</span>
+                <span class="badge service-card-badge">状态未知</span>
               </div>
               <p>平滑重启内核进程，重新加载所有配置与上游连接</p>
             </div>
@@ -142,18 +142,22 @@ import { icon } from '../../shared/components/icons.js';
 
     $('#management-restart-button')?.addEventListener('click', restartService);
     proxyPanelService?.sync();
+    // 服务徽标复用本页已有的 /metrics 健康检查：初始为“状态未知”，
+    // 只有后端成功响应指标时才翻为“运行中”；失败则保持未知，不写死端口。
+    const serviceBadge=page.querySelector('.service-card-badge');
     const switchPromise=Promise.all(tags.map(t=>safe(()=>api.request(`/plugins/${t}/show`),'error'))).then(results=>Object.fromEntries(tags.map((t,i)=>[t,String(results[i]).trim()])));
     const metricsPromise=api.metrics();
+    metricsPromise.then(()=>{if(!isCurrent()||!serviceBadge)return;serviceBadge.classList.add('success');serviceBadge.textContent='● 运行中';},()=>{/* 查不到时保持“状态未知” */});
     const reqStatusPromise=safe(()=>api.request('/plugins/requery/status'),null);
     const reqCfgPromise=safe(()=>api.request('/plugins/requery/scheduler/config'),null);
     const countsPromise=safeResult(()=>api.request('/plugins/requery/stats/source_file_counts'));
 
     switchPromise.then(status=>{
       if(!isCurrent())return;
-      const featureHtml=`<div class="feature-grid management-feature-grid">${switchProfiles.map(p=>`<div class="feature-card management-feature-card"><div><h3>${esc(p.name)}</h3><p>${esc(p.desc)}</p></div><div class="feature-footer"><span class="badge ${status[p.tag]==='A'?'success':''}">${status[p.tag]==='A'?'已启用':'已关闭'}</span><label class="switch"><input data-switch="${p.tag}" type="checkbox" ${status[p.tag]==='A'?'checked':''} ${status[p.tag]==='error'?'disabled':''}><span class="switch-track"><span class="switch-thumb"></span></span></label></div></div>`).join('')}</div>`;
+      const featureHtml=`<div class="feature-grid management-feature-grid">${switchProfiles.map(p=>`<div class="feature-card management-feature-card"><div><h3>${esc(p.name)}</h3><p>${esc(p.desc)}</p></div><div class="feature-footer"><span class="badge ${status[p.tag]==='A'?'success':''}">${status[p.tag]==='A'?'已启用':(status[p.tag]==='error'?'读取失败':'已关闭')}</span><label class="switch"><input data-switch="${p.tag}" type="checkbox" ${status[p.tag]==='A'?'checked':''} ${status[p.tag]==='error'?'disabled':''}><span class="switch-track"><span class="switch-thumb"></span></span></label></div></div>`).join('')}</div>`;
       const featureSlot=$('#management-feature-slot');
       if(featureSlot)setHTML(featureSlot, card('功能开关',featureHtml,{iconName:'features',subtitle:'常用运行功能集中管理',className:'management-feature-panel'}));
-      $$('[data-switch]').forEach(x=>x.onchange=async()=>{try{const tag=x.dataset.switch,val=x.checked?'A':'B';await api.json(`/plugins/${tag}/post`,'POST',{value:val});if(x.checked&&(tag==='switch2'||tag==='switch12')){const other=tag==='switch2'?'switch12':'switch2';await api.json(`/plugins/${other}/post`,'POST',{value:'B'});}toast('功能状态已保存');renderRoute(true)}catch(e){x.checked=!x.checked;toast('切换失败','error',e.message)}});
+      $$('[data-switch]').forEach(x=>x.onchange=async()=>{const tag=x.dataset.switch,val=x.checked?'A':'B';let rollbackNeeded=false;try{await api.json(`/plugins/${tag}/post`,'POST',{value:val});if(x.checked&&(tag==='switch2'||tag==='switch12')){rollbackNeeded=true;const other=tag==='switch2'?'switch12':'switch2';await api.json(`/plugins/${other}/post`,'POST',{value:'B'});}toast('功能状态已保存');renderRoute(true)}catch(e){if(rollbackNeeded){try{await api.json(`/plugins/${tag}/post`,'POST',{value:val==='A'?'B':'A'});}catch{/* 回滚失败时仍用下面的重渲染回读服务端真实状态 */}}toast('切换失败','error',e.message);renderRoute(true)}});
     });
 
     Promise.all([switchPromise,metricsPromise]).then(([status,metricsRaw])=>{
@@ -169,16 +173,16 @@ import { icon } from '../../shared/components/icons.js';
       const slot=$('#management-cache-slot');if(!slot)return;
       setHTML(slot, `<section class="card data-cache-panel"><div class="card-header"><div class="card-title"><span class="icon">${icon('data')}</span><div><h2>缓存管理</h2><p>仅显示当前模式对应的全部缓存与国外缓存，界面更紧凑</p></div></div>${cacheHeaderActions}</div><div class="card-body"><div class="cache-grid data-cache-grid">${cacheCards.join('')}</div></div></section>`);
       $('#cache-clear-all')?.addEventListener('click',async()=>{if(!confirm('确定清空全部 DNS 缓存？将同时清空经典、智能、国内与国外缓存。'))return;const ct=caches.map(c=>c.tag);const result=await Promise.allSettled(ct.map(tag=>api.request(`/plugins/${tag}/flush`)));const failed=result.filter(x=>x.status==='rejected').length;failed?toast(`已清空 ${result.length-failed} 个缓存，${failed} 个失败`,'error'):toast(`全部 ${result.length} 个缓存已清空`);renderRoute(true)});
-      $$('.cache-clear').forEach(x=>x.onclick=async()=>{if(!confirm(`确定清空 ${cacheName(x.dataset.tag)}？`))return;await api.request(`/plugins/${x.dataset.tag}/flush`);toast('缓存已清空');renderRoute(true)});
-      $$('.cache-view').forEach(x=>x.onclick=async()=>{const text=await api.request(`/plugins/${x.dataset.tag}/show`);openDrawer(cacheName(x.dataset.tag),'缓存内容',`<pre>${esc(text)}</pre>`)});
+      $$('.cache-clear').forEach(x=>x.onclick=async()=>{if(!confirm(`确定清空 ${cacheName(x.dataset.tag)}？`))return;try{await api.request(`/plugins/${x.dataset.tag}/flush`);toast('缓存已清空');renderRoute(true)}catch(e){toast('清空缓存失败','error',e.message);renderRoute(true)}});
+      $$('.cache-view').forEach(x=>x.onclick=async()=>{try{const text=await api.request(`/plugins/${x.dataset.tag}/show`);openDrawer(cacheName(x.dataset.tag),'缓存内容',`<pre>${esc(text)}</pre>`)}catch(e){toast('查看缓存内容失败','error',e.message)}});
     }).catch(e=>{if(isCurrent()&&$('#management-cache-slot'))setHTML($('#management-cache-slot'), card('缓存管理',`<div class="error-panel">加载失败：${esc(e.message)}</div>`,{iconName:'data',className:'data-cache-panel'}));});
 
     Promise.all([reqStatusPromise,reqCfgPromise]).then(([reqStatus,reqCfg])=>{
       if(!isCurrent())return;
       const slot=$('#management-requery-slot');if(!slot)return;
       const rq=requeryHtml(reqStatus,reqCfg);setHTML(slot, card('刷新分流缓存',rq.body,{iconName:'refresh',subtitle:'重新扫描域名并更新自动生成的分流列表',actions:rq.actions,className:'data-requery-card'}));
-      $('#requery-trigger')?.addEventListener('click',async()=>{await api.request('/plugins/requery/trigger',{method:'POST'});toast('刷新任务已开始');renderRoute(true)});
-      $('#requery-cancel')?.addEventListener('click',async()=>{await api.request('/plugins/requery/cancel',{method:'POST'});toast('已请求取消');renderRoute(true)});
+      $('#requery-trigger')?.addEventListener('click',async()=>{try{await api.request('/plugins/requery/trigger',{method:'POST'});toast('刷新任务已开始');renderRoute(true)}catch(e){toast('刷新任务开始失败','error',e.message);renderRoute(true)}});
+      $('#requery-cancel')?.addEventListener('click',async()=>{try{await api.request('/plugins/requery/cancel',{method:'POST'});toast('已请求取消');renderRoute(true)}catch(e){toast('取消刷新任务失败','error',e.message);renderRoute(true)}});
       $('#requery-scheduler')?.addEventListener('click',()=>openRequeryScheduler(reqCfg));
     });
 
@@ -193,6 +197,6 @@ import { icon } from '../../shared/components/icons.js';
     });
   }
 
-  async function restartService(){if(!confirm(`确定重启 ${identityService?.getName()||'LocalDNS'}？短时间内 DNS 服务会中断。`))return;const scope=currentScope();await api.json('/api/v1/system/restart','POST',{delay_ms:500});if(scope.signal.aborted)return;toast((identityService?.getName()||'LocalDNS')+' 正在重启');scope.timeout(()=>renderRoute(true),4000);}
+  async function restartService(){if(!confirm(`确定重启 ${identityService?.getName()||'LocalDNS'}？短时间内 DNS 服务会中断。`))return;const scope=currentScope();try{await api.json('/api/v1/system/restart','POST',{delay_ms:500});}catch(e){if(scope.signal.aborted)return;toast('重启服务失败','error',e.message);renderRoute(true);return;}if(scope.signal.aborted)return;toast((identityService?.getName()||'LocalDNS')+' 正在重启');scope.timeout(()=>renderRoute(true),4000);}
 
 export { cacheName, requeryHtml, openRequeryScheduler, countsHtml, multiPluginAction, clearShuntData, switchProfiles, renderManagement, restartService };

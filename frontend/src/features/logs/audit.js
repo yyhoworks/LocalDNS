@@ -104,11 +104,14 @@ export async function openAuditModal() {
     });
   };
   $('#audit-storage-retry')?.addEventListener('click', () => { modalClose(); openAuditModal(); });
-  $('#modal-audit-toggle').onclick = event => perform(event.currentTarget, '更新中…', async () => {
+  $('#modal-audit-toggle').onclick = event => {
+    if (status.capturing && !confirm('确定关闭审计？关闭期间新的查询日志将不再记录，直至重新开启。')) return;
+    return perform(event.currentTarget, '更新中…', async () => {
     await api.request(`/api/v1/audit/${status.capturing ? 'stop' : 'start'}`, { method: 'POST' });
     if (!active()) return;
     toast('审计状态已更新'); modalClose(); renderRoute(true);
-  });
+    });
+  };
   $('#modal-audit-clear').onclick = event => {
     if (!confirm('确定清空所有查询日志？此操作无法撤销。')) return;
     return perform(event.currentTarget, '清空中…', async () => {

@@ -71,11 +71,12 @@ if(!approved&&rulesWorkbenchService?.canLeave(()=>renderRuleTab(tab,true))===fal
       $$('[data-rule-tag]').forEach(x=>x.onclick=()=>{const go=()=>{state.ruleTag=x.dataset.ruleTag;renderListRules(body)};if(rulesWorkbenchService?.canLeave(go)!==false)go();});$('#rule-retry').onclick=()=>renderListRules(body);requestAnimationFrame(fitRuleLayoutHeight);return;
     }
     const trimmed=String(text).trim();
-    setHTML(body, `<section class="card"><div class="rule-layout">${menu}<div class="rule-editor"><div class="section-header"><div><h2>${profile[1]}</h2><p>一行一条；完整读取后才允许保存</p></div><div class="section-header-actions"><button class="button small" id="rule-download">${icon('download')}下载列表</button><button class="button primary" id="rule-save">${icon('save')}保存</button></div></div><textarea id="rule-text" class="rule-textarea" spellcheck="false">${esc(trimmed)}</textarea><div class="rule-editor-footer"><span id="rule-lines">共 ${trimmed?trimmed.split('\n').length:0} 行</span></div></div></div></section>`);
+    setHTML(body, `<section class="card"><div class="rule-layout">${menu}<div class="rule-editor"><div class="section-header"><div><h2>${profile[1]}</h2><p>一行一条；完整读取后才允许保存</p></div><div class="section-header-actions"><button class="button small" id="rule-download">${icon('download')}下载列表</button><button class="button primary" id="rule-save">${icon('save')}保存</button></div></div><textarea id="rule-text" class="rule-textarea" spellcheck="false">${esc(trimmed)}</textarea><div class="rule-editor-footer"><span id="rule-lines">共 ${trimmed?trimmed.split('\n').filter(line=>line.trim()).length:0} 行</span></div></div></div></section>`);
     $$('[data-rule-tag]').forEach(x=>x.onclick=()=>{const go=()=>{state.ruleTag=x.dataset.ruleTag;renderListRules(body)};if(rulesWorkbenchService?.canLeave(go)!==false)go();});
-    $('#rule-text').oninput=()=>$('#rule-lines').textContent=`共 ${$('#rule-text').value.split('\n').filter(Boolean).length} 行`;
+    $('#rule-text').oninput=()=>$('#rule-lines').textContent=`共 ${$('#rule-text').value.split('\n').filter(line=>line.trim()).length} 行`;
     $('#rule-save').onclick=async()=>{
       const button=$('#rule-save'),text=$('#rule-text'),value=text.value,baseline=text.dataset.original;
+      if(!value.trim()&&!window.confirm('确定要清空这份名单吗？'))return;
       button.disabled=true;
       try{
         await ruleSaveService.save(tag,value,baseline,()=>api.request(`/plugins/${tag}/show?all=1`),values=>api.json(`/plugins/${tag}/post`,'POST',{values}));
@@ -112,7 +113,8 @@ if(!approved&&rulesWorkbenchService?.canLeave(()=>renderRuleTab(tab,true))===fal
   function openAdguardModal(rule,body){
     rule=rule||{name:'',url:'',files:'',enabled:true,auto_update:true,update_interval_hours:24};
     modalOpen(rule.id?'编辑广告规则':'添加广告规则','支持 AdGuard DNS 过滤规则；订阅下载与合并由内核完成。',`<div class="stack"><div class="field"><label>名称</label><input id="ad-name" value="${esc(rule.name)}"></div><div class="field"><label>订阅地址</label><input id="ad-url" value="${esc(rule.url)}" placeholder="https://example.com/adblock.txt"></div><div class="field"><label>源缓存文件（可选）</label><input id="ad-files" value="${esc(rule.files||'')}" placeholder="留空时从 URL 自动生成"><p class="form-note">统一保存到 rules/online/adguard/，后缀固定为 .txt；留空时从 URL 路径提取文件名，query/fragment 不会写入文件名。</p></div><div class="grid grid-2"><label class="switch"><input id="ad-enabled" type="checkbox" ${rule.enabled?'checked':''}><span class="switch-track"><span class="switch-thumb"></span></span><span class="switch-label">启用</span></label><label class="switch"><input id="ad-auto" type="checkbox" ${rule.auto_update?'checked':''}><span class="switch-track"><span class="switch-thumb"></span></span><span class="switch-label">自动更新</span></label></div><div class="field"><label>更新间隔（小时）</label><input id="ad-hours" type="number" min="1" value="${rule.update_interval_hours||24}"></div></div>`,async()=>{
-      const payload={name:$('#ad-name').value.trim(),url:$('#ad-url').value.trim(),files:$('#ad-files').value.trim(),enabled:$('#ad-enabled').checked,auto_update:$('#ad-auto').checked,update_interval_hours:+$('#ad-hours').value||24};
+      const hours=normalizeUpdateHours($('#ad-hours').value);if(hours.note)toast(hours.note,'info');
+      const payload={name:$('#ad-name').value.trim(),url:$('#ad-url').value.trim(),files:$('#ad-files').value.trim(),enabled:$('#ad-enabled').checked,auto_update:$('#ad-auto').checked,update_interval_hours:hours.hours};
       if(!payload.name||!payload.url)throw new Error('名称和地址不能为空');
       if(rule.rule_count!==undefined)payload.rule_count=rule.rule_count;
       if(rule.last_updated)payload.last_updated=rule.last_updated;
@@ -136,13 +138,21 @@ if(!approved&&rulesWorkbenchService?.canLeave(()=>renderRuleTab(tab,true))===fal
 
   const diversionFormatLabel=r=>ruleConversionService.label(r);
 
+  // 更新间隔：非法（空 / 非数字）回落 24，负数与 0 钳制为最小 1；note 为空表示无需提示。
+  function normalizeUpdateHours(raw){
+    const n=Number(raw);
+    if(raw===''||raw===null||raw===undefined||!Number.isFinite(n))return {hours:24,note:'更新间隔无效，已恢复为 24 小时'};
+    if(n<1)return {hours:1,note:'更新间隔不能小于 1 小时，已调整为 1 小时'};
+    return {hours:n,note:null};
+  }
+
   function diversionPayload(rule){
     const target=diversionDefByType(rule.type);
     const payload={
       name:String(rule.name||'').trim(), type:String(rule.type||'').trim(),
       files:String(rule.files||'').trim(), url:String(rule.url||'').trim(),
       dataset:String(rule.dataset||'').trim(),
-      auto_update:Boolean(rule.auto_update), update_interval_hours:+rule.update_interval_hours||24,
+      auto_update:Boolean(rule.auto_update), update_interval_hours:normalizeUpdateHours(rule.update_interval_hours).hours,
       enabled:rule.enabled!==false
     };
     if(target&&target.domainRules!==false)payload.enable_regexp=true;
@@ -165,6 +175,15 @@ if(!approved&&rulesWorkbenchService?.canLeave(()=>renderRuleTab(tab,true))===fal
   async function saveDiversionRule(rule,original=null,options={}){
     const target=diversionDefByType(rule.type);if(!target)throw new Error('请选择有效的规则类型');
     const payload=diversionPayload(ruleConversionService.withMetadata(rule,original));if(!payload.name)throw new Error('名称不能为空');if(!payload.url)throw new Error('订阅地址不能为空');
+    // 改名前重名拦截：比对目标组内已有名称（排除自身原名），只做前端拦截，不动后端行为。
+    try{
+      const existing=await api.request(`/plugins/${target.tag}/config`);
+      const clash=Array.isArray(existing)&&existing.some(item=>String(item?.name||'')===payload.name&&!(original&&original.tag===target.tag&&String(original.name||'')===payload.name));
+      if(clash)throw new Error('该名称已存在');
+    }catch(e){
+      if(e.message==='该名称已存在')throw e;
+      // 组列表读不到时不拦截保存（PUT 本身仍是事实来源），避免一次读失败拖垮正常保存。
+    }
     const response=await api.json(`/plugins/${target.tag}/config/${encodeURIComponent(payload.name)}`,'PUT',payload);
     const saved=await ruleConversionService.finishSave(response,()=>updateRule(`/plugins/${target.tag}/update/${encodeURIComponent(payload.name)}`),options);
     if(original&&(original.tag!==target.tag||original.name!==payload.name)){
@@ -187,7 +206,8 @@ if(!approved&&rulesWorkbenchService?.canLeave(()=>renderRuleTab(tab,true))===fal
       if(!dataset)throw new Error(typed?'请填写 AS 号':'请选择数据集');
       const saved=await saveDiversionRule({...rule,dataset},original);
       workspaceService.clearRuleDraft(original);
-      toast('识别与转换完成','success',ruleConversionService.message(saved));
+      if(saved&&saved.savedButUnrecognized)toast('配置已保存，但来源尚未识别','warning','请检查订阅地址后重试更新。');
+      else toast('识别与转换完成','success',ruleConversionService.message(saved));
       await renderDiversion(body);
     });
   }
@@ -270,9 +290,15 @@ if(!approved&&rulesWorkbenchService?.canLeave(()=>renderRuleTab(tab,true))===fal
           }
           completed+=item.kind==='batch'?Number(item.data?.updated||0):item.count;
           if(item.kind==='batch'){
-            failed+=Number(item.data?.failed||0);
+            // 部分结果里的 transport 失败（传输失败、结果未知）不再计为失败：
+            // 计入 uncertain，走已有的“结果待确认”toast 分支；data.failed 若已含
+            // 这些项则相应扣减，避免同一条规则在失败与待确认中重复计数。
+            const batchErrors=Array.isArray(item.data?.errors)?item.data.errors:[];
+            const transportErrors=batchErrors.filter(e=>e?.transport===true);
+            failed+=Math.max(0,Number(item.data?.failed||0)-transportErrors.length);
+            uncertain+=transportErrors.length;
             datasetNeeded+=Number(item.data?.dataset_required||0);
-            if(Array.isArray(item.data?.errors))details.push(...item.data.errors.map(e=>`${e.name}：${e.error}`));
+            details.push(...batchErrors.map(e=>e?.transport===true?`${e.name}：未收到更新结果，服务器可能仍在处理，请稍后刷新查看更新时间`:`${e.name}：${e.error}`));
           }
         });
         const detailText=details.join('；');
@@ -293,7 +319,7 @@ if(!approved&&rulesWorkbenchService?.canLeave(()=>renderRuleTab(tab,true))===fal
     const original=rule?{...rule}:null;
     rule=rule||{name:'',type:'custom_cn',url:'',files:'',enabled:true,dataset:'',auto_update:true,update_interval_hours:24};
     rule.dataset=String(rule.dataset||'');
-    modalOpen(original?'编辑在线分流规则':'添加在线分流规则','远程规则由后端按内容自动识别，并统一转换为 SRS；无需手工选择源格式或匹配方式。',`<div class="stack"><div class="grid grid-2"><div class="field"><label>名称</label><input id="div-name" value="${esc(rule.name)}" placeholder="例如：direct_tld_cn"></div><div class="field"><label>规则类型</label><select id="div-type">${diversionDefs.map(d=>`<option value="${d.type}" ${d.type===rule.type?'selected':''}>${esc(d.label)}</option>`).join('')}</select></div></div><div class="field"><label>订阅地址</label><input id="div-url" value="${esc(rule.url||'')}" placeholder="https://example.com/rules"></div><div class="field"><label>源缓存文件（可选）</label><input id="div-files" value="${esc(rule.files||'')}" placeholder="留空时自动生成"><p class="form-note">每个订阅源下载后统一转换为 SRS，存放在 rules/online/规则组/；同组来源合并去重后生成 rules/compiled/规则组.srs，运行时只加载这个文件。</p></div><div class="grid grid-2"><label class="switch"><input id="div-enabled" type="checkbox" ${rule.enabled!==false?'checked':''}><span class="switch-track"><span class="switch-thumb"></span></span><span class="switch-label">启用</span></label><label class="switch"><input id="div-auto" type="checkbox" ${rule.auto_update?'checked':''}><span class="switch-track"><span class="switch-thumb"></span></span><span class="switch-label">自动更新</span></label></div><div class="field"><label>更新间隔（小时）</label><input id="div-hours" type="number" min="1" value="${rule.update_interval_hours||24}"></div><p class="form-note">支持的来源按内容自动识别；只有多数据集 DAT 才会在更新时要求选择一次数据集。所有成功识别的来源最终统一转换为 SRS 后加载。</p></div>`,async()=>{const payload={name:$('#div-name').value.trim(),type:$('#div-type').value,url:$('#div-url').value.trim(),files:$('#div-files').value.trim(),dataset:rule.dataset,enabled:$('#div-enabled').checked,auto_update:$('#div-auto').checked,update_interval_hours:+$('#div-hours').value||24};let saved;try{saved=await saveDiversionRule(payload,original);}catch(err){if(err.body?.code==='dataset_required'&&Array.isArray(err.body.datasets)){return ()=>openDiversionDatasetPrompt({...payload,tag:payload.type},err.body.datasets,body,original);}throw err;}workspaceService.clearRuleDraft(original);toast('保存与转换完成','success',ruleConversionService.message(saved));await renderDiversion(body);});
+    modalOpen(original?'编辑在线分流规则':'添加在线分流规则','远程规则由后端按内容自动识别，并统一转换为 SRS；无需手工选择源格式或匹配方式。',`<div class="stack"><div class="grid grid-2"><div class="field"><label>名称</label><input id="div-name" value="${esc(rule.name)}" placeholder="例如：direct_tld_cn"></div><div class="field"><label>规则类型</label><select id="div-type">${diversionDefs.map(d=>`<option value="${d.type}" ${d.type===rule.type?'selected':''}>${esc(d.label)}</option>`).join('')}</select></div></div><div class="field"><label>订阅地址</label><input id="div-url" value="${esc(rule.url||'')}" placeholder="https://example.com/rules"></div><div class="field"><label>源缓存文件（可选）</label><input id="div-files" value="${esc(rule.files||'')}" placeholder="留空时自动生成"><p class="form-note">每个订阅源下载后统一转换为 SRS，存放在 rules/online/规则组/；同组来源合并去重后生成 rules/compiled/规则组.srs，运行时只加载这个文件。</p></div><div class="grid grid-2"><label class="switch"><input id="div-enabled" type="checkbox" ${rule.enabled!==false?'checked':''}><span class="switch-track"><span class="switch-thumb"></span></span><span class="switch-label">启用</span></label><label class="switch"><input id="div-auto" type="checkbox" ${rule.auto_update?'checked':''}><span class="switch-track"><span class="switch-thumb"></span></span><span class="switch-label">自动更新</span></label></div><div class="field"><label>更新间隔（小时）</label><input id="div-hours" type="number" min="1" value="${rule.update_interval_hours||24}"></div><p class="form-note">支持的来源按内容自动识别；只有多数据集 DAT 才会在更新时要求选择一次数据集。所有成功识别的来源最终统一转换为 SRS 后加载。</p></div>`,async()=>{const hours=normalizeUpdateHours($('#div-hours').value);if(hours.note)toast(hours.note,'info');const payload={name:$('#div-name').value.trim(),type:$('#div-type').value,url:$('#div-url').value.trim(),files:$('#div-files').value.trim(),dataset:rule.dataset,enabled:$('#div-enabled').checked,auto_update:$('#div-auto').checked,update_interval_hours:hours.hours};let saved;try{saved=await saveDiversionRule(payload,original);}catch(err){if(err.body?.code==='dataset_required'&&Array.isArray(err.body.datasets)){return ()=>openDiversionDatasetPrompt({...payload,tag:payload.type},err.body.datasets,body,original);}throw err;}workspaceService.clearRuleDraft(original);if(saved&&saved.savedButUnrecognized)toast('配置已保存，但来源尚未识别','warning','请检查订阅地址后重试更新。');else toast('保存与转换完成','success',ruleConversionService.message(saved));await renderDiversion(body);});
     workspaceService.trackRuleDraft(original);
   }
 export { ruleProfiles, renderRules, renderRuleTab, renderListRules, renderAdguard, updateAdguard, openAdguardModal, diversionDefs, diversionDefByTag, diversionDefByType, diversionFormatLabel, diversionPayload, saveDiversionRule, openDiversionDatasetPrompt, updateDiversionRule, renderDiversion, openDiversionModal };

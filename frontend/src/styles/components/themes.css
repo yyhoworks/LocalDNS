@@ -32,6 +32,8 @@ html[data-theme=light-glass] .navbar-content .cmd-search-bar,html[data-theme=lig
 @media(prefers-reduced-transparency:reduce){html[data-theme=light-glass] .navbar-surface{background:rgb(250,252,255)}}
 html[data-theme=light-glass] .service-metric,html[data-theme=light-glass] .console-service-summary .console-kpi .spark-kpi-card{background:rgba(255,255,255,.24)}
 @media(prefers-reduced-transparency:reduce){html[data-theme=light-glass] .console-service-summary{background:rgb(250,252,255)}}
+html[data-theme=light-glass] *{scrollbar-color:rgba(15,23,42,.35) transparent}
+html[data-theme=light-glass] .kbd-tag,html[data-theme=light-glass] .navbar-content .kbd-tag{background:var(--glass-pill)}
 html[data-brand-ver-mode="hidden"] .brand-ver { display: none; }
 html[data-theme="light-glass"] .bcp-group-title::after {
   background: linear-gradient(90deg, rgba(15, 23, 42, 0.14), rgba(15, 23, 42, 0));

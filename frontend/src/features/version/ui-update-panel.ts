@@ -25,10 +25,11 @@ export function createUIUpdatePanel(container: HTMLElement) {
   const message = get('.version-update-result'), progress = get('.version-update-progress');
   let client: UIUpdateClient | undefined, available = false, busy = false, reading = false, error = '';
   let installed: InstalledUI | null = null, latest: UIRelease | null = null;
+  let connectionState: 'idle' | 'not-enabled' | 'failed' = 'idle';
   let task: UIUpdateStatus = { state: 'idle', canRollback: false }, timer: ReturnType<typeof setTimeout> | undefined;
   const running = () => task.state === 'queued' || task.state === 'running';
   const currentUI = () => installed && task.installedVersion ? { ...installed, uiVersion: task.installedVersion } : installed;
-  const describe = (failure: unknown) => failure instanceof Error ? failure.message : '连接失败，请重试。';
+  const describe = (failure: unknown) => failure instanceof Error && (failure.name === 'TypeError' || /Failed to fetch|NetworkError/.test(failure.message)) ? '连接失败，请重试。' : failure instanceof Error ? failure.message : '连接失败，请重试。';
 
   function paint() {
     const target = upgradeTarget(currentUI(), latest);
@@ -44,7 +45,10 @@ export function createUIUpdatePanel(container: HTMLElement) {
     retry.textContent = available ? '刷新状态' : '重试连接';
     help.hidden = available;
     connection.textContent = available ? '已连接，升级任务由服务器执行。'
-      : busy ? '正在连接服务器升级入口…' : '此服务器尚未启用网页升级。完成一次安装后即可在这里操作。';
+      : busy ? '正在连接服务器升级入口…'
+      : connectionState === 'not-enabled' ? '此服务器尚未启用网页升级。完成一次安装后即可在这里操作。'
+      : connectionState === 'failed' ? '连接失败，请重试。'
+      : '正在连接服务器升级入口…';
     get('[data-update-target]').textContent = needsRefresh
       ? `当前页面 UI 为 ${installed?.uiVersion || '旧版'}；刷新后使用服务器上的 ${task.installedVersion}。`
       : target.reason;
@@ -77,7 +81,9 @@ export function createUIUpdatePanel(container: HTMLElement) {
       task = await client.status(); available = true;
     } catch (failure) {
       available = false;
-      error = failure instanceof ApiError && failure.status === 404 ? '' : describe(failure);
+      const notFound = failure instanceof ApiError && failure.status === 404;
+      connectionState = notFound ? 'not-enabled' : 'failed';
+      error = notFound ? '' : describe(failure);
     } finally { busy = false; paint(); schedule(); }
   }
   async function execute(restore: boolean) {
