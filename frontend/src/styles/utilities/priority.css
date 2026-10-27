@@ -248,3 +248,8 @@ html:not([data-skin=claude]) [data-appearance-skin=claude]{display:none!importan
 @media(max-width:600px) {
   .collection-surface[data-collection-layout=cards] .workspace-log-table.mobile-records td { padding:0!important; border:0!important; }
 }
+
+/* ≤600px 下外观面板输入框字号 16px。放在最后的 overrides 层，因而无需 !important 也能压过
+   features 层的全局 input 规则（forms.css 的 input:not(...)）与同选择器 12px 基线；
+   .font-setting select 已由 forms.css 里移到基线之后的同文件规则覆盖，这里只补 .bcp-input。 */
+@media(max-width:600px){.appearance-panel .bcp-input{font-size:16px}}

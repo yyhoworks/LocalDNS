@@ -513,8 +513,8 @@ body[data-console-route="rules"] .wb-no-backup{padding:10px 0 15px}
 }
 @media(max-width:600px){body[data-console-route="rules"] .rv-fields{gap:20px}
 }
-@media(max-width:600px){body[data-console-route="rules"] .rv-inp{height:44px;font-size:16px}
-@media(max-width:600px){body[data-console-route="rules"] .rv-search input{font-size:16px}}
+@media(max-width:600px){body[data-console-route="rules"] #rv-sheet .rv-inp{height:44px;font-size:16px}
+@media(max-width:600px){body[data-console-route="rules"] #rv-root .rv-search input{font-size:16px}}
 }
 @media(max-width:600px){body[data-console-route="rules"] .rv-seg button{min-width:44px;min-height:44px;font-size:12px;padding:0 11px}
 }

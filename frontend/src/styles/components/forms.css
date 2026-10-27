@@ -201,13 +201,13 @@ body[data-console-route="rules"] .rv-sheet input,body[data-console-route="rules"
 @media(max-width:600px){
   .overview-slow-tools select{min-height:44px;font-size:16px}
 }
-@media(max-width:600px){.appearance-panel .bcp-input,.appearance-panel .font-setting select{height:44px;font-size:16px}}
 @media(max-width:600px){.proxy-panel-popover input,.proxy-panel-popover .button,.proxy-panel-popover button{min-height:44px}}
 .appearance-tab[aria-selected=true]{background:var(--glass-pill-active);color:var(--text-1);box-shadow:0 2px 5px rgb(0 0 0 / .12)}
 .appearance-panel .appearance-inline .bcp-input{flex:1 1 0;min-width:0;width:0;height:34px;min-height:34px}
 .appearance-panel #btn-select-bg-file{flex:1 1 auto;text-align:center}
 .appearance-panel .appearance-select,.appearance-panel .font-setting{display:grid;grid-template-columns:76px minmax(0,1fr);gap:8px;align-items:center;margin:0;font-size:12px}
 .appearance-panel .appearance-select-fields{display:grid;gap:7px;min-width:0}.appearance-panel .bcp-input,.appearance-panel .font-setting select{width:100%;min-width:0;min-height:34px;height:34px;padding:5px 26px 5px 9px;font:12px var(--font-sans);color:var(--text-1);border:1px solid var(--border-glass);border-radius:8px;background-color:var(--glass-pill);box-sizing:border-box}
+@media(max-width:600px){.appearance-panel .bcp-input,.appearance-panel .font-setting select{height:44px;font-size:16px}}
 .appearance-panel .font-setting select{padding-right:4px}.appearance-panel .appearance-select input{padding-right:9px}
 @media(max-width:600px){.appearance-panel .appearance-inline .bcp-input,.appearance-panel .bcp-input,.appearance-panel .font-setting select{height:40px;min-height:40px}}
 @media(max-width:600px){.appearance-panel .appearance-select,.appearance-panel .font-setting{grid-template-columns:64px minmax(0,1fr);gap:6px}}
