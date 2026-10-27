@@ -6,9 +6,9 @@
 
 **DNS 核心主要由折腾日记交流群里的 R 大使用 Rust 编写；[yyhoworks](https://github.com/yyhoworks) 负责 UI 设计。**
 
-当前版本：**[后端 FJGOE / UI 2026.10.26.1](https://github.com/yyhoworks/LocalDNS/releases/tag/fjgoe-ui-v2026.10.26.1)**，提供完整包、UI 升级包和 SHA-256 校验文件，见 [本次更新说明](docs/releases/fjgoe-ui-v2026.10.26.1.md)。
+当前版本：**[后端 FJGOE / UI 2026.10.27.1](https://github.com/yyhoworks/LocalDNS/releases/tag/fjgoe-ui-v2026.10.27.1)**，提供完整包、UI 升级包和 SHA-256 校验文件，见 [本次更新说明](docs/releases/fjgoe-ui-v2026.10.27.1.md)。
 
-本次更新（UI 2026.10.26.1，后端仍为 **FJGOE**）为纯界面改进：移除未使用的 Chart.js，提高玻璃面板对比度下限，静默刷新保留焦点，统一焦点环，错误通知常驻并在切换页面时聚焦标题、更新浏览器标题。已安装 FJGOE 的设备只需 UI 升级包，无需重启 DNS 内核。FJGOE 内核本身支持自适应多核 CPU 与 `amd64-v2` 二进制；从旧核心跨核心升级可按 [完整更新指南](docs/FJGLI_UPGRADE.md) 备份并恢复上游、手工规则、客户端别名与订阅配置。
+本次更新（UI 2026.10.27.1，后端仍为 **FJGOE**）修复 UI 审查发现的 53 项问题：编辑上游 DNS 节点保留全部未管理凭证与高级字段，修复规则工作台注释识别与在线规则重名/未识别处理，加固概览页分流切换竞态与未知态展示，重生成完整汉字字体子集，优化移动端输入字号与触控体验，并新增后台连接状态心跳。已安装 FJGOE 的设备只需 UI 升级包或网页一键升级，无需重启 DNS 内核。FJGOE 内核本身支持自适应多核 CPU 与 `amd64-v2` 二进制；从旧核心跨核心升级可按 [完整更新指南](docs/FJGLI_UPGRADE.md) 备份并恢复上游、手工规则、客户端别名与订阅配置。
 
 [产品图集](docs/SCREENSHOTS.md) · [功能指南](docs/FEATURES.md) · [安装说明](INSTALL.md) · [下载 Releases](https://github.com/yyhoworks/LocalDNS/releases) · [作者与分工](AUTHORS.md) · [开发说明](docs/DEVELOPMENT.md) · [近期更新](CHANGELOG.md)
 
@@ -148,7 +148,7 @@ curl -fsSL https://raw.githubusercontent.com/yyhoworks/LocalDNS/main/tools/insta
 
 ## 手动安装
 
-1. 在 [Releases](https://github.com/yyhoworks/LocalDNS/releases/tag/fjgoe-ui-v2026.10.26.1) 下载完整包或 UI 升级包，并核对同页的 `SHA256SUMS.txt`。**从旧核心升级 FJGOE 请使用完整包和迁移工具，先备份并保留原设置；UI 升级包只更新界面。**
+1. 在 [Releases](https://github.com/yyhoworks/LocalDNS/releases/tag/fjgoe-ui-v2026.10.27.1) 下载完整包或 UI 升级包，并核对同页的 `SHA256SUMS.txt`。**从旧核心升级 FJGOE 请使用完整包和迁移工具，先备份并保留原设置；UI 升级包只更新界面。**
 2. 已有 LocalDNS 服务时，解压 UI 升级包并运行：
 
    ```sh

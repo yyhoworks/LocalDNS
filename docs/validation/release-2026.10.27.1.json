@@ -1,0 +1,30 @@
+{
+  "schema": 1,
+  "version": {
+    "product": "LocalDNS",
+    "uiVersion": "2026.10.27.1",
+    "backendVersion": "FJGOE",
+    "releaseTag": "fjgoe-ui-v2026.10.27.1",
+    "channel": "stable",
+    "builtAt": "Tue 2026-10-27 02:25 PM CST (UTC+08:00)"
+  },
+  "frontendTests": 144,
+  "pythonToolsTests": 57,
+  "packageUiTests": 15,
+  "packages": {
+    "LocalDNS_FJGOE_UI_2026.10.27.1_Full.zip": {
+      "sha256": "9bb41aa7f5d0e0e033b4ed543a20bbed34344335cf11d052da90a4ef90b10c48",
+      "bytes": 18102621
+    },
+    "LocalDNS_UI_2026.10.27.1_Update.zip": {
+      "sha256": "f8c785ee589acf4db25813da813c844ca7b8cf539628b5e7a6f5676e06fa439e",
+      "bytes": 2105607
+    }
+  },
+  "fullBase": {
+    "archive": "LocalDNS_FJGOE_UI_2026.10.23.3_Full.zip",
+    "sha256": "5cd80d84594f59cbfa2d1877b8712f80988714d8e6e33326edfdda91e1b4c710"
+  },
+  "backendBinariesUnchanged": true,
+  "productionCoreRestarted": false
+}
