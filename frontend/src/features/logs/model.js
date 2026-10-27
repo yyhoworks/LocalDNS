@@ -6,7 +6,7 @@ export function logViewModel(record, aliases = {}) {
   return {
     record,
     time: fmtDate(record.query_time),
-    mobileTime: new Date(record.query_time).toLocaleTimeString('zh-CN', { hour12: false }),
+    mobileTime: (()=>{if(!record.query_time)return '—';const d=new Date(record.query_time);if(Number.isNaN(d.getTime())||d.getUTCFullYear()<=1)return '—';return d.toLocaleTimeString('zh-CN', { hour12: false });})(),
     domain: String(record.query_name || ''), type, queryType: String(record.query_type || ''),
     shortType: ({ AAAA:'6', A:'A', CNAME:'C', PTR:'P', HTTPS:'H', TXT:'T', MX:'M', NS:'N', SRV:'S' })[type] || type[0] || '?',
     blocked: /黑|BAN|BLOCK|拒绝|拦截/i.test(String(record.domain_set || '')),

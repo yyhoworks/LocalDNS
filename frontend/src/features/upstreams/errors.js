@@ -33,7 +33,7 @@ import { api } from '../../core/api/api.js';
   function upstreamErrorTime(ts){
     if(!ts)return'';
     const d=new Date(Number(ts)*1000); if(Number.isNaN(d.getTime()))return'';
-    return d.toLocaleString('zh-CN',{hour12:false,month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',second:'2-digit'});
+    return d.toLocaleString('zh-CN',{hour12:false,year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',second:'2-digit'});
   }
 
   function closeUpstreamErrorPopover(){

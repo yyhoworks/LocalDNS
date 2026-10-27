@@ -27,7 +27,7 @@ import { openDrawer } from '../../shared/components/drawer.js';
     const data=await readLogs(p,clientAliases,renderScope);
     const rows=data.rows,filters=data.filters;
     const topPager = `<div class="logs-top-pagination">${paginationHtml(data.pagination)}</div>`;
-    const choices=(items,selected)=>[...new Set([...(items||[]),selected].filter(Boolean))].sort();
+    const choices=(items,selected)=>[...new Set([...(items||[]),selected].filter(Boolean))].sort((a,b)=>String(a).localeCompare(String(b),'zh-CN'));
     const options=(items,value,label)=>`<option value="">${label}</option>${choices(items,value).map(v=>`<option value="${esc(v)}" ${v===value?'selected':''}>${esc(v)}</option>`).join('')}`;
     setHTML(page, `<div class="view-title-row"><div><h1>查询日志</h1></div><div class="workspace-actions"><button type="button" class="glass-btn" id="log-pause" aria-pressed="${!!state.logsPaused}">${state.logsPaused?'继续刷新':'暂停刷新'}</button><button type="button" class="glass-btn" id="audit-control">审计控制</button><button type="button" class="glass-btn" id="alias-control">客户端管理</button></div></div>
     ${card('查询与过滤',`<div class="log-filter-bar"><div class="lf-search"><span class="search-icon">${icon('search')}</span><input id="log-q" value="${esc(p.q)}" placeholder="域名、IP、响应值" aria-label="搜索查询"></div><select id="log-type" aria-label="请求类型">${options(filters.query_types,p.type,'全部类型')}</select><select id="log-set" aria-label="分流结果">${options(filters.domain_sets,p.set,'全部分流')}</select><button type="button" class="lf-more" id="lf-more" aria-expanded="${!!(p.code||p.client||p.exact)}" aria-controls="log-filter-more">更多筛选</button><button type="button" class="lf-reset" id="lf-reset">重置</button><button type="button" class="button primary" id="log-search">查询</button></div><div class="log-filter-more" id="log-filter-more" ${p.code||p.client||p.exact?'':'hidden'}><div class="field"><label for="log-code">响应码</label><select id="log-code">${options(filters.response_codes,p.code,'全部响应码')}</select></div><div class="field"><label for="log-client">客户端</label><input id="log-client" value="${esc(p.client)}" placeholder="客户端 IP"></div><label class="switch"><input id="log-exact" type="checkbox" ${p.exact?'checked':''}><span class="switch-track"><span class="switch-thumb"></span></span><span class="switch-label">精确匹配</span></label></div>${workspaceService.logTools(p)}`,{iconName:'logs'})}
@@ -38,13 +38,14 @@ import { openDrawer } from '../../shared/components/drawer.js';
     $('#lf-reset').onclick=()=>{Object.assign(p,{page:1,q:'',type:'',set:'',code:'',client:'',exact:false});renderRoute(true);};
     $$('.log-detail',page).forEach(b=>b.onclick=()=>openLogPath(JSON.parse(b.closest('tr').dataset.log)));
     $$('.pagination button[data-page]',page).forEach(b=>b.onclick=()=>{p.page=+b.dataset.page;renderRoute(true);});
+    $$('.pagination-jump-input',page).forEach(inp=>{const go=()=>{const v=Math.max(1,Math.min(+inp.max||1,Math.floor(+inp.value)||p.page));if(v!==p.page){p.page=v;renderRoute(true);}else inp.value=p.page;};inp.onkeydown=e=>{if(e.key==='Enter')go();};inp.onchange=go;});
     $('#audit-control').onclick=openAuditModal;$('#alias-control').onclick=openAliasModal;
     workspaceService.bindLogs(page,data.records);
   }
 
   function openLogPath(record){openDrawer('解析路径',record.query_name,logDetailHtml(record));queryPathService.bind($('#drawer-content'),record,clientAliases);}
 
-  function paginationHtml(p){if(!p||p.total_pages<=1)return'';const cur=p.current_page,total=p.total_pages;let arr=[];for(let i=Math.max(1,cur-2);i<=Math.min(total,cur+2);i++)arr.push(i);return `<div class="pagination"><button data-page="${cur-1}" ${cur<=1?'disabled':''}>‹</button>${arr.map(i=>`<button data-page="${i}" class="${i===cur?'active':''}">${i}</button>`).join('')}<button data-page="${cur+1}" ${cur>=total?'disabled':''}>›</button></div>`;}
+  function paginationHtml(p){if(!p||p.total_pages<=1)return'';const cur=p.current_page,total=p.total_pages;let arr=[];for(let i=Math.max(1,cur-2);i<=Math.min(total,cur+2);i++)arr.push(i);return `<div class="pagination"><button data-page="1" ${cur<=1?'disabled':''}>首页</button><button data-page="${cur-1}" ${cur<=1?'disabled':''}>‹</button>${arr.map(i=>`<button data-page="${i}" class="${i===cur?'active':''}">${i}</button>`).join('')}<button data-page="${cur+1}" ${cur>=total?'disabled':''}>›</button><button data-page="${total}" ${cur>=total?'disabled':''}>末页</button><label class="pagination-jump">跳至<input class="pagination-jump-input" type="number" min="1" max="${total}" value="${cur}" aria-label="跳至页码">页</label></div>`;}
 
   function logDetailHtml(record){return queryPathService.html(record,clientAliases);}
 export { logBadge, logRow, renderLogs, openLogPath, paginationHtml, logDetailHtml };
