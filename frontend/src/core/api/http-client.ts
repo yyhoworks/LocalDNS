@@ -49,8 +49,12 @@ export class HttpClient {
       const body: unknown = response.status === 204 ? null : /(?:application\/json|\+json)/i.test(response.headers.get('content-type') || '')
         ? await response.json() : await response.text();
       if (!response.ok) {
+        // A gateway/proxy HTML error page carries no usable message; showing
+        // its full source in a non-auto-dismissing error toast fills the
+        // screen (A-M2). Fall back to the status line for HTML-like bodies.
+        const looksLikeHtml = typeof body === 'string' && (/^\s*</.test(body) || /<html/i.test(body));
         const message = body && typeof body === 'object' && 'error' in body ? String(body.error)
-          : typeof body === 'string' && body ? body : `HTTP ${response.status}`;
+          : typeof body === 'string' && body && !looksLikeHtml ? body : `HTTP ${response.status}`;
         throw new ApiError(message, response.status, body);
       }
       return body;

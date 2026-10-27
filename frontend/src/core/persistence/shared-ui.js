@@ -38,7 +38,7 @@ export function initialize() {
       if(new Set(fonts.map(f=>f.id)).size!==fonts.length||fonts.reduce((sum,f)=>sum+f.size,0)>134217728)throw new Error('共享字体数量或容量无效');
       config={version:1,localdns:value.localdns||defaults.localdns,proxy:value.proxy||defaults.proxy,typography:value.typography||defaults.typography,fonts};
       return config;
-    }catch(failure){const f=/** @type {any} */ (failure);error=f.name==='AbortError'?'服务器共享配置读取超时':f.message;return config;}
+    }catch(failure){const f=/** @type {any} */ (failure);error=f.name==='AbortError'?'服务器共享配置读取超时':(f instanceof SyntaxError||f.name==='SyntaxError')?'共享配置格式无效，已使用默认值':f.message;return config;}
     finally{clearTimeout(timer);}
   })();
   /** @param {keyof typeof keys} name */
