@@ -132,6 +132,7 @@ describe('backend compatibility', () => {
       if (path === '/api/v1/rule-groups/geosite_cn') return [{ name: 'first', url: 'https://example.com' }];
       return base(path, options);
     });
-    await expect(client.request('/plugins/geosite_cn/update-all', { method: 'POST' })).rejects.toMatchObject({ code: 'timeout' });
+    // A-M3: transport failures return partial results instead of rejecting.
+    await expect(client.request('/plugins/geosite_cn/update-all', { method: 'POST' })).resolves.toMatchObject({ updated: 0, failed: 1, dataset_required: 0, errors: [{ name: 'first', error: 'Pending', transport: true }] });
   });
 });

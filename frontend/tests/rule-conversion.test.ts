@@ -23,10 +23,11 @@ describe('subscription save completion', () => {
     expect(await ruleConversionService.finishSave(pending, async () => ({ source: pending, changed: false }))).toBe(pending);
   });
 
-  it('keeps legacy pending and malformed responses as failures', async () => {
+  it('returns saved-but-unrecognized marker for pending and malformed responses', async () => {
     for (const response of [{ name: 'pending' }, { changed: false }, { name: 'pending', changed: 'false' }]) {
-      await expect(ruleConversionService.finishSave({ name: 'pending' }, async () => response)).rejects.toThrow('尚未识别');
+      await expect(ruleConversionService.finishSave({ name: 'pending' }, async () => response)).resolves.toEqual({ savedButUnrecognized: true });
     }
+    expect(ruleConversionService.message({ savedButUnrecognized: true })).toBe('配置已保存，但来源尚未识别');
   });
 
   it('propagates dataset and network failures once', async () => {
