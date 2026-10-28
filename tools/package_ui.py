@@ -256,14 +256,14 @@ def main():
             if kernel_digest != args.kernel_sha256.lower():
                 raise ValueError('Upstream kernel archive SHA-256 mismatch')
             backend = version['backendVersion']
-            if not re.fullmatch(r'FJG[A-Z0-9]+', backend):
+            if not re.fullmatch(r'FJ[A-Z][A-Z0-9]+', backend):
                 raise ValueError('Invalid kernel version')
             kernel_prefix = f'LocalDNS_{backend}_Binaries/'
             with ZipFile(args.kernel_archive) as archive:
                 kernels = read_kernel_bundle(archive, backend)
                 if args.runtime_template:
-                    if backend not in ('FJGLI', 'FJGOE'):
-                        raise ValueError('The new runtime template currently supports FJGLI/FJGOE only')
+                    if backend not in ('FJGLI', 'FJGOE', 'FJH21'):
+                        raise ValueError('The new runtime template currently supports FJGLI/FJGOE/FJH21 only')
                     template = read_runtime_template(archive)
                     full = {name: data for name, data in full.items() if not name.startswith('localdns/')}
                     full.update(template)
