@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { ApiError } from '../src/core/api/api-error';
-import { auditDirectory, readAuditStorage } from '../src/features/logs/audit-settings';
+import { auditDirectory, auditStorage, readAuditStorage } from '../src/features/logs/audit-settings';
 
 const mocks = vi.hoisted(() => ({
   request: vi.fn(), json: vi.fn(), status: vi.fn(), capacity: vi.fn(),
@@ -92,6 +92,11 @@ describe('audit directory dialog', () => {
     expect(mocks.json).toHaveBeenLastCalledWith('/api/v1/audit/settings', 'POST', { dir: 'logs' });
     expect(field().value).toBe('logs');
   });
+  it('accepts an optional persist flag and rejects a malformed one', () => {
+    expect(auditStorage({ ...initial, persist: false }).persist).toBe(false);
+    expect(auditStorage({ ...initial }).persist).toBeUndefined();
+    expect(() => auditStorage({ ...initial, persist: 'yes' })).toThrow(/存盘/);
+  });
   it('keeps capacity and audit controls available when storage reads fail', async () => {
     mocks.request.mockRejectedValueOnce(new ApiError('timeout', 0));
     await openAuditModal();
@@ -99,5 +104,42 @@ describe('audit directory dialog', () => {
     expect(document.querySelector('#audit-cap-save')).not.toBeNull();
     expect(document.querySelector('#modal-audit-toggle')).not.toBeNull();
     expect(document.querySelector('#audit-dir-save')).toBeNull();
+  });
+});
+
+describe('audit persist switch', () => {
+  const toggle = () => document.querySelector<HTMLInputElement>('#audit-persist')!;
+  const flip = (checked: boolean) => { toggle().checked = checked; toggle().dispatchEvent(new Event('change')); };
+
+  it('hides the switch on cores that do not report persist', async () => {
+    await openAuditModal();
+    expect(document.querySelector('#audit-persist')).toBeNull();
+    expect(document.querySelector('#audit-persist-help')).toBeNull();
+  });
+
+  it('mirrors the kernel value and posts the new one', async () => {
+    mocks.request.mockResolvedValue({ ...initial, persist: true });
+    await openAuditModal();
+    expect(toggle().checked).toBe(true);
+    mocks.json.mockResolvedValueOnce({ ...initial, persist: false });
+    flip(false);
+    await settle();
+    expect(mocks.json).toHaveBeenLastCalledWith('/api/v1/audit/settings', 'POST', { persist: false });
+    expect(toggle().checked).toBe(false);
+    expect(document.querySelector('#audit-settings-feedback')!.textContent).toContain('已关闭记录存盘');
+    expect(document.querySelector('#modal')!.hasAttribute('open')).toBe(true);
+  });
+
+  it('reverts the checkbox and keeps the dialog open when the kernel rejects the change', async () => {
+    mocks.request.mockResolvedValue({ ...initial, persist: false });
+    await openAuditModal();
+    expect(toggle().checked).toBe(false);
+    mocks.json.mockRejectedValueOnce(new ApiError('存盘不可用', 400));
+    flip(true);
+    await settle();
+    expect(toggle().checked).toBe(false);
+    expect(document.querySelector('[role="alert"]')!.textContent).toContain('存盘不可用');
+    expect(document.querySelector('#modal')!.hasAttribute('open')).toBe(true);
+    expect(mocks.render).not.toHaveBeenCalled();
   });
 });

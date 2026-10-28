@@ -14,6 +14,29 @@
 .cache-stat span { font-size: 11px; color: var(--text-3); }
 .cache-stat strong { font-family: var(--font-mono); font-size: 13px; color: var(--text-1); }
 
+.cache-limit-editor { display: grid; gap: 14px; }
+.cache-limit-editor p { margin: 0; }
+.cache-limit-table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+.cache-limit-table th, .cache-limit-table td { padding: 8px; text-align: left; vertical-align: middle; border-bottom: 1px solid var(--border-glass); }
+.cache-limit-table thead th { color: var(--text-3); font-size: 11px; font-weight: 600; white-space: nowrap; }
+.cache-limit-table thead th .cache-limit-unit { display: block; margin-top: 2px; }
+.cache-limit-table tbody th { color: var(--text-1); font-weight: 500; white-space: nowrap; }
+.cache-limit-table tbody tr:last-child th, .cache-limit-table tbody tr:last-child td { border-bottom: 0; }
+.cache-limit-table .cache-limit-key { display: block; margin-top: 2px; font-family: var(--font-mono); font-size: 10.5px; color: var(--text-3); }
+.cache-limit-table .cache-limit-pending { margin-top: 4px; }
+.cache-limit-table td input { width: 100%; min-width: 84px; }
+.cache-limit-unit { color: var(--text-3); font-size: 11px; font-weight: 400; }
+@media(max-width:600px){
+  .cache-limit-table thead { display: none; }
+  .cache-limit-table, .cache-limit-table tbody, .cache-limit-table tr, .cache-limit-table th, .cache-limit-table td { display: block; width: 100%; }
+  .cache-limit-table tr { padding: 10px 0; border-bottom: 1px solid var(--border-glass); }
+  .cache-limit-table tr:last-child { border-bottom: 0; }
+  .cache-limit-table tbody th, .cache-limit-table tbody tr:last-child th { padding: 0 0 6px; border: 0; }
+  .cache-limit-table td, .cache-limit-table tbody tr:last-child td { display: grid; grid-template-columns: minmax(0, 1fr) 132px; align-items: center; gap: 10px; padding: 4px 0; border: 0; }
+  .cache-limit-table td::before { content: attr(data-label); color: var(--text-2); font-size: 12px; }
+  .cache-limit-table td input { min-height: 44px; }
+}
+
 .management-bottom {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));

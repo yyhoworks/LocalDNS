@@ -26,9 +26,13 @@ export async function openAuditModal() {
     return;
   }
   if (scope.signal.aborted) return;
-  modalOpen('审计控制', '管理 DNS 查询日志的记录状态、容量与存放位置', `
+  const persistAvailable = !!storage && typeof storage.persist === 'boolean';
+  modalOpen('审计控制', '管理 DNS 查询日志的记录状态、容量、存盘与存放位置', `
     <div class="audit-settings">
       <div class="kv-list"><div class="kv-row"><span class="kv-key">当前状态</span><span class="kv-value"><span class="badge ${status.capturing ? 'success' : 'danger'}">${status.capturing ? '运行中' : '已停止'}</span></span></div></div>
+      ${persistAvailable ? `<div class="audit-persist-field">
+        <label class="switch audit-persist-switch" for="audit-persist"><input id="audit-persist" type="checkbox" ${storage.persist ? 'checked' : ''}><span class="switch-track"><span class="switch-thumb"></span></span><span class="switch-label">记录存盘 <span class="settings-compact-note">把查询记录压缩写入磁盘目录</span></span></label>
+        <p class="form-note" id="audit-persist-help">关闭时只保留内存中的最新记录，磁盘占用保持 0。切换立即生效并写入 <code>config/settings/querylog.json</code>：关闭记为 <code>persist: false</code>，开启是默认值、文件中会省略该键，重启后按文件恢复。</p></div>` : ''}
       <div class="field"><label for="audit-cap">日志容量 <span class="settings-compact-note">最多保留的查询记录数</span></label>
         <div class="settings-refresh-row audit-settings-row"><input id="audit-cap" type="number" min="100" max="1000000" step="1" required value="${capacity.capacity}"><button type="button" class="button primary" id="audit-cap-save">保存容量</button></div></div>
       ${storage ? `<div class="field"><label for="audit-dir">日志存储位置</label>
@@ -85,6 +89,31 @@ export async function openAuditModal() {
       }
       if (active()) message('日志容量已保存。');
     });
+  };
+  if (persistAvailable) $('#audit-persist').onchange = async event => {
+    const input = event.currentTarget;
+    const next = input.checked;
+    const controls = $$('button, input', $('#modal-content'));
+    const states = controls.map(control => control.disabled);
+    controls.forEach(control => { control.disabled = true; });
+    feedback.hidden = true;
+    try {
+      const result = await api.json('/api/v1/audit/settings', 'POST', { persist: next });
+      if (!active()) return;
+      let updated = null;
+      try { updated = auditStorage(result); }
+      catch { message(next ? '服务器已开启存盘，但返回信息无效。请重新打开审计控制确认。' : '服务器已关闭存盘，但返回信息无效。请重新打开审计控制确认。', true); return; }
+      storage = updated;
+      input.checked = storage.persist === true;
+      refreshOnClose = true;
+      message(storage.persist ? '已开启记录存盘，查询记录会压缩写入磁盘目录。' : '已关闭记录存盘，只保留内存中的最新记录。');
+    } catch (error) {
+      if (!active()) return;
+      input.checked = !next;
+      message(error.message, true);
+    } finally {
+      controls.forEach((control, i) => { control.disabled = states[i]; });
+    }
   };
   if (storage) $('#audit-dir-save').onclick = event => {
     let directory;

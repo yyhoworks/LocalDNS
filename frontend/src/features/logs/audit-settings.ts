@@ -8,6 +8,8 @@ export interface AuditStorage {
   entries: number;
   memory_bytes: number;
   disk_bytes: number;
+  /** FJH1Z and later expose the runtime disk-writing switch. */
+  persist?: boolean;
 }
 
 export function auditDirectory(value: string): string {
@@ -32,6 +34,11 @@ export function auditStorage(value: unknown): AuditStorage {
     if (typeof data[key] !== 'number' || !Number.isFinite(data[key]) || Number(data[key]) < 0) {
       throw new ApiError('日志存储统计格式无效。', 0, null, 'contract');
     }
+  }
+  // Older cores omit `persist` entirely; only reject a present-but-wrong value
+  // so the switch is hidden instead of the whole dialog failing.
+  if (data.persist !== undefined && typeof data.persist !== 'boolean') {
+    throw new ApiError('日志存盘状态格式无效。', 0, null, 'contract');
   }
   return data as unknown as AuditStorage;
 }

@@ -15,6 +15,7 @@ import { safe, safeResult } from '../../shared/async.js';
 import { parseProm } from '../../shared/metrics/prometheus.ts';
 import { parseCaches } from '../overview/model.js';
 import { icon } from '../../shared/components/icons.js';
+import { cacheLimitInputSelector, cacheLimitsForm, cacheSettings, readCacheLimits, readCacheSettings } from './cache-settings';
 
   const cacheName=t=>({cache_main:'全部缓存',cache_domestic:'国内缓存',cache_foreign:'国外缓存',cache_foreign_ecs:'国外 ECS 缓存'})[t]||t;
 
@@ -52,6 +53,21 @@ import { icon } from '../../shared/components/icons.js';
       await api.json('/plugins/requery/scheduler/config','POST',payload);
       toast('定时任务配置已更新');
       renderRoute(true);
+    });
+  }
+
+  function openCacheSettings(settings){
+    modalOpen('缓存参数','调整各缓存池的记录上限、过期保留时间与写盘间隔',cacheLimitsForm(settings,{cacheName,esc,num}),async()=>{
+      const payload=readCacheLimits(settings,(key,field)=>{
+        const input=$('#modal-content')?.querySelector(cacheLimitInputSelector(key,field));
+        if(!input)throw new Error('缓存参数表单缺失，请重新打开后再保存。');
+        return input.value;
+      });
+      let result;
+      try{result=await api.json('/api/v1/cache/limits','POST',payload);}
+      catch(error){if(error&&error.status===400)throw new Error('内核拒绝了这组参数，请确认数值在允许范围内后重试。',{cause:error});throw error;}
+      let next=null;try{next=cacheSettings(result)}catch{/* 保存已成功，仅按当前设置刷新页面 */}
+      return ()=>{toast(next&&next.restart_needed?'缓存参数已保存，重启内核后生效':'缓存参数已保存');renderRoute(true)};
     });
   }
 
@@ -147,6 +163,7 @@ import { icon } from '../../shared/components/icons.js';
     const serviceBadge=page.querySelector('.service-card-badge');
     const switchPromise=Promise.all(tags.map(t=>safe(()=>api.request(`/plugins/${t}/show`),'error'))).then(results=>Object.fromEntries(tags.map((t,i)=>[t,String(results[i]).trim()])));
     const metricsPromise=api.metrics();
+    const cacheSettingsPromise=safeResult(()=>readCacheSettings(path=>api.request(path)));
     metricsPromise.then(()=>{if(!isCurrent()||!serviceBadge)return;serviceBadge.classList.add('success');serviceBadge.textContent='● 运行中';},()=>{/* 查不到时保持“状态未知” */});
     const reqStatusPromise=safe(()=>api.request('/plugins/requery/status'),null);
     const reqCfgPromise=safe(()=>api.request('/plugins/requery/scheduler/config'),null);
@@ -160,8 +177,9 @@ import { icon } from '../../shared/components/icons.js';
       $$('[data-switch]').forEach(x=>x.onchange=async()=>{const tag=x.dataset.switch,val=x.checked?'A':'B';let rollbackNeeded=false;try{await api.json(`/plugins/${tag}/post`,'POST',{value:val});if(x.checked&&(tag==='switch2'||tag==='switch12')){rollbackNeeded=true;const other=tag==='switch2'?'switch12':'switch2';await api.json(`/plugins/${other}/post`,'POST',{value:'B'});}toast('功能状态已保存');renderRoute(true)}catch(e){if(rollbackNeeded){try{await api.json(`/plugins/${tag}/post`,'POST',{value:val==='A'?'B':'A'});}catch{/* 回滚失败时仍用下面的重渲染回读服务端真实状态 */}}toast('切换失败','error',e.message);renderRoute(true)}});
     });
 
-    Promise.all([switchPromise,metricsPromise]).then(([status,metricsRaw])=>{
+    Promise.all([switchPromise,metricsPromise,cacheSettingsPromise]).then(([status,metricsRaw,cacheSettingsResult])=>{
       if(!isCurrent())return;
+      const cacheLimits=cacheSettingsResult.ok?cacheSettingsResult.data:null;
       const metrics=parseProm(metricsRaw),caches=parseCaches(metrics);
       const cacheEnabled=String(status.switch13||'').trim().toUpperCase()==='A';
       const activeCacheTag='cache_main';
@@ -169,12 +187,15 @@ import { icon } from '../../shared/components/icons.js';
       const visibleCacheTags=[activeCacheTag,'cache_domestic','cache_foreign',activeForeignTag];
       const visibleCaches=visibleCacheTags.map(tag=>caches.find(c=>c.tag===tag)).filter(Boolean);
       const cacheCards=visibleCaches.map(c=>`<div class="cache-card cache-card-compact"><div class="cache-card-head"><h3 title="${esc(cacheName(c.tag))}">${cacheName(c.tag)}</h3><div class="cache-card-actions"><button class="button small cache-view" data-tag="${c.tag}">查看</button><button class="button small danger cache-clear" data-tag="${c.tag}">清空</button></div></div><div class="cache-stats cache-stats-flat"><div class="cache-stat" title="完整数值：${num(c.q)}"><span>请求总数</span><strong>${num(c.q)}</strong></div><div class="cache-stat" title="完整数值：${num(c.size)}"><span>条目数</span><strong>${num(c.size)}</strong></div><div class="cache-stat" title="完整数值：${pct(c.hit)}"><span>命中率</span><strong>${compactPct(c.hit)}</strong></div><div class="cache-stat" title="完整数值：${pct(c.lazy)}"><span>过期命中</span><strong>${compactPct(c.lazy)}</strong></div></div></div>`);
-      const cacheHeaderActions=`<div class="cache-header-actions"><span class="badge success cache-active-badge">${activeCacheLabel} · ${cacheEnabled?'当前使用':'当前模式'}</span><span class="badge ${cacheEnabled?'success':'danger'}">● 核心缓存${cacheEnabled?'已开启':'已关闭'}</span><button class="button small danger" id="cache-clear-all">全部清空</button></div>`;
+      const cachePending=cacheLimits&&cacheLimits.restart_needed?'<span class="badge pink" title="缓存参数已保存，重启内核后生效">● 参数待重启</span>':'';
+      const cacheSettingsButton=cacheLimits?'<button class="button small" id="cache-settings">缓存参数</button>':'';
+      const cacheHeaderActions=`<div class="cache-header-actions"><span class="badge success cache-active-badge">${activeCacheLabel} · ${cacheEnabled?'当前使用':'当前模式'}</span><span class="badge ${cacheEnabled?'success':'danger'}">● 核心缓存${cacheEnabled?'已开启':'已关闭'}</span>${cachePending}${cacheSettingsButton}<button class="button small danger" id="cache-clear-all">全部清空</button></div>`;
       const slot=$('#management-cache-slot');if(!slot)return;
       setHTML(slot, `<section class="card data-cache-panel"><div class="card-header"><div class="card-title"><span class="icon">${icon('data')}</span><div><h2>缓存管理</h2><p>仅显示当前模式对应的全部缓存与国外缓存，界面更紧凑</p></div></div>${cacheHeaderActions}</div><div class="card-body"><div class="cache-grid data-cache-grid">${cacheCards.join('')}</div></div></section>`);
       $('#cache-clear-all')?.addEventListener('click',async()=>{if(!confirm('确定清空全部 DNS 缓存？将同时清空经典、智能、国内与国外缓存。'))return;const ct=caches.map(c=>c.tag);const result=await Promise.allSettled(ct.map(tag=>api.request(`/plugins/${tag}/flush`)));const failed=result.filter(x=>x.status==='rejected').length;failed?toast(`已清空 ${result.length-failed} 个缓存，${failed} 个失败`,'error'):toast(`全部 ${result.length} 个缓存已清空`);renderRoute(true)});
       $$('.cache-clear').forEach(x=>x.onclick=async()=>{if(!confirm(`确定清空 ${cacheName(x.dataset.tag)}？`))return;try{await api.request(`/plugins/${x.dataset.tag}/flush`);toast('缓存已清空');renderRoute(true)}catch(e){toast('清空缓存失败','error',e.message);renderRoute(true)}});
       $$('.cache-view').forEach(x=>x.onclick=async()=>{try{const text=await api.request(`/plugins/${x.dataset.tag}/show`);openDrawer(cacheName(x.dataset.tag),'缓存内容',`<pre>${esc(text)}</pre>`)}catch(e){toast('查看缓存内容失败','error',e.message)}});
+      $('#cache-settings')?.addEventListener('click',()=>openCacheSettings(cacheLimits));
     }).catch(e=>{if(isCurrent()&&$('#management-cache-slot'))setHTML($('#management-cache-slot'), card('缓存管理',`<div class="error-panel">加载失败：${esc(e.message)}</div>`,{iconName:'data',className:'data-cache-panel'}));});
 
     Promise.all([reqStatusPromise,reqCfgPromise]).then(([reqStatus,reqCfg])=>{

@@ -6,9 +6,11 @@
 
 **DNS 核心主要由折腾日记交流群里的 R 大使用 Rust 编写；[yyhoworks](https://github.com/yyhoworks) 负责 UI 设计。**
 
-当前版本：**[后端 FJGOE / UI 2026.10.28.1](https://github.com/yyhoworks/LocalDNS/releases/tag/fjgoe-ui-v2026.10.28.1)**，提供完整包、UI 升级包和 SHA-256 校验文件，见 [本次更新说明](docs/releases/fjgoe-ui-v2026.10.28.1.md)。
+当前版本：**后端 FJH21 / UI 2026.10.28.2**（发行标签 `fjh21-ui-v2026.10.28.2`），见 [本次更新说明](docs/releases/fjh21-ui-v2026.10.28.2.md)。
 
-本次更新（UI 2026.10.28.1，后端仍为 **FJGOE**）为纯界面改进：侧边栏底部状态区由一行三列改为上下两行，重启内核按钮独占一行满宽，名字与面板地址不再被截断，超长地址换行显示；折叠态图标按钮与顶部导航不受影响。已安装 FJGOE 的设备只需 UI 升级包或网页一键升级，无需重启 DNS 内核。FJGOE 内核本身支持自适应多核 CPU 与 `amd64-v2` 二进制；从旧核心跨核心升级可按 [完整更新指南](docs/FJGLI_UPGRADE.md) 备份并恢复上游、手工规则、客户端别名与订阅配置。
+本次更新接入新内核 **FJH21**，并把内核新增的两组设置接进界面：**查询日志存盘开关**（默认不存盘，只保留内存记录）与**缓存参数**（按缓存池设置最大记录数、过期保留时间与写盘间隔）。界面按内核返回的 `limits` 校验范围，用 `running` 与 `restart_needed` 标记「待重启」；缺少 `limits` 或 `persist` 的旧内核不显示对应控件。这是跨内核升级，需要完整包替换运行目录并按 [更新指南](docs/FJGLI_UPGRADE.md) 备份恢复上游、手工规则、客户端别名与订阅配置；缓存与学习类列表重新积累。
+
+上一版（UI 2026.10.28.1，后端 FJGOE）把侧边栏底部状态区改为上下两行，重启内核按钮独占一行满宽，名字与面板地址不再被截断，说明见 [2026.10.28.1 更新记录](docs/releases/fjgoe-ui-v2026.10.28.1.md)；更早的 [2026.10.27.1](docs/releases/fjgoe-ui-v2026.10.27.1.md) 修复 UI 审查发现的 53 项问题。
 
 [产品图集](docs/SCREENSHOTS.md) · [功能指南](docs/FEATURES.md) · [安装说明](INSTALL.md) · [下载 Releases](https://github.com/yyhoworks/LocalDNS/releases) · [作者与分工](AUTHORS.md) · [开发说明](docs/DEVELOPMENT.md) · [近期更新](CHANGELOG.md)
 
@@ -148,7 +150,7 @@ curl -fsSL https://raw.githubusercontent.com/yyhoworks/LocalDNS/main/tools/insta
 
 ## 手动安装
 
-1. 在 [Releases](https://github.com/yyhoworks/LocalDNS/releases/tag/fjgoe-ui-v2026.10.28.1) 下载完整包或 UI 升级包，并核对同页的 `SHA256SUMS.txt`。**从旧核心升级 FJGOE 请使用完整包和迁移工具，先备份并保留原设置；UI 升级包只更新界面。**
+1. 在 [Releases](https://github.com/yyhoworks/LocalDNS/releases/tag/fjh21-ui-v2026.10.28.2) 下载完整包或 UI 升级包，并核对同页的 `SHA256SUMS.txt`。**从旧核心升级 FJH21 请使用完整包和迁移工具，先备份并保留原设置；UI 升级包只更新界面。**
 2. 已有 LocalDNS 服务时，解压 UI 升级包并运行：
 
    ```sh

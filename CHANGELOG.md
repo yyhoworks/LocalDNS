@@ -1,5 +1,14 @@
 # LocalDNS 更新记录
 
+## FJH21 / UI 2026.10.28.2 · 新内核与日志存盘 / 缓存参数
+
+- **升级内核 FJH21**：来源为 `LocalDNS_FJH21.zip`，包内 `localdns/bin/localdns` 与 `LocalDNS_FJH21_Binaries/localdns-amd64-v3` 为同一份程序（SHA-256 `d251c4fb…a86596`）。先前误发的 `LocalDNS_FJH1Z.zip` 运行目录内也是同一份 `FJH21` 程序，只有其 `LocalDNS_FJH1Z_Binaries/` 是较旧且缺少缓存参数接口的 `FJH1Z`，因此部署结果一致。
+- **查询日志存盘开关**：「查询日志 → 审计控制」新增「记录存盘」开关，对应 `/api/v1/querylog/settings` 的 `persist`。关闭时只保留内存记录、磁盘占用为 0；新装默认不存盘。切换立即生效，重启后按 `config/settings/querylog.json` 恢复。
+- **缓存参数编辑**：「系统管理 → 缓存管理」新增「缓存参数」，按缓存池分别设置最大记录数、过期保留（小时）与写盘间隔（分钟），保存走 `POST /api/v1/cache/limits`；界面读取内核 `limits` 做范围校验，并用 `running` 标记「待重启」、用 `restart_needed` 显示「参数待重启」徽章。
+- **旧内核不显示新控件**：缺少 `limits` 或 `persist` 时对应控件隐藏，FJGOE 页面保持原样。
+- **测试**：新增 `frontend/tests/cache-settings.test.ts` 并扩充 `audit.test.ts`，`npm run check` 共 159 项通过；生产环境完成六路由 × 三视口浏览器回归。
+- 跨内核升级按完整包替换目录执行，保留上游、手工名单、客户端别名、订阅与全部设置；学习类列表与缓存重新积累。
+
 ## FJGOE / UI 2026.10.28.1 · 侧边栏重启按钮版式修复
 
 - **侧边栏底部状态区改为上下两行（PR #10）**：状态区原为一行三列，196px 宽侧边栏下按钮占约 80px 不让位，名字与面板地址被截成省略号；现第一行显示绿点、名字与地址，第二行重启内核按钮独占一行、宽 100%、最小高 36px，左右内边距 2px 放到 8px。
