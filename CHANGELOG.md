@@ -1,5 +1,12 @@
 # LocalDNS 更新记录
 
+## FJH21 / UI 2026.10.28.3 · 网页升级支持 FJH 发行标签
+
+- **修复网页端 UI 升级拒绝 FJH21 发行版（PR #12）**：`ui_updater` 的 `TAG` 与前端 `upgradeTarget` 仍按 `fjg` 前缀校验发行标签，`fjh21-ui-*` 一律被判为无效标签，9100 面板点升级直接失败、只能手工铺 UI 文件。两处改为 `fj[a-z][a-z0-9]+`，与 `package_ui.py`、`install_localdns.py` 的内核版本形状一致；跨核心护栏不变，仍按 `backendVersion` 比对拦截。
+- **安装器接受 FJH21 完整包（PR #11）**：`install_localdns.py` 的 `backendVersion` 校验同步放开，FJH21 一键安装包不再被判「安装包核心版本无效」；`install.sh` 的自举摘要随之更新。
+- **测试**：`test_ui_updater.py` 新增 FJH21 升级事务用例（同核心放行、异核心仍拦截），`ui-update.test.ts` 新增同前缀放行与 `xjh21-` 拒绝用例；`npm run check` 共 160 项通过，5 个工具链 Python 测试模块全绿。
+- 本次只改工具与前端标签校验，DNS 内核、配置、规则与上游保持不变；更新 UI 无需重启 DNS。
+
 ## FJH21 / UI 2026.10.28.2 · 新内核与日志存盘 / 缓存参数
 
 - **升级内核 FJH21**：来源为 `LocalDNS_FJH21.zip`，包内 `localdns/bin/localdns` 与 `LocalDNS_FJH21_Binaries/localdns-amd64-v3` 为同一份程序（SHA-256 `d251c4fb…a86596`）。先前误发的 `LocalDNS_FJH1Z.zip` 运行目录内也是同一份 `FJH21` 程序，只有其 `LocalDNS_FJH1Z_Binaries/` 是较旧且缺少缓存参数接口的 `FJH1Z`，因此部署结果一致。

@@ -6,11 +6,11 @@
 
 **DNS 核心主要由折腾日记交流群里的 R 大使用 Rust 编写；[yyhoworks](https://github.com/yyhoworks) 负责 UI 设计。**
 
-当前版本：**后端 FJH21 / UI 2026.10.28.2**（发行标签 `fjh21-ui-v2026.10.28.2`），见 [本次更新说明](docs/releases/fjh21-ui-v2026.10.28.2.md)。
+当前版本：**后端 FJH21 / UI 2026.10.28.3**（发行标签 `fjh21-ui-v2026.10.28.3`），见 [本次更新说明](docs/releases/fjh21-ui-v2026.10.28.3.md)。
 
-本次更新接入新内核 **FJH21**，并把内核新增的两组设置接进界面：**查询日志存盘开关**（默认不存盘，只保留内存记录）与**缓存参数**（按缓存池设置最大记录数、过期保留时间与写盘间隔）。界面按内核返回的 `limits` 校验范围，用 `running` 与 `restart_needed` 标记「待重启」；缺少 `limits` 或 `persist` 的旧内核不显示对应控件。这是跨内核升级，需要完整包替换运行目录并按 [更新指南](docs/FJGLI_UPGRADE.md) 备份恢复上游、手工规则、客户端别名与订阅配置；缓存与学习类列表重新积累。
+本次更新修复**网页端 UI 升级对 FJH21 发行版的误判**：升级服务与前端都把发行标签写死成 `fjg` 前缀，`fjh21-ui-*` 一律被判为无效标签，面板点升级只能失败、只能手工铺文件。两处正则改为 `fj[a-z][a-z0-9]+`，与打包工具、安装器的内核版本形状一致；跨核心护栏不变，仍按 `backendVersion` 拦截。同时修好一键安装器对 FJH21 完整包的拒装。本次只改工具与前端标签校验，DNS 内核、配置、规则与上游不变，更新 UI 无需重启 DNS。
 
-上一版（UI 2026.10.28.1，后端 FJGOE）把侧边栏底部状态区改为上下两行，重启内核按钮独占一行满宽，名字与面板地址不再被截断，说明见 [2026.10.28.1 更新记录](docs/releases/fjgoe-ui-v2026.10.28.1.md)；更早的 [2026.10.27.1](docs/releases/fjgoe-ui-v2026.10.27.1.md) 修复 UI 审查发现的 53 项问题。
+上一版（UI 2026.10.28.2，后端 FJH21）接入新内核 FJH21，新增查询日志存盘开关与缓存参数编辑，说明见 [2026.10.28.2 更新记录](docs/releases/fjh21-ui-v2026.10.28.2.md)；更早的 [2026.10.28.1](docs/releases/fjgoe-ui-v2026.10.28.1.md) 把侧边栏底部状态区改为上下两行。
 
 [产品图集](docs/SCREENSHOTS.md) · [功能指南](docs/FEATURES.md) · [安装说明](INSTALL.md) · [下载 Releases](https://github.com/yyhoworks/LocalDNS/releases) · [作者与分工](AUTHORS.md) · [开发说明](docs/DEVELOPMENT.md) · [近期更新](CHANGELOG.md)
 
