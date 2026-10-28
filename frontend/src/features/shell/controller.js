@@ -17,6 +17,8 @@ import { modalClose } from '../../shared/components/dialog.js';
 import { modalOpen } from '../../shared/components/dialog.js';
 import { openDrawer } from '../../shared/components/drawer.js';
 import { navigate, renderRoute, trackRouteCleanup } from '../../core/router/router.js';
+import { routeDefs } from '../../core/router/routes.js';
+import { isPendingRestart } from './pending-restart.js';
 import { restartService } from '../management/index.js';
 import { closeSlowTypePopover } from '../overview/details.js';
 import { syncAllSegThumbs, copyToClipboard } from '../../shared/components/motion.js';
@@ -27,51 +29,81 @@ import { groupName } from '../upstreams/groups.js';
 import { closeUpstreamErrorPopover } from '../upstreams/errors.js';
 import { loadAliases } from '../logs/aliases.js';
 
+  // 侧栏按 routeDefs 分组渲染：分组名与菜单项只在 routes.js 里定义一处，
+  // 这里不再硬编码分组，新增路由只要改 routeDefs 就会自动出现在侧栏。
+  const navIcons = {
+    overview: '<svg viewBox="0 0 24 24" fill="none" stroke="#3B82F6" stroke-width="2" aria-hidden="true"><path d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2Zm0 14a4 4 0 1 1 4-4 4 4 0 0 1-4 4Z"/></svg>',
+    logs: '<svg viewBox="0 0 24 24" fill="none" stroke="#14B8A6" stroke-width="2" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h10"/></svg>',
+    upstreams: '<svg viewBox="0 0 24 24" fill="none" stroke="#60A5FA" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M3.6 9h16.8M3.6 15h16.8M12 3a15 15 0 0 1 0 18M12 3a15 15 0 0 0 0 18"/></svg>',
+    rules: '<svg viewBox="0 0 24 24" fill="none" stroke="#10B981" stroke-width="2" aria-hidden="true"><path d="M16 3h5v5M4 20 21 3M21 16v5h-5M15 15l6 6M4 4l5 5"/></svg>',
+    management: '<svg viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0-4h-.09a1.65 1.65 0 0 0-1.51 1Z"/></svg>',
+    'proxy-config': '<svg viewBox="0 0 24 24" fill="none" stroke="#C96442" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M3.6 9h16.8M3.6 15h16.8M12 3a15 15 0 0 1 0 18M12 3a15 15 0 0 0 0 18"/></svg>'
+  };
   function navHtml() {
-    return `
+    const groups = [];
+    for (const def of routeDefs) {
+      let g = groups.find(x => x.section === def.section);
+      if (!g) { g = { section: def.section, items: [] }; groups.push(g); }
+      g.items.push(def);
+    }
+    const chevron = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>';
+    return groups.map(g => `
       <div class="nav-group">
-        <div class="nav-group-head"><span>活动</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></div>
+        <div class="nav-group-head"><span>${g.section}</span>${chevron}</div>
         <div class="nav-items">
-          <button type="button" class="nav-item active" data-route="overview">
-            <svg viewBox="0 0 24 24" fill="none" stroke="#3B82F6" stroke-width="2" aria-hidden="true"><path d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2Zm0 14a4 4 0 1 1 4-4 4 4 0 0 1-4 4Z"/></svg>
-            <span>运行概览</span>
-          </button>
+          ${g.items.map(d => `<button type="button" class="nav-item" data-route="${d.id}">${navIcons[d.id] || ''}<span>${d.label}</span></button>`).join('')}
         </div>
-      </div>
+      </div>`).join('');
+  }
 
-      <div class="nav-group">
-        <div class="nav-group-head"><span>观测</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></div>
-        <div class="nav-items">
-          <button type="button" class="nav-item" data-route="logs">
-            <svg viewBox="0 0 24 24" fill="none" stroke="#14B8A6" stroke-width="2" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h10"/></svg>
-            <span>查询日志</span>
-          </button>
-        </div>
-      </div>
+  // 顶栏重启与侧栏底 badge 只在“缓存参数待重启”时出现，平时隐藏；
+  // 侧栏底与管理页的重启入口常驻不动。
+  function refreshRestartUI() {
+    const pending = isPendingRestart();
+    const btn = $('#restart-button');
+    if (btn) btn.hidden = !pending;
+    const badge = $('#sidebar-restart-badge');
+    if (badge) badge.hidden = !pending;
+  }
 
-      <div class="nav-group">
-        <div class="nav-group-head"><span>路由</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></div>
-        <div class="nav-items">
-          <button type="button" class="nav-item" data-route="upstreams">
-            <svg viewBox="0 0 24 24" fill="none" stroke="#60A5FA" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M3.6 9h16.8M3.6 15h16.8M12 3a15 15 0 0 1 0 18M12 3a15 15 0 0 0 0 18"/></svg>
-            <span>DNS 管理</span>
-          </button>
-          <button type="button" class="nav-item" data-route="rules">
-            <svg viewBox="0 0 24 24" fill="none" stroke="#10B981" stroke-width="2" aria-hidden="true"><path d="M16 3h5v5M4 20 21 3M21 16v5h-5M15 15l6 6M4 4l5 5"/></svg>
-            <span>规则管理</span>
-          </button>
-        </div>
-      </div>
-
-      <div class="nav-group">
-        <div class="nav-group-head"><span>设置</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></div>
-        <div class="nav-items">
-          <button type="button" class="nav-item" data-route="management">
-            <svg viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0-4h-.09a1.65 1.65 0 0 0-1.51 1Z"/></svg>
-            <span>系统管理</span>
-          </button>
-        </div>
-      </div>`;
+  // 全局搜索的配置项映射：先按配置名/页面名命中，命中不了才落到日志关键字。
+  // 上游名需要读一次上游配置，成功后缓存 tag 列表；读失败不阻塞搜索。
+  let upstreamTagCache = null;
+  async function handleGlobalSearch(q) {
+    const lower = q.toLowerCase();
+    if (['概览', 'overview'].includes(lower)) return navigate('overview');
+    if (['上游', 'dns', 'upstreams'].includes(lower)) return navigate('upstreams');
+    if (['规则', 'rules'].includes(lower)) return navigate('rules');
+    if (['系统', '管理', 'management'].includes(lower)) return navigate('management');
+    const switchNames = {
+      '请求屏蔽': 'features', '类型屏蔽': 'features', '广告屏蔽': 'features', 'ipv6 屏蔽': 'features',
+      '核心缓存': 'features', '过期缓存': 'features', '指定 client fakeip': 'features', '指定 client realip': 'features',
+      '功能开关': 'features', '开关': 'features'
+    };
+    if (switchNames[lower]) return navigate(`management/${switchNames[lower]}`);
+    if (['缓存', '缓存管理', '缓存参数', '缓存池', '多级缓存池'].includes(q)) return navigate('management/cache');
+    if (q === '代理配置') return navigate('proxy-config');
+    if (q === '代理面板') { document.querySelector('[data-proxy-panel-link]')?.click(); return; }
+    const listTags = {
+      '白名单': 'whitelist', '黑名单': 'blocklist', '灰名单': 'greylist', '强制 realip': 'force_realip',
+      'ddns 域名': 'ddns_domains', 'pcdn 域名': 'pcdn_domains', 'pcdn ipv4 规则': 'pcdn_regex_v4',
+      'pcdn ipv6 规则': 'pcdn_regex_v6', '客户端 ip': 'client_ip', '直连 ip': 'direct_ip', '重定向': 'rewrite'
+    };
+    if (listTags[lower]) { state.pendingRuleTag = listTags[lower]; return navigate('rules'); }
+    if (['名单', '名单管理'].includes(q)) return navigate('rules');
+    if (['广告拦截', 'adguard'].includes(lower)) return navigate('rules/adguard');
+    if (['在线分流', 'srs'].includes(lower)) return navigate('rules/diversion');
+    if (['自动分流', '分流', '域名列表', '域名列表统计', '刷新分流缓存', 'requery'].includes(lower)) return navigate('rules/auto');
+    if (upstreamTagCache === null) {
+      try {
+        const cfg = await api.request('/api/v1/upstream/config');
+        upstreamTagCache = Object.values(cfg || {}).flat().map(u => String(u?.tag || '').toLowerCase()).filter(Boolean);
+      } catch { upstreamTagCache = []; }
+    }
+    if (upstreamTagCache.includes(lower)) return navigate('upstreams');
+    state.logs.q = q;
+    state.logs.page = 1;
+    return navigate('logs');
   }
 
   function fitRuleLayoutHeight(){
@@ -91,7 +123,42 @@ import { loadAliases } from '../logs/aliases.js';
   function initShell(){
     document.title=CONFIG.title; setHTML($('#side-nav'), navHtml());
     const mobile=[['overview','overview','概览'],['logs','logs','日志'],['upstreams','upstream','DNS'],['rules','rules','规则'],['management','management','管理']];
-    setHTML($('#mobile-nav'), mobile.map(([r,i,l])=>`<button data-route="${r}">${icon(i)}<span>${l}</span></button>`).join(''));
+    setHTML($('#mobile-nav'), mobile.map(([r,i,l])=>`<button data-route="${r}">${icon(i)}<span>${l}</span></button>`).join('') + `<button type="button" id="mobile-more-btn" aria-haspopup="true" aria-expanded="false">${icon('more')}<span>更多</span></button>`);
+    let moreMenu = document.getElementById('mobile-more-menu');
+    if (!moreMenu) {
+      moreMenu = document.createElement('div');
+      moreMenu.id = 'mobile-more-menu';
+      moreMenu.className = 'mobile-more-menu';
+      moreMenu.hidden = true;
+      setHTML(moreMenu, `<button type="button" data-route="proxy-config">${icon('globe')}<span>代理配置</span></button><button type="button" id="mobile-more-appearance">${icon('theme')}<span>外观</span></button><button type="button" id="mobile-more-version">${icon('info')}<span>版本</span></button>`);
+      document.body.appendChild(moreMenu);
+    }
+    const closeMoreMenu = () => {
+      if (!moreMenu) return;
+      moreMenu.hidden = true;
+      $('#mobile-more-btn')?.setAttribute('aria-expanded', 'false');
+    };
+    const moreBtn = $('#mobile-more-btn');
+    if (moreBtn) {
+      moreBtn.onclick = e => {
+        e.stopPropagation();
+        const open = moreMenu.hidden;
+        moreMenu.hidden = !open;
+        moreBtn.setAttribute('aria-expanded', String(open));
+      };
+    }
+    moreMenu.addEventListener('click', e => {
+      const btn = e.target.closest('button');
+      if (!btn) return;
+      if (btn.id === 'mobile-more-appearance') { $('#btn-open-bg-customizer')?.click(); }
+      else if (btn.id === 'mobile-more-version') { $('#version-button')?.click(); }
+      closeMoreMenu();
+    });
+    document.addEventListener('click', e => {
+      if (moreMenu.hidden) return;
+      if (e.target.closest('#mobile-more-menu') || e.target.closest('#mobile-more-btn')) return;
+      closeMoreMenu();
+    });
     setHTML($('#theme-toggle'), icon('theme')); setHTML($('#refresh-button'), icon('refresh')); setHTML($('#restart-button'), icon('power')); setHTML($('#drawer-close'), icon('close')); $$('#modal .icon-button').forEach(x=>setHTML(x, icon('close')));
 
     // 主题对应的 LocalDNS 品牌图形。
@@ -184,23 +251,18 @@ import { loadAliases } from '../logs/aliases.js';
     const searchInput = $('#global-search-input');
     if (searchInput) {
       searchInput.onkeydown = e => {
-        if (e.key === 'Enter') {
-          const q = searchInput.value.trim();
-          if (['概览','overview'].includes(q)) return navigate('overview');
-          if (['上游','dns','upstreams'].includes(q.toLowerCase())) return navigate('upstreams');
-          if (['规则','rules'].includes(q.toLowerCase())) return navigate('rules');
-          if (['系统','管理','management'].includes(q.toLowerCase())) return navigate('management');
-          state.logs.q = q;
-          state.logs.page = 1;
-          navigate('logs');
-        }
+        if (e.key === 'Enter') handleGlobalSearch(searchInput.value.trim());
       };
     }
 
-    document.addEventListener('click',e=>{const b=e.target.closest('[data-route]');if(!b)return;navigate(b.dataset.route)});
+    document.addEventListener('click',e=>{const b=e.target.closest('[data-route]');if(!b)return;const sub=b.dataset.routeSub; navigate(sub?`${b.dataset.route}/${sub}`:b.dataset.route)});
     $('#refresh-button').onclick=()=>renderRoute(true);
     $('#restart-button').onclick=restartService;
     if ($('#sidebar-restart-button')) $('#sidebar-restart-button').onclick=restartService;
+    const sidebarBadge = $('#sidebar-restart-badge');
+    if (sidebarBadge) sidebarBadge.onclick = () => navigate('management/cache');
+    refreshRestartUI();
+    window.addEventListener('localdns:pending-restart', refreshRestartUI);
     if (!skinService?.toggleTheme) {
       $('#theme-toggle').onclick=()=>{
         const cur=document.documentElement.dataset.theme;

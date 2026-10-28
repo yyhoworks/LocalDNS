@@ -954,3 +954,27 @@
 @media(max-width:600px) {
   .tn-sub,.tn-pill,.tec-bar-name { font-size:11px; }
 }
+
+/* 导航与概览改版新增：需要注意 / 关键指标 / 上游健康 / 缓存一行 / 图例折叠 */
+.ov-switch-summary{font-size:12px;color:var(--text-2);cursor:pointer;opacity:.75}
+.ov-attention-rows{display:flex;flex-direction:column;gap:6px}
+.ov-attention-row{appearance:none;border:1px solid rgba(245,158,11,.35);background:rgba(245,158,11,.08);color:var(--text-1);font-family:inherit;font-size:13px;display:flex;justify-content:space-between;gap:12px;padding:9px 12px;border-radius:calc(9px * var(--radius-scale));cursor:pointer;text-align:left}
+.ov-attention-row span:last-child{color:var(--text-3);white-space:nowrap}
+.ov-attention-ok{color:var(--text-2);font-size:13px;padding:4px 2px}
+.ov-kpi-strip{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:12px}
+.ov-kpi-strip>div{display:flex;flex-direction:column;gap:2px;min-width:0}
+.ov-kpi-strip span{color:var(--text-3);font-size:12px}
+.ov-kpi-strip strong{color:var(--text-1);font-size:17px;font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
+.ov-health-groups{display:flex;flex-wrap:wrap;gap:8px 20px;color:var(--text-2);font-size:13px}
+.ov-health-groups strong{color:var(--text-1)}
+.ov-health-errors{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
+.ov-health-errors button{appearance:none;border:1px solid rgba(239,68,68,.35);background:rgba(239,68,68,.08);color:var(--text-1);font-family:inherit;font-size:12.5px;padding:6px 10px;border-radius:calc(8px * var(--radius-scale));cursor:pointer}
+.ov-health-errors>span{color:var(--text-3);font-size:12.5px;align-self:center}
+.ov-health-ok{color:var(--text-2);font-size:13px;margin-top:2px}
+.ov-cache-line{display:flex;justify-content:space-between;align-items:baseline;gap:16px;flex-wrap:wrap;color:var(--text-1);font-size:13px}
+.ov-cache-line>span:first-child{overflow-wrap:anywhere}
+.ov-legend-fold{margin-top:4px}
+.ov-legend-fold>summary{color:var(--text-3);font-size:12px;cursor:pointer;padding:6px 2px;list-style-position:inside}
+.ov-legend-fold-body{display:flex;flex-direction:column;gap:4px}
+@media(max-width:900px){.ov-kpi-strip{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media(max-width:600px){.ov-kpi-strip{grid-template-columns:repeat(2,minmax(0,1fr))}}

@@ -1,6 +1,6 @@
 import { currentScope } from '../../core/router/route-lifetime';
 import { identityService } from '../identity/index.js';
-import { proxyPanelService } from '../proxy-panel/index.js';
+import { setPendingRestart } from '../shell/pending-restart.js';
 import { setHTML } from '../../core/security/safe-dom.ts';
 import { empty, card } from '../../shared/components/templates.js';
 import { num, fmtDate, esc, pct, compactPct } from '../../shared/format/number.js';
@@ -19,6 +19,18 @@ import { cacheLimitInputSelector, cacheLimitsForm, cacheSettings, readCacheLimit
 
   const cacheName=t=>({cache_main:'全部缓存',cache_domestic:'国内缓存',cache_foreign:'国外缓存',cache_foreign_ecs:'国外 ECS 缓存'})[t]||t;
 
+  // 二级锚点滚动：导航带 #/management/cache 或 #/management/features 时，
+  // 等对应区块异步填好后再滚过去，并一次消费掉 routeSub，避免静默刷新时反复跳。
+  // 注意 slot 本身是 display:contents（无盒子），必须滚它里面的卡片。
+  function consumeManagementSub(section){
+    if(state.routeSub!==section)return;
+    state.routeSub=null;
+    const el=section==='cache'
+      ? page.querySelector('#management-cache-slot .data-cache-panel')
+      : page.querySelector('#management-feature-slot .management-feature-panel');
+    if(el)el.scrollIntoView({behavior:'smooth',block:'start'});
+  }
+
   function requeryHtml(s,c){
     if(!s)return {actions:'',body:empty('Requery 插件不可用')};
     const taskState=String(s.task_state||s.status||'idle').toLowerCase();
@@ -36,7 +48,7 @@ import { cacheLimitInputSelector, cacheLimitsForm, cacheSettings, readCacheLimit
     return {actions,body};
   }
 
-  function openRequeryScheduler(c){
+  function openRequeryScheduler(c,onDone){
     c=c||{};
     const sc=c.scheduler||{};
     const dateDays=sc.date_range_days||c.execution_settings?.date_range_days||30;
@@ -52,7 +64,7 @@ import { cacheLimitInputSelector, cacheLimitsForm, cacheSettings, readCacheLimit
       const payload={enabled,interval_minutes:interval,start_datetime:raw?new Date(raw).toISOString():'',date_range_days:days};
       await api.json('/plugins/requery/scheduler/config','POST',payload);
       toast('定时任务配置已更新');
-      renderRoute(true);
+      (onDone||(()=>renderRoute(true)))();
     });
   }
 
@@ -67,7 +79,7 @@ import { cacheLimitInputSelector, cacheLimitsForm, cacheSettings, readCacheLimit
       try{result=await api.json('/api/v1/cache/limits','POST',payload);}
       catch(error){if(error&&error.status===400)throw new Error('内核拒绝了这组参数，请确认数值在允许范围内后重试。',{cause:error});throw error;}
       let next=null;try{next=cacheSettings(result)}catch{/* 保存已成功，仅按当前设置刷新页面 */}
-      return ()=>{toast(next&&next.restart_needed?'缓存参数已保存，重启内核后生效':'缓存参数已保存');renderRoute(true)};
+      return ()=>{if(next)setPendingRestart(next.restart_needed===true);toast(next&&next.restart_needed?'缓存参数已保存，重启内核后生效':'缓存参数已保存');renderRoute(true)};
     });
   }
 
@@ -90,18 +102,19 @@ import { cacheLimitInputSelector, cacheLimitsForm, cacheSettings, readCacheLimit
     return `<div class="table-wrap"><table><thead><tr><th>列表</th><th>条目数</th></tr></thead><tbody>${entries.map(x=>`<tr><td>${esc(x.alias||x.name||x.file||x.path||'未知')}</td><td>${num(x.count??x.rule_count??x.entries??x.value??0)}</td></tr>`).join('')}</tbody></table></div>`;
   }
 
-  async function multiPluginAction(paths,msg){const result=await Promise.allSettled(paths.map(p=>api.request(`/plugins/${p}`)));const failed=result.filter(x=>x.status==='rejected').length;failed?toast(`已保存 ${result.length-failed} 项，${failed} 项失败`,'error'):toast(msg);renderRoute(true)}
+  async function multiPluginAction(paths,msg,onDone){const result=await Promise.allSettled(paths.map(p=>api.request(`/plugins/${p}`)));const failed=result.filter(x=>x.status==='rejected').length;failed?toast(`已保存 ${result.length-failed} 项，${failed} 项失败`,'error'):toast(msg);(onDone||(()=>renderRoute(true)))();}
 
-  async function clearShuntData(){
+  async function clearShuntData(onDone){
+    const done=onDone||(()=>renderRoute(true));
     const warning='确定完全清空自动分流数据？\n\n将清空：\n• 域名全集及 A/AAAA Activity\n• 自动生成的 FakeIP / RealIP / NODATA 分流记忆\n• 刷新分流缓存的历史进度与统计\n\n定时任务设置不会改变。\n清空后将从零重新收集域名并生成分流规则。';
     if(!confirm(warning))return;
     try{
       await api.request('/plugins/requery/reset',{method:'POST'});
       toast('自动分流数据已完全清空，将从零重新收集');
-      renderRoute(true);
+      done();
     }catch(e){
       toast('清空自动分流数据失败','error',e.message);
-      renderRoute(true);
+      done();
     }
   }
 
@@ -122,17 +135,10 @@ import { cacheLimitInputSelector, cacheLimitsForm, cacheSettings, readCacheLimit
 
     setHTML(page, `
     <div class="view-title-row">
-      <div style="display:flex;align-items:baseline;gap:12px"><h1>系统管理</h1><span class="gc-sub">多级缓存池、核心功能开关与 Requery 自动分流刷新管理</span></div>
+      <div style="display:flex;align-items:baseline;gap:12px"><h1>系统管理</h1><span class="gc-sub">多级缓存池与核心功能开关管理</span></div>
     </div>
     <div class="management-stack">
-      <div class="management-top-pair">
-        <section class="proxy-panel-management" aria-label="代理面板设置">
-          <div><h2 data-proxy-panel-name>代理面板</h2><code data-proxy-panel-address></code></div>
-          <a class="button small" data-proxy-panel-link target="_blank" rel="noopener noreferrer">打开面板</a>
-          <button type="button" class="button small" data-proxy-panel-settings>面板设置</button>
-          <button type="button" class="button small" data-route="proxy-config">编辑配置</button>
-        </section>
-        <section class="management-service-actions" aria-label="DNS 服务操作">
+      <section class="management-service-actions" aria-label="DNS 服务操作">
           <div class="service-card-main">
             <span class="service-card-icon" aria-hidden="true">${icon('power')}</span>
             <div class="service-card-copy">
@@ -147,17 +153,11 @@ import { cacheLimitInputSelector, cacheLimitsForm, cacheSettings, readCacheLimit
             <button type="button" class="glass-btn console-restart" id="management-restart-button" title="重启 DNS 核心服务">${icon('power')}<span>重启内核</span></button>
           </div>
         </section>
-      </div>
       <div id="management-cache-slot" style="display:contents">${card('缓存管理',skeletonBlock(130),{iconName:'data',className:'data-cache-panel'})}</div>
       <div id="management-feature-slot" style="display:contents">${card('功能开关',skeletonBlock(300),{iconName:'features',subtitle:'常用运行功能集中管理',className:'management-feature-panel'})}</div>
-      <div class="management-bottom">
-        <div id="management-counts-slot" style="display:contents">${card('域名列表统计',skeletonBlock(150),{iconName:'rules',subtitle:'查看自动分流列表的当前条目数',className:'data-counts-card'})}</div>
-        <div id="management-requery-slot" style="display:contents">${card('刷新分流缓存',skeletonBlock(270),{iconName:'refresh',subtitle:'重新扫描域名并更新自动生成的分流列表',className:'data-requery-card'})}</div>
-      </div>
     </div>`);
 
     $('#management-restart-button')?.addEventListener('click', restartService);
-    proxyPanelService?.sync();
     // 服务徽标复用本页已有的 /metrics 健康检查：初始为“状态未知”，
     // 只有后端成功响应指标时才翻为“运行中”；失败则保持未知，不写死端口。
     const serviceBadge=page.querySelector('.service-card-badge');
@@ -165,15 +165,13 @@ import { cacheLimitInputSelector, cacheLimitsForm, cacheSettings, readCacheLimit
     const metricsPromise=api.metrics();
     const cacheSettingsPromise=safeResult(()=>readCacheSettings(path=>api.request(path)));
     metricsPromise.then(()=>{if(!isCurrent()||!serviceBadge)return;serviceBadge.classList.add('success');serviceBadge.textContent='● 运行中';},()=>{/* 查不到时保持“状态未知” */});
-    const reqStatusPromise=safe(()=>api.request('/plugins/requery/status'),null);
-    const reqCfgPromise=safe(()=>api.request('/plugins/requery/scheduler/config'),null);
-    const countsPromise=safeResult(()=>api.request('/plugins/requery/stats/source_file_counts'));
 
     switchPromise.then(status=>{
       if(!isCurrent())return;
       const featureHtml=`<div class="feature-grid management-feature-grid">${switchProfiles.map(p=>`<div class="feature-card management-feature-card"><div><h3>${esc(p.name)}</h3><p>${esc(p.desc)}</p></div><div class="feature-footer"><span class="badge ${status[p.tag]==='A'?'success':''}">${status[p.tag]==='A'?'已启用':(status[p.tag]==='error'?'读取失败':'已关闭')}</span><label class="switch"><input data-switch="${p.tag}" type="checkbox" ${status[p.tag]==='A'?'checked':''} ${status[p.tag]==='error'?'disabled':''}><span class="switch-track"><span class="switch-thumb"></span></span></label></div></div>`).join('')}</div>`;
       const featureSlot=$('#management-feature-slot');
       if(featureSlot)setHTML(featureSlot, card('功能开关',featureHtml,{iconName:'features',subtitle:'常用运行功能集中管理',className:'management-feature-panel'}));
+      consumeManagementSub('features');
       $$('[data-switch]').forEach(x=>x.onchange=async()=>{const tag=x.dataset.switch,val=x.checked?'A':'B';let rollbackNeeded=false;try{await api.json(`/plugins/${tag}/post`,'POST',{value:val});if(x.checked&&(tag==='switch2'||tag==='switch12')){rollbackNeeded=true;const other=tag==='switch2'?'switch12':'switch2';await api.json(`/plugins/${other}/post`,'POST',{value:'B'});}toast('功能状态已保存');renderRoute(true)}catch(e){if(rollbackNeeded){try{await api.json(`/plugins/${tag}/post`,'POST',{value:val==='A'?'B':'A'});}catch{/* 回滚失败时仍用下面的重渲染回读服务端真实状态 */}}toast('切换失败','error',e.message);renderRoute(true)}});
     });
 
@@ -196,28 +194,10 @@ import { cacheLimitInputSelector, cacheLimitsForm, cacheSettings, readCacheLimit
       $$('.cache-clear').forEach(x=>x.onclick=async()=>{if(!confirm(`确定清空 ${cacheName(x.dataset.tag)}？`))return;try{await api.request(`/plugins/${x.dataset.tag}/flush`);toast('缓存已清空');renderRoute(true)}catch(e){toast('清空缓存失败','error',e.message);renderRoute(true)}});
       $$('.cache-view').forEach(x=>x.onclick=async()=>{try{const text=await api.request(`/plugins/${x.dataset.tag}/show`);openDrawer(cacheName(x.dataset.tag),'缓存内容',`<pre>${esc(text)}</pre>`)}catch(e){toast('查看缓存内容失败','error',e.message)}});
       $('#cache-settings')?.addEventListener('click',()=>openCacheSettings(cacheLimits));
-    }).catch(e=>{if(isCurrent()&&$('#management-cache-slot'))setHTML($('#management-cache-slot'), card('缓存管理',`<div class="error-panel">加载失败：${esc(e.message)}</div>`,{iconName:'data',className:'data-cache-panel'}));});
-
-    Promise.all([reqStatusPromise,reqCfgPromise]).then(([reqStatus,reqCfg])=>{
-      if(!isCurrent())return;
-      const slot=$('#management-requery-slot');if(!slot)return;
-      const rq=requeryHtml(reqStatus,reqCfg);setHTML(slot, card('刷新分流缓存',rq.body,{iconName:'refresh',subtitle:'重新扫描域名并更新自动生成的分流列表',actions:rq.actions,className:'data-requery-card'}));
-      $('#requery-trigger')?.addEventListener('click',async()=>{try{await api.request('/plugins/requery/trigger',{method:'POST'});toast('刷新任务已开始');renderRoute(true)}catch(e){toast('刷新任务开始失败','error',e.message);renderRoute(true)}});
-      $('#requery-cancel')?.addEventListener('click',async()=>{try{await api.request('/plugins/requery/cancel',{method:'POST'});toast('已请求取消');renderRoute(true)}catch(e){toast('取消刷新任务失败','error',e.message);renderRoute(true)}});
-      $('#requery-scheduler')?.addEventListener('click',()=>openRequeryScheduler(reqCfg));
-    });
-
-    countsPromise.then(counts=>{
-      if(!isCurrent())return;
-      const slot=$('#management-counts-slot');if(!slot)return;
-      setHTML(slot, card('域名列表统计',countsHtml(counts),{iconName:'rules',subtitle:'查看自动分流列表的当前条目数',actions:'<button class="button small" id="save-shunt" title="保存分流规则">保存</button><button class="button small danger" id="clear-shunt" title="清空分流规则">清空</button>',className:'data-counts-card'}));
-      const countsCard=$('#management-counts-slot .data-counts-card');
-      if(countsCard){countsCard.style.height='';countsCard.style.minHeight='';}
-      $('#save-shunt')?.addEventListener('click',()=>multiPluginAction(['domain_stats/save','realip/save','fakeip/save','nodata/save'],'分流规则已保存'));
-      $('#clear-shunt')?.addEventListener('click',()=>clearShuntData());
-    });
+      consumeManagementSub('cache');
+    }).catch(e=>{if(isCurrent()&&$('#management-cache-slot')){setHTML($('#management-cache-slot'), card('缓存管理',`<div class="error-panel">加载失败：${esc(e.message)}</div>`,{iconName:'data',className:'data-cache-panel'}));consumeManagementSub('cache');}});
   }
 
-  async function restartService(){if(!confirm(`确定重启 ${identityService?.getName()||'LocalDNS'}？短时间内 DNS 服务会中断。`))return;const scope=currentScope();try{await api.json('/api/v1/system/restart','POST',{delay_ms:500});}catch(e){if(scope.signal.aborted)return;toast('重启服务失败','error',e.message);renderRoute(true);return;}if(scope.signal.aborted)return;toast((identityService?.getName()||'LocalDNS')+' 正在重启');scope.timeout(()=>renderRoute(true),4000);}
+  async function restartService(){if(!confirm(`确定重启 ${identityService?.getName()||'LocalDNS'}？短时间内 DNS 服务会中断。`))return;const scope=currentScope();try{await api.json('/api/v1/system/restart','POST',{delay_ms:500});}catch(e){if(scope.signal.aborted)return;toast('重启服务失败','error',e.message);renderRoute(true);return;}if(scope.signal.aborted)return;setPendingRestart(false);toast((identityService?.getName()||'LocalDNS')+' 正在重启');scope.timeout(()=>renderRoute(true),4000);}
 
 export { cacheName, requeryHtml, openRequeryScheduler, countsHtml, multiPluginAction, clearShuntData, switchProfiles, renderManagement, restartService };

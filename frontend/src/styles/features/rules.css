@@ -569,3 +569,9 @@ body[data-console-route="rules"] .rp-foot{flex-wrap:wrap}
    带 display:flex 且特异性更高，原先位于文件中段的 .rule-menu{display:none} 在真实
    控制台路由下从不生效；同特异性、更靠后才能真正隐藏。 */
 @media(max-width:600px){.rule-menu,body[data-console-route="rules"] .rule-menu{display:none}}
+
+/* 导航与概览改版新增：自动分流页签栈、名单专用规则折叠组 */
+.rule-auto-stack{display:flex;flex-direction:column;gap:var(--ui-section-gap,16px)}
+.rule-menu-fold{border-top:1px solid var(--border-glass);margin-top:4px;padding-top:4px}
+.rule-menu-fold>summary{color:var(--text-3);font-size:12px;font-weight:600;cursor:pointer;padding:8px 12px;list-style-position:inside}
+.rule-menu-fold-body{display:flex;flex-direction:column;gap:4px;margin-top:2px}

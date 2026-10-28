@@ -10,10 +10,10 @@ import { readLogs } from './api.js';
 import { loadAliases } from './aliases.js';
 import { card } from '../../shared/components/templates.js';
 import { icon } from '../../shared/components/icons.js';
-import { renderRoute } from '../../core/router/router.js';
+import { navigate, renderRoute } from '../../core/router/router.js';
 import { openAuditModal } from './audit.js';
 import { openAliasModal } from './aliases.js';
-import { openDrawer } from '../../shared/components/drawer.js';
+import { openDrawer, closeDrawer } from '../../shared/components/drawer.js';
 
   function logBadge(set){const s=String(set||'未分类');let cls='primary';if(/黑|BAN|BLOCK|拒绝/i.test(s))cls='danger';else if(/白|直连|国内|REAL/i.test(s))cls='success';else if(/灰|代理|订阅/i.test(s))cls='pink';else if(/FAKE/i.test(s))cls='cyan';return `<span class="badge ${cls}" title="${esc(s)}">${esc(overviewInsightsService.label(s))}</span>`;}
 
@@ -43,7 +43,27 @@ import { openDrawer } from '../../shared/components/drawer.js';
     workspaceService.bindLogs(page,data.records);
   }
 
-  function openLogPath(record){openDrawer('解析路径',record.query_name,logDetailHtml(record));queryPathService.bind($('#drawer-content'),record,clientAliases);}
+  // 详情抽屉深链：命中规则→规则页定位名单（domain_set 与可编辑名单 tag
+  // 完全一致时才选中它，否则只进名单管理页，不猜测映射关系）；
+  // 上游节点→上游页；客户端别名→打开客户端管理弹窗（该弹窗无预填参数，
+  // 由用户在弹窗内选择该客户端）。
+  const ruleTagBySet={whitelist:'whitelist',blocklist:'blocklist',greylist:'greylist',force_realip:'force_realip',ddns_domains:'ddns_domains',pcdn_domains:'pcdn_domains',pcdn_regex_v4:'pcdn_regex_v4',pcdn_regex_v6:'pcdn_regex_v6',client_ip:'client_ip',direct_ip:'direct_ip',rewrite:'rewrite'};
+  function appendLogDeepLinks(record){
+    const root=$('#drawer-content');if(!root)return;
+    const nav=document.createElement('section');
+    nav.className='log-deep-links';
+    setHTML(nav, `<button type="button" data-log-deep="rule">编辑命中规则 ›</button><button type="button" data-log-deep="upstream">查看上游节点 ›</button><button type="button" data-log-deep="alias">为该客户端设别名 ›</button>`);
+    root.appendChild(nav);
+    nav.querySelector('[data-log-deep="rule"]').onclick=()=>{
+      const tag=ruleTagBySet[String(record.domain_set||'')];
+      if(tag)state.pendingRuleTag=tag;
+      closeDrawer();navigate('rules');
+    };
+    nav.querySelector('[data-log-deep="upstream"]').onclick=()=>{closeDrawer();navigate('upstreams');};
+    nav.querySelector('[data-log-deep="alias"]').onclick=()=>{closeDrawer();openAliasModal();};
+  }
+
+  function openLogPath(record){openDrawer('解析路径',record.query_name,logDetailHtml(record));queryPathService.bind($('#drawer-content'),record,clientAliases);appendLogDeepLinks(record);}
 
   function paginationHtml(p){if(!p||p.total_pages<=1)return'';const cur=p.current_page,total=p.total_pages;let arr=[];for(let i=Math.max(1,cur-2);i<=Math.min(total,cur+2);i++)arr.push(i);return `<div class="pagination"><button data-page="1" ${cur<=1?'disabled':''}>首页</button><button data-page="${cur-1}" ${cur<=1?'disabled':''}>‹</button>${arr.map(i=>`<button data-page="${i}" class="${i===cur?'active':''}">${i}</button>`).join('')}<button data-page="${cur+1}" ${cur>=total?'disabled':''}>›</button><button data-page="${total}" ${cur>=total?'disabled':''}>末页</button><label class="pagination-jump">跳至<input class="pagination-jump-input" type="number" min="1" max="${total}" value="${cur}" aria-label="跳至页码">页</label></div>`;}
 

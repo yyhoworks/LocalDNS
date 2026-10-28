@@ -1,6 +1,7 @@
 /* Direct local configuration editing. Configuration contents are never persisted in browser storage. */
 import { setHTML } from '../../core/security/safe-dom.ts';
 import { preferences } from '../../core/persistence/preferences.ts';
+import { proxyPanelService } from '../proxy-panel/index.js';
 import { request } from './api';
   const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const icons = {
@@ -44,7 +45,7 @@ import { request } from './api';
     let workspace={};try{workspace=JSON.parse(preferences.getItem('localdns-proxy-config-workspace-v1')||'{}')||{};}catch{}
     if(workspace.mode==='directory')mode='directory';
     setHTML(parent, `<section class="pc-root" aria-label="代理配置编辑器">
-      <div class="pc-heading"><div><button type="button" class="pc-back" id="pc-back">${icon('back')}系统管理</button><h1>代理配置</h1><p class="gc-sub">读取服务器文件或 HTTP 配置，校验后保存并应用。</p></div></div>
+      <div class="pc-heading"><div><button type="button" class="pc-back" id="pc-back">${icon('back')}系统管理</button><h1>代理配置</h1><p class="gc-sub">读取服务器文件或 HTTP 配置，校验后保存并应用。</p></div><div style="margin-left:auto"><a class="button small" data-proxy-panel-link target="_blank" rel="noopener noreferrer">打开代理面板</a></div></div>
       <div class="pc-sourcebar"><label for="pc-core-select">配置核心</label><select id="pc-core-select"><option value="mihomo">Mihomo · YAML</option><option value="sing-box">sing-box · JSON</option></select><div class="pc-source-modes" role="group" aria-label="文件浏览方式"><button type="button" data-pc-mode="file" aria-pressed="true">单文件</button><button type="button" data-pc-mode="directory" aria-pressed="false">目录</button></div><button type="button" class="button small" id="pc-http-toggle" aria-expanded="false" aria-controls="pc-http-form">HTTP 获取</button></div>
       <form class="pc-http-form" id="pc-http-form" hidden><label for="pc-http-url">HTTP(S) 配置链接</label><div class="pc-http-fields"><input id="pc-http-url" type="url" placeholder="https://example.com/config.yaml" autocomplete="off" spellcheck="false" required aria-describedby="pc-http-note pc-http-error"/><button type="submit" class="button" id="pc-http-read">读取到编辑器</button></div><label class="pc-keep-controller"><input type="checkbox" id="pc-keep-controller" checked/>保留目标核心的控制地址和密钥</label><p id="pc-http-note">先选择目标配置文件。读取成功后进入草稿，保存时写入该文件。</p><p id="pc-http-error" class="pc-form-error" role="alert" hidden></p></form>
       <details class="pc-setup" id="pc-setup" hidden><summary>恢复配置服务</summary><p>在核心所在服务器安装配套配置服务，然后重新读取。默认端口为 9098；自定义地址可在 ui/config.js 设置 proxyConfigBase。</p><code>sh install-proxy-config.sh http://服务器IP:9099</code><a href="help/proxy-config.txt" target="_blank" rel="noopener noreferrer">查看安装说明</a></details>
@@ -57,6 +58,7 @@ import { request } from './api';
       <details class="pc-result" id="pc-result"><summary><span id="pc-result-title" role="status" aria-live="polite">正在读取服务器配置</span><span class="pc-result-hint">查看详情</span></summary><pre id="pc-result-detail"></pre></details></section></div>
       <div class="pc-footnote"><span>${icon('lock')}保存前自动备份，校验通过后应用。</span><span id="pc-active-note">保存启动配置后自动应用</span></div>
     </section>`);
+    proxyPanelService?.sync();
     const root = parent.querySelector('.pc-root');
     const $ = selector => root.querySelector(selector);
     const dirty = () => !!editor && editor.text() !== base;

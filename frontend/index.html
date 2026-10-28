@@ -32,7 +32,7 @@
         <div class="cmd-search-bar" role="search">
           <div class="cmd-search-left">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
-            <input type="text" id="global-search-input" aria-label="全局搜索" placeholder="搜索域名、客户端或页面" />
+            <input type="text" id="global-search-input" aria-label="全局搜索" placeholder="搜索域名、客户端、页面或配置项" />
           </div>
           <span class="kbd-tag">Enter</span>
         </div>
@@ -62,7 +62,7 @@
             <span class="dock-divider" aria-hidden="true"></span>
             <button type="button" class="icon-action-btn" id="refresh-button" aria-label="立即刷新" title="立即刷新"></button>
             <button type="button" class="icon-action-btn" id="theme-toggle" aria-label="切换深色或浅色主题" title="切换深色/浅色主题"></button>
-            <button type="button" class="icon-action-btn" id="restart-button" aria-label="重启 LocalDNS" title="重启 LocalDNS"></button>
+            <button type="button" class="icon-action-btn" id="restart-button" aria-label="重启 LocalDNS" title="重启 LocalDNS" hidden></button>
           </div>
 
           <!-- 背景与双皮肤自定义弹出面板 -->
@@ -266,6 +266,9 @@
           <button type="button" class="sidebar-restart-btn" id="sidebar-restart-button" title="重启 DNS 内核" aria-label="重启 DNS 内核">
             <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 2v10"/><path d="M18.4 6.6a9 9 0 1 1-12.77.04"/></svg>
             <span>重启内核</span>
+          </button>
+          <button type="button" class="sidebar-restart-badge" id="sidebar-restart-badge" title="缓存参数已保存，重启内核后生效，点击去缓存管理" aria-label="缓存参数待重启，点击去缓存管理" hidden>
+            <span>● 缓存参数待重启 ›</span>
           </button>
         </div>
       </aside>
