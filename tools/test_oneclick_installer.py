@@ -222,6 +222,22 @@ class InstallerTests(unittest.TestCase):
         with self.assertRaisesRegex(installer.InstallError, '覆盖全部文件'):
             installer.extract_verified(archive, self.base / 'unlisted-output')
 
+    def test_package_verification_accepts_fjh21_backend(self):
+        version = dict(VERSION, backendVersion='FJH21')
+        archive = self.base / 'fjh21-update.zip'
+        write_archive(archive, {'ui/index.html': b'<html>new UI</html>',
+                                'release.json': json_bytes(dict(version, packageType='ui-update'))},
+                      version)
+        metadata = installer.extract_verified(archive, self.base / 'fjh21-output')
+        self.assertEqual(metadata['backendVersion'], 'FJH21')
+        rejected = self.base / 'bad-backend.zip'
+        write_archive(rejected, {'ui/index.html': b'<html>new UI</html>',
+                                 'release.json': json_bytes(dict(version, packageType='ui-update',
+                                                                  backendVersion='XJGOE'))},
+                      version)
+        with self.assertRaisesRegex(installer.InstallError, '核心版本无效'):
+            installer.extract_verified(rejected, self.base / 'bad-backend-output')
+
     def test_bootstrap_pins_the_engine_hash(self):
         script = (ROOT / 'tools/install.sh').read_text(encoding='utf-8')
         pinned = re.search(r'^ENGINE_SHA256=([a-f0-9]{64})$', script, re.M)
