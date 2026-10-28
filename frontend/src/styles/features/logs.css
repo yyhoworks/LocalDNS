@@ -167,3 +167,7 @@ html[data-theme="dark-glass"] .audit-persist-switch .switch-track { background: 
 @media(max-width:360px) {
   .collection-surface[data-collection-layout=cards] .workspace-log-table.mobile-records td:nth-child(7) .badge { font-size:11px; padding-inline:3px; }
 }
+
+/* 导航与概览改版新增：日志详情抽屉深链 */
+.log-deep-links{display:flex;flex-wrap:wrap;gap:8px;margin-top:16px;padding-top:12px;border-top:1px solid var(--border-glass)}
+.log-deep-links button{appearance:none;border:1px solid var(--border-glass);background:var(--glass-pill);color:var(--text-1);font-family:inherit;font-size:12.5px;padding:7px 12px;border-radius:calc(8px * var(--radius-scale));cursor:pointer}

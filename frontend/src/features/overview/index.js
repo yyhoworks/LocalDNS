@@ -15,6 +15,7 @@ import { $, state, page, $$, storage, API_BASE } from '../../core/context.js';
 import { compactNum, ms, pct, fullNum, rankCount, num, esc, startTimeMarkup, overviewUptimeMarkup, fmtBytesBrief, duration } from '../../shared/format/number.js';
 import { aggregateSlowest, slowOverviewRowsHtml, openDomainDetailModal, openSlowDetailModal, openOutcomeDetail } from './details.js';
 import { upstreamMetrics } from '../upstreams/errors.js';
+import { groupName } from '../upstreams/groups.js';
 import { icon } from '../../shared/components/icons.js';
 import { getNodeIcon, drawTopoCurves } from './topology/graph.js';
 import { trackRouteCleanup, navigate, renderRoute } from '../../core/router/router.js';
@@ -94,7 +95,19 @@ import { cacheName } from '../management/index.js';
     shellInterfaceService?.recordMetrics({total:metrics.find(x=>x.name==='localdns_queries_total')?.value,latency:stats.average_duration_ms,cache:overallHitRate,cacheEnabled:!cacheDisabled,clients:stats.client_count??clients.length,domains:stats.domain_count??domains.length,blocked:adguardBlocked,start:sys.start});
     const outcomes = overviewInsightsService.distribution(sets);
     const allSets = outcomes.all;
-    const ds = outcomes.shown;
+    // 分布新分组：默认显示 Top 6 + 全部异常桶，其余折叠；环形图另把其余
+    // 聚合成一个“其他”扇区，保证占比之和仍为 100%。异常桶键名与
+    // insights.js 的警告色 5 项一致；某异常桶若已进 Top 6 则不重复出现。
+    const ANOMALY_OUTCOME_KEYS = ['unknown_noaddr', 'geosite_cn_conflict_fakeip', 'client_direct_upstream_error', 'geosite_cn_unverified', 'geosite_cn_nodata'];
+    const outcomeTop = outcomes.all.slice(0, 6);
+    const outcomeTopKeys = new Set(outcomeTop.map(x => x.key));
+    const outcomeAnomalies = ANOMALY_OUTCOME_KEYS.map(k => outcomes.all.find(x => x.key === k)).filter(x => x && !outcomeTopKeys.has(x.key));
+    const outcomeShownKeys = new Set([...outcomeTop, ...outcomeAnomalies].map(x => x.key));
+    const outcomeRest = outcomes.all.filter(x => !outcomeShownKeys.has(x.key));
+    const outcomeRestTotal = outcomeRest.reduce((s, x) => s + (+x.count || 0), 0);
+    const donutRows = outcomeRest.length
+      ? [...outcomeTop, ...outcomeAnomalies, { key: '__other__', label: '其他', count: outcomeRestTotal, members: outcomeRest }]
+      : [...outcomeTop, ...outcomeAnomalies];
     const slowGroups = aggregateSlowest(slowest, Infinity);
 
     // 客户端分流策略状态（对应真实 switch2 / switch12，以本次回读值为准）。
@@ -241,11 +254,11 @@ import { cacheName } from '../management/index.js';
       muted: Boolean(topoClients.find(c => c.id === from)?.muted || topoServers.find(s => s.id === to)?.muted)
     }));
 
-    // 分流结果占比环形图数据（基于真实 domain_set 排行 ds）
+    // 分流结果占比环形图数据（基于真实 domain_set 排行）
     const dsTotal = Math.max(1, outcomes.total);
     const outcomeColor = key => overviewInsightsService.color(key,isClaude?'claude':'glass');
     let dashOffset = 25;
-    const ringCircles = ds.map(x => {
+    const ringCircles = donutRows.map(x => {
       const pctVal = Math.max(0, Math.min(100, (+x.count || 0) / dsTotal * 100));
       const circle = `<circle cx="21" cy="21" r="15.915" fill="transparent" stroke="${outcomeColor(x.key)}" stroke-width="4.8" stroke-dasharray="${pctVal.toFixed(4)} ${(100 - pctVal).toFixed(4)}" stroke-dashoffset="${dashOffset.toFixed(4)}"></circle>`;
       dashOffset -= pctVal;
@@ -256,6 +269,38 @@ import { cacheName } from '../management/index.js';
     const rankItems = (rankTab === 'client' ? (clients || []) : (domains || [])).slice(0, 4);
     const rankMax = Math.max(1, ...rankItems.map(x => +x.count || 0));
 
+    // 需要注意：只汇总已发生的异常信号，没有异常时显示“一切正常”，不凑数。
+    const healthGroups = ['domestic', 'foreign', 'foreign_ecs', 'proxy'].map(g => {
+      const list = groupUpstreams[g] || [];
+      return { g, name: groupName(g), online: list.filter(x => x.u.enabled !== false).length, total: list.length };
+    }).filter(x => x.total > 0);
+    const healthOnline = healthGroups.reduce((s, x) => s + x.online, 0);
+    const healthTotal = healthGroups.reduce((s, x) => s + x.total, 0);
+    const errorUps = ['domestic', 'foreign', 'foreign_ecs', 'proxy']
+      .flatMap(g => (groupUpstreams[g] || []).filter(x => x.u.enabled !== false && (+x.m.err || 0) > 0)
+        .map(x => ({ g, name: groupName(g), tag: x.u.tag, err: +x.m.err })))
+      .sort((a, b) => b.err - a.err);
+    const attentionBuckets = ['geosite_cn_conflict_fakeip', 'unknown_noaddr', 'client_direct_upstream_error', 'geosite_cn_unverified']
+      .map(k => outcomes.all.find(x => x.key === k)).filter(Boolean);
+    const versionUpdate = document.querySelector('#version-button')?.dataset.status === 'update';
+    const attentionRows = [];
+    if (errorUps.length) attentionRows.push({ kind: 'upstreams', text: `上游错误：${errorUps[0].name} ${errorUps[0].tag} · ${num(errorUps[0].err)} 条${errorUps.length > 1 ? `（另有 ${errorUps.length - 1} 个上游有错误）` : ''}` });
+    for (const b of attentionBuckets) attentionRows.push({ kind: 'set', key: b.key, text: `${b.label} · ${num(b.count)} 条` });
+    if (versionUpdate) attentionRows.push({ kind: 'version', text: '有新版本可升级' });
+    const attentionHtml = attentionRows.length
+      ? attentionRows.map(r => r.kind === 'set'
+        ? `<button type="button" class="ov-attention-row is-warn" data-attention-set="${esc(r.key)}"><span>${esc(r.text)}</span><span>查看日志 ›</span></button>`
+        : r.kind === 'upstreams'
+        ? `<button type="button" class="ov-attention-row is-warn" data-goto="upstreams"><span>${esc(r.text)}</span><span>查看上游 ›</span></button>`
+        : `<button type="button" class="ov-attention-row is-warn" data-goto="version"><span>${esc(r.text)}</span><span>查看版本 ›</span></button>`).join('')
+      : `<div class="ov-attention-ok">暂无需要注意的事项，一切正常</div>`;
+    const kpiStripHtml = `<div class="ov-kpi-strip"><div><span>累计请求</span><strong>${num(stats.total_queries)}</strong></div><div><span>平均延迟</span><strong>${ms(stats.average_duration_ms)}</strong></div><div><span>缓存命中</span><strong>${pct(overallHitRate)}</strong></div><div><span>AdGuard 拦截</span><strong>${fullNum(adguardBlocked)}</strong></div><div><span>在线客户端</span><strong>${clientCount}</strong></div><div><span>在线上游</span><strong>${healthOnline}/${healthTotal}</strong></div></div>`;
+    const healthHtml = healthGroups.length
+      ? `<div class="ov-health-groups">${healthGroups.map(x => `<span>${esc(x.name)} <strong>${x.online}/${x.total}</strong> 在线</span>`).join('')}</div>` + (errorUps.length
+        ? `<div class="ov-health-errors">${errorUps.slice(0, 3).map(x => `<button type="button" data-goto="upstreams">${esc(x.name)} ${esc(x.tag)} 错误 ${num(x.err)} 条 ›</button>`).join('')}${errorUps.length > 3 ? `<span>等 ${errorUps.length} 个上游有错误</span>` : ''}</div>`
+        : `<div class="ov-health-ok">全部上游暂无错误</div>`)
+      : `<div class="ov-health-ok">暂无上游配置</div>`;
+
     setHTML(page, `
       <div class="view-title-row">
         <div style="display:flex;align-items:baseline;gap:12px">
@@ -265,6 +310,13 @@ import { cacheName } from '../management/index.js';
         <div style="display:flex;gap:8px;align-items:center">
           <button type="button" class="glass-btn" id="btn-overview-custom-bg">自定义壁纸与玻璃</button>
         </div>
+      </div>
+
+      <div class="col-12">
+        <section class="glass-card ov-attention-card" aria-label="需要注意">
+          <div class="gc-head"><div><div class="gc-title">需要注意</div><p class="workspace-subline">异常信号汇总 · 只在有问题时出现</p></div></div>
+          <div class="ov-attention-rows">${attentionHtml}</div>
+        </section>
       </div>
 
       <section class="console-service-summary" aria-labelledby="service-summary-title">
@@ -325,7 +377,7 @@ import { cacheName } from '../management/index.js';
           </div>
           <div class="cb-right">
             <button type="button" class="glass-btn" id="btn-toggle-switch7" ${sw.switch7==='?'?'disabled':''} title="${sw.switch7==='?'?'AdGuard 开关读取失败，状态未知，暂不可切换':'点击切换 AdGuard 广告屏蔽 (switch7)'}">AdGuard ${sw.switch7==='A'?'已开启':sw.switch7==='B'?'已关闭':'未知'}</button>
-            <span style="font-size:12px;color:var(--text-2);cursor:pointer" data-route="management">${enabledCount}/8 项开启${unknownSwitchCount?` · ${unknownSwitchCount} 项未知`:''} ›</span>
+            <span class="ov-switch-summary" data-route="management">${enabledCount}/8 项开启${unknownSwitchCount?` · ${unknownSwitchCount} 项未知`:''} ›</span>
           </div>
         </div>
       </div>
@@ -395,6 +447,13 @@ import { cacheName } from '../management/index.js';
           </div>
           <div class="sk-note">去重域名数</div>
         </div>
+      </div>
+
+      <div class="col-12">
+        <section class="glass-card ov-kpi-strip-card" aria-label="关键指标">
+          <div class="gc-head"><div><div class="gc-title">关键指标</div><p class="workspace-subline">口径：请求与拦截为审计累计；延迟、命中为审计均值；客户端、上游为当前在线</p></div></div>
+          ${kpiStripHtml}
+        </section>
       </div>
 
       <!-- 第三层：UI 2026.10.16.1 的五阶段 DNS 解析路径布局 -->
@@ -522,6 +581,13 @@ import { cacheName } from '../management/index.js';
         </section>
       </div>
 
+      <div class="col-12">
+        <section class="glass-card ov-health-card" aria-label="上游健康">
+          <div class="gc-head"><div><div class="gc-title">上游健康</div><p class="workspace-subline">每组在线数与异常点名</p></div></div>
+          ${healthHtml}
+        </section>
+      </div>
+
       <!-- 第四层：8列系统运行体征与实时流量趋势 + 4列分流结果占比 = 12列 -->
       <div class="col-8">
         <div class="glass-card">
@@ -562,17 +628,25 @@ import { cacheName } from '../management/index.js';
               </div>
             </div>
             <div class="ring-legend">
-              ${ds.map((x, i) => {
+              ${[...outcomeTop, ...outcomeAnomalies].map(x => {
                 const p = ((+x.count || 0) / dsTotal * 100).toFixed(1);
-                return `<button type="button" class="rl-item outcome-item" data-outcome-index="${i}" title="${x.members?`展开其余 ${x.members.length} 类`:`${esc(x.key||'未分类')} · 点击查看查询日志`}">
-                  <span class="rl-name"><i class="rl-dot" style="background:${outcomeColor(x.key)}"></i>${esc(x.label)}${x.members?`<small>（${x.members.length} 类）</small>`:''}</span>
+                return `<button type="button" class="rl-item outcome-item" data-outcome-key="${esc(x.key)}" title="${esc(x.key || '未分类')} · 点击查看查询日志">
+                  <span class="rl-name"><i class="rl-dot" style="background:${outcomeColor(x.key)}"></i>${esc(x.label)}</span>
                   <span class="mono" style="color:var(--text-2);text-align:right">${compactNum(x.count)}</span>
                   <span class="mono" style="color:var(--text-3);text-align:right">${p}%</span>
                 </button>`;
               }).join('') || `<div style="color:var(--text-3);font-size:12px">暂无分流分类统计</div>`}
+              ${outcomeRest.length ? `<details class="ov-legend-fold"><summary>其余 ${outcomeRest.length} 项 · ${compactNum(outcomeRestTotal)} 次</summary><div class="ov-legend-fold-body">${outcomeRest.map(x => {
+                const p = ((+x.count || 0) / dsTotal * 100).toFixed(1);
+                return `<button type="button" class="rl-item outcome-item" data-outcome-key="${esc(x.key)}" title="${esc(x.key || '未分类')} · 点击查看查询日志">
+                  <span class="rl-name"><i class="rl-dot" style="background:${outcomeColor(x.key)}"></i>${esc(x.label)}</span>
+                  <span class="mono" style="color:var(--text-2);text-align:right">${compactNum(x.count)}</span>
+                  <span class="mono" style="color:var(--text-3);text-align:right">${p}%</span>
+                </button>`;
+              }).join('')}</div></details>` : ''}
             </div>
           </div>
-          <p class="overview-outcome-note">按查询次数排列；缓存命中不展开原始分流去向。${allSets.length>=64?'接口最多读取 64 类，当前占比仅覆盖已返回分类。':''}</p>
+          <p class="overview-outcome-note">按查询次数排列；默认显示 Top 6 与异常桶，其余折叠；缓存命中不展开原始分流去向。${allSets.length>=64?'接口最多读取 64 类，当前占比仅覆盖已返回分类。':''}</p>
         </div>
       </div>
 
@@ -580,61 +654,13 @@ import { cacheName } from '../management/index.js';
         ${workspaceService.rankings({domains:domains||[],clients:clients||[],sets:sets||[],total:stats.total_queries,aliases:clientAliases})}
       </div>
 
-      <div class="col-12 overview-cache-panel">
-        <div class="glass-card">
-          <div class="gc-head">
-            <div>
-              <div class="gc-title-row">
-                <div class="gc-title">多级缓存池状态</div>
-                <span class="cache-status-pill ${cacheState==='off' ? 'is-off' : cacheState==='unknown' ? 'is-muted' : 'is-on'}">${cacheState==='off' ? '● 核心缓存已关闭' : cacheState==='unknown' ? '● 核心缓存状态未知' : '● 核心缓存运行中'}</span>
-                <span class="cache-status-pill ${lazyEnabled ? 'is-lazy' : 'is-muted'}">乐观过期 ${lazyState==='on' ? '开启' : lazyState==='off' ? '关闭' : '未知'}</span>
-              </div>
-              <p class="workspace-subline cache-panel-subline">4 级独立缓存池实时命中率、请求量与驻留条目数 · 综合命中率（全池加权） ${pct(overallHitRate)}</p>
-            </div>
-            <div class="cache-head-actions">
-              <span class="gc-sub" style="cursor:pointer" data-route="management">缓存管理 ›</span>
-            </div>
+      <div class="col-12">
+        <div class="glass-card ov-cache-line-card">
+          <div class="ov-cache-line">
+            <span>${cacheState === 'off' ? '核心缓存已关闭 · ' : ''}缓存池：全部缓存 ${cMain.hit.toFixed(1)}% · 国内缓存 ${cDom.hit.toFixed(1)}% · 国外缓存 ${cFor.hit.toFixed(1)}% · 国外 ECS ${cEcs.hit.toFixed(1)}% · 综合 ${pct(overallHitRate)}</span>
+            <span class="gc-sub" style="cursor:pointer" data-route="management" data-route-sub="cache">缓存管理 ›</span>
           </div>
-          <div class="overview-cache-pools">
-            ${[
-              ['全部缓存 (cache_main)', 'cache_main', cMain],
-              ['国内缓存 (cache_domestic)', 'cache_domestic', cDom],
-              ['国外缓存 (cache_foreign)', 'cache_foreign', cFor],
-              ['国外 ECS (cache_foreign_ecs)', 'cache_foreign_ecs', cEcs]
-            ].map(([label, tag, c]) => {
-              const info = overviewInsightsService?.poolInfo ? overviewInsightsService.poolInfo(tag) : { code: 'POOL', shortLabel: label, sub: tag, tone: 'main' };
-              const hitClamped = Math.max(0, Math.min(100, +c.hit || 0));
-              const lazyVal = Math.max(0, +c.lazy || 0);
-              return `
-              <div class="u-row-bar overview-cache-pool" data-pool-tag="${esc(tag)}" data-pool-tone="${esc(info.tone)}">
-                <div class="cache-pool-body">
-                  <div class="urb-head">
-                    <span class="cache-pool-title-wrap" style="color:var(--text-1)">
-                      <span class="cache-pool-code mono">${esc(info.code)}</span>
-                      <span class="cache-pool-titles">
-                        <strong class="cache-pool-short">${esc(info.shortLabel)}</strong>
-                        <small class="cache-pool-sub">${esc(info.sub)}</small>
-                      </span>
-                    </span>
-                    <span class="cache-pool-rate-wrap" style="color:var(--text-2)" aria-label="命中率 ${c.hit.toFixed(1)}%">
-                      <span class="cache-pool-hit-num tabular">${c.hit.toFixed(1)}%</span> <small class="cache-pool-hit-unit" style="font-size:11px">命中率</small>
-                      <span class="cache-pool-lazy-tag tabular" title="乐观过期缓存命中率 ${lazyVal.toFixed(1)}%">过期 ${lazyVal.toFixed(1)}%</span>
-                    </span>
-                  </div>
-                  <div class="urb-track" aria-hidden="true"><div class="urb-fill" style="width:${hitClamped.toFixed(1)}%"></div></div>
-                  <dl class="overview-cache-facts"><div><dt>查询数</dt><dd>${num(c.q)}</dd></div><div><dt>命中数</dt><dd>${num(c.h)}</dd></div><div><dt>缓存条目</dt><dd>${num(c.size)}</dd></div></dl>
-                  <div class="cache-pool-foot">
-                    <span class="cache-pool-tag-mono mono">${esc(tag)}</span>
-                    <div class="cache-pool-actions">
-                      <button type="button" class="cache-pool-btn" data-overview-cache-view="${esc(tag)}" title="查看 ${esc(info.shortLabel)} 内容">查看</button>
-                      <button type="button" class="cache-pool-btn is-danger" data-overview-cache-flush="${esc(tag)}" title="清空 ${esc(info.shortLabel)}">清空</button>
-                    </div>
-                  </div>
-                </div>
-              </div>`;
-            }).join('')}
-          </div>
-          <p class="overview-outcome-note">命中率 = 命中数 ÷ 本池查询数；条目数为当前值。查询与命中计数来自核心运行指标，统计周期与审计日志不同。</p>
+          <p class="overview-outcome-note">命中率 = 命中数 ÷ 本池查询数；统计周期与审计日志不同，明细与清空在缓存管理。</p>
         </div>
       </div>
 
@@ -672,13 +698,7 @@ import { cacheName } from '../management/index.js';
       };
     });
     $$('[data-rule-jump]', page).forEach(el => {
-      el.onclick = async () => {
-        const tab = el.dataset.ruleJump;
-        await navigate('rules');
-        if(state.route!=='rules')return;
-        const btn = $(`[data-rule-tab="${tab}"]`);
-        if (btn) btn.click();
-      };
+      el.onclick = () => navigate(`rules/${el.dataset.ruleJump}`);
     });
 
     // 绑定第一层真实控制条事件
@@ -842,11 +862,14 @@ import { cacheName } from '../management/index.js';
       bindSlowRows();
     };
     $('#outcome-detail-button').onclick=()=>openOutcomeDetail(allSets,outcomes.total);
-    $$('[data-outcome-index]',page).forEach(button=>button.onclick=()=>{
-      const row=ds[Number(button.dataset.outcomeIndex)];
-      if(row.members)return openOutcomeDetail(row.members,outcomes.total,true);
-      Object.assign(state.logs,{page:1,q:'',exact:false,type:'',set:row.key,code:'',client:''});navigate('logs');
+    $$('[data-outcome-key]',page).forEach(button=>button.onclick=()=>{
+      Object.assign(state.logs,{page:1,q:'',exact:false,type:'',set:button.dataset.outcomeKey,code:'',client:''});navigate('logs');
     });
+    $$('[data-attention-set]',page).forEach(button=>button.onclick=()=>{
+      Object.assign(state.logs,{page:1,q:'',exact:false,type:'',set:button.dataset.attentionSet,code:'',client:''});navigate('logs');
+    });
+    $$('[data-goto="upstreams"]',page).forEach(button=>button.onclick=()=>navigate('upstreams'));
+    $$('[data-goto="version"]',page).forEach(button=>button.onclick=()=>{$('#version-button')?.click();});
     workspaceService.topology(page,redraw,sets);
   }
 export { renderOverview };

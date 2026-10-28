@@ -16,7 +16,8 @@ import { fitRuleLayoutHeight } from '../shell/controller.js';
 import { toast } from '../../shared/components/toast.js';
 import { modalOpen } from '../../shared/components/dialog.js';
 import { downloadText } from '../../shared/downloads.js';
-import { safeResult } from '../../shared/async.js';
+import { safe, safeResult } from '../../shared/async.js';
+import { requeryHtml, openRequeryScheduler, countsHtml, multiPluginAction, clearShuntData } from '../management/index.js';
 
   const ruleProfiles=[['whitelist','白名单'],['blocklist','黑名单'],['greylist','灰名单'],['force_realip','强制 RealIP'],['ddns_domains','DDNS 域名'],['pcdn_domains','PCDN 域名'],['pcdn_regex_v4','PCDN IPv4 规则'],['pcdn_regex_v6','PCDN IPv6 规则'],['client_ip','客户端 IP'],['direct_ip','直连 IP'],['rewrite','重定向']];
 
@@ -32,6 +33,15 @@ import { safeResult } from '../../shared/async.js';
     const button=$('#div-update-all',body);if(button)button.textContent=diversionUpdating?'更新中…':'更新全部';
   }
 
+  // 名单菜单：白黑灰强制 RealIP 四类常驻，其余 7 类收进“专用规则”折叠组；
+  // 折叠组里的按钮仍在 DOM 内，移动端类别下拉与草稿保护都不受影响。
+  function ruleMenuHtml(tag){
+    const btn=([t,n])=>`<button data-rule-tag="${t}" class="${t===tag?'active':''}"><span>${n}</span><span class="rule-count"></span></button>`;
+    const pinned=ruleProfiles.slice(0,4), folded=ruleProfiles.slice(4);
+    const foldedActive=folded.some(([t])=>t===tag);
+    return `<div class="rule-menu">${pinned.map(btn).join('')}<details class="rule-menu-fold" ${foldedActive?'open':''}><summary>专用规则</summary><div class="rule-menu-fold-body">${folded.map(btn).join('')}</div></details></div>`;
+  }
+
   async function renderRules(container, context){
  const renderScope = context.scope, page = container;
  ruleViews=new LatestView(renderScope);
@@ -41,21 +51,49 @@ import { safeResult } from '../../shared/async.js';
 
     setHTML(page, `
     <div class="view-title-row">
-      <div style="display:flex;align-items:baseline;gap:12px"><h1>规则管理</h1><span class="gc-sub">统一维护本地名单、AdGuard 广告拦截与 SRS 在线分流规则</span></div>
+      <div style="display:flex;align-items:baseline;gap:12px"><h1>规则管理</h1><span class="gc-sub">统一维护本地名单、AdGuard 广告拦截、SRS 在线分流与自动分流规则</span></div>
       <div class="seg-group" id="rule-top-tabs">
         <button type="button" class="seg-item active" data-rule-tab="lists">名单管理</button>
         <button type="button" class="seg-item" data-rule-tab="adguard">广告拦截 (AdGuard)</button>
         <button type="button" class="seg-item" data-rule-tab="diversion">在线分流 (SRS)</button>
+        <button type="button" class="seg-item" data-rule-tab="auto">自动分流</button>
       </div>
     </div>
     <div id="rule-tab-body" class="col-12"></div>`);
     $$('[data-rule-tab]').forEach(x=>x.onclick=()=>renderRuleTab(x.dataset.ruleTab));
-    await renderScope.guard(renderRuleTab('lists'));
+    // 二级锚点与搜索直达只在本次挂载消费一次，之后静默刷新不再反复跳页签；
+    // 与现有行为一致：切到 lists 以外的页签后，静默刷新仍会回到 lists。
+    const initialTab = state.routeSub && ['lists', 'adguard', 'diversion', 'auto'].includes(state.routeSub) ? state.routeSub : 'lists';
+    state.routeSub = null;
+    if (state.pendingRuleTag && ruleProfiles.some(x => x[0] === state.pendingRuleTag)) state.ruleTag = state.pendingRuleTag;
+    state.pendingRuleTag = null;
+    await renderScope.guard(renderRuleTab(initialTab));
   }
 
   async function renderRuleTab(tab,approved=false){
  const renderScope = currentScope();
-if(!approved&&rulesWorkbenchService?.canLeave(()=>renderRuleTab(tab,true))===false)return;activeTab=tab;$$('[data-rule-tab]').forEach(y=>y.classList.toggle('active',y.dataset.ruleTab===tab));const body=$('#rule-tab-body');setHTML(body, loadingPage());if(tab==='lists')return renderListRules(body);if(tab==='adguard')return renderAdguard(body);return renderDiversion(body);}
+if(!approved&&rulesWorkbenchService?.canLeave(()=>renderRuleTab(tab,true))===false)return;activeTab=tab;$$('[data-rule-tab]').forEach(y=>y.classList.toggle('active',y.dataset.ruleTab===tab));const body=$('#rule-tab-body');setHTML(body, loadingPage());if(tab==='lists')return renderListRules(body);if(tab==='adguard')return renderAdguard(body);if(tab==='auto')return renderAutoTab(body);return renderDiversion(body);}
+
+  // 自动分流 tab：内容整块从系统管理搬过来（域名列表统计 + 刷新分流缓存），
+  // 渲染器与操作函数复用管理页模块，刷新回调只重渲染本页签，不跳回 lists。
+  async function renderAutoTab(body){
+ if(activeTab!=='auto'||!body?.isConnected||currentScope().signal.aborted)return;
+ const renderScope = ruleViews.begin();
+    const refresh=()=>renderRuleTab('auto',true);
+    let reqStatus, reqCfg, counts;
+    try{
+      [reqStatus,reqCfg]=await renderScope.guard(Promise.all([safe(()=>api.request('/plugins/requery/status'),null),safe(()=>api.request('/plugins/requery/scheduler/config'),null)]));
+      counts=await renderScope.guard(safeResult(()=>api.request('/plugins/requery/stats/source_file_counts')));
+    }catch(e){if(renderScope.signal.aborted)return;throw e;}
+    if(activeTab!=='auto'||!body?.isConnected||currentScope().signal.aborted)return;
+    const rq=requeryHtml(reqStatus,reqCfg);
+    setHTML(body, `<div class="rule-auto-stack">${card('域名列表统计',countsHtml(counts),{iconName:'rules',subtitle:'查看自动分流列表的当前条目数',actions:'<button class="button small" id="save-shunt" title="保存分流规则">保存</button><button class="button small danger" id="clear-shunt" title="清空分流规则">清空</button>',className:'data-counts-card'})}${card('刷新分流缓存',rq.body,{iconName:'refresh',subtitle:'重新扫描域名并更新自动生成的分流列表',actions:rq.actions,className:'data-requery-card'})}</div>`);
+    $('#save-shunt')?.addEventListener('click',()=>multiPluginAction(['domain_stats/save','realip/save','fakeip/save','nodata/save'],'分流规则已保存',refresh));
+    $('#clear-shunt')?.addEventListener('click',()=>clearShuntData(refresh));
+    $('#requery-trigger')?.addEventListener('click',async()=>{try{await api.request('/plugins/requery/trigger',{method:'POST'});toast('刷新任务已开始');refresh()}catch(e){toast('刷新任务开始失败','error',e.message);refresh()}});
+    $('#requery-cancel')?.addEventListener('click',async()=>{try{await api.request('/plugins/requery/cancel',{method:'POST'});toast('已请求取消');refresh()}catch(e){toast('取消刷新任务失败','error',e.message);refresh()}});
+    $('#requery-scheduler')?.addEventListener('click',()=>openRequeryScheduler(reqCfg,refresh));
+  }
 
   async function renderListRules(body){
  if(activeTab!=='lists'||!body?.isConnected||currentScope().signal.aborted)return;
@@ -65,7 +103,7 @@ if(!approved&&rulesWorkbenchService?.canLeave(()=>renderRuleTab(tab,true))===fal
     const tag=state.ruleTag,profile=ruleProfiles.find(x=>x[0]===tag)||ruleProfiles[0];
     let text='',loadError=null;
     try{text=await renderScope.guard(api.request(`/plugins/${tag}/show?all=1`,{signal:renderScope.signal}))}catch(e){if(renderScope.signal.aborted)return;loadError=e}
-    const menu=`<div class="rule-menu">${ruleProfiles.map(([t,n])=>`<button data-rule-tag="${t}" class="${t===tag?'active':''}"><span>${n}</span><span class="rule-count"></span></button>`).join('')}</div>`;
+    const menu=ruleMenuHtml(tag);
     if(loadError){
       setHTML(body, `<section class="card"><div class="rule-layout">${menu}<div class="rule-editor"><div class="section-header"><div><h2>${profile[1]}</h2><p>读取失败时禁止保存，现有规则不会被覆盖。</p></div><button class="button" id="rule-retry">${icon('refresh')}重试</button></div><div class="error-panel"><strong>规则列表加载失败</strong><p>${esc(loadError.message)}</p></div></div></div></section>`);
       $$('[data-rule-tag]').forEach(x=>x.onclick=()=>{const go=()=>{state.ruleTag=x.dataset.ruleTag;renderListRules(body)};if(rulesWorkbenchService?.canLeave(go)!==false)go();});$('#rule-retry').onclick=()=>renderListRules(body);requestAnimationFrame(fitRuleLayoutHeight);return;

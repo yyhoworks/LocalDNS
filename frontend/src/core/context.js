@@ -22,9 +22,11 @@ const CONFIG = Object.assign({
   /** @type {{ get: (k: string) => string | null, set: (k: string, v: unknown) => void }} */
   const storage = { get(k){ try { return preferences.getItem(k); } catch { return null; } }, set(k,v){ try { preferences.setItem(k,String(v)); } catch {} } };
 
-  /** @type {{ route: string, logs: any, ruleTag: string, mobileMoreOpen: boolean, renderSeq: number, overviewSlowPage: number, overviewDomainPage: number, overviewSlowLimit: number, silent?: boolean, logsPaused?: boolean }} */
+  /** @type {{ route: string, routeSub: string | null, pendingRuleTag: string | null, logs: any, ruleTag: string, mobileMoreOpen: boolean, renderSeq: number, overviewSlowPage: number, overviewDomainPage: number, overviewSlowLimit: number, silent?: boolean, logsPaused?: boolean }} */
   const state = {
     route: 'overview',
+    routeSub: null,
+    pendingRuleTag: null,
     logs: createLogQuery(matchMedia('(max-width:600px)').matches),
     ruleTag: 'whitelist',
     mobileMoreOpen: false, renderSeq: 0,

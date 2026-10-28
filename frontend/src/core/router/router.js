@@ -1,6 +1,6 @@
 // @ts-check
 import { beginRoute, currentScope } from './route-lifetime';
-import { resolveRoute } from './resolve-route';
+import { parseRoute } from './resolve-route';
 import { toast } from '../../shared/components/toast.js';
 import { closeDrawer } from '../../shared/components/drawer.js';
 import { modalClose } from '../../shared/components/dialog.js';
@@ -34,14 +34,17 @@ import { setPageLabel, focusPageHeading, markPageHeading } from './page-title.js
   /** @param {string} id @param {boolean} [write] */
   async function navigate(id,write=true){
     const sequence=++navigationSeq;
-    id=resolveRoute(id);
+    const parsed=parseRoute(id);
+    id=parsed.route;
     const active=routeModule(state.route);
     if(active.canLeave){
       const decision=active.canLeave();
       if(location.hash!==`#/${state.route}`){history.replaceState(null,'',`#/${state.route}`);write=true;}
       if(!await decision||sequence!==navigationSeq)return;
     }
-    state.route=id;if(write&&location.hash!==`#/${id}`)history.pushState(null,'',`#/${id}`);return renderRoute(false,false,true);
+    state.route=id;state.routeSub=parsed.sub;
+    if(write){const target=parsed.sub?`${id}/${parsed.sub}`:id;if(location.hash!==`#/${target}`)history.pushState(null,'',`#/${target}`);}
+    return renderRoute(false,false,true);
   }
 
   function updateNav(){ const r=routeDefs.find(x=>x.id===state.route); if(!r)return; setPageLabel(r.label); /** @type {HTMLElement} */ ($('#page-title')).textContent=r.label; /** @type {HTMLElement} */ ($('#page-subtitle')).textContent=r.subtitle;$$('[data-route]').forEach(x=>x.classList.toggle('active',/** @type {HTMLElement} */ (x).dataset.route===state.route)); }
