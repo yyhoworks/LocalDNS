@@ -17,6 +17,14 @@ describe('UI upgrade eligibility', () => {
   it('does not block releases whose tag carries no backend prefix', () => {
     expect(upgradeTarget(installed, { ...release, backend: '' }).tag).toBe(release.tag);
   });
+
+  it('accepts a newer release of the same FJ core whatever its third letter', () => {
+    const fjh21 = { uiVersion: '2026.10.28.2', backendVersion: 'FJH21' };
+    const next = { ...release, tag: 'fjh21-ui-v2026.10.29.1', version: '2026.10.29.1', backend: 'FJH21' };
+    expect(upgradeTarget(fjh21, next).tag).toBe(next.tag);
+    expect(upgradeTarget(fjh21, { ...next, backend: 'FJGOE' }).tag).toBeUndefined();
+    expect(upgradeTarget(fjh21, { ...next, tag: 'xjh21-ui-v2026.10.29.1' }).tag).toBeUndefined();
+  });
 });
 
 describe('UI update requests', () => {

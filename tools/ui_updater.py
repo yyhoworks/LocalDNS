@@ -19,7 +19,10 @@ from urllib.parse import urlsplit
 import install_localdns as installer
 
 PROTOCOL = 'localdns-ui-updater/v1'
-TAG = re.compile(r'fjg[a-z0-9]+-ui-v(\d{4}\.\d+\.\d+\.\d+)', re.I)
+# The FJ prefix does not imply a G third letter (FJGOE -> FJH21). Keep the
+# backend shape aligned with package_ui.py and the frontend release-tag check
+# in frontend/src/features/version/ui-update-client.ts.
+TAG = re.compile(r'fj[a-z][a-z0-9]+-ui-v(\d{4}\.\d+\.\d+\.\d+)', re.I)
 ACTIVE = {'queued', 'running'}
 
 
