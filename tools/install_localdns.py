@@ -265,7 +265,9 @@ def extract_verified(archive, output):
             metadata = json.loads(source.read('release.json'))
             if not re.fullmatch(r'\d{4}\.\d+\.\d+\.\d+', metadata.get('uiVersion', '')):
                 raise InstallError('安装包版本元数据无效')
-            if not re.fullmatch(r'FJG[A-Z0-9]+', metadata.get('backendVersion', '')):
+            # Keep in sync with the packager's backend check in tools/package_ui.py:
+            # the FJ prefix no longer implies a G third letter (FJGOE -> FJH21).
+            if not re.fullmatch(r'FJ[A-Z][A-Z0-9]+', metadata.get('backendVersion', '')):
                 raise InstallError('安装包核心版本无效')
             require_space(output.parent, sum(i.file_size for i in infos))
             output.mkdir(parents=True)
