@@ -97,6 +97,29 @@ class UIUpdaterTests(_UpdateFixture):
                 self.manager.start(tag)
         self.assertFalse(self.manager.status()['canRollback'])
 
+    def test_accepts_fjh21_release_tag_and_still_blocks_other_cores(self):
+        # The FJ prefix does not imply a G third letter (FJGOE -> FJH21): an
+        # FJH21 core must accept its own fjh21-* UI release, while a release of
+        # another core stays blocked by the backend comparison.
+        for file in self.packages.glob('*_Update.zip'):
+            file.unlink()
+        metadata = dict(VERSION, uiVersion='2026.10.28.2', backendVersion='FJH21', packageType='ui-update')
+        write_archive(self.packages / 'LocalDNS_UI_2026.10.28.2_Update.zip',
+                      {'ui/index.html': b'<html>fjh21 UI</html>',
+                       'ui/config.js': b'package default config',
+                       'ui/version.json': json_bytes(metadata),
+                       'release.json': json_bytes(metadata)}, metadata, {})
+        self.refresh_sums()
+        (self.root / 'ui/version.json').write_bytes(json_bytes(dict(VERSION, backendVersion='FJH21')))
+        with patch.object(installer, 'Packages', side_effect=self.package), \
+                patch.object(installer, 'local_json', side_effect=self.core):
+            with self.assertRaises(updater.UpdateError):
+                self.manager.start('fjgoe-ui-v2026.10.28.2')
+            self.manager.start('fjh21-ui-v2026.10.28.2')
+            state = self.finish()
+        self.assertEqual(state['state'], 'succeeded', state)
+        self.assertEqual(state['installedVersion'], '2026.10.28.2')
+
     def test_duplicate_request_returns_same_task_and_cli_shares_lock(self):
         entered, release = threading.Event(), threading.Event()
         def waiting(work, tag):

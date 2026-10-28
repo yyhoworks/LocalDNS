@@ -26,7 +26,9 @@ export function upgradeTarget(installed: InstalledUI | null, release: UIRelease 
   const different = target.findIndex((value, index) => value !== current[index]);
   if (different < 0 || target[different] < current[different]) return { reason: '暂无比当前 UI 更新的正式版。' };
   if (!release.packages.includes('UI 升级包')) return { reason: '该发行版没有提供 UI 升级包。' };
-  if (!/^fjg[a-z0-9]+-ui-v\d{4}\.\d+\.\d+\.\d+$/i.test(release.tag)) return { reason: '发行版标签无效，请查看发布说明。' };
+  // The FJ prefix does not imply a G third letter (FJGOE -> FJH21); keep this
+  // shape aligned with tools/ui_updater.py and tools/package_ui.py.
+  if (!/^fj[a-z][a-z0-9]+-ui-v\d{4}\.\d+\.\d+\.\d+$/i.test(release.tag)) return { reason: '发行版标签无效，请查看发布说明。' };
   return { tag: release.tag, reason: '仅更新界面，保留配置、Logo 和字体；无需重启 DNS。' };
 }
 
