@@ -106,11 +106,6 @@ async function renderDevices(container, context) {
 
   const observedClients = clientsRes.ok && Array.isArray(clientsRes.data) ? clientsRes.data : [];
   const recordedMap = new Map(observedClients.map(c => [String(c.key), +c.count || 0]));
-  const allActiveIps = [...new Set([
-    ...observedClients.map(c => String(c.key)).filter(Boolean),
-    ...Object.keys(clientAliases || {}),
-    ...controlledEntries.map(e => e.ip)
-  ])];
 
   const effectivePolicy = entry => {
     if (clientMode === 'fakeip') return entry.enabled ? 'fakeip' : 'realip';
@@ -119,181 +114,255 @@ async function renderDevices(container, context) {
     return 'unknown';
   };
 
-  const strategyBadgeHtml = entry => {
-    const policy = effectivePolicy(entry);
-    if (policy === 'fakeip') {
-      return '<span class="devices-badge is-fakeip">✓ FakeIP 科学分流</span>';
-    }
-    if (policy === 'realip') {
-      return '<span class="devices-badge is-realip">→ RealIP 真实解析</span>';
-    }
-    if (policy === 'all') {
-      return `<span class="devices-badge is-standby">全员分流中（名单${entry.enabled ? '待命' : '停用'}）</span>`;
-    }
-    return '<span class="devices-badge is-muted">策略状态未知</span>';
+  // 统一设备模型：受控条目 + 未受控活跃 IP 合成一张表
+  const aliasOf = ip => clientAliases[ip] || null;
+  const devices = [
+    ...controlledEntries.map(entry => ({
+      kind: 'controlled',
+      entry,
+      ip: entry.ip,
+      alias: aliasOf(entry.ip) || entry.note || '',
+      count: recordedMap.get(entry.ip) || 0,
+      policy: effectivePolicy(entry)
+    })),
+    ...[...new Set([
+      ...observedClients.map(c => String(c.key)).filter(Boolean),
+      ...Object.keys(clientAliases || {})
+    ])].filter(ip => !controlledIpSet.has(ip)).map(ip => {
+      const isLoopback = ip === '127.0.0.1' || ip === '::1';
+      return {
+        kind: 'active',
+        entry: null,
+        ip,
+        alias: aliasOf(ip) || (isLoopback ? 'LocalDNS' : ''),
+        count: recordedMap.get(ip) || 0,
+        policy: 'none',
+        isLoopback
+      };
+    })
+  ];
+  const maxCount = Math.max(1, ...devices.map(d => d.count));
+  const counts = { all: devices.length, fakeip: 0, realip: 0, none: 0 };
+  devices.forEach(d => {
+    if (d.policy === 'fakeip') counts.fakeip++;
+    else if (d.policy === 'realip') counts.realip++;
+    else if (d.policy === 'none') counts.none++;
+  });
+
+  const badgeHtml = d => {
+    if (d.policy === 'fakeip') return '<span class="dev-pill is-fakeip">走 FakeIP</span>';
+    if (d.policy === 'realip') return '<span class="dev-pill is-realip">走 RealIP</span>';
+    if (d.policy === 'all') return `<span class="dev-pill is-standby">全员分流${d.entry && !d.entry.enabled ? ' · 已停用' : ''}</span>`;
+    if (d.policy === 'none') return '<span class="dev-pill is-none">未受控</span>';
+    return '<span class="dev-pill is-none">未知</span>';
   };
 
-  const rowControlHtml = entry => {
-    const policy = effectivePolicy(entry);
+  const controlHtml = d => {
+    if (d.kind !== 'controlled') {
+      if (d.isLoopback) return '<span class="dev-sys-tag">本机系统</span>';
+      if (clientIpLoadError) return '<span class="dev-sys-tag">名单加载失败</span>';
+      const label = clientMode === 'fakeip' ? '+ 加入 FakeIP 名单' : clientMode === 'realip' ? '+ 加入 RealIP 名单' : '+ 加入名单';
+      return `<button type="button" class="dev-join" data-devices-add-ip="${esc(d.ip)}">${label}</button>`;
+    }
+    const entry = d.entry;
     if (clientMode === 'fakeip' || clientMode === 'realip') {
       const fakeNextEnabled = clientMode === 'fakeip' ? '1' : '0';
       const realNextEnabled = clientMode === 'realip' ? '1' : '0';
       return `
-        <div class="seg-group devices-inline-seg" role="group" aria-label="单机分流策略 ${esc(entry.ip)}">
-          <button type="button" class="seg-item ${policy === 'fakeip' ? 'active' : ''}" data-devices-toggle-line="${entry.lineIndex}" data-devices-next-enabled="${fakeNextEnabled}" data-devices-target-policy="fakeip" ${policy === 'fakeip' ? 'aria-pressed="true"' : 'aria-pressed="false"'} title="让 ${esc(entry.ip)} 走 FakeIP 科学分流">FakeIP</button>
-          <button type="button" class="seg-item ${policy === 'realip' ? 'active' : ''}" data-devices-toggle-line="${entry.lineIndex}" data-devices-next-enabled="${realNextEnabled}" data-devices-target-policy="realip" ${policy === 'realip' ? 'aria-pressed="true"' : 'aria-pressed="false"'} title="让 ${esc(entry.ip)} 强制返回 RealIP 真实解析">RealIP</button>
-        </div>
-      `;
+        <span class="dev-mseg" role="group" aria-label="单机分流策略 ${esc(entry.ip)}">
+          <button type="button" class="${d.policy === 'fakeip' ? 'on' : ''}" data-devices-toggle-line="${entry.lineIndex}" data-devices-next-enabled="${fakeNextEnabled}" data-devices-target-policy="fakeip" aria-pressed="${d.policy === 'fakeip'}" title="让 ${esc(entry.ip)} 走 FakeIP 科学分流">FakeIP</button>
+          <button type="button" class="${d.policy === 'realip' ? 'on' : ''}" data-devices-toggle-line="${entry.lineIndex}" data-devices-next-enabled="${realNextEnabled}" data-devices-target-policy="realip" aria-pressed="${d.policy === 'realip'}" title="让 ${esc(entry.ip)} 走 RealIP 真实解析">RealIP</button>
+        </span>`;
     }
-    return `<button type="button" class="button small" data-devices-toggle-line="${entry.lineIndex}" data-devices-next-enabled="${entry.enabled ? '0' : '1'}">${entry.enabled ? '停用' : '启用'}</button>`;
+    return `<button type="button" class="dev-join" data-devices-toggle-line="${entry.lineIndex}" data-devices-next-enabled="${entry.enabled ? '0' : '1'}">${entry.enabled ? '停用' : '启用'}</button>`;
+  };
+
+  const rowHtml = d => {
+    const pct = Math.max(4, Math.round(d.count / maxCount * 100));
+    const aliasBtn = `<button type="button" class="dev-alias-btn" data-devices-edit-alias title="管理设备别名">${esc(d.alias) || '<span class="dev-noalias">未命名设备</span>'}</button>`;
+    return `
+    <div class="dev-row${d.kind === 'active' ? ' is-uncontrolled' : ''}" data-ip="${esc(d.ip)}" data-q="${esc((d.alias + d.ip).toLowerCase())}" data-policy="${d.policy}" data-req="${d.count}">
+      <div><input type="checkbox" class="dev-ck" data-devices-ck="${esc(d.ip)}" aria-label="选择 ${esc(d.ip)}"></div>
+      <div class="dev-main">
+        <div class="dev-alias">${aliasBtn}${d.kind === 'controlled' ? '<span class="dev-tag">受控</span>' : ''}</div>
+        <button type="button" class="dev-ip" data-devices-log-ip="${esc(d.ip)}" title="查看 ${esc(d.ip)} 的查询日志">${esc(d.ip)}</button>
+      </div>
+      <div>${badgeHtml(d)}</div>
+      <div class="dev-actcol"><div class="dev-bar"><i style="width:${pct}%"></i></div><div class="dev-num">${num(d.count)} 次</div></div>
+      <div>${controlHtml(d)}</div>
+      <div class="dev-ops">
+        <button type="button" class="dev-iconbtn" data-devices-edit-alias title="管理设备别名">✎</button>
+        <button type="button" class="dev-iconbtn" data-devices-menu="${esc(d.ip)}" title="更多操作">⋯</button>
+      </div>
+    </div>`;
   };
 
   setHTML(page, `
-    <div class="view-title-row">
+  <div class="devices-dark">
+    <div class="dev-topbar">
       <div>
-        <h1>设备与客户端策略</h1>
-        <span class="gc-sub">统一管理内网客户端设备别名、全局/单机分流模式（全员分流 / 指定 FakeIP / 指定 RealIP）及设备查询活跃度</span>
+        <h1>设备</h1>
+        <p class="dev-sub">内网客户端分流策略 · 别名与受控名单</p>
       </div>
-      <div class="devices-header-actions">
-        <button type="button" class="glass-btn" id="devices-open-alias-modal">管理全部别名</button>
-        <button type="button" class="glass-btn" data-route="overview">← 返回概览</button>
+      <div class="dev-modebox">
+        <span class="dev-mode-label">全局客户端策略</span>
+        <div class="dev-seg" role="group" aria-label="客户端分流策略">
+          <button type="button" class="${clientMode === 'all' ? 'on' : ''}" data-devices-mode="all" ${clientMode === 'unknown' ? 'disabled' : ''}>全员分流</button>
+          <button type="button" class="${clientMode === 'fakeip' ? 'on' : ''}" data-devices-mode="fakeip" ${clientMode === 'unknown' ? 'disabled' : ''}>指定 FakeIP</button>
+          <button type="button" class="${clientMode === 'realip' ? 'on' : ''}" data-devices-mode="realip" ${clientMode === 'unknown' ? 'disabled' : ''}>指定 RealIP</button>
+        </div>
       </div>
     </div>
 
-    <div class="col-6 devices-col">
-      <section class="glass-card devices-card">
-        <header class="gc-head">
-          <div>
-            <h2 class="gc-title">1. 客户端分流模式与受控设备名单</h2>
-            <p class="workspace-subline">模式切换与受控客户端 IP 同屏配置，所见即所得</p>
-          </div>
-          <div class="devices-card-tools">
-            <button type="button" class="button small" id="devices-add-controlled">${icon('plus')}新增受控 IP</button>
-            <button type="button" class="button small" id="devices-edit-raw">原文编辑</button>
-          </div>
-        </header>
-
-        <div class="devices-mode-banner">
-          <div class="devices-mode-label">
-            <strong>当前全局客户端策略：</strong>
-            <small>${
-              clientMode === 'fakeip'
-                ? '下方每台设备可直接切换「FakeIP / RealIP」；未列入名单的其它内网设备默认走 RealIP 真实解析'
-                : clientMode === 'realip'
-                  ? '下方每台设备可直接切换「FakeIP / RealIP」；未列入名单的其它内网设备默认走 FakeIP 科学分流'
-                  : clientMode === 'all'
-                    ? '局域网所有设备默认按分流规则正常解析，下方受控名单保留待命'
-                    : '分流开关状态读取失败，暂不可切换'
-            }</small>
-          </div>
-          <div class="seg-group" role="group" aria-label="客户端分流策略">
-            <button type="button" class="seg-item ${clientMode === 'all' ? 'active' : ''}" data-devices-mode="all" ${clientMode === 'unknown' ? 'disabled' : ''}>全员分流</button>
-            <button type="button" class="seg-item ${clientMode === 'fakeip' ? 'active' : ''}" data-devices-mode="fakeip" ${clientMode === 'unknown' ? 'disabled' : ''}>指定 FakeIP</button>
-            <button type="button" class="seg-item ${clientMode === 'realip' ? 'active' : ''}" data-devices-mode="realip" ${clientMode === 'unknown' ? 'disabled' : ''}>指定 RealIP</button>
-          </div>
-        </div>
-
-        ${clientIpLoadError ? `
-          <div class="error-panel">
-            <strong>受控客户端 IP 名单读取失败</strong>
-            <p>${esc(clientIpLoadError.message)}</p>
-          </div>
-        ` : `
-          <div class="table-wrap devices-table-wrap">
-            <table class="devices-table">
-              <thead>
-                <tr>
-                  <th>客户端 IP / 网段</th>
-                  <th>设备别名</th>
-                  <th>当前生效策略</th>
-                  <th>单机策略与操作</th>
-                </tr>
-              </thead>
-              <tbody>
-                ${controlledEntries.length ? controlledEntries.map(entry => {
-                  const alias = clientAliases[entry.ip] || entry.note || '—';
-                  return `
-                    <tr class="${clientMode === 'all' && !entry.enabled ? 'is-disabled' : ''}">
-                      <td class="mono"><button type="button" class="workspace-text-button mono" data-devices-log-ip="${esc(entry.ip)}">${esc(entry.ip)}</button></td>
-                      <td>${esc(alias)}</td>
-                      <td>${strategyBadgeHtml(entry)}</td>
-                      <td>
-                        <div class="devices-row-actions">
-                          ${rowControlHtml(entry)}
-                          <button type="button" class="button small danger" data-devices-delete-line="${entry.lineIndex}" data-devices-note-line="${entry.noteLineIndex ?? ''}" aria-label="移出受控名单 ${esc(entry.ip)}">移除</button>
-                        </div>
-                      </td>
-                    </tr>
-                  `;
-                }).join('') : `
-                  <tr>
-                    <td colspan="4" class="table-empty">受控客户端名单为空 · 可从右侧活跃设备一键加入或点击右上角“新增受控 IP”</td>
-                  </tr>
-                `}
-              </tbody>
-            </table>
-          </div>
-        `}
-      </section>
+    <div class="dev-stats">
+      <div class="dev-stat"><div><div class="dev-stat-k">设备总数</div><div class="dev-stat-v">${counts.all}</div><div class="dev-stat-d">受控 ${controlledEntries.length} · 未受控 ${counts.none}</div></div><div class="dev-stat-ic">⧉</div></div>
+      <div class="dev-stat"><div><div class="dev-stat-k">走 FakeIP</div><div class="dev-stat-v is-green">${counts.fakeip}</div><div class="dev-stat-d">科学分流</div></div><div class="dev-stat-ic is-green">✓</div></div>
+      <div class="dev-stat"><div><div class="dev-stat-k">走 RealIP</div><div class="dev-stat-v is-amber">${counts.realip}</div><div class="dev-stat-d">真实解析 · 直连优先</div></div><div class="dev-stat-ic is-amber">→</div></div>
+      <div class="dev-stat"><div><div class="dev-stat-k">未受控</div><div class="dev-stat-v is-gray">${counts.none}</div><div class="dev-stat-d">跟随全局默认</div></div><div class="dev-stat-ic">○</div></div>
     </div>
 
-    <div class="col-6 devices-col">
-      <section class="glass-card devices-card">
-        <header class="gc-head">
-          <div>
-            <h2 class="gc-title">2. 局域网活跃设备与别名映射</h2>
-            <p class="workspace-subline">在此设置的设备别名将在「概览」「日志」「解析路径」全站生效</p>
-          </div>
-          <div class="devices-card-tools">
-            <button type="button" class="button small" id="devices-alias-btn">批量编辑别名</button>
-          </div>
-        </header>
-
-        <div class="table-wrap devices-table-wrap">
-          <table class="devices-table">
-            <thead>
-              <tr>
-                <th>客户端 IP</th>
-                <th>设备别名</th>
-                <th>累计请求</th>
-                <th>快捷操作</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${allActiveIps.length ? allActiveIps.map(ip => {
-                const isLoopback = ip === '127.0.0.1' || ip === '::1';
-                const alias = clientAliases[ip] || (isLoopback ? 'LocalDNS' : '—');
-                const count = recordedMap.get(ip);
-                const inControlled = controlledIpSet.has(ip);
-                const addLabel = clientMode === 'fakeip' ? '+ 加入 FakeIP 名单' : clientMode === 'realip' ? '+ 加入 RealIP 名单' : '+ 加入受控名单';
-                return `
-                  <tr>
-                    <td class="mono"><button type="button" class="workspace-text-button mono" data-devices-log-ip="${esc(ip)}" title="查看 ${esc(ip)} 的查询日志">${esc(ip)}</button></td>
-                    <td><button type="button" class="workspace-text-button" data-devices-edit-alias title="点击设置或修改设备别名"><strong>${esc(alias)}</strong></button></td>
-                    <td class="mono">${count ? `${num(count)} 次` : '—'}</td>
-                    <td>
-                      <div class="devices-row-actions">
-                        ${isLoopback
-                          ? '<span class="devices-status-tag">本机系统</span>'
-                          : inControlled
-                            ? '<span class="devices-status-tag">已在受控名单</span>'
-                            : `<button type="button" class="button small" data-devices-add-ip="${esc(ip)}" ${clientIpLoadError ? 'disabled' : ''}>${addLabel}</button>`
-                        }
-                      </div>
-                    </td>
-                  </tr>
-                `;
-              }).join('') : `
-                <tr>
-                  <td colspan="4" class="table-empty">暂无活跃客户端记录</td>
-                </tr>
-              `}
-            </tbody>
-          </table>
-        </div>
-      </section>
+    <div class="dev-filterbar">
+      <div class="dev-ftabs" id="devices-ftabs" role="group" aria-label="按策略过滤">
+        <button type="button" class="on" data-devices-filter="all">全部设备 <span class="n">${counts.all}</span></button>
+        <button type="button" data-devices-filter="fakeip">走 FakeIP <span class="n">${counts.fakeip}</span></button>
+        <button type="button" data-devices-filter="realip">走 RealIP <span class="n">${counts.realip}</span></button>
+        <button type="button" data-devices-filter="none">未受控 <span class="n">${counts.none}</span></button>
+      </div>
+      <div class="dev-search">
+        <div class="dev-searchbox"><input type="text" id="devices-q" placeholder="搜索别名、IP…" autocomplete="off"></div>
+        <button type="button" class="dev-sortbtn" id="devices-sort">⇅ 请求数 ↓</button>
+      </div>
     </div>
-  `);
+
+    ${clientIpLoadError ? `<div class="dev-errpanel"><strong>受控客户端 IP 名单读取失败</strong><p>${esc(clientIpLoadError.message)}</p></div>` : ''}
+
+    <div class="dev-table">
+      <div class="dev-thead">
+        <div><input type="checkbox" class="dev-ck" id="devices-ck-all" aria-label="全选"></div>
+        <div>设备</div><div>生效策略</div><div class="dev-col-act">活跃度</div><div class="dev-col-ctl">单机策略</div>
+        <div class="dev-col-ops">
+          <button type="button" class="dev-hbtn" id="devices-add-controlled" ${clientIpLoadError ? 'disabled' : ''}>+ 新增受控 IP</button>
+          <button type="button" class="dev-hbtn" id="devices-edit-raw" ${clientIpLoadError ? 'disabled' : ''}>原文编辑</button>
+          <button type="button" class="dev-hbtn" id="devices-open-alias-modal">管理全部别名</button>
+        </div>
+      </div>
+      <div id="devices-rows">${devices.map(rowHtml).join('') || '<div class="dev-empty">暂无设备记录</div>'}</div>
+    </div>
+    <div class="dev-batchbar" id="devices-batchbar">
+      <span id="devices-batch-n">已选 0 台</span>
+      <button type="button" data-devices-batch="fakeip">设为 FakeIP</button>
+      <button type="button" data-devices-batch="realip">设为 RealIP</button>
+      <button type="button" data-devices-batch="rm">移出名单</button>
+      <button type="button" data-devices-batch="cancel">取消</button>
+    </div>
+  </div>`);
+
+  // ---- 视图状态：过滤 / 搜索 / 排序（纯 DOM，不触发重渲染） ----
+  let devFilter = 'all';
+  let devSort = 'req';
+  const applyView = () => {
+    const q = ($('#devices-q', page).value || '').toLowerCase();
+    const rows = [...$$('.dev-row', page)];
+    rows.forEach(r => {
+      const hitQ = !q || r.dataset.q.includes(q);
+      const hitF = devFilter === 'all' || r.dataset.policy === devFilter;
+      r.style.display = hitQ && hitF ? '' : 'none';
+    });
+    const body = $('#devices-rows', page);
+    rows
+      .filter(r => r.style.display !== 'none')
+      .sort((a, b) => devSort === 'req' ? (+b.dataset.req - +a.dataset.req) : a.dataset.ip.localeCompare(b.dataset.ip))
+      .forEach(r => body.appendChild(r));
+    syncBatchUI();
+  };
+  $('#devices-ftabs', page).addEventListener('click', e => {
+    const b = e.target.closest('[data-devices-filter]');
+    if (!b) return;
+    $$('#devices-ftabs [data-devices-filter]', page).forEach(x => x.classList.remove('on'));
+    b.classList.add('on');
+    devFilter = b.dataset.devicesFilter;
+    applyView();
+  });
+  $('#devices-q', page).addEventListener('input', applyView);
+  $('#devices-sort', page).onclick = function () {
+    devSort = devSort === 'req' ? 'ip' : 'req';
+    this.textContent = devSort === 'req' ? '⇅ 请求数 ↓' : '⇅ IP 地址 ↑';
+    applyView();
+  };
+
+  // ---- 批量选择 ----
+  const devSel = new Set();
+  const syncBatchUI = () => {
+    const bar = $('#devices-batchbar', page);
+    bar.classList.toggle('show', devSel.size > 0);
+    $('#devices-batch-n', page).textContent = `已选 ${devSel.size} 台`;
+    const visible = [...$$('.dev-row', page)].filter(r => r.style.display !== 'none').map(r => r.dataset.ip);
+    const all = $('#devices-ck-all', page);
+    if (all) all.checked = visible.length > 0 && visible.every(ip => devSel.has(ip));
+  };
+  $('#devices-ck-all', page).onchange = function () {
+    [...$$('.dev-row', page)].filter(r => r.style.display !== 'none').forEach(r => {
+      this.checked ? devSel.add(r.dataset.ip) : devSel.delete(r.dataset.ip);
+    });
+    applyView();
+  };
+
+  // ---- 后端写入 ----
+  const saveClientIpList = async (nextText, successMessage) => {
+    await ruleSaveService.save(
+      'client_ip',
+      nextText,
+      clientIpText,
+      () => api.request('/plugins/client_ip/show?all=1'),
+      values => api.json('/plugins/client_ip/post', 'POST', { values })
+    );
+    toast(successMessage);
+    renderRoute(true, true);
+  };
+  const doToggleLine = async (entry, nextEnabled, targetPolicy, btn) => {
+    if (clientIpLoadError) return;
+    if (btn) btn.disabled = true;
+    try {
+      const nextText = serializeToggleLine(clientIpText, entry.lineIndex, nextEnabled);
+      const msg = targetPolicy === 'fakeip'
+        ? '已将该设备切换为 FakeIP 科学分流'
+        : targetPolicy === 'realip'
+          ? '已将该设备切换为 RealIP 真实解析'
+          : nextEnabled ? '受控客户端已启用' : '受控客户端已停用';
+      await saveClientIpList(nextText, msg);
+    } catch (e) {
+      if (btn) btn.disabled = false;
+      toast('操作失败', 'error', e.message);
+    }
+  };
+  const doDeleteLine = async (entry, btn) => {
+    if (clientIpLoadError) return;
+    if (btn) btn.disabled = true;
+    try {
+      const nextText = serializeDeleteLine(clientIpText, entry.lineIndex, entry.noteLineIndex);
+      await saveClientIpList(nextText, '已从受控名单移除');
+    } catch (e) {
+      if (btn) btn.disabled = false;
+      toast('移除失败', 'error', e.message);
+    }
+  };
+  const doAddIp = async (ip, btn) => {
+    if (clientIpLoadError || !ip) return;
+    if (btn) btn.disabled = true;
+    try {
+      const nextText = clientIpText ? `${clientIpText}\n${ip}` : ip;
+      await saveClientIpList(nextText, `已将 ${ip} 加入受控名单`);
+    } catch (e) {
+      if (btn) btn.disabled = false;
+      toast('添加失败', 'error', e.message);
+    }
+  };
+  const goLog = ip => {
+    if (!ip) return;
+    state.logs.client = ip;
+    state.logs.page = 1;
+    navigate('logs');
+  };
 
   // 1. 切换客户端分流模式（与概览页保持一致的串行写入 + 回读校验 + 回滚保护）
   let modeGen = 0;
@@ -340,77 +409,97 @@ async function renderDevices(container, context) {
     };
   });
 
-  // 2. 保存受控客户端名单方法（走 ruleSaveService 并发保护）
-  const saveClientIpList = async (nextText, successMessage) => {
-    await ruleSaveService.save(
-      'client_ip',
-      nextText,
-      clientIpText,
-      () => api.request('/plugins/client_ip/show?all=1'),
-      values => api.json('/plugins/client_ip/post', 'POST', { values })
-    );
-    toast(successMessage);
-    renderRoute(true, true);
-  };
-
-  // 3. 单条 FakeIP/RealIP 策略切换或启停与移除
+  // 2. 单条 FakeIP/RealIP 策略切换
   $$('[data-devices-toggle-line]', page).forEach(btn => {
-    btn.onclick = async () => {
-      if (clientIpLoadError || btn.classList.contains('active')) return;
-      const lineIndex = Number(btn.dataset.devicesToggleLine);
-      const nextEnabled = btn.dataset.devicesNextEnabled === '1';
-      const targetPolicy = btn.dataset.devicesTargetPolicy;
-      btn.disabled = true;
-      try {
-        const nextText = serializeToggleLine(clientIpText, lineIndex, nextEnabled);
-        const msg = targetPolicy === 'fakeip'
-          ? '已将该设备切换为 FakeIP 科学分流'
-          : targetPolicy === 'realip'
-            ? '已将该设备切换为 RealIP 真实解析'
-            : nextEnabled ? '受控客户端已启用' : '受控客户端已停用';
-        await saveClientIpList(nextText, msg);
-      } catch (e) {
-        btn.disabled = false;
-        toast('操作失败', 'error', e.message);
-      }
+    btn.onclick = () => {
+      if (btn.classList.contains('on')) return;
+      const entry = controlledEntries.find(e => e.lineIndex === Number(btn.dataset.devicesToggleLine));
+      if (!entry) return;
+      doToggleLine(entry, btn.dataset.devicesNextEnabled === '1', btn.dataset.devicesTargetPolicy, btn);
     };
   });
 
-  $$('[data-devices-delete-line]', page).forEach(btn => {
-    btn.onclick = async () => {
-      if (clientIpLoadError) return;
-      const lineIndex = Number(btn.dataset.devicesDeleteLine);
-      const noteLineAttr = btn.dataset.devicesNoteLine;
-      const noteLineIndex = noteLineAttr !== undefined && noteLineAttr !== '' ? Number(noteLineAttr) : null;
-      btn.disabled = true;
-      try {
-        const nextText = serializeDeleteLine(clientIpText, lineIndex, noteLineIndex);
-        await saveClientIpList(nextText, '已从受控名单移除');
-      } catch (e) {
-        btn.disabled = false;
-        toast('移除失败', 'error', e.message);
-      }
-    };
-  });
-
-  // 4. 从右侧活跃设备一键加入受控名单
+  // 3. 从未受控行一键加入受控名单
   $$('[data-devices-add-ip]', page).forEach(btn => {
-    btn.onclick = async () => {
-      if (clientIpLoadError) return;
-      const ip = btn.dataset.devicesAddIp;
-      if (!ip) return;
-      btn.disabled = true;
-      try {
-        const nextText = clientIpText ? `${clientIpText}\n${ip}` : ip;
-        await saveClientIpList(nextText, `已将 ${ip} 加入受控名单`);
-      } catch (e) {
-        btn.disabled = false;
-        toast('添加失败', 'error', e.message);
-      }
+    btn.onclick = () => doAddIp(btn.dataset.devicesAddIp, btn);
+  });
+
+  // 4. 行内多选
+  $$('[data-devices-ck]', page).forEach(ck => {
+    ck.onchange = () => {
+      ck.checked ? devSel.add(ck.dataset.devicesCk) : devSel.delete(ck.dataset.devicesCk);
+      syncBatchUI();
     };
   });
 
-  // 5. 新增受控 IP 弹窗
+  // 5. 批量操作
+  $('#devices-batchbar', page).addEventListener('click', async e => {
+    const b = e.target.closest('[data-devices-batch]');
+    if (!b) return;
+    const action = b.dataset.devicesBatch;
+    if (action === 'cancel') { devSel.clear(); syncBatchUI(); return; }
+    if (clientIpLoadError || devSel.size === 0) return;
+    b.disabled = true;
+    try {
+      let nextText = clientIpText;
+      const selControlled = controlledEntries.filter(en => devSel.has(en.ip));
+      const selNew = [...devSel].filter(ip => !controlledIpSet.has(ip) && ip !== '127.0.0.1' && ip !== '::1');
+      if (action === 'rm') {
+        selControlled
+          .map(en => ({ li: en.lineIndex, ni: en.noteLineIndex }))
+          .sort((x, y) => y.li - x.li)
+          .forEach(({ li, ni }) => { nextText = serializeDeleteLine(nextText, li, ni); });
+        await saveClientIpList(nextText, `已将 ${selControlled.length} 台移出受控名单`);
+      } else {
+        const toPolicy = action;
+        selControlled.forEach(en => {
+          const nextEnabled = clientMode === 'fakeip' ? toPolicy === 'fakeip' : clientMode === 'realip' ? toPolicy === 'realip' : true;
+          nextText = serializeToggleLine(nextText, en.lineIndex, nextEnabled);
+        });
+        if (selNew.length) nextText = nextText ? `${nextText}\n${selNew.join('\n')}` : selNew.join('\n');
+        await saveClientIpList(nextText, `已批量更新 ${devSel.size} 台`);
+      }
+    } catch (err) {
+      b.disabled = false;
+      toast('批量操作失败', 'error', err.message);
+    }
+  });
+
+  // 6. ⋯ 更多菜单：查看日志 / 移入移出名单
+  let openMenu = null;
+  const closeMenu = () => { if (openMenu) { openMenu.remove(); openMenu = null; } };
+  const menuCloser = e => {
+    if (openMenu && !e.target.closest('.dev-menu') && !e.target.closest('[data-devices-menu]')) closeMenu();
+  };
+  document.addEventListener('click', menuCloser);
+  renderScope.signal.addEventListener('abort', () => document.removeEventListener('click', menuCloser), { once: true });
+  $$('[data-devices-menu]', page).forEach(btn => {
+    btn.onclick = e => {
+      e.stopPropagation();
+      const ip = btn.dataset.devicesMenu;
+      const entry = controlledEntries.find(en => en.ip === ip);
+      if (openMenu) { closeMenu(); return; }
+      const m = document.createElement('div');
+      m.className = 'dev-menu';
+      m.innerHTML = `<button type="button" data-m="log">查看查询日志</button>` +
+        (entry
+          ? `<button type="button" data-m="rm" class="danger">移出受控名单</button>`
+          : `<button type="button" data-m="join">加入受控名单</button>`);
+      btn.closest('.dev-ops').appendChild(m);
+      openMenu = m;
+      m.onclick = ev => {
+        const b = ev.target.closest('[data-m]');
+        if (!b) return;
+        const mm = b.dataset.m;
+        closeMenu();
+        if (mm === 'log') goLog(ip);
+        else if (mm === 'rm' && entry) doDeleteLine(entry, null);
+        else if (mm === 'join') doAddIp(ip, null);
+      };
+    };
+  });
+
+  // 7. 新增受控 IP 弹窗
   const addControlledBtn = $('#devices-add-controlled', page);
   if (addControlledBtn) {
     addControlledBtn.onclick = () => {
@@ -437,7 +526,7 @@ async function renderDevices(container, context) {
     };
   }
 
-  // 6. 原文编辑弹窗（支持批量粘贴与导出下载）
+  // 8. 原文编辑弹窗（支持批量粘贴与导出下载）
   const editRawBtn = $('#devices-edit-raw', page);
   if (editRawBtn) {
     editRawBtn.onclick = () => {
@@ -465,21 +554,11 @@ async function renderDevices(container, context) {
     };
   }
 
-  // 7. 别名管理弹窗与点击 IP 跳转查询日志
+  // 9. 别名管理弹窗
   if ($('#devices-open-alias-modal', page)) $('#devices-open-alias-modal', page).onclick = openAliasModal;
-  if ($('#devices-alias-btn', page)) $('#devices-alias-btn', page).onclick = openAliasModal;
   $$('[data-devices-edit-alias]', page).forEach(btn => { btn.onclick = openAliasModal; });
 
-  $$('[data-devices-log-ip]', page).forEach(btn => {
-    btn.onclick = () => {
-      const ip = btn.dataset.devicesLogIp;
-      if (ip) {
-        state.logs.client = ip;
-        state.logs.page = 1;
-        navigate('logs');
-      }
-    };
-  });
+  applyView();
 }
 
 export { renderDevices };
