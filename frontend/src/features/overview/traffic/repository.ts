@@ -52,6 +52,14 @@ export class TrafficRepository {
     });
   }
 
+  /** Write already-loaded rows back (used by the one-time latency migration). */
+  rewrite(rows: Record<string, unknown>[]): Promise<void> {
+    return this.transaction('readwrite', (store, done) => {
+      for (const row of rows) if (row.source && Number.isFinite(Number(row.slot))) store.put(row);
+      done(undefined);
+    });
+  }
+
   save(source: string, sample: Record<string, unknown>, now = Date.now()): Promise<void> {
     const time = Number(sample.time);
     return this.transaction('readwrite', (store, done) => {

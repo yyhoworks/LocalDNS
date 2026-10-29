@@ -10,7 +10,19 @@ export function initialize() {
   const overview=()=>!location.hash||location.hash==='#/overview'||location.hash==='#overview';
   const base=()=>new URL(String(window.LOCALDNS_UI_CONFIG?.apiBase||location.origin).replace(/\/$/,''),location.origin);
   const source=base().href.replace(/\/$/,'');
-  const ready=trafficRepository.load(source).then(rows=>{
+  const ready=trafficRepository.load(source).then(async rows=>{
+    // v2 迁移：延迟改由上游 p50 仪表值提供，旧行里的区间均值（或 null）会让
+    // 曲线画出一段误导性的碎片。把旧行的 latency 清空并写回一次。
+    const legacy=rows.filter(row=>row.latencyNow==null&&row.latency!=null);
+    if(legacy.length){
+      for(const row of legacy)row.latency=null;
+      let migrated=false;
+      try{migrated=localStorage.getItem('localdns-trends-schema:'+source)==='2';}catch{}
+      if(!migrated){
+        await trafficRepository.rewrite(legacy).catch(()=>{});
+        try{localStorage.setItem('localdns-trends-schema:'+source,'2');}catch{}
+      }
+    }
     // History may finish after live sampling has begun. Merge without dropping live points.
     const combined=rows.concat(series.map(p=>trafficService.raw(p,p.time))).sort((a,b)=>a.time-b.time);
     series.length=0;
