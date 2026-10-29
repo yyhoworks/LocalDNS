@@ -1,8 +1,8 @@
 // CI check for F1: every Han character used by the shipped UI source must
 // be inside the Noto Sans SC / Noto Serif SC unicode-range declared in
-// frontend/src/styles/fonts.css. If this fails, regenerate the subsets
-// (see _src/ui/assets/fonts/manifest.json for provenance) instead of
-// silently shipping text that falls back to a system font.
+// frontend/src/styles/fonts.css. If this fails, regenerate the subsets with
+// tools/subset_noto_fonts.py (see _src/ui/assets/fonts/manifest.json for
+// provenance) instead of silently shipping text that falls back to a system font.
 //
 // Source scope mirrors what the subsets are built from: all files under
 // frontend/src plus frontend/index.html. Dynamic/backend-supplied strings
