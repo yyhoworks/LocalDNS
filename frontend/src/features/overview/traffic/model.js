@@ -209,10 +209,10 @@ export function initialize() {
         + ` L${x(g.at(-1)).toFixed(1)},${baseline} L${x(g[0]).toFixed(1)},${baseline} Z`).join('');
     const lines = groups.map(g => smoothPath(g.map(p => [x(p), y(p.value)]), top, baseline)).join('');
 
-    const grid = [0, 0.25, 0.5, 0.75, 1].map(f => {
+    const grid = [0, 0.5, 1].map(f => {
       const v = max * f;
       return `<line class="traffic-grid" x1="${left}" x2="${w - right}" y1="${y(v)}" y2="${y(v)}"/>`
-        + `<text x="${left - 8}" y="${y(v) + 4}" text-anchor="end">${rate(v)}</text>`;
+        + `<text x="${left - 8}" y="${y(v) + 4}" text-anchor="end">${Math.round(v)}</text>`;
     }).join('');
 
     // The 100 ms slow-query line only means something once the axis reaches it.
@@ -226,10 +226,11 @@ export function initialize() {
     const cx = x(peak), cy = y(peak.value), label = `${rate(peak.value)}ms · ${time(peak.time)}`;
     const boxW = label.length * 6.4 + 16;
     const boxX = Math.min(w - right - boxW, Math.max(left, cx - boxW / 2));
-    const callout = `<line class="traffic-peak" x1="${cx.toFixed(1)}" x2="${cx.toFixed(1)}" y1="${(cy - 8).toFixed(1)}" y2="${(cy - 22).toFixed(1)}"/>`
+    const boxY = Math.max(top, cy - 46);
+    const callout = `<line class="traffic-peak" x1="${cx.toFixed(1)}" x2="${cx.toFixed(1)}" y1="${(cy - 8).toFixed(1)}" y2="${Math.min(cy - 22, boxY + 22).toFixed(1)}"/>`
       + `<circle class="traffic-peak-dot${slow ? ' is-slow' : ''}" cx="${cx.toFixed(1)}" cy="${cy.toFixed(1)}" r="4"/>`
-      + `<rect class="traffic-callout-box${slow ? ' is-slow' : ''}" x="${boxX.toFixed(1)}" y="${(cy - 46).toFixed(1)}" width="${boxW.toFixed(1)}" height="20" rx="6"/>`
-      + `<text class="traffic-callout-text" x="${(boxX + boxW / 2).toFixed(1)}" y="${(cy - 32).toFixed(1)}" text-anchor="middle">${esc(label)}</text>`;
+      + `<rect class="traffic-callout-box${slow ? ' is-slow' : ''}" x="${boxX.toFixed(1)}" y="${boxY.toFixed(1)}" width="${boxW.toFixed(1)}" height="20" rx="6"/>`
+      + `<text class="traffic-callout-text" x="${(boxX + boxW / 2).toFixed(1)}" y="${(boxY + 14).toFixed(1)}" text-anchor="middle">${esc(label)}</text>`;
 
     const lastPoint = valid.at(-1);
     const ticks = first === last ? [first] : [first, (first + last) / 2, last];
@@ -283,33 +284,16 @@ export function initialize() {
     const definition=definitions[metric],s=summary(series,minutes,now,metric);
     const focus=container.contains(document.activeElement)?document.activeElement?.dataset.trafficMetric:null;
     const plotFocused=document.activeElement?.classList.contains('traffic-plot')&&container.contains(document.activeElement);
-    const kpi=(label,value,unit,note,extra='')=>`<div class="traffic-kpi${extra}"><dt>${label}</dt><dd>${value}<small>${unit}</small></dd><dd class="traffic-kpi-note">${note}</dd></div>`;
     const empty=(hint)=>`<div class="console-chart-empty">${state.loading&&!series.length?'正在读取 DNS 采样，本机历史在后台恢复…':definition.empty}<br>${hint}</div>`;
-    let summaryHtml, chartHtml, legendHtml, alarm=false;
+    let summaryHtml='', chartHtml, legendHtml='', alarm=false;
     if (metric === 'anomaly') {
       const ctx = state.overviewContext || {};
       const latS = summary(series, minutes, now, 'latency');
-      const avgCached = finite(ctx.avgLatencyMs) ? ctx.avgLatencyMs.toFixed(2) : (finite(latS.average) ? (latS.average * 0.05).toFixed(2) : '—');
-      const upRace = finite(ctx.upstreamAvgMs) && ctx.upstreamAvgMs > 0 ? ctx.upstreamAvgMs.toFixed(1) : (finite(latS.average) ? latS.average.toFixed(1) : '—');
-      const upLabel = ctx.upstreamLabel || '上游竞速';
-      const p95Val = finite(ctx.p95Ms) ? Math.round(ctx.p95Ms) : (finite(latS.peak) ? Math.round(latS.peak) : (finite(s.peak) ? Math.round(s.peak) : '—'));
-      const maxVal = finite(ctx.maxSlowMs) ? Math.round(ctx.maxSlowMs) : p95Val;
       const failVal = finite(ctx.failCount) ? ctx.failCount : 0;
       const slowVal = finite(ctx.slowOver100Count) ? ctx.slowOver100Count : 0;
       const bad = failVal > 0 || slowVal > 0;
       alarm = bad;
-      const healthLabel = bad ? `${failVal} 失败 · ${slowVal} 慢查` : '正常';
-      summaryHtml = `<dl class="traffic-kpis">
-        <div class="traffic-kpi is-health${bad?' is-bad':''}"${failVal>0?' data-traffic-health="1" data-route="logs" role="button" tabindex="0"':''}>
-          <dt><span class="traffic-health-dot${bad?' is-bad':''}"></span>解析健康</dt>
-          <dd class="traffic-health-value${bad?' is-bad':''}">${healthLabel}</dd>
-          <dd class="traffic-kpi-note">${bad?(failVal>0?'点击查看查询日志':`慢查询 ${slowVal} 次`):'0 失败 · 0 慢查（>100ms）'}</dd>
-        </div>
-        ${kpi('上游竞速',upRace,'ms',`当前优胜：${esc(upLabel)}`)}
-        ${kpi('平均响应',avgCached,'ms','含缓存整体均值')}
-        ${kpi('P95 / 最大耗时',p95Val,`ms / ${maxVal}ms`,'慢查询长尾')}
-      </dl>`;
-      legendHtml = `<div class="traffic-legend"><span><i class="is-line"></i>上游真实竞速耗时</span><span><i class="is-slow"></i>慢查询 / 失败峰值</span></div>`;
+      summaryHtml = `<span class="traffic-health-pill${bad?' is-bad':''}"${failVal>0?' data-traffic-health="1" data-route="logs" role="button" tabindex="0" title="点击查看查询日志"':''}><i class="traffic-health-dot${bad?' is-bad':''}"></i>解析健康 · ${bad?`${failVal} 失败 · ${slowVal} 慢查`:'正常'}</span>`;
       const latPoints = latS.points.length ? aggregate(latS.points,'latency') : [];
       chartHtml = latPoints.length
         ? latencyChart(latPoints, container.clientWidth)
@@ -317,19 +301,12 @@ export function initialize() {
     } else {
       const cacheS = summary(series, minutes, now, 'cache');
       const cachePoints = cacheS.points.length ? aggregate(cacheS.points,'cache') : [];
-      const hitNow = cachePoints.filter(p => finite(p.value)).at(-1);
-      summaryHtml = `<dl class="traffic-kpis">
-        ${kpi('最近请求',rate(s.current),'QPS','每秒查询数')}
-        ${kpi('区间峰值',rate(s.peak),'QPS','最高瞬时速率')}
-        ${kpi('区间请求',s.samples?rate(s.count):'—','次','本时段总查询')}
-        ${kpi('缓存命中率',hitNow?rate(hitNow.value):'—','%','主缓存命中 ÷ 查询')}
-      </dl>`;
       legendHtml = `<div class="traffic-legend"><span><i class="is-bar"></i>请求量</span><span><i class="is-cache"></i>缓存命中率</span></div>`;
       chartHtml = s.samples
         ? chart(s.points,container.clientWidth,metric,null,cachePoints)
         : empty(series.length?'已读取查询计数，正在等待下一次采样':'未采集和无有效请求的区间不补零');
     }
-    setHTML(container,`<div class="traffic-metric-tabs" role="group" aria-label="选择 DNS 趋势指标">${visibleMetrics().map(([key,d])=>`<button type="button" data-traffic-metric="${key}" aria-pressed="${metric===key}">${d.label}</button>`).join('')}</div><p class="traffic-metric-note">${definition.note}</p>${summaryHtml}${legendHtml}${chartHtml}`
+    setHTML(container,`<div class="traffic-head"><div class="traffic-metric-tabs" role="group" aria-label="选择 DNS 趋势指标">${visibleMetrics().map(([key,d])=>`<button type="button" data-traffic-metric="${key}" aria-pressed="${metric===key}">${d.label}</button>`).join('')}</div>${summaryHtml}</div>${legendHtml}${chartHtml}`
       +`<div class="traffic-caption"><span>${s.stale?'采样暂时中断，正在自动重试':s.samples?`有效采样 ${rate(s.seconds)} 秒 · 最近间隔 ${rate(s.interval)} 秒`:'概览可见时每 5 秒采样'}</span><span>本浏览器保留 7 天 · 当前 ${({15:'15 分钟',60:'1 小时',360:'6 小时',1440:'24 小时',10080:'7 天'})[minutes]||minutes+' 分钟'}</span></div><p class="traffic-storage-note">${state.storageError?'本机历史存储暂不可用，新增采样仅临时保留。':'刷新后可继续查看本机历史。'}关闭网页、切换页面或后台休眠期间留空。</p>`);
     const card = container.closest('.glass-card');
     if (card) card.classList.toggle('traffic-alarm', alarm);
