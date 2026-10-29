@@ -66,9 +66,24 @@ export function initialize() {
     }
     const latency = [...upstreams].sort(([a],[b]) => a.localeCompare(b));
     const valid = latency.length > 0 && latency.every(([,p]) => nonnegative(p.sum) && nonnegative(p.count));
+    // 当前上游中位延迟：分位数仪表值每次抓取都在更新，与是否有新查询无关
+    const p50 = new Map();
+    for (const p of metrics) {
+      if (p.name !== 'localdns_upstream_response_latency_milliseconds' || p.labels?.quantile !== '0.5') continue;
+      const rest = Object.fromEntries(Object.entries(p.labels).filter(([k]) => k !== 'quantile'));
+      if (nonnegative(p.value)) p50.set(JSON.stringify(Object.entries(rest).sort(([a],[b]) => a.localeCompare(b))), p.value);
+    }
+    let weighted = 0, weightSum = 0, plain = 0, seen = 0;
+    for (const [key, , count] of latency) {
+      const value = p50.get(key);
+      if (value === undefined) continue;
+      plain += value; seen++;
+      if (count > 0) { weighted += value * count; weightSum += count; }
+    }
+    const latencyNow = weightSum > 0 ? weighted / weightSum : (seen ? plain / seen : null);
     return {total:get('localdns_queries_total'), start:get('process_start_time_seconds'),
       cacheQueries:get('localdns_cache_query_total','cache_main'), cacheHits:get('localdns_cache_hit_total','cache_main'),
-      upstreams:valid ? latency.map(([key,p]) => [key,p.sum,p.count]) : null};
+      upstreams:valid ? latency.map(([key,p]) => [key,p.sum,p.count]) : null, latencyNow};
   }
   function raw(sample, now) {
     const upstreams = Array.isArray(sample.upstreams) && sample.upstreams.length <= 1024
@@ -76,7 +91,8 @@ export function initialize() {
         && p[0].length < 8192 && nonnegative(p[1]) && nonnegative(p[2])) ? sample.upstreams : null;
     return {time:now,total:sample.total,breakBefore:sample.breakBefore===true,start:nonnegative(sample.start)?sample.start:null,
       cacheQueries:nonnegative(sample.cacheQueries)?sample.cacheQueries:null,
-      cacheHits:nonnegative(sample.cacheHits)?sample.cacheHits:null,upstreams};
+      cacheHits:nonnegative(sample.cacheHits)?sample.cacheHits:null,upstreams,
+      latencyNow:nonnegative(sample.latencyNow)?sample.latencyNow:null};
   }
   function record(series, sample, now = Date.now()) {
     if (!nonnegative(sample?.total) || !nonnegative(now)) return false;
@@ -107,13 +123,14 @@ export function initialize() {
       }
       if (consistent && count > 0) { next.responseCount = count; next.responseSum = sum; next.latency = sum / count; }
     }
+    if (nonnegative(next.latencyNow)) next.latency = next.latencyNow;
     for (const key of ['qps','cache','latency']) if (!nonnegative(next[key])) next[key] = null;
     series.push(next);
     while (series.length > 120962 || series[0]?.time < now - 604800000) series.shift();
     return true;
   }
-  function weight(p, metric) { return metric === 'cache' ? p.cacheQueriesDelta : metric === 'latency' ? p.responseCount : p.elapsed; }
-  function numerator(p, metric) { return metric === 'cache' ? p.cacheHitsDelta * 100 : metric === 'latency' ? p.responseSum : p.delta; }
+  function weight(p, metric) { return metric === 'cache' ? p.cacheQueriesDelta : metric === 'latency' ? 1 : p.elapsed; }
+  function numerator(p, metric) { return metric === 'cache' ? p.cacheHitsDelta * 100 : metric === 'latency' ? p.latency : p.delta; }
   function summary(series, minutes = 60, now = Date.now(), metric = 'qps') {
     const baseMetric = metric === 'anomaly' || !definitions[metric] ? 'qps' : metric;
     const cutoff = now - minutes * 60000;
@@ -247,7 +264,7 @@ export function initialize() {
       + `<svg class="console-chart traffic-chart" viewBox="0 0 ${w} ${h}" role="img" aria-label="延迟与异常，${time(first, true)} 至 ${time(last, true)}">`
       + `<title>按实际采样显示，断采不连线</title>`
       + `<defs><linearGradient id="traffic-lat-grad" x1="0" y1="0" x2="0" y2="1"><stop class="traffic-grad-top" offset="0%"/><stop class="traffic-grad-bottom" offset="100%"/></linearGradient></defs>`
-      + `<text class="traffic-axis-unit" x="${left}" y="16">延迟 (ms)</text>`
+      + `<text class="traffic-axis-unit" x="${left}" y="16">上游 p50 (ms)</text>`
       + grid + threshold
       + `<path class="traffic-area" d="${area}" fill="url(#traffic-lat-grad)"/>`
       + `<path class="traffic-line" d="${lines}"/>`
