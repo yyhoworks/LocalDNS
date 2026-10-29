@@ -251,6 +251,10 @@ def main():
             raise ValueError('Backend version or binary hash mismatch')
         full = {name: data for name, data in base.items() if not name.startswith('localdns/ui/')}
         kernel_metadata = {}
+        # Same-core rebuilds keep the base's kernel provenance when its binaries are unchanged.
+        if not args.kernel_archive and isinstance(meta.get('kernelBinaries'), dict) and meta['kernelBinaries'] and all(
+                name in base and sha(base[name]) == digest for name, digest in meta['kernelBinaries'].items()):
+            kernel_metadata = {key: meta[key] for key in ('kernelArchive', 'kernelArchiveSha256', 'kernelBinaries') if key in meta}
         if args.kernel_archive:
             kernel_digest = sha(args.kernel_archive.read_bytes())
             if kernel_digest != args.kernel_sha256.lower():
