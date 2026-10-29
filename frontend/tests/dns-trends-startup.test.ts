@@ -41,6 +41,23 @@ describe('DNS trend sampling is independent of browser storage', () => {
     expect(document.querySelector('.traffic-chart')).not.toBeNull();
   });
 
+  it('suppresses interval latency for pre-p50 history rows but keeps request totals', async () => {
+    // Rows persisted before the p50 schema carry upstreams but no latencyNow
+    // key at all; FJH21-era rows saved today still look like this.
+    fake.fetch.mockRejectedValue(new Error('offline'));
+    fake.load.mockResolvedValue([
+      {time: 1792459190000, total: 80, start: 1, cacheQueries: null, cacheHits: null, upstreams: [['{"tag":"a"}', 100, 10]]},
+      {time: 1792459195000, total: 90, start: 1, cacheQueries: null, cacheHits: null, upstreams: [['{"tag":"a"}', 150, 15]]},
+    ]);
+    initializeClient(); trafficClientService.mount(document.querySelector('.traffic-chart-body'), 60);
+    await vi.advanceTimersByTimeAsync(2100);
+    expect(document.querySelector('.console-chart-empty')).not.toBeNull();
+    expect(document.querySelector('.traffic-chart')).toBeNull();
+    document.querySelector<HTMLElement>('[data-traffic-metric="qps"]')!.click();
+    expect(document.querySelector('.traffic-chart')).not.toBeNull();
+    expect(document.querySelector('.traffic-bar')).not.toBeNull();
+  });
+
   it('keeps the five-second poll running while a previous write is pending', async () => {
     let release!: () => void;
     fake.save.mockReturnValue(new Promise<void>(resolve => { release = resolve; }));
