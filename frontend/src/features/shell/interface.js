@@ -32,7 +32,7 @@ export function initialize() {
     status.title=connected===false?String(text||'连接异常'):('API '+(window.LOCALDNS_UI_CONFIG?.apiBase||location.host));
     const brandStatus=$('.console-brand-status');if(brandStatus){brandStatus.classList.toggle('offline',connected===false);brandStatus.classList.toggle('pending',connected===null);brandStatus.setAttribute('aria-label',$('.console-connection-text',status).textContent);brandStatus.title=$('.console-connection-text',status).textContent;}
     const mobile=$('.console-mobile-status');if(mobile){mobile.classList.toggle('offline',connected===false);mobile.textContent=(connected===null?'连接中':connected?'已连接':'连接已断开')+(time?` · ${connected===false?'最后更新':'更新于'} ${time}`:'');}
-    const health=$('.console-service-health');if(health){health.classList.toggle('offline',connected===false);$('#service-summary-title',health).textContent=connected===false?'DNS 服务连接已断开':connected===true?'DNS 服务运行中':'正在读取服务状态';$('.service-connection',health).textContent=connected===null?'连接中':connected?'已连接':'已断开';$('[data-service-check]',health).setAttribute('d',connected===false?'m8 8 8 8m0-8-8 8':'m7 12 3 3 7-7');}
+    const health=$('.console-service-health');if(health){health.classList.toggle('offline',connected===false);$('#service-summary-title',health).textContent=connected===false?'DNS 服务连接已断开':connected===true?'DNS 服务运行中':'正在读取服务状态';const badge=$('.service-connection',health);if(badge)badge.textContent=connected===null?'连接中':connected?'已连接':'已断开';$('[data-service-check]',health).setAttribute('d',connected===false?'m8 8 8 8m0-8-8 8':'m7 12 3 3 7-7');}
   }
   function recordMetrics(metrics) {
     // 概览每次渲染都会带当前真实指标调用（见 overview 的 recordMetrics 调用点）：

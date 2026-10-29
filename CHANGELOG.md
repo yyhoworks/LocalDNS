@@ -1,5 +1,13 @@
 # LocalDNS 更新记录
 
+## FJH50 / UI 2026.10.30.1 · 修复概览 KPI 图标撑满与顶栏报错
+
+- **回归**：2026.10.29.9 的概览去重删掉了服务摘要里的「已连接」徽章，但 `shell/interface.js` 的 `connection()` 仍在无条件写它的 `textContent`，抛出 `TypeError: Cannot set properties of null (setting 'textContent')`。该异常发生在 `apply()` 中 `overview()` 之前，截断了整条渲染增强链。
+- **表现**：KPI 卡图标撑满整张卡片（卡片外层拿不到 `.console-kpi`，唯一的 `svg` 尺寸约束失效，火花线与数字字体同样失效）；顶栏连接状态被写成报错文本、状态灯转为断开，并弹出「操作失败」。
+- **修复**：`connection()` 先取元素再判空，徽章缺失时跳过。徽章移除本身是 2026.10.29.9 的有意改动，因此不恢复元素，只让代码容忍它不存在。
+- **验证**：新增 `frontend/tests/shell-connection.test.ts`，对旧实现精确复现该 TypeError、对修复后通过；`npm run check` 全部通过（20 个测试文件 167 项单测）；生产环境用无头浏览器复核，`.console-kpi` 由 0 个恢复为 6 个，页面不再出现「操作失败」。
+- 仅前端资源改动，DNS 内核、配置、规则与上游不变；更新 UI 无需重启 DNS。
+
 ## FJH50 / UI 2026.10.29.9 · UX 审查 P1、确认框改造、趋势旧行迁移修正、回流守护服务
 
 - **确认框**：原生 `confirm()` 全站换成 `confirmDialog()`（19 处），Promise 返回、Esc 视为取消、危险操作默认聚焦取消。确认框改用独立的 `#confirm-modal`，不再复用 `#modal`——此前在审计控制里调用时，确认框会覆盖该弹窗内容并在确认后把它关掉，保存提示、存储详情刷新与页面重渲染全被跳过。顺带修掉审计控制四个处理函数在 `await` 后读 `event.currentTarget`（已为 `null`）导致点按钮无反馈的问题。
