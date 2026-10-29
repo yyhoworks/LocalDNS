@@ -1,6 +1,6 @@
 # 安装与更新
 
-当前发行版本：**后端 FJGOE / UI 2026.10.23.2**。提供自适应多核 CPU 的 FJGOE 内核、`amd64-v2` 架构支持（适合 J4125 等）、新版 API 适配与完整配置迁移工具，保留 DNS 趋势、静态共享设置、日志目录与 Mihomo / sing-box 配置编辑器。
+当前发行版本：**后端 FJH50 / UI 2026.10.29.7**（发行标签 `fjh50-ui-v2026.10.29.7`），见 [本次更新说明](docs/releases/fjh50-ui-v2026.10.29.7.md)。FJH50 内核提供 amd64-v1 / v2 / v3 / arm64 程序，本地区与 ANY / META / XFR 特殊查询改为本地应答；发行包附完整配置迁移工具，保留 DNS 趋势、静态共享设置、日志目录与 Mihomo / sing-box 配置编辑器。
 
 ## 名称、Logo 与字体共享
 
@@ -26,12 +26,12 @@ curl -fsSL https://raw.githubusercontent.com/yyhoworks/LocalDNS/main/tools/insta
 
 包含此功能的发行包可一次性安装更新执行端，之后在顶部「版本与更新」中直接发起 UI 更新或恢复上一版。只更新 UI，保留配置与核心。安装方法及 HTTPS 接入见 [网页升级指南](docs/WEB_UPDATE.md)。
 
-从 [本版 Releases](https://github.com/yyhoworks/LocalDNS/releases/tag/fjgoe-ui-v2026.10.23.2) 下载；本地构建位于 `dist/fjgoe-ui-v2026.10.23.2/`。
+从 [本版 Releases](https://github.com/yyhoworks/LocalDNS/releases/tag/fjh50-ui-v2026.10.29.7) 下载；本地构建位于 `dist/fjh50-ui-v2026.10.29.7/`。
 
 | 文件 | 用途 |
 |---|---|
-| `LocalDNS_FJGOE_UI_2026.10.23.2_Full.zip` | 新安装或完整迁移：FJGOE 程序（含 v1/v2/v3/arm64）、新配置结构、迁移工具与当前双皮肤 UI |
-| `LocalDNS_UI_2026.10.23.2_Update.zip` | 已安装环境更新界面 |
+| `LocalDNS_FJH50_UI_2026.10.29.7_Full.zip` | 新安装或完整迁移：FJH50 程序（含 v1/v2/v3/arm64）、新配置结构、迁移工具与当前双皮肤 UI |
+| `LocalDNS_UI_2026.10.29.7_Update.zip` | 已安装环境更新界面 |
 | `SHA256SUMS.txt` | 发行包的 SHA-256 校验值 |
 
 在同一目录核对：
@@ -62,13 +62,13 @@ sh install-ui.sh /opt/localdns
 
 **跨版本升级后端核心时，请先备份原配置与规则。** 从完整包解压目录运行 `upgrade-localdns.py`，按 [更新指南](docs/FJGLI_UPGRADE.md#完整更新命令) 完成外置备份（包含 `config/upstreams`、`rules/manual`、`config/settings/client_aliases.json`、`config/subscriptions`）、本机下载校验、新目录准备、隔离验证和整体切换。工具会保留上游、手工规则、客户端别名、订阅和共享 UI 配置；失败恢复完整旧目录。
 
-普通 UI 更新保留核心；跨核心发行包会在替换前停止并提示迁移。继续使用旧核心时，可用 `--version fjgli-ui-v2026.10.23.1` 指定对应正式版 UI。网页升级仍只处理同核心 UI。
+普通 UI 更新保留核心；跨核心发行包会在替换前停止并提示迁移。继续使用旧核心时，可用 `--version` 指定该核心对应的正式版 UI，例如 FJH21 用 `fjh21-ui-v2026.10.29.2`。网页升级仍只处理同核心 UI。
 
 已验证的旧配置结构包括 FJGAC、FJGIR 和 FJGLI；其他旧安装遇到未知配置时停止并提示。迁移程序不保证支持尚未核实的任意历史版本。所有架构均提供二进制，实机运行验收目前针对 Alpine x86-64。
 
 ## 新安装
 
-完整包中的 `localdns/` 放到 `/opt/localdns`。默认程序为 **amd64-v3**；其他二进制位于 `LocalDNS_FJGOE_Binaries/`，按设备架构与指令集选择。FJGOE 支持自适应多核 CPU，日常使用推荐双核即可满足性能需求，四核测试 QPS 更高。
+完整包中的 `localdns/` 放到 `/opt/localdns`。默认程序为 **amd64-v3**；其他二进制位于 `LocalDNS_FJH50_Binaries/`，按设备架构与指令集选择。内核支持自适应多核 CPU，日常使用推荐双核即可满足性能需求，四核测试 QPS 更高。
 
 | 文件 | 平台与指令集要求 |
 |---|---|
