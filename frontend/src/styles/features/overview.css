@@ -1096,3 +1096,23 @@
 
 .dev-sortbtn svg, .dev-iconbtn svg, .dev-hbtn svg { width:14px; height:14px; flex:none; }
 .dev-sortbtn { display:inline-flex; align-items:center; gap:6px; }
+
+/* 窄屏：筛选与操作各自成行，避免页签与按钮被压成竖排 */
+@media (max-width: 760px) {
+  .dev-filterbar { flex-direction: column; align-items: stretch; gap: 10px; }
+  .dev-ftabs { overflow-x: auto; flex-wrap: nowrap; scrollbar-width: none; }
+  .dev-ftabs::-webkit-scrollbar { display: none; }
+  .dev-ftabs button { flex: none; white-space: nowrap; }
+  .dev-search { margin-left: 0; flex-wrap: wrap; gap: 8px; }
+  .dev-searchbox { flex: 1 1 100%; }
+  .dev-searchbox input { width: 100%; }
+  .dev-sortbtn, .dev-addbtn, .dev-hbtn { flex: none; white-space: nowrap; }
+  .dev-actions { flex-wrap: wrap; flex: 1 1 100%; }
+  .dev-filterbar, .dev-search, .dev-table, .dev-row { width: 100%; max-width: 100%; box-sizing: border-box; }
+  .dev-search > * { min-width: 0; }
+  .dev-addbtn { margin-left: auto; }
+  .dev-table { overflow-x: auto; }
+  .dev-thead { display: none; }
+  .dev-row { grid-template-columns: minmax(0,1fr) !important; gap: 6px; padding: 14px 16px; }
+  .dev-row > * { min-width: 0; }
+}
