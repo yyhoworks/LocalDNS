@@ -1,8 +1,10 @@
 """Safety regressions using a sanitized snapshot of the working VM design."""
 import contextlib
 import copy
+import io
 import json
 import pathlib
+import sys
 import unittest
 from unittest import mock
 
@@ -113,6 +115,18 @@ class GuardTests(unittest.TestCase):
         missing = mock.Mock(returncode=2, stderr="Error: ipv4: FIB table does not exist.\n", stdout="")
         with mock.patch.object(guard.subprocess, "run", return_value=missing):
             self.assertEqual(guard.routing_table("-4", 104), "")
+
+    def test_check_reports_configuration_error_as_json(self):
+        with mock.patch.object(guard, "configuration", side_effect=RuntimeError("Incomplete return routing configuration")), \
+             mock.patch.object(guard, "snapshot") as snapshot, \
+             mock.patch("sys.argv", ["guard.py", "--check"]), \
+             mock.patch("sys.stdout", new_callable=io.StringIO) as out:
+            code = guard.main()
+        self.assertEqual(code, 1)
+        payload = json.loads(out.getvalue())
+        self.assertFalse(payload["ok"])
+        self.assertIn("Incomplete return routing configuration", payload["error"])
+        snapshot.assert_not_called()
 
 
 if __name__ == "__main__":

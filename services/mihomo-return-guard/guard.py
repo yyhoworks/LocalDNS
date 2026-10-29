@@ -21,7 +21,7 @@ else:
 def command(args):
     result = subprocess.run(args, capture_output=True, text=True, timeout=12)
     if result.returncode:
-        raise RuntimeError("Command failed: " + " ".join(args[:3]))
+        raise RuntimeError("Command failed: " + " ".join(args))
     return result.stdout
 
 
@@ -216,7 +216,12 @@ def main():
     parser.add_argument("--interval", type=float, default=2)
     args = parser.parse_args()
     if args.check:
-        result = assess(snapshot(), configuration())
+        try:
+            config = configuration()
+            result = assess(snapshot(), config)
+        except (RuntimeError, OSError, subprocess.TimeoutExpired) as error:
+            print(json.dumps({"ok": False, "error": str(error)}))
+            return 1
         print(json.dumps({"ok": healthy(result), **result}))
         return 0 if healthy(result) else 1
     deadline, previous, last_error = time.monotonic() + args.wait, None, 0.0
