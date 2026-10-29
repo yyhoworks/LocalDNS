@@ -6,11 +6,11 @@
 
 **DNS 核心主要由折腾日记交流群里的 R 大使用 Rust 编写；[yyhoworks](https://github.com/yyhoworks) 负责 UI 设计。**
 
-当前版本：**后端 FJH50 / UI 2026.10.30.1**（发行标签 `fjh50-ui-v2026.10.30.1`），见 [本次更新说明](docs/releases/fjh50-ui-v2026.10.30.1.md)。
+当前版本：**后端 FJH50 / UI 2026.10.30.2**（发行标签 `fjh50-ui-v2026.10.30.2`），见 [本次更新说明](docs/releases/fjh50-ui-v2026.10.30.2.md)。
 
-本次修复 2026.10.29.9 概览页的渲染回归：概览去重删掉了「已连接」徽章，而 shell 的 `connection()` 仍在写它，抛出的 `TypeError` 截断了 `overview()` 的渲染增强链，导致 KPI 卡图标撑满整张卡片、顶栏连接状态显示为报错文本。说明见 [2026.10.30.1](docs/releases/fjh50-ui-v2026.10.30.1.md)。
+本次恢复概览趋势卡的标题「响应延迟与解析异常」——此前范围控件误把标题当作自己的容器，标题被就地替换成时间范围按钮；顺带对「元素已移除、代码仍无判空访问」这类缺陷做了一次全量静态排查，并把这整条渲染增强链纳入测试。说明见 [2026.10.30.2](docs/releases/fjh50-ui-v2026.10.30.2.md)。
 
-上一版（UI 2026.10.29.9）按 2026-10-29 UX 审查报告修 P1：原生 `confirm()` 全站换成独立确认框（顺带修掉审计控制在 `await` 后读 `event.currentTarget` 的静默失败）、设备页 `⋯` 菜单与筛选状态、概览去重与折叠、解析页移动端表格、术语统一；趋势旧行迁移改为清空 `upstreams`；另新增可选的 Mihomo 回流规则守护服务，说明见 [2026.10.29.9](docs/releases/fjh50-ui-v2026.10.29.9.md)；[2026.10.29.8](docs/releases/fjh50-ui-v2026.10.29.8.md) 修正延迟曲线的两个统计缺陷——p50 样本不再被「采样间隔」条件整条过滤，计数加权改按各上游响应数计算；更早的 [2026.10.29.3](docs/releases/fjh50-ui-v2026.10.29.3.md) 把 DNS 内核从 FJH21 升级到 **FJH50** 并完成整机迁移：新内核在本地区（`home.arpa`、`.localdomain`、反查区）与 ANY / META / XFR 特殊查询上改为本地应答，后台新增 `zone_check` 计数。接口经逐条比对与现网回环验证后确认向后兼容，升级需整目录替换。
+上一版（UI 2026.10.30.1）修复 2026.10.29.9 概览页的渲染回归：概览去重删掉了「已连接」徽章，而 shell 的 `connection()` 仍在写它，抛出的 `TypeError` 截断了 `overview()` 的渲染增强链，导致 KPI 卡图标撑满整张卡片、顶栏连接状态显示为报错文本，说明见 [2026.10.30.1](docs/releases/fjh50-ui-v2026.10.30.1.md)；[2026.10.29.9](docs/releases/fjh50-ui-v2026.10.29.9.md) 按 2026-10-29 UX 审查报告修 P1：原生 `confirm()` 全站换成独立确认框（顺带修掉审计控制在 `await` 后读 `event.currentTarget` 的静默失败）、设备页 `⋯` 菜单与筛选状态、概览去重与折叠、解析页移动端表格、术语统一；趋势旧行迁移改为清空 `upstreams`；另新增可选的 Mihomo 回流规则守护服务，说明见 [2026.10.29.9](docs/releases/fjh50-ui-v2026.10.29.9.md)；[2026.10.29.8](docs/releases/fjh50-ui-v2026.10.29.8.md) 修正延迟曲线的两个统计缺陷——p50 样本不再被「采样间隔」条件整条过滤，计数加权改按各上游响应数计算；更早的 [2026.10.29.3](docs/releases/fjh50-ui-v2026.10.29.3.md) 把 DNS 内核从 FJH21 升级到 **FJH50** 并完成整机迁移：新内核在本地区（`home.arpa`、`.localdomain`、反查区）与 ANY / META / XFR 特殊查询上改为本地应答，后台新增 `zone_check` 计数。接口经逐条比对与现网回环验证后确认向后兼容，升级需整目录替换。
 
 [产品图集](docs/SCREENSHOTS.md) · [功能指南](docs/FEATURES.md) · [安装说明](INSTALL.md) · [下载 Releases](https://github.com/yyhoworks/LocalDNS/releases) · [作者与分工](AUTHORS.md) · [开发说明](docs/DEVELOPMENT.md) · [近期更新](CHANGELOG.md)
 
@@ -150,7 +150,7 @@ curl -fsSL https://raw.githubusercontent.com/yyhoworks/LocalDNS/main/tools/insta
 
 ## 手动安装
 
-1. 在 [Releases](https://github.com/yyhoworks/LocalDNS/releases/tag/fjh50-ui-v2026.10.30.1) 下载完整包或 UI 升级包，并核对同页的 `SHA256SUMS.txt`。**从旧核心升级 FJH50 请使用完整包和迁移工具，先备份并保留原设置；UI 升级包只更新界面。**
+1. 在 [Releases](https://github.com/yyhoworks/LocalDNS/releases/tag/fjh50-ui-v2026.10.30.2) 下载完整包或 UI 升级包，并核对同页的 `SHA256SUMS.txt`。**从旧核心升级 FJH50 请使用完整包和迁移工具，先备份并保留原设置；UI 升级包只更新界面。**
 2. 已有 LocalDNS 服务时，解压 UI 升级包并运行：
 
    ```sh

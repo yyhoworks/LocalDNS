@@ -1,6 +1,6 @@
-# 安装与更新
+﻿# 安装与更新
 
-当前发行版本：**后端 FJH50 / UI 2026.10.30.1**（发行标签 `fjh50-ui-v2026.10.30.1`），见 [本次更新说明](docs/releases/fjh50-ui-v2026.10.30.1.md)。FJH50 内核提供 amd64-v1 / v2 / v3 / arm64 程序，本地区与 ANY / META / XFR 特殊查询改为本地应答；发行包附完整配置迁移工具，保留 DNS 趋势、静态共享设置、日志目录与 Mihomo / sing-box 配置编辑器。
+当前发行版本：**后端 FJH50 / UI 2026.10.30.2**（发行标签 `fjh50-ui-v2026.10.30.2`），见 [本次更新说明](docs/releases/fjh50-ui-v2026.10.30.2.md)。FJH50 内核提供 amd64-v1 / v2 / v3 / arm64 程序，本地区与 ANY / META / XFR 特殊查询改为本地应答；发行包附完整配置迁移工具，保留 DNS 趋势、静态共享设置、日志目录与 Mihomo / sing-box 配置编辑器。
 
 ## 名称、Logo 与字体共享
 
@@ -26,12 +26,12 @@ curl -fsSL https://raw.githubusercontent.com/yyhoworks/LocalDNS/main/tools/insta
 
 包含此功能的发行包可一次性安装更新执行端，之后在顶部「版本与更新」中直接发起 UI 更新或恢复上一版。只更新 UI，保留配置与核心。安装方法及 HTTPS 接入见 [网页升级指南](docs/WEB_UPDATE.md)。
 
-从 [本版 Releases](https://github.com/yyhoworks/LocalDNS/releases/tag/fjh50-ui-v2026.10.30.1) 下载；本地构建位于 `dist/fjh50-ui-v2026.10.30.1/`。
+从 [本版 Releases](https://github.com/yyhoworks/LocalDNS/releases/tag/fjh50-ui-v2026.10.30.2) 下载；本地构建位于 `dist/fjh50-ui-v2026.10.30.2/`。
 
 | 文件 | 用途 |
 |---|---|
-| `LocalDNS_FJH50_UI_2026.10.30.1_Full.zip` | 新安装或完整迁移：FJH50 程序（含 v1/v2/v3/arm64）、新配置结构、迁移工具与当前双皮肤 UI |
-| `LocalDNS_UI_2026.10.30.1_Update.zip` | 已安装环境更新界面 |
+| `LocalDNS_FJH50_UI_2026.10.30.2_Full.zip` | 新安装或完整迁移：FJH50 程序（含 v1/v2/v3/arm64）、新配置结构、迁移工具与当前双皮肤 UI |
+| `LocalDNS_UI_2026.10.30.2_Update.zip` | 已安装环境更新界面 |
 | `SHA256SUMS.txt` | 发行包的 SHA-256 校验值 |
 
 在同一目录核对：
