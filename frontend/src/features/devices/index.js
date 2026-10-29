@@ -206,8 +206,8 @@ async function renderDevices(container, context) {
       <div class="dev-actcol"><div class="dev-bar"><i style="width:${pct}%"></i></div><div class="dev-num">${num(d.count)} 次</div></div>
       <div>${controlHtml(d)}</div>
       <div class="dev-ops">
-        <button type="button" class="dev-iconbtn" data-devices-edit-alias title="管理设备别名">✎</button>
-        <button type="button" class="dev-iconbtn" data-devices-menu="${esc(d.ip)}" title="更多操作">⋯</button>
+        <button type="button" class="dev-iconbtn" data-devices-edit-alias title="管理设备别名">${icon('edit')}</button>
+        <button type="button" class="dev-iconbtn" data-devices-menu="${esc(d.ip)}" title="更多操作">${icon('more')}</button>
       </div>
     </div>`;
   };
@@ -245,7 +245,7 @@ async function renderDevices(container, context) {
       </div>
       <div class="dev-search">
         <div class="dev-searchbox"><input type="text" id="devices-q" placeholder="搜索别名、IP…" autocomplete="off"></div>
-        <button type="button" class="dev-sortbtn" id="devices-sort">⇅ 请求数 ↓</button>
+        <button type="button" class="dev-sortbtn" id="devices-sort">${icon('chevron')} 请求数</button>
       
         <button type="button" class="dev-sortbtn" id="devices-auto-collect" aria-pressed="${autoCollectOn}" title="自动把有查询记录但没有别名的活跃 IP 写进别名表">自动收录 ${autoCollectOn ? '开' : '关'}</button>
         <button type="button" class="dev-addbtn" id="devices-add-controlled" ${clientIpLoadError ? 'disabled' : ''}>+ 新增受控 IP</button>
@@ -300,7 +300,7 @@ async function renderDevices(container, context) {
   $('#devices-q', page).addEventListener('input', applyView);
   $('#devices-sort', page).onclick = function () {
     devSort = devSort === 'req' ? 'ip' : 'req';
-    this.textContent = devSort === 'req' ? '⇅ 请求数 ↓' : '⇅ IP 地址 ↑';
+    this.textContent = devSort === 'req' ? '请求数 ↓' : 'IP 地址 ↑';
     applyView();
   };
 
@@ -479,7 +479,7 @@ async function renderDevices(container, context) {
     }
   });
 
-  // 6. ⋯ 更多菜单：查看日志 / 移入移出名单
+  // 6. 更多菜单：查看日志 / 移入移出名单
   let openMenu = null;
   const closeMenu = () => { if (openMenu) { openMenu.remove(); openMenu = null; } };
   const menuCloser = e => {
