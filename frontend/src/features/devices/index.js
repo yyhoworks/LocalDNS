@@ -141,6 +141,21 @@ async function renderDevices(container, context) {
       };
     })
   ];
+  // 自动收录：把有查询记录但没有别名的活跃 IP 写进别名表，占位名可在行内改
+  const AUTO_KEY = 'localdns-devices-auto-collect';
+  const autoCollectOn = (() => { try { return localStorage.getItem(AUTO_KEY) === '1'; } catch { return false; } })();
+  if (autoCollectOn && !autoCollecting) {
+    const missing = devices.filter(d => d.kind === 'active' && !d.alias && d.count > 0 && !d.isLoopback);
+    if (missing.length) {
+      autoCollecting = true;
+      const next = { ...clientAliases };
+      missing.forEach(d => { next[d.ip] = `设备 ${d.ip.split('.').pop()}`; });
+      api.json('/plugins/client_name', 'PUT', next)
+        .then(() => { renderRoute(true); })
+        .catch(error => toast('自动收录设备失败', 'error', error.message))
+        .finally(() => { autoCollecting = false; });
+    }
+  }
   const maxCount = Math.max(1, ...devices.map(d => d.count));
   const counts = { all: devices.length, fakeip: 0, realip: 0, none: 0 };
   devices.forEach(d => {
@@ -232,6 +247,7 @@ async function renderDevices(container, context) {
         <div class="dev-searchbox"><input type="text" id="devices-q" placeholder="搜索别名、IP…" autocomplete="off"></div>
         <button type="button" class="dev-sortbtn" id="devices-sort">⇅ 请求数 ↓</button>
       
+        <button type="button" class="dev-sortbtn" id="devices-auto-collect" aria-pressed="${autoCollectOn}" title="自动把有查询记录但没有别名的活跃 IP 写进别名表">自动收录 ${autoCollectOn ? '开' : '关'}</button>
         <button type="button" class="dev-addbtn" id="devices-add-controlled" ${clientIpLoadError ? 'disabled' : ''}>+ 新增受控 IP</button>
       </div>
     </div>
@@ -498,7 +514,14 @@ async function renderDevices(container, context) {
   });
 
   // 7. 新增受控 IP 弹窗
-    const addControlledBtn = $('#devices-add-controlled', page);
+    const autoBtn = $('#devices-auto-collect', page);
+  if (autoBtn) autoBtn.onclick = () => {
+    const on = autoBtn.getAttribute('aria-pressed') !== 'true';
+    try { localStorage.setItem('localdns-devices-auto-collect', on ? '1' : '0'); } catch {}
+    renderRoute(true);
+  };
+
+  const addControlledBtn = $('#devices-add-controlled', page);
   if (addControlledBtn) {
     addControlledBtn.onclick = () => {
       if (clientIpLoadError) {
@@ -555,4 +578,5 @@ async function renderDevices(container, context) {
   applyView();
 }
 
+let autoCollecting = false;
 export { renderDevices };

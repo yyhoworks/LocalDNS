@@ -22,15 +22,19 @@ export function initialize() {
     const step = [1, 1.2, 1.5, 2, 2.5, 3, 4, 5, 6, 8, 10].find(item => item >= ratio - 1e-9) || 10;
     return step * scale;
   };
-  /** Cubic through the points; control points stay inside the plot band. */
+  /** Cubic through the points; control points stay inside the segment's own
+   *  y-range, so sparse runs never overshoot into a false dip. */
   const smoothPath = (pts, top = 0, bottom = Infinity) => {
     if (!pts.length) return '';
-    const clamp = v => Math.min(bottom, Math.max(top, v));
+    const between = (a, b, v) => {
+      const lo = Math.min(a, b), hi = Math.max(a, b);
+      return Math.min(bottom, Math.max(top, Math.min(hi, Math.max(lo, v))));
+    };
     let d = `M${pts[0][0].toFixed(1)},${pts[0][1].toFixed(1)}`;
     for (let i = 0; i < pts.length - 1; i++) {
       const p0 = pts[i - 1] || pts[i], p1 = pts[i], p2 = pts[i + 1], p3 = pts[i + 2] || p2;
-      const c1x = p1[0] + (p2[0] - p0[0]) * 0.16, c1y = clamp(p1[1] + (p2[1] - p0[1]) * 0.16);
-      const c2x = p2[0] - (p3[0] - p1[0]) * 0.16, c2y = clamp(p2[1] - (p3[1] - p1[1]) * 0.16);
+      const c1x = p1[0] + (p2[0] - p0[0]) * 0.16, c1y = between(p1[1], p2[1], p1[1] + (p2[1] - p0[1]) * 0.16);
+      const c2x = p2[0] - (p3[0] - p1[0]) * 0.16, c2y = between(p1[1], p2[1], p2[1] - (p3[1] - p1[1]) * 0.16);
       d += ` C${c1x.toFixed(1)},${c1y.toFixed(1)} ${c2x.toFixed(1)},${c2y.toFixed(1)} ${p2[0].toFixed(1)},${p2[1].toFixed(1)}`;
     }
     return d;
