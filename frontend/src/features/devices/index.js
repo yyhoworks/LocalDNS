@@ -247,6 +247,7 @@ async function renderDevices(container, context) {
         <div class="dev-searchbox"><input type="text" id="devices-q" placeholder="搜索别名、IP…" autocomplete="off"></div>
         <button type="button" class="dev-sortbtn" id="devices-sort">${icon('chevron')} 请求数</button>
       
+        <button type="button" class="dev-sortbtn" id="devices-bulk-alias" title="批量修改别名，或给还没出现过的 IP 预置名称">批量别名</button>
         <button type="button" class="dev-sortbtn" id="devices-auto-collect" aria-pressed="${autoCollectOn}" title="自动把有查询记录但没有别名的活跃 IP 写进别名表">自动收录 ${autoCollectOn ? '开' : '关'}</button>
         <button type="button" class="dev-addbtn" id="devices-add-controlled" ${clientIpLoadError ? 'disabled' : ''}>+ 新增受控 IP</button>
       </div>
@@ -573,7 +574,27 @@ async function renderDevices(container, context) {
   }
 // 9. 别名管理弹窗
   if ($('#devices-open-alias-modal', page)) $('#devices-open-alias-modal', page).onclick = openAliasModal;
-  $$('[data-devices-edit-alias]', page).forEach(btn => { btn.onclick = openAliasModal; });
+  $$('[data-devices-edit-alias]', page).forEach(btn => {
+    btn.onclick = () => {
+      const ip = btn.closest('[data-ip]')?.dataset.ip;
+      if (!ip) return;
+      modalOpen(
+        '设备别名',
+        ip,
+        `<div class="stack"><div class="field"><label for="devices-alias-name">设备别名</label><input id="devices-alias-name" value="${esc(clientAliases[ip] || '')}" placeholder="例如：书房电脑" autocomplete="off"></div></div>`,
+        async () => {
+          const name = $('#devices-alias-name').value.trim();
+          const next = { ...clientAliases };
+          if (name) next[ip] = name; else delete next[ip];
+          await api.json('/plugins/client_name', 'PUT', next);
+          toast(name ? `已更新 ${ip} 的别名` : `已清除 ${ip} 的别名`);
+          renderRoute(true);
+        }
+      );
+    };
+  });
+  const bulkAliasBtn = $('#devices-bulk-alias', page);
+  if (bulkAliasBtn) bulkAliasBtn.onclick = openAliasModal;
 
   applyView();
 }
