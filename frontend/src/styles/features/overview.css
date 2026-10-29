@@ -1003,8 +1003,8 @@
 .dev-ftabs { display:flex; background:var(--glass-bg); border:1px solid var(--border-glass); border-radius:99px; padding:4px; gap:2px; backdrop-filter:blur(16px); }
 .dev-ftabs button { border:0; background:transparent; color:var(--text-2); border-radius:99px; padding:7px 15px; font-size:13px; cursor:pointer; display:flex; gap:7px; align-items:center; }
 .dev-ftabs button .n { font-family:Georgia,serif; font-size:12px; background:var(--border-glass); border-radius:99px; padding:0 8px; }
-.dev-ftabs button.on { background:var(--primary); color:#fff; font-weight:700; }
-.dev-ftabs button.on .n { background:rgba(255,255,255,.22); }
+.dev-ftabs button.on { background:var(--glass-pill); color:var(--text-1); box-shadow:inset 0 0 0 1px var(--border-glass); font-weight:600; }
+.dev-ftabs button.on .n { background:var(--border-glass); color:var(--text-1); }
 .dev-search { margin-left:auto; display:flex; gap:8px; align-items:center; }
 .dev-searchbox { position:relative; }
 .dev-searchbox input { background:var(--glass-bg); border:1px solid var(--border-glass); border-radius:99px; padding:8px 16px 8px 36px; font-size:13px; color:var(--text-1); width:230px; backdrop-filter:blur(16px); }
@@ -1050,7 +1050,7 @@
 .dev-menu button { display:block; width:100%; text-align:left; border:0; background:none; color:var(--text-1); padding:10px 14px; font-size:13px; cursor:pointer; }
 .dev-menu button:hover { background:var(--glass-pill); }
 .dev-menu button.danger { color:var(--console-danger); }
-.dev-col-ops { display:flex; gap:6px; justify-content:flex-end; flex-wrap:wrap; }
+.dev-col-ops { display:flex; align-items:center; justify-content:flex-end; gap:6px; flex-wrap:wrap; }
 .dev-hbtn { background:var(--glass-pill); border:1px solid var(--border-glass); color:var(--text-1); border-radius:8px; padding:5px 11px; font-size:12px; cursor:pointer; white-space:nowrap; }
 .dev-hbtn:hover { border-color:var(--primary); color:var(--primary); }
 .dev-hbtn:disabled { opacity:.45; cursor:not-allowed; }

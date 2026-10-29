@@ -89,13 +89,18 @@ export function initialize() {
     next.cache = next.cacheQueriesDelta > 0 && next.cacheHitsDelta !== null && next.cacheHitsDelta <= next.cacheQueriesDelta
       ? next.cacheHitsDelta / next.cacheQueriesDelta * 100 : null;
     next.responseCount = next.responseSum = next.latency = null;
-    if (valid && next.upstreams && previous.upstreams && next.upstreams.length === previous.upstreams.length) {
+    if (valid && next.upstreams && previous.upstreams) {
+      // Match upstreams by key, not by position: the kernel may add or drop a
+      // series between samples (an upstream that just served its first query),
+      // and a length/order mismatch used to discard the whole latency point.
+      const before = new Map(previous.upstreams.map(([key, s, c]) => [key, [s, c]]));
       let count = 0, sum = 0, consistent = true;
-      next.upstreams.forEach(([key,s,c],i) => {
-        const old = previous.upstreams[i];
-        if (key !== old[0] || s < old[1] || c < old[2]) consistent = false;
-        else { sum += s - old[1]; count += c - old[2]; }
-      });
+      for (const [key, s, c] of next.upstreams) {
+        const old = before.get(key);
+        if (!old) continue;
+        if (s < old[0] || c < old[1]) { consistent = false; break; }
+        sum += s - old[0]; count += c - old[1];
+      }
       if (consistent && count > 0) { next.responseCount = count; next.responseSum = sum; next.latency = sum / count; }
     }
     for (const key of ['qps','cache','latency']) if (!nonnegative(next[key])) next[key] = null;
