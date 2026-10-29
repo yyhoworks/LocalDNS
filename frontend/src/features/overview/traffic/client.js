@@ -10,19 +10,11 @@ export function initialize() {
   const overview=()=>!location.hash||location.hash==='#/overview'||location.hash==='#overview';
   const base=()=>new URL(String(window.LOCALDNS_UI_CONFIG?.apiBase||location.origin).replace(/\/$/,''),location.origin);
   const source=base().href.replace(/\/$/,'');
-  const ready=trafficRepository.load(source).then(async rows=>{
-    // v2 升级：延迟改由上游 p50 仪表值提供，旧行里的区间均值（或 null）会让
-    // 趋势线画出一段误导性的片段。把旧行的 latency 清空并写回一次。
-    const legacy=rows.filter(row=>row.latencyNow==null&&row.latency!=null);
-    if(legacy.length){
-      for(const row of legacy)row.latency=null;
-      let migrated=false;
-      try{migrated=localStorage.getItem('localdns-trends-schema:'+source)==='2';}catch{}
-      if(!migrated){
-        await trafficRepository.rewrite(legacy).catch(()=>{});
-        try{localStorage.setItem('localdns-trends-schema:'+source,'2');}catch{}
-      }
-    }
+  const ready=trafficRepository.load(source).then(rows=>{
+    // p50 之前的历史行没有 latencyNow 字段；只有清掉 upstreams，record() 才
+    // 不会用相邻行差值补出区间均值，让 p50 折线画出误导性的旧段。请求量与
+    // 命中率只看 total 与缓存计数，不受影响。
+    for(const row of rows)if(!('latencyNow' in row))row.upstreams=null;
     // History may finish after live sampling has begun. Merge without dropping live points.
     const combined=rows.concat(series.map(p=>trafficService.raw(p,p.time))).sort((a,b)=>a.time-b.time);
     series.length=0;
