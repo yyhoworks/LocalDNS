@@ -1093,3 +1093,6 @@
 .traffic-skeleton{height:216px;border-radius:10px;background:linear-gradient(90deg,var(--glass-pill) 25%,var(--border-glass) 37%,var(--glass-pill) 63%);background-size:400% 100%;animation:trafficShimmer 1.4s ease-in-out infinite}
 @keyframes trafficShimmer{0%{background-position:100% 0}100%{background-position:0 0}}
 @media(prefers-reduced-motion:reduce){.traffic-skeleton{animation:none}}
+
+.dev-sortbtn svg, .dev-iconbtn svg, .dev-hbtn svg { width:14px; height:14px; flex:none; }
+.dev-sortbtn { display:inline-flex; align-items:center; gap:6px; }
