@@ -293,7 +293,9 @@ export function initialize() {
     const definition=definitions[metric],s=summary(series,minutes,now,metric);
     const focus=container.contains(document.activeElement)?document.activeElement?.dataset.trafficMetric:null;
     const plotFocused=document.activeElement?.classList.contains('traffic-plot')&&container.contains(document.activeElement);
-    const empty=(hint)=>`<div class="console-chart-empty">${state.loading&&!series.length?'正在读取 DNS 采样，本机历史在后台恢复…':definition.empty}<br>${hint}</div>`;
+    const empty=(hint)=>state.loading&&!series.length
+      ? '<div class="traffic-skeleton" role="status" aria-label="正在读取 DNS 采样"></div>'
+      : `<div class="console-chart-empty">${definition.empty}<br>${hint}</div>`;
     let summaryHtml='', chartHtml, legendHtml='', alarm=false;
     if (metric === 'anomaly') {
       const ctx = state.overviewContext || {};

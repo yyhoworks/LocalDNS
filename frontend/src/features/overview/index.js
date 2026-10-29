@@ -310,7 +310,7 @@ import { cacheName } from '../management/index.js';
               ${faultyUps.length
                 ? `<span>1. <strong>${esc(faultyUps[0].u.tag)}</strong> 累计 ${num(faultyUps[0].m.err)} 次连接超时或异常</span>
                    <span>2. 最近 ${num(stats.total_queries)} 次查询 · 慢查询(&gt;100ms) ${num(slowOver100Count)} 组</span>`
-                : `<span>国内并发竞速均值 <strong>${esc(domAvgTxt)}</strong>${domAdoptedTxt ? `（${domAdoptedTxt}）` : ''}</span>
+                : `<span>国内池 <strong>${esc(domAdoptedTxt || '—')}</strong></span>
                    <span>最近 ${num(stats.total_queries)} 次查询 <strong>${num(totalUpErr)} 次 SERVFAIL</strong> · 慢查询(&gt;100ms) ${slowOver100Count ? `仅 ${num(slowOver100Count)} 组` : '0 组'}</span>`}
             </div>
           </div>

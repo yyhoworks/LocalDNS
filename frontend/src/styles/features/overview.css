@@ -544,7 +544,7 @@
 .traffic-health-pill{display:inline-flex;align-items:center;gap:7px;padding:5px 12px;border-radius:999px;border:1px solid var(--border-glass);background:rgba(127,127,127,.06);font-size:12px;color:var(--text-2);white-space:nowrap}
 .traffic-health-pill[data-route]{cursor:pointer}
 .traffic-health-pill[data-route]:hover{background:rgba(127,127,127,.12)}
-.traffic-health-pill.is-bad{border-color:rgba(248,113,113,.42);background:rgba(248,113,113,.10);color:var(--console-danger)}
+.traffic-health-pill.is-bad{border-color:var(--console-danger);background:var(--glass-pill);color:var(--console-danger)}
 .traffic-health-dot{width:7px;height:7px;border-radius:50%;background:var(--console-success);box-shadow:0 0 7px var(--console-success);flex:none}
 .traffic-health-dot.is-bad{background:var(--console-danger);box-shadow:0 0 7px var(--console-danger);animation:trafficPulse 1.5s infinite}
 @keyframes trafficPulse{50%{opacity:.4}}
@@ -562,13 +562,13 @@
 .traffic-peak-dot{fill:var(--console-line)}
 .traffic-peak-dot.is-slow{fill:var(--amber,#f59e0b)}
 .traffic-callout-box{fill:rgba(127,127,127,.14);stroke:var(--border-glass)}
-.traffic-callout-box.is-slow{fill:rgba(245,158,11,.16);stroke:rgba(245,158,11,.42)}
+.traffic-callout-box.is-slow{fill:var(--glass-pill);stroke:var(--amber, #f59e0b)}
 .traffic-callout-text{fill:var(--text-1);font-size:11.5px;font-family:var(--font-mono)}
 .traffic-last-value{fill:var(--console-line);font-size:11.5px;font-family:var(--font-mono)}
 .traffic-bar{fill:var(--console-line);fill-opacity:.42}
 .traffic-line-alt{fill:none;stroke:var(--console-success);stroke-width:1.8;stroke-linejoin:round;vector-effect:non-scaling-stroke;stroke-opacity:.92}
 .traffic-axis-alt{fill:var(--console-success);fill-opacity:.85;font-size:11px;font-family:var(--font-mono)}
-.glass-card.traffic-alarm{border-color:rgba(248,113,113,.42);box-shadow:0 0 0 1px rgba(248,113,113,.16),0 10px 40px rgba(248,113,113,.10)}
+.glass-card.traffic-alarm{border-color:var(--console-danger);box-shadow:0 0 0 1px var(--glass-pill),0 10px 40px var(--glass-pill)}
 .traffic-caption {display:flex;flex-wrap:wrap;justify-content:space-between;gap:6px 16px;font-size:11.5px;color:var(--text-2);line-height:1.6;padding-top:8px;}
 @media(max-width:600px) {
   .traffic-metric-tabs{gap:6px}
@@ -1089,3 +1089,7 @@
 /* 触控目标：行内按钮补足最小热区 */
 .dev-hbtn { min-height:34px; }
 .dev-table .icon-button, .dev-table .dev-act { min-height:34px; min-width:34px; }
+
+.traffic-skeleton{height:216px;border-radius:10px;background:linear-gradient(90deg,var(--glass-pill) 25%,var(--border-glass) 37%,var(--glass-pill) 63%);background-size:400% 100%;animation:trafficShimmer 1.4s ease-in-out infinite}
+@keyframes trafficShimmer{0%{background-position:100% 0}100%{background-position:0 0}}
+@media(prefers-reduced-motion:reduce){.traffic-skeleton{animation:none}}
