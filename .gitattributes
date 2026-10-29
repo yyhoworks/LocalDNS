@@ -1,4 +1,7 @@
-* text=auto
+# Normalize every text file to LF in the repository and in the working tree,
+# whatever core.autocrlf says, so a Windows checkout builds byte-identical
+# CSS/JS and packages (no CRLF leaking into dist/ or release ZIPs).
+* text=auto eol=lf
 *.md text eol=lf
 *.py text eol=lf
 *.sh text eol=lf
@@ -6,6 +9,18 @@
 services/proxy-config/** text eol=lf
 # Keep the verified UI bytes identical to the published release.
 _src/ui/** -text
+# Binary assets: never convert line endings or attempt text diffs/merges.
 *.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.webp binary
+*.ico binary
+*.woff binary
 *.woff2 binary
-
+*.ttf binary
+*.otf binary
+*.zip binary
+*.gz binary
+*.tgz binary
+*.pdf binary

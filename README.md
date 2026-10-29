@@ -6,7 +6,7 @@
 
 **DNS 核心主要由折腾日记交流群里的 R 大使用 Rust 编写；[yyhoworks](https://github.com/yyhoworks) 负责 UI 设计。**
 
-当前版本：**后端 FJH50 / UI 2026.10.29.6**（发行标签 `fjh50-ui-v2026.10.29.6`），见 [本次更新说明](docs/releases/fjh50-ui-v2026.10.29.6.md)。
+当前版本：**后端 FJH50 / UI 2026.10.29.7**（发行标签 `fjh50-ui-v2026.10.29.7`），见 [本次更新说明](docs/releases/fjh50-ui-v2026.10.29.7.md)。
 
 本次把 DNS 内核从 FJH21 升级到 **FJH50** 并完成整机迁移：新内核在本地区（`home.arpa`、`.localdomain`、反查区）与 ANY / META / XFR 特殊查询上改为本地应答，后台新增 `zone_check` 计数。接口经逐条比对与现网回环验证后确认向后兼容，界面只补齐了新 `domain_set` 取值的中文标签、同步了内核角标与版本元数据。配置、规则、上游、客户端别名与外观全部沿用，升级需整目录替换，更新说明见 [2026.10.29.3](docs/releases/fjh50-ui-v2026.10.29.3.md)。
 
@@ -150,7 +150,7 @@ curl -fsSL https://raw.githubusercontent.com/yyhoworks/LocalDNS/main/tools/insta
 
 ## 手动安装
 
-1. 在 [Releases](https://github.com/yyhoworks/LocalDNS/releases/tag/fjh21-ui-v2026.10.28.2) 下载完整包或 UI 升级包，并核对同页的 `SHA256SUMS.txt`。**从旧核心升级 FJH21 请使用完整包和迁移工具，先备份并保留原设置；UI 升级包只更新界面。**
+1. 在 [Releases](https://github.com/yyhoworks/LocalDNS/releases/tag/fjh50-ui-v2026.10.29.7) 下载完整包或 UI 升级包，并核对同页的 `SHA256SUMS.txt`。**从旧核心升级 FJH50 请使用完整包和迁移工具，先备份并保留原设置；UI 升级包只更新界面。**
 2. 已有 LocalDNS 服务时，解压 UI 升级包并运行：
 
    ```sh
