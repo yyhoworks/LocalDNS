@@ -1,6 +1,7 @@
 import { currentScope } from '../../core/router/route-lifetime';
 import { shellInterfaceService } from '../shell/interface.js';
 import { toast } from '../../shared/components/toast.js';
+import { confirmDialog } from '../../shared/components/dialog.js';
 import { setHTML, insertHTML } from '../../core/security/safe-dom.ts';
 export let rulesWorkbenchService;
 export function initialize() {
@@ -390,7 +391,7 @@ export function initialize() {
     if (!anyReal) {
       var hasRows = rows.some(function (r) { return r.kind !== 'blank'; });
       setHTML(box, '<div class="rv-empty"><b>' + (hasRows ? '没有匹配的规则' : '这个名单还是空的') + '</b>' +
-        (hasRows ? '换个关键词试试' : '点右上角「新增规则」加一条') + '</div>');
+        (hasRows ? '换个关键词试试' : '点工具条「新增」加一条') + '</div>');
     } else {
       var out = [];
       rows.forEach(function (r) {
@@ -508,10 +509,10 @@ export function initialize() {
     say('已新增标题：' + title + '（记得点保存）');
   }
   /* 删除整个标题块（# 行），下面的规则保留 */
-  function dropGroup(g) {
+  async function dropGroup(g) {
     if (!g) return;
     var txt = g.lines.map(function (l) { return '# ' + l.value; }).join('\n');
-    if (!window.confirm('删除这个标题块？\n' + txt + '\n\n下面的 ' + g.children.length + ' 条规则会保留。')) return;
+    if (!await confirmDialog({message:'删除这个标题块？\n' + txt + '\n\n下面的 ' + g.children.length + ' 条规则会保留。', danger:true})) return;
     var ids = g.lines.map(function (l) { return l.id; });
     rows = rows.filter(function (r) { return ids.indexOf(r.id) < 0; });
     writeBack(); closeSheet(true); renderList();
@@ -559,19 +560,19 @@ export function initialize() {
       say(selfGroup ? '已移到「' + groupTitle(selfGroup) + '」下面' : '已调整顺序');
     });
   }
-  function dropRow(row,confirmed) {
+  async function dropRow(row,confirmed) {
     var pn = row.kind === 'comment' ? { idx: -1 } : prevNote(row);
-    if (!confirmed && !window.confirm('删除这条规则？\n' + lineOf(row) + (pn.idx >= 0 ? '\n（它上面的备注行一起删掉）' : ''))) return;
+    if (!confirmed && !await confirmDialog({message:'删除这条规则？\n' + lineOf(row) + (pn.idx >= 0 ? '\n（它上面的备注行一起删掉）' : ''), danger:true})) return;
     rows = rows.filter(function (r, i) { return r.id !== row.id && i !== pn.idx; });
     sel = sel.filter(function (x) { return x !== row.id; });
     writeBack(); renderList(); say('已删除 ' + row.value);
   }
   /* 身份互转：标题 → 规则备注（标题行改写为「# 备注：…」，挂到它下面第一条规则） */
-  function groupToNote(g) {
+  async function groupToNote(g) {
     if (!g || !g.children.length) return;
     var t = stripTitlePrefix(groupTitle(g));
     if (!t) return;
-    if (!window.confirm('把「' + t + '」改成下面第一条规则的备注？\n这一行的 # 会写成「# 备注：' + t + '」。')) return;
+    if (!await confirmDialog({message:'把「' + t + '」改成下面第一条规则的备注？\n这一行的 # 会写成「# 备注：' + t + '」。'})) return;
     g.title.value = '备注：' + t; g.title.touched = true; g.title.role = 'note';
     writeBack(); renderList();
     say('已改成备注：' + t);
@@ -1153,7 +1154,7 @@ export function initialize() {
       this.textContent = raw ? '列表' : '原文';
     };
     Array.prototype.forEach.call(root.querySelectorAll('[data-bulk]'), function (b) {
-      b.onclick = function () {
+      b.onclick = async function () {
         var act = b.dataset.bulk, n = sel.length;
         if (act === 'clear') { sel = []; renderList(); return; }
         if (!n) return;
@@ -1166,7 +1167,7 @@ export function initialize() {
           if (pn.idx >= 0) dropIdx[pn.idx] = true;
         });
         var dropNotes = Object.keys(dropIdx).length;
-        if (act === 'del' && !window.confirm('删除选中的 ' + n + ' 条规则？' + (dropNotes ? '\n（' + dropNotes + ' 行备注一起删掉）' : ''))) return;
+        if (act === 'del' && !await confirmDialog({message:'删除选中的 ' + n + ' 条规则？' + (dropNotes ? '\n（' + dropNotes + ' 行备注一起删掉）' : ''), danger:true})) return;
         if (act === 'del') rows = rows.filter(function (r, i) { return sel.indexOf(r.id) < 0 && !dropIdx[i]; });
         else rows.forEach(function (r) {
           if (sel.indexOf(r.id) < 0) return;
@@ -1255,9 +1256,9 @@ export function initialize() {
     sv.querySelector('#rv-ok').onclick = commit;
     sv.querySelector('#rv-cancel').onclick = function () { closeSheet(); };
     sv.querySelector('#rv-close').onclick = function () { closeSheet(); };
-    sv.querySelector('#rv-del').onclick = function () {
+    sv.querySelector('#rv-del').onclick = async function () {
       if (groupMode) { var g = editingGroup; if (!g) { closeSheet(true); return; } dropGroup(g); return; }
-      var r = editing; if (!r) return; if (!window.confirm('删除这条规则？\n' + lineOf(r))) return; closeSheet(true); dropRow(r,true);
+      var r = editing; if (!r) return; if (!await confirmDialog({message:'删除这条规则？\n' + lineOf(r), danger:true})) return; closeSheet(true); dropRow(r,true);
     };
     scrimEl.onclick = function () { closeSheet(); };
     /* 面板里 Tab 在面板内循环，不要跑回页面后面 */
@@ -1378,7 +1379,17 @@ export function initialize() {
       closeSheet(true);
     }
     var paste=document.getElementById('rp-wrap');
-    if(paste&&paste.open){if(paste.querySelector('#rp-text').value.trim()&&!confirm('批量粘贴尚未加入名单，放弃并离开吗？'))return false;closePaste();}
+    if(paste&&paste.open){
+      if(paste.querySelector('#rp-text').value.trim()){
+        if(typeof next==='function')pendingLeave=next;
+        confirmDialog({message:'批量粘贴尚未加入名单，放弃并离开吗？', danger:true}).then(function(ok){
+          var pend=pendingLeave;pendingLeave=null;
+          if(ok){closePaste();if(typeof pend==='function')pend();}
+        });
+        return false;
+      }
+      closePaste();
+    }
     return true;
   }
   /* 站点重绘会把我们插进去的整个面板换掉，这时挂在 body 上的遮罩/面板要跟着收走 */

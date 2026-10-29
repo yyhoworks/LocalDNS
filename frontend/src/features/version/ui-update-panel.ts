@@ -1,6 +1,7 @@
 import { setHTML } from '../../core/security/safe-dom';
 import { ApiError } from '../../core/api/api-error';
 import { UIUpdateClient, upgradeTarget, type InstalledUI, type UIRelease, type UIUpdateStatus } from './ui-update-client';
+import { confirmDialog } from '../../shared/components/dialog.js';
 
 export function createUIUpdatePanel(container: HTMLElement) {
   setHTML(container, `<h3>在线升级 UI</h3>
@@ -89,7 +90,7 @@ export function createUIUpdatePanel(container: HTMLElement) {
   async function execute(restore: boolean) {
     const target = upgradeTarget(currentUI(), latest);
     if (!client || !available || busy || running() || (!restore && !target.tag)) return;
-    if (!window.confirm(restore ? '恢复上一版 UI？当前 Logo、字体和站点配置会保留。' : '开始升级 UI？请先保存未提交的修改。升级完成后由你手动刷新，DNS 服务继续运行。')) return;
+    if (!await confirmDialog({message: restore ? '恢复上一版 UI？当前 Logo、字体和站点配置会保留。' : '开始升级 UI？请先保存未提交的修改。升级完成后由你手动刷新，DNS 服务继续运行。', danger: restore})) return;
     busy = true; error = ''; paint();
     try { task = restore ? await client.rollback() : await client.upgrade(target.tag!); }
     catch (failure) {

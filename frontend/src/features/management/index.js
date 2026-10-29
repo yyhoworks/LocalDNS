@@ -4,7 +4,7 @@ import { proxyPanelService } from '../proxy-panel/index.js';
 import { setHTML } from '../../core/security/safe-dom.ts';
 import { empty, card } from '../../shared/components/templates.js';
 import { num, fmtDate, esc, pct, compactPct } from '../../shared/format/number.js';
-import { modalOpen } from '../../shared/components/dialog.js';
+import { modalOpen, confirmDialog } from '../../shared/components/dialog.js';
 import { toast } from '../../shared/components/toast.js';
 import { openDrawer } from '../../shared/components/drawer.js';
 import { modalClose } from '../../shared/components/dialog.js';
@@ -94,7 +94,7 @@ import { cacheLimitInputSelector, cacheLimitsForm, cacheSettings, readCacheLimit
 
   async function clearShuntData(){
     const warning='确定完全清空自动分流数据？\n\n将清空：\n• 域名全集及 A/AAAA Activity\n• 自动生成的 FakeIP / RealIP / NODATA 分流记忆\n• 刷新分流缓存的历史进度与统计\n\n定时任务设置不会改变。\n清空后将从零重新收集域名并生成分流规则。';
-    if(!confirm(warning))return;
+    if(!await confirmDialog({message:warning,danger:true}))return;
     try{
       await api.request('/plugins/requery/reset',{method:'POST'});
       toast('自动分流数据已完全清空，将从零重新收集');
@@ -192,8 +192,8 @@ import { cacheLimitInputSelector, cacheLimitsForm, cacheSettings, readCacheLimit
       const cacheHeaderActions=`<div class="cache-header-actions"><span class="badge success cache-active-badge">${activeCacheLabel} · ${cacheEnabled?'当前使用':'当前模式'}</span><span class="badge ${cacheEnabled?'success':'danger'}">● 核心缓存${cacheEnabled?'已开启':'已关闭'}</span>${cachePending}${cacheSettingsButton}<button class="button small danger" id="cache-clear-all">全部清空</button></div>`;
       const slot=$('#management-cache-slot');if(!slot)return;
       setHTML(slot, `<section class="card data-cache-panel"><div class="card-header"><div class="card-title"><span class="icon">${icon('data')}</span><div><h2>缓存管理</h2><p>仅显示当前模式对应的全部缓存与国外缓存，界面更紧凑</p></div></div>${cacheHeaderActions}</div><div class="card-body"><div class="cache-grid data-cache-grid">${cacheCards.join('')}</div></div></section>`);
-      $('#cache-clear-all')?.addEventListener('click',async()=>{if(!confirm('确定清空全部 DNS 缓存？将同时清空经典、智能、国内与国外缓存。'))return;const ct=caches.map(c=>c.tag);const result=await Promise.allSettled(ct.map(tag=>api.request(`/plugins/${tag}/flush`)));const failed=result.filter(x=>x.status==='rejected').length;failed?toast(`已清空 ${result.length-failed} 个缓存，${failed} 个失败`,'error'):toast(`全部 ${result.length} 个缓存已清空`);renderRoute(true)});
-      $$('.cache-clear').forEach(x=>x.onclick=async()=>{if(!confirm(`确定清空 ${cacheName(x.dataset.tag)}？`))return;try{await api.request(`/plugins/${x.dataset.tag}/flush`);toast('缓存已清空');renderRoute(true)}catch(e){toast('清空缓存失败','error',e.message);renderRoute(true)}});
+      $('#cache-clear-all')?.addEventListener('click',async()=>{if(!await confirmDialog({message:'确定清空全部 DNS 缓存？将同时清空经典、智能、国内与国外缓存。',danger:true}))return;const ct=caches.map(c=>c.tag);const result=await Promise.allSettled(ct.map(tag=>api.request(`/plugins/${tag}/flush`)));const failed=result.filter(x=>x.status==='rejected').length;failed?toast(`已清空 ${result.length-failed} 个缓存，${failed} 个失败`,'error'):toast(`全部 ${result.length} 个缓存已清空`);renderRoute(true)});
+      $$('.cache-clear').forEach(x=>x.onclick=async()=>{if(!await confirmDialog({message:`确定清空 ${cacheName(x.dataset.tag)}？`,danger:true}))return;try{await api.request(`/plugins/${x.dataset.tag}/flush`);toast('缓存已清空');renderRoute(true)}catch(e){toast('清空缓存失败','error',e.message);renderRoute(true)}});
       $$('.cache-view').forEach(x=>x.onclick=async()=>{try{const text=await api.request(`/plugins/${x.dataset.tag}/show`);openDrawer(cacheName(x.dataset.tag),'缓存内容',`<pre>${esc(text)}</pre>`)}catch(e){toast('查看缓存内容失败','error',e.message)}});
       $('#cache-settings')?.addEventListener('click',()=>openCacheSettings(cacheLimits));
     }).catch(e=>{if(isCurrent()&&$('#management-cache-slot'))setHTML($('#management-cache-slot'), card('缓存管理',`<div class="error-panel">加载失败：${esc(e.message)}</div>`,{iconName:'data',className:'data-cache-panel'}));});
@@ -218,6 +218,6 @@ import { cacheLimitInputSelector, cacheLimitsForm, cacheSettings, readCacheLimit
     });
   }
 
-  async function restartService(){if(!confirm(`确定重启 ${identityService?.getName()||'LocalDNS'}？短时间内 DNS 服务会中断。`))return;const scope=currentScope();try{await api.json('/api/v1/system/restart','POST',{delay_ms:500});}catch(e){if(scope.signal.aborted)return;toast('重启服务失败','error',e.message);renderRoute(true);return;}if(scope.signal.aborted)return;toast((identityService?.getName()||'LocalDNS')+' 正在重启');scope.timeout(()=>renderRoute(true),4000);}
+  async function restartService(){if(!await confirmDialog({message:`确定重启 ${identityService?.getName()||'LocalDNS'}？短时间内 DNS 服务会中断。`,danger:true}))return;const scope=currentScope();try{await api.json('/api/v1/system/restart','POST',{delay_ms:500});}catch(e){if(scope.signal.aborted)return;toast('重启服务失败','error',e.message);renderRoute(true);return;}if(scope.signal.aborted)return;toast((identityService?.getName()||'LocalDNS')+' 正在重启');scope.timeout(()=>renderRoute(true),4000);}
 
 export { cacheName, requeryHtml, openRequeryScheduler, countsHtml, multiPluginAction, clearShuntData, switchProfiles, renderManagement, restartService };

@@ -11,8 +11,8 @@ export function initialize() {
   const base=()=>new URL(String(window.LOCALDNS_UI_CONFIG?.apiBase||location.origin).replace(/\/$/,''),location.origin);
   const source=base().href.replace(/\/$/,'');
   const ready=trafficRepository.load(source).then(async rows=>{
-    // v2 迁移：延迟改由上游 p50 仪表值提供，旧行里的区间均值（或 null）会让
-    // 曲线画出一段误导性的碎片。把旧行的 latency 清空并写回一次。
+    // v2 升级：延迟改由上游 p50 仪表值提供，旧行里的区间均值（或 null）会让
+    // 趋势线画出一段误导性的片段。把旧行的 latency 清空并写回一次。
     const legacy=rows.filter(row=>row.latencyNow==null&&row.latency!=null);
     if(legacy.length){
       for(const row of legacy)row.latency=null;

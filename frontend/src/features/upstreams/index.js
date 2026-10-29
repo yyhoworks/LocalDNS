@@ -4,7 +4,7 @@ import { readUpstreams, writeUpstreamGroup } from './api.js';
 import { $$, $ } from '../../core/context.js';
 import { openUpstreamErrorPopover, closeUpstreamErrorPopover } from './errors.js';
 import { toast } from '../../shared/components/toast.js';
-import { modalOpen } from '../../shared/components/dialog.js';
+import { modalOpen, confirmDialog } from '../../shared/components/dialog.js';
 import { renderRoute } from '../../core/router/router.js';
 import { esc } from '../../shared/format/number.js';
 import { groupName } from './groups.js';
@@ -29,7 +29,7 @@ import { groupName } from './groups.js';
 
   async function toggleUpstream(row,enabled){const g=row.dataset.group,i=+row.dataset.index,old=model.config[g][i].enabled;model.config[g][i].enabled=enabled;try{await saveUpstreamGroup(g);toast('上游状态已保存');renderRoute(true)}catch(e){if(renderScope.signal.aborted)return;model.config[g][i].enabled=old;toast('保存失败','error',e.message);renderRoute(true)}}
 
-  async function deleteUpstream(row){if(!confirm('确定删除这个上游 DNS 吗？'))return;const g=row.dataset.group,i=+row.dataset.index,old=model.config[g].slice();model.config[g].splice(i,1);try{await saveUpstreamGroup(g);toast('上游已删除');renderRoute(true)}catch(e){if(renderScope.signal.aborted)return;model.config[g]=old;toast('删除失败','error',e.message)}}
+  async function deleteUpstream(row){const g=row.dataset.group,i=+row.dataset.index,u=model.config[g][i],name=u&&(u.tag||u.addr);if(!await confirmDialog({message:name?`确定删除上游 ${name} 吗？`:'确定删除这个上游 DNS 吗？',danger:true}))return;const old=model.config[g].slice();model.config[g].splice(i,1);try{await saveUpstreamGroup(g);toast('上游已删除');renderRoute(true)}catch(e){if(renderScope.signal.aborted)return;model.config[g]=old;toast('删除失败','error',e.message)}}
 
   function openUpstreamModal(row){
     const edit=!!row;

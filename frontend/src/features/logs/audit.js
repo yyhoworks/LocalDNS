@@ -3,7 +3,7 @@ import { $, $$ } from '../../core/context.js';
 import { api } from '../../core/api/api.js';
 import { setHTML } from '../../core/security/safe-dom.ts';
 import { num, esc } from '../../shared/format/number.js';
-import { modalOpen, modalClose } from '../../shared/components/dialog.js';
+import { modalOpen, modalClose, confirmDialog } from '../../shared/components/dialog.js';
 import { toast } from '../../shared/components/toast.js';
 import { renderRoute } from '../../core/router/router.js';
 import { auditDirectory, auditStorage, readAuditStorage } from './audit-settings';
@@ -72,13 +72,14 @@ export async function openAuditModal() {
     }
   }
 
-  $('#audit-cap-save').onclick = event => {
+  $('#audit-cap-save').onclick = async event => {
+    const button = event.currentTarget;
     const input = $('#audit-cap');
     if (!input.reportValidity()) return;
     const value = Number(input.value);
     if (!Number.isInteger(value) || value < 100 || value > 1000000) { message('日志容量应为 100 到 1,000,000 之间的整数。', true); return; }
-    if (value < capacity.capacity && !confirm('降低日志容量可能移除较早的查询记录。确定保存容量？')) return;
-    return perform(event.currentTarget, '保存中…', async () => {
+    if (value < capacity.capacity && !await confirmDialog({message:'降低日志容量可能移除较早的查询记录。确定保存容量？',danger:true})) return;
+    return perform(button, '保存中…', async () => {
       await api.json('/api/v1/audit/capacity', 'POST', { capacity: value });
       if (!active()) return;
       capacity = { capacity: value };
@@ -115,13 +116,14 @@ export async function openAuditModal() {
       controls.forEach((control, i) => { control.disabled = states[i]; });
     }
   };
-  if (storage) $('#audit-dir-save').onclick = event => {
+  if (storage) $('#audit-dir-save').onclick = async event => {
+    const button = event.currentTarget;
     let directory;
     try { directory = auditDirectory($('#audit-dir').value); }
     catch (error) { message(error.message, true); $('#audit-dir').focus(); return; }
     if (directory === storage.dir) { message('日志目录未变更。'); return; }
-    if (!confirm('切换日志目录会清空当前查询记录，旧压缩文件留在原目录。确定保存目录？')) return;
-    return perform(event.currentTarget, '保存中…', async () => {
+    if (!await confirmDialog({message:'切换日志目录会清空当前查询记录，旧压缩文件留在原目录。确定保存目录？',danger:true})) return;
+    return perform(button, '保存中…', async () => {
       const result = await api.json('/api/v1/audit/settings', 'POST', { dir: directory });
       if (!active()) return;
       try { storage = auditStorage(result); }
@@ -133,17 +135,19 @@ export async function openAuditModal() {
     });
   };
   $('#audit-storage-retry')?.addEventListener('click', () => { modalClose(); openAuditModal(); });
-  $('#modal-audit-toggle').onclick = event => {
-    if (status.capturing && !confirm('确定关闭审计？关闭期间新的查询日志将不再记录，直至重新开启。')) return;
-    return perform(event.currentTarget, '更新中…', async () => {
+  $('#modal-audit-toggle').onclick = async event => {
+    const button = event.currentTarget;
+    if (status.capturing && !await confirmDialog({message:'确定关闭审计？关闭期间新的查询日志将不再记录，直至重新开启。',danger:true})) return;
+    return perform(button, '更新中…', async () => {
     await api.request(`/api/v1/audit/${status.capturing ? 'stop' : 'start'}`, { method: 'POST' });
     if (!active()) return;
     toast('审计状态已更新'); modalClose(); renderRoute(true);
     });
   };
-  $('#modal-audit-clear').onclick = event => {
-    if (!confirm('确定清空所有查询日志？此操作无法撤销。')) return;
-    return perform(event.currentTarget, '清空中…', async () => {
+  $('#modal-audit-clear').onclick = async event => {
+    const button = event.currentTarget;
+    if (!await confirmDialog({message:'确定清空所有查询日志？此操作无法撤销。',danger:true})) return;
+    return perform(button, '清空中…', async () => {
       await api.request('/api/v1/audit/clear', { method: 'POST' });
       if (!active()) return;
       toast('日志已清空'); modalClose(); renderRoute(true);

@@ -107,6 +107,7 @@
 .button.primary:hover:not(:disabled) { background: var(--primary); }
 .button.success { background: rgba(16, 185, 129, 0.18); border-color: rgba(16, 185, 129, 0.4); color: #34D399; }
 .button.danger { background: rgba(239, 68, 68, 0.16); border-color: rgba(239, 68, 68, 0.36); color: #FCA5A5; }
+.confirm-dialog-msg { margin: 6px 2px 2px; font-size: 14px; line-height: 1.7; color: var(--text-1); }
 .button svg, .icon-button svg { width: 14px; height: 14px; }
 
 .icon-button {

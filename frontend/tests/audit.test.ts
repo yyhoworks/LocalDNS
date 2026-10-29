@@ -6,6 +6,7 @@ import { auditDirectory, auditStorage, readAuditStorage } from '../src/features/
 const mocks = vi.hoisted(() => ({
   request: vi.fn(), json: vi.fn(), status: vi.fn(), capacity: vi.fn(),
   render: vi.fn(), signal: new AbortController().signal,
+  confirmDialog: vi.fn(async () => true),
 }));
 vi.mock('../src/core/context.js', () => ({
   $: (selector: string, root = document) => root.querySelector(selector),
@@ -24,6 +25,7 @@ vi.mock('../src/shared/components/dialog.js', () => ({
     const dialog = document.querySelector('#modal')!;
     dialog.removeAttribute('open'); dialog.dispatchEvent(new Event('close'));
   },
+  confirmDialog: mocks.confirmDialog,
 }));
 vi.mock('../src/core/security/safe-dom.ts', () => ({ setHTML: (element: Element, html: string) => { element.innerHTML = html; } }));
 import { openAuditModal } from '../src/features/logs/audit.js';
@@ -40,7 +42,7 @@ beforeEach(() => {
   mocks.capacity.mockResolvedValue({ capacity: 100000 });
   mocks.request.mockResolvedValue(initial);
   mocks.json.mockResolvedValue({ ...initial, dir: '/var/log/localdns', path: '/var/log/localdns', entries: 0 });
-  vi.stubGlobal('confirm', vi.fn(() => true));
+  mocks.confirmDialog.mockResolvedValue(true);
 });
 
 describe('audit storage compatibility', () => {
@@ -62,7 +64,7 @@ describe('audit directory dialog', () => {
   it('requires confirmation for clearing current records and preserves the draft when cancelled or rejected', async () => {
     await openAuditModal();
     field().value = '/var/log/localdns';
-    vi.mocked(confirm).mockReturnValueOnce(false);
+    mocks.confirmDialog.mockResolvedValueOnce(false);
     save().click(); await settle();
     expect(mocks.json).not.toHaveBeenCalled();
     expect(field().value).toBe('/var/log/localdns');
@@ -78,9 +80,11 @@ describe('audit directory dialog', () => {
     let resolve!: (value: unknown) => void;
     mocks.json.mockImplementationOnce(() => new Promise(done => { resolve = done; }));
     field().value = '/var/log/localdns';
-    save().click(); save().click();
+    save().click(); await settle();
     expect(mocks.json).toHaveBeenCalledTimes(1);
     expect(save().disabled).toBe(true);
+    save().click(); await settle();
+    expect(mocks.json).toHaveBeenCalledTimes(1);
     resolve({ ...initial, dir: '/var/log/localdns', path: '/var/log/localdns', entries: 0 });
     await settle();
     expect(document.querySelector('#audit-storage-details')!.textContent).toContain('/var/log/localdns');
@@ -143,3 +147,4 @@ describe('audit persist switch', () => {
     expect(mocks.render).not.toHaveBeenCalled();
   });
 });
+
