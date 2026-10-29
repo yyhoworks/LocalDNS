@@ -65,7 +65,7 @@ export function initialize() {
     }
     for (const key of ['qps','cache','latency']) if (!nonnegative(next[key])) next[key] = null;
     series.push(next);
-    while (series.length > 21602 || series[0]?.time < now - 86400000) series.shift();
+    while (series.length > 120962 || series[0]?.time < now - 604800000) series.shift();
     return true;
   }
   function weight(p, metric) { return metric === 'cache' ? p.cacheQueriesDelta : metric === 'latency' ? p.responseCount : p.elapsed; }
@@ -170,7 +170,7 @@ export function initialize() {
     const item=(label,value,unit)=>`<div><dt>${label}</dt><dd>${value}<small>${unit}</small></dd></div>`;
     setHTML(container,`<div class="traffic-metric-tabs" role="group" aria-label="选择 DNS 趋势指标">${Object.entries(definitions).map(([key,d])=>`<button type="button" data-traffic-metric="${key}" aria-pressed="${metric===key}">${d.label}</button>`).join('')}</div><p class="traffic-metric-note">${definition.note}</p><dl class="traffic-summary">${item('最近采样',rate(s.current),definition.unit)}${item('区间均值',rate(s.average),definition.unit)}${item('区间峰值',rate(s.peak),definition.unit)}${item(definition.count,s.samples?rate(s.count):'—','次')}</dl>`
       +(s.samples?chart(s.points,container.clientWidth,metric):`<div class="console-chart-empty">${state.loading&&!series.length?'正在读取 DNS 采样，本机历史在后台恢复…':definition.empty}<br>${series.length&&metric==='qps'?'已读取查询计数，正在等待下一次采样':'未采集和无有效请求的区间不补零'}</div>`)
-      +`<div class="traffic-caption"><span>${s.stale?'采样暂时中断，正在自动重试':s.samples?`有效采样 ${rate(s.seconds)} 秒 · 最近间隔 ${rate(s.interval)} 秒`:'概览可见时每 5 秒采样'}</span><span>本浏览器保留 24 小时 · 当前 ${({15:'15 分钟',60:'1 小时',360:'6 小时',1440:'24 小时'})[minutes]||minutes+' 分钟'}</span></div><p class="traffic-storage-note">${state.storageError?'本机历史存储暂不可用，新增采样仅临时保留。':'刷新后可继续查看本机历史。'}关闭网页、切换页面或后台休眠期间留空。</p>`);
+      +`<div class="traffic-caption"><span>${s.stale?'采样暂时中断，正在自动重试':s.samples?`有效采样 ${rate(s.seconds)} 秒 · 最近间隔 ${rate(s.interval)} 秒`:'概览可见时每 5 秒采样'}</span><span>本浏览器保留 7 天 · 当前 ${({15:'15 分钟',60:'1 小时',360:'6 小时',1440:'24 小时',10080:'7 天'})[minutes]||minutes+' 分钟'}</span></div><p class="traffic-storage-note">${state.storageError?'本机历史存储暂不可用，新增采样仅临时保留。':'刷新后可继续查看本机历史。'}关闭网页、切换页面或后台休眠期间留空。</p>`);
     if(state.error){const error=document.createElement('div');error.className='traffic-read-error';error.setAttribute('role','status');const message=document.createElement('span');message.textContent=state.error;const retry=document.createElement('button');retry.type='button';retry.className='button small';retry.dataset.trafficRetry='';retry.textContent='重新读取';error.append(message,retry);container.append(error);}
     inspect(container,s.points,metric);
     if(definitions[focus])container.querySelector(`[data-traffic-metric="${focus}"]`)?.focus({preventScroll:true});

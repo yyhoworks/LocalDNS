@@ -1,19 +1,30 @@
 import { currentScope } from '../../core/router/route-lifetime';
 export let mountToolbar;
-import { setHTML, insertHTML } from '../../core/security/safe-dom.ts';
+import { setHTML } from '../../core/security/safe-dom.ts';
 export function initialize() {
 
   'use strict';
   const $=(s,r=document)=>r.querySelector(s);
   const esc=value=>String(value).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-  const names={whitelist:'白名单',blocklist:'黑名单',greylist:'灰名单',force_realip:'强制 RealIP',ddns_domains:'DDNS 域名',pcdn_domains:'PCDN 域名',pcdn_regex_v4:'PCDN IPv4',pcdn_regex_v6:'PCDN IPv6',client_ip:'客户端 IP',direct_ip:'直连 IP',rewrite:'重定向'};
+  const names={whitelist:'白名单',blocklist:'黑名单',greylist:'灰名单',force_realip:'强制 RealIP',ddns_domains:'DDNS 域名',pcdn_domains:'PCDN 域名',pcdn_regex_v4:'PCDN IPv4 规则',pcdn_regex_v6:'PCDN IPv6 规则',direct_ip:'直连 IP',rewrite:'重定向'};
+  const notes={
+    whitelist:'强制走国内直连解析，最高优先级放行 · 修改先保留为草稿，点击右侧“保存”后生效',
+    greylist:'强制走代理解析组（FakeIP / 远程无污染解析）· 修改先保留为草稿，保存后生效',
+    blocklist:'直接拦截并拒绝解析请求 · 修改先保留为草稿，保存后生效',
+    force_realip:'匹配域名禁用 FakeIP，强制返回真实 IP 地址 · 修改先保留为草稿，保存后生效',
+    ddns_domains:'动态域名直连解析并缩短缓存生存周期 · 修改先保留为草稿，保存后生效',
+    direct_ip:'指定目的 IP 或 CIDR 网段强制直连 · 修改先保留为草稿，保存后生效',
+    rewrite:'自定义域名重定向或 A/AAAA/CNAME 静态映射 · 修改先保留为草稿，保存后生效',
+    pcdn_domains:'匹配常见 PCDN 节点域名并抑制解析 · 修改先保留为草稿，保存后生效',
+    pcdn_regex_v4:'按正则表达式识别并过滤 PCDN IPv4 节点请求 · 修改先保留为草稿，保存后生效',
+    pcdn_regex_v6:'按正则表达式识别并过滤 PCDN IPv6 节点请求 · 修改先保留为草稿，保存后生效'
+  };
   function syncMode(){
     const host=$('#rv-root');
     if(!host){
       document.body.classList.remove('has-rules-workbench');
-      const heading=$('.view-title-row h1');if(heading&&heading.textContent==='清单工作台')heading.textContent='规则管理';
-      const note=$('.view-title-row .gc-sub');if(note&&note.textContent==='逐条编辑名单，随时切换原文。')note.textContent='统一维护本地名单、AdGuard 广告拦截与 SRS 在线分流规则';
-    }if(!host)return;
+      return;
+    }
     const raw=host.classList.contains('raw');
     for(const b of host.querySelectorAll('[data-wb-mode]'))b.setAttribute('aria-pressed',String((b.dataset.wbMode==='raw')===raw));
   }
@@ -23,19 +34,14 @@ export function initialize() {
     const host=$('#rv-root');
     if(!host){
       document.body.classList.remove('has-rules-workbench');
-      const heading=$('.view-title-row h1');if(heading&&heading.textContent==='清单工作台')heading.textContent='规则管理';
-      const note=$('.view-title-row .gc-sub');if(note&&note.textContent==='逐条编辑名单，随时切换原文。')note.textContent='统一维护本地名单、AdGuard 广告拦截与 SRS 在线分流规则';
     }
-    const titleArea=$('.view-title-row>div:first-child');
-    if(host&&titleArea&&!$('h1',titleArea))insertHTML(titleArea, 'afterbegin', '<h1>清单工作台</h1><span class="gc-sub">逐条编辑名单，随时切换原文。</span>');
     if(!host||host.dataset.workbench)return;
     host.dataset.workbench='1';
     document.body.classList.add('has-rules-workbench');
-    const title=$('.view-title-row h1');if(title)title.textContent='清单工作台';
-    const sub=$('.view-title-row .gc-sub');if(sub)sub.textContent='逐条编辑名单，随时切换原文。';
     const bar=$('.rv-toolbar',host),actions=$('.section-header-actions',bar);
+    const activeTag=$('.rule-menu button.active')?.dataset.ruleTag;
     const heading=document.createElement('div');heading.className='wb-list-heading';
-    setHTML(heading, `<div><h2>${esc(names[$('.rule-menu button.active')?.dataset.ruleTag]||'名单管理')}</h2><p>启停与编辑先保留为草稿，保存后生效。</p></div><div class="wb-list-tools"><span class="wb-author">名单视图由 clone-fan 贡献</span></div>`);
+    setHTML(heading, `<div><h2>${esc(names[activeTag]||'名单管理')}</h2><p>${esc(notes[activeTag]||'启停与编辑先保留为草稿，保存后生效。')}</p></div><div class="wb-list-tools"><button type="button" class="workspace-text-button" data-route="devices">客户端 IP 与分流模式已移至「设备」›</button></div>`);
     bar.before(heading);
     const modes=document.createElement('div');modes.className='wb-modes';modes.setAttribute('role','group');modes.setAttribute('aria-label','名单编辑方式');
     setHTML(modes, '<button type="button" data-wb-mode="list" aria-pressed="true">列表</button><button type="button" data-wb-mode="raw" aria-pressed="false">原文</button>');

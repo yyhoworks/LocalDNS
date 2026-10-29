@@ -18,7 +18,12 @@ import { modalOpen } from '../../shared/components/dialog.js';
 import { downloadText } from '../../shared/downloads.js';
 import { safeResult } from '../../shared/async.js';
 
-  const ruleProfiles=[['whitelist','白名单'],['blocklist','黑名单'],['greylist','灰名单'],['force_realip','强制 RealIP'],['ddns_domains','DDNS 域名'],['pcdn_domains','PCDN 域名'],['pcdn_regex_v4','PCDN IPv4 规则'],['pcdn_regex_v6','PCDN IPv6 规则'],['client_ip','客户端 IP'],['direct_ip','直连 IP'],['rewrite','重定向']];
+  const ruleGroups=[
+    ['核心分流',[['whitelist','白名单'],['greylist','灰名单'],['blocklist','黑名单']]],
+    ['解析控制',[['force_realip','强制 RealIP'],['ddns_domains','DDNS 域名'],['direct_ip','直连 IP'],['rewrite','重定向']]],
+    ['PCDN 抑制',[['pcdn_domains','PCDN 域名'],['pcdn_regex_v4','PCDN IPv4 规则'],['pcdn_regex_v6','PCDN IPv6 规则']]]
+  ];
+  const ruleProfiles=ruleGroups.flatMap(([,items])=>items);
 
   let ruleViews, activeTab='lists', diversionUpdating=false;
   const updateRule=path=>api.request(path,{method:'POST',timeout:300000});
@@ -65,7 +70,7 @@ if(!approved&&rulesWorkbenchService?.canLeave(()=>renderRuleTab(tab,true))===fal
     const tag=state.ruleTag,profile=ruleProfiles.find(x=>x[0]===tag)||ruleProfiles[0];
     let text='',loadError=null;
     try{text=await renderScope.guard(api.request(`/plugins/${tag}/show?all=1`,{signal:renderScope.signal}))}catch(e){if(renderScope.signal.aborted)return;loadError=e}
-    const menu=`<div class="rule-menu">${ruleProfiles.map(([t,n])=>`<button data-rule-tag="${t}" class="${t===tag?'active':''}"><span>${n}</span><span class="rule-count"></span></button>`).join('')}</div>`;
+    const menu=`<div class="rule-menu">${ruleGroups.map(([gLabel,items])=>`<div class="rule-menu-group"><span class="rule-menu-group-label">${esc(gLabel)}</span><div class="rule-menu-group-items">${items.map(([t,n])=>`<button data-rule-tag="${t}" class="${t===tag?'active':''}"><span>${n}</span><span class="rule-count"></span></button>`).join('')}</div></div>`).join('')}</div>`;
     if(loadError){
       setHTML(body, `<section class="card"><div class="rule-layout">${menu}<div class="rule-editor"><div class="section-header"><div><h2>${profile[1]}</h2><p>读取失败时禁止保存，现有规则不会被覆盖。</p></div><button class="button" id="rule-retry">${icon('refresh')}重试</button></div><div class="error-panel"><strong>规则列表加载失败</strong><p>${esc(loadError.message)}</p></div></div></div></section>`);
       $$('[data-rule-tag]').forEach(x=>x.onclick=()=>{const go=()=>{state.ruleTag=x.dataset.ruleTag;renderListRules(body)};if(rulesWorkbenchService?.canLeave(go)!==false)go();});$('#rule-retry').onclick=()=>renderListRules(body);requestAnimationFrame(fitRuleLayoutHeight);return;

@@ -1,6 +1,6 @@
 
-.table-row-actions, .rule-row-actions { display: flex; align-items: center; gap: 6px; }
-.table-ellipsis, .rule-url-text {
+.table-row-actions { display: flex; align-items: center; gap: 6px; }
+.table-ellipsis {
   display: inline-block;
   max-width: 280px;
   overflow: hidden;
@@ -207,8 +207,6 @@ body[data-console-route="rules"] .rv-selbar .n{font-size:12.5px;color:var(--text
 body[data-console-route="rules"] .rv-selbar .n b{color:var(--primary-light);font-family:var(--font-mono)}
 body[data-console-route="rules"] .rv-selbar .grow{flex:1}
 
-body[data-console-route="rules"] .rv-raw-note{font-size:12px;color:var(--text-3)}
-
 body[data-console-route="rules"] .rv-scrim{position:fixed;inset:0;z-index:70;background:rgba(3,4,7,.52);backdrop-filter:blur(8px) saturate(120%);
   -webkit-backdrop-filter:blur(8px) saturate(120%);opacity:0;pointer-events:none;transition:opacity .24s var(--ease,ease)}
 body[data-console-route="rules"] .rv-scrim.show{opacity:1;pointer-events:auto}
@@ -251,11 +249,6 @@ body[data-console-route="rules"] .rv-seg button.on{background:rgba(37,99,235,.2)
 body[data-console-route="rules"] .rv-seg button.pop{animation:rvpop .32s ease}
 body[data-console-route="rules"] .rv-foot{position:sticky;bottom:0;display:flex;align-items:center;gap:10px;padding:14px 24px;border-top:1px solid var(--border-glass);
   background:var(--glass-bg-strong);backdrop-filter:blur(12px)}
-body[data-console-route="rules"] .rv-img{display:none}
-
-@media(max-width:600px){
-  body[data-console-route="rules"] .rv-head{display:none}
-}
 
 @media(max-width:600px){
   body[data-console-route="rules"] .rv-row{grid-template-columns:16px 22px 72px minmax(0,1fr) 46px;min-height:52px;gap:8px;padding:0 10px}
@@ -341,10 +334,12 @@ body[data-console-route="rules"] .wb-list-heading{display:flex;align-items:cente
 body[data-console-route="rules"] .wb-list-heading h2{font:600 16px/1.5 var(--font-sans);color:var(--text-1);margin:0 0 3px}
 body[data-console-route="rules"] .wb-list-heading p{font:12px/1.6 var(--font-sans);color:var(--text-2);margin:0}
 body[data-console-route="rules"] .wb-list-tools{display:flex;align-items:center;gap:16px}
-body[data-console-route="rules"] .wb-author{font-size:11px;color:var(--text-3)}
-body[data-console-route="rules"] [data-backup-count]{font-family:var(--font-mono);font-size:11px;color:var(--text-2);margin-left:3px}
 body[data-console-route="rules"] .rule-editor{min-width:0}
-body[data-console-route="rules"] .rule-menu{gap:5px;padding-bottom:14px;margin-bottom:18px}
+body[data-console-route="rules"] .rule-menu{gap:10px 14px;padding-bottom:14px;margin-bottom:18px;align-items:center}
+body[data-console-route="rules"] .rule-menu-group{display:inline-flex;align-items:center;gap:6px;flex-wrap:wrap;padding-right:14px;border-right:1px solid var(--border-glass)}
+body[data-console-route="rules"] .rule-menu-group:last-child{padding-right:0;border-right:0}
+body[data-console-route="rules"] .rule-menu-group-label{font:600 11px/1.4 var(--font-sans);color:var(--text-3);padding-right:2px;white-space:nowrap}
+body[data-console-route="rules"] .rule-menu-group-items{display:inline-flex;align-items:center;gap:5px;flex-wrap:wrap}
 body[data-console-route="rules"] .rule-menu button{font:12px/1.4 var(--font-sans);min-height:35px;padding:7px 12px;border-radius:8px;box-shadow:none;background:transparent}
 body[data-console-route="rules"] .rule-menu button.active{color:var(--primary-light);background:var(--selection-fill,var(--glass-pill-active));border-color:var(--border-highlight)}
 body[data-console-route="rules"] .rv{gap:0}
@@ -388,17 +383,6 @@ body[data-console-route="rules"] .rv-menu-pop button:hover,body[data-console-rou
 body[data-console-route="rules"] .rv-menu-pop button.active .k{color:var(--text-2)}
 body[data-console-route="rules"] .rv-sheet .rv-foot .button{min-height:40px}
 body[data-console-route="rules"] .rv-sheet #rv-close,body[data-console-route="rules"] .rv-sheet #rv-del{min-width:40px;min-height:40px}
-body[data-console-route="rules"] .wb-backups{width:min(520px,calc(100% - 28px));max-height:75dvh;padding:22px;background:var(--glass-bg-strong);color:var(--text-1);border:1px solid var(--border-glass);border-radius:14px;margin:auto;box-shadow:0 18px 60px rgba(0,0,0,.2)}
-body[data-console-route="rules"] .wb-backups::backdrop{background:rgba(0,0,0,.35);backdrop-filter:blur(4px)}
-body[data-console-route="rules"] .wb-backups>header{display:flex;align-items:flex-start;justify-content:space-between;gap:18px;margin-bottom:20px}
-body[data-console-route="rules"] .wb-backups h2{font:600 18px/1.5 var(--font-sans);margin-bottom:5px}
-body[data-console-route="rules"] .wb-backups p{font:12px/1.7 var(--font-sans);color:var(--text-2)}
-body[data-console-route="rules"] .wb-backup-items{display:grid;gap:0;max-height:45dvh;overflow:auto}
-body[data-console-route="rules"] .wb-backup-items article{display:flex;justify-content:space-between;align-items:center;gap:16px;padding:14px 0;border-top:1px solid var(--border-glass)}
-body[data-console-route="rules"] .wb-backup-items strong,body[data-console-route="rules"] .wb-backup-items span{display:block;font-size:12px}
-body[data-console-route="rules"] .wb-backup-items span{font-size:11px;color:var(--text-2);margin-top:4px}
-body[data-console-route="rules"] .wb-no-backup{padding:10px 0 15px}
-@media(max-width:1180px){body[data-console-route="rules"] .wb-author{display:none}}
 @media(max-width:1180px){body[data-console-route="rules"] .rv-search{max-width:none;flex-basis:190px}}
 @media(max-width:1180px){body[data-console-route="rules"] .rv-toolbar{column-gap:4px}}
 @media(max-width:1180px){body[data-console-route="rules"] .rv-toolbar .button.small{padding-left:8px;padding-right:8px}}
@@ -528,7 +512,6 @@ body[data-console-route="rules"] .wb-no-backup{padding:10px 0 15px}
 @media(max-width:600px){body[data-console-route="rules"] .rv.raw .section-header-actions{grid-column:1/-1}
 }
 
-body[data-console-route="rules"] .wb-error{color:var(--console-danger,var(--red));font-size:12px;line-height:1.7;margin:10px 0}
 body[data-console-route="rules"] .rv-sheet{height:100dvh;bottom:auto;overflow:hidden}
 body[data-console-route="rules"] .rv-sheet-head,body[data-console-route="rules"] .rv-foot{flex-shrink:0}
 body[data-console-route="rules"] .rv-sheet-head>div:first-child{min-width:0;flex:1}

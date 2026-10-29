@@ -252,18 +252,11 @@ import { cacheName } from '../management/index.js';
       return circle;
     }).join('');
 
-    const rankTab = state.overviewRankTab || 'client';
-    const rankItems = (rankTab === 'client' ? (clients || []) : (domains || [])).slice(0, 4);
-    const rankMax = Math.max(1, ...rankItems.map(x => +x.count || 0));
-
     setHTML(page, `
       <div class="view-title-row">
         <div style="display:flex;align-items:baseline;gap:12px">
           <h1>运行概览</h1>
           <span class="mono" style="font-size:12px;color:var(--text-3)">${esc([sys.version || engineStatus?.version || 'FJG20', sys.platform, sys.runtime !== '—' ? sys.runtime : ''].filter(Boolean).join(' · '))}</span>
-        </div>
-        <div style="display:flex;gap:8px;align-items:center">
-          <button type="button" class="glass-btn" id="btn-overview-custom-bg">自定义壁纸与玻璃</button>
         </div>
       </div>
 
@@ -572,7 +565,6 @@ import { cacheName } from '../management/index.js';
               }).join('') || `<div style="color:var(--text-3);font-size:12px">暂无分流分类统计</div>`}
             </div>
           </div>
-          <p class="overview-outcome-note">按查询次数排列；缓存命中不展开原始分流去向。${allSets.length>=64?'接口最多读取 64 类，当前占比仅覆盖已返回分类。':''}</p>
         </div>
       </div>
 
@@ -634,7 +626,6 @@ import { cacheName } from '../management/index.js';
               </div>`;
             }).join('')}
           </div>
-          <p class="overview-outcome-note">命中率 = 命中数 ÷ 本池查询数；条目数为当前值。查询与命中计数来自核心运行指标，统计周期与审计日志不同。</p>
         </div>
       </div>
 
@@ -645,7 +636,6 @@ import { cacheName } from '../management/index.js';
             <div class="overview-slow-tools"><label for="overview-slow-limit">显示条数</label><select id="overview-slow-limit">${[5,10,20].map(n=>`<option value="${n}" ${state.overviewSlowLimit===n?'selected':''}>${n} 条</option>`).join('')}</select><button type="button" class="glass-btn" id="slow-detail-button">详情</button></div>
           </div>
           <div class="overview-slow-table-wrap" tabindex="0" role="region" aria-label="慢查询列表，可滚动查看更多记录"><table class="overview-slow-table"><thead><tr><th scope="col">序号</th><th scope="col">域名</th><th scope="col">查询类型</th><th scope="col">客户端</th><th scope="col">最大耗时</th></tr></thead><tbody id="overview-slow-rows">${slowOverviewRowsHtml(slowGroups)}</tbody></table></div>
-          <p class="overview-outcome-note" id="overview-slow-count">显示 ${Math.min(state.overviewSlowLimit,slowGroups.length)} / ${slowGroups.length} 组 · 点击域名查看对应查询日志</p>
         </div>
       </div>
     `);
@@ -680,14 +670,6 @@ import { cacheName } from '../management/index.js';
         if (btn) btn.click();
       };
     });
-
-    // 绑定第一层真实控制条事件
-    if ($('#btn-overview-custom-bg')) {
-      $('#btn-overview-custom-bg').onclick = e => {
-        e.stopPropagation();
-        $('#btn-open-bg-customizer')?.click();
-      };
-    }
 
     // C-01：在途防护 = 切换期间禁用同组按钮 + 代次号。代次号过期（已有更新
     // 的切换在途）的完成/回滚直接丢弃，不覆盖更新的有效状态、不重复渲染。
@@ -788,13 +770,6 @@ import { cacheName } from '../management/index.js';
     }
 
     workspaceService.bindRanks(page,{domains:domains||[],clients:clients||[],sets:sets||[],aliases:clientAliases});
-    // 绑定排行维度切换与详情弹窗
-    $$('[data-rank-tab]', page).forEach(btn => {
-      btn.onclick = () => {
-        state.overviewRankTab = btn.dataset.rankTab;
-        renderRoute(true, true);
-      };
-    });
     $$('[data-overview-cache-view]', page).forEach(btn => {
       btn.onclick = async () => {
         const tag = btn.dataset.overviewCacheView;
@@ -820,14 +795,8 @@ import { cacheName } from '../management/index.js';
       };
     });
     if ($('#manage-alias')) $('#manage-alias').onclick = openAliasModal;
-    if ($('#kpi-card-clients')) $('#kpi-card-clients').onclick = openAliasModal;
+    if ($('#kpi-card-clients')) $('#kpi-card-clients').onclick = () => navigate('devices');
     if ($('#kpi-card-domains')) $('#kpi-card-domains').onclick = () => openDomainDetailModal(domains || []);
-    if ($('#domain-detail-button')) {
-      $('#domain-detail-button').onclick = () => {
-        if ((state.overviewRankTab || 'client') === 'client') openAliasModal();
-        else openDomainDetailModal(domains || []);
-      };
-    }
     if ($('#slow-detail-button')) $('#slow-detail-button').onclick = () => openSlowDetailModal(slowGroups);
     const bindSlowRows=()=>$$('[data-slow-record]',page).forEach(button=>button.onclick=()=>{
       const row=slowGroups[Number(button.dataset.slowRecord)];
@@ -838,7 +807,6 @@ import { cacheName } from '../management/index.js';
       const limit=Number(event.target.value);if(![5,10,20].includes(limit))return;
       state.overviewSlowLimit=limit;storage.set('localdns-overview-slow-limit:'+(API_BASE||location.host),limit);
       setHTML($('#overview-slow-rows'), slowOverviewRowsHtml(slowGroups));
-      $('#overview-slow-count').textContent=`显示 ${Math.min(limit,slowGroups.length)} / ${slowGroups.length} 组 · 点击域名查看对应查询日志`;
       bindSlowRows();
     };
     $('#outcome-detail-button').onclick=()=>openOutcomeDetail(allSets,outcomes.total);

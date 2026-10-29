@@ -41,12 +41,12 @@ export class TrafficRepository {
   load(source: string, now = Date.now()): Promise<Record<string, unknown>[]> {
     return this.transaction('readonly', (store, done) => {
       const rows: Record<string, unknown>[] = [];
-      const query = IDBKeyRange.bound([source, Math.floor((now - 86400000) / 5000)], [source, Math.floor(now / 5000)]);
+      const query = IDBKeyRange.bound([source, Math.floor((now - 604800000) / 5000)], [source, Math.floor(now / 5000)]);
       const cursor = store.openCursor(query);
       cursor.onsuccess = () => {
         const item = cursor.result;
         if (!item) { done(rows.sort((a, b) => Number(a.time) - Number(b.time))); return; }
-        if (Number(item.value.time) >= now - 86400000 && Number(item.value.time) <= now && rows.length < 22000) rows.push(item.value);
+        if (Number(item.value.time) >= now - 604800000 && Number(item.value.time) <= now && rows.length < 121000) rows.push(item.value);
         item.continue();
       };
     });
@@ -60,7 +60,7 @@ export class TrafficRepository {
         if (!existing.result || Number(existing.result.time) < time) store.put({ ...sample, source, slot });
       };
       // Indexed deletion also cleans expired data from previously visited API addresses.
-      const expired = store.index('time').openCursor(IDBKeyRange.upperBound(now - 86400000, true));
+      const expired = store.index('time').openCursor(IDBKeyRange.upperBound(now - 604800000, true));
       expired.onsuccess = () => { const item = expired.result; if (item) { item.delete(); item.continue(); } };
       done(undefined);
     });

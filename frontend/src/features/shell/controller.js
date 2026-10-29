@@ -25,53 +25,15 @@ import { downloadText } from '../../shared/downloads.js';
 import { ms, pct, fmtDate } from '../../shared/format/number.js';
 import { groupName } from '../upstreams/groups.js';
 import { closeUpstreamErrorPopover } from '../upstreams/errors.js';
-import { loadAliases } from '../logs/aliases.js';
+import { routeDefs } from '../../core/router/routes.js';
 
   function navHtml() {
-    return `
-      <div class="nav-group">
-        <div class="nav-group-head"><span>活动</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></div>
-        <div class="nav-items">
-          <button type="button" class="nav-item active" data-route="overview">
-            <svg viewBox="0 0 24 24" fill="none" stroke="#3B82F6" stroke-width="2" aria-hidden="true"><path d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2Zm0 14a4 4 0 1 1 4-4 4 4 0 0 1-4 4Z"/></svg>
-            <span>运行概览</span>
-          </button>
-        </div>
-      </div>
-
-      <div class="nav-group">
-        <div class="nav-group-head"><span>观测</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></div>
-        <div class="nav-items">
-          <button type="button" class="nav-item" data-route="logs">
-            <svg viewBox="0 0 24 24" fill="none" stroke="#14B8A6" stroke-width="2" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h10"/></svg>
-            <span>查询日志</span>
-          </button>
-        </div>
-      </div>
-
-      <div class="nav-group">
-        <div class="nav-group-head"><span>路由</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></div>
-        <div class="nav-items">
-          <button type="button" class="nav-item" data-route="upstreams">
-            <svg viewBox="0 0 24 24" fill="none" stroke="#60A5FA" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M3.6 9h16.8M3.6 15h16.8M12 3a15 15 0 0 1 0 18M12 3a15 15 0 0 0 0 18"/></svg>
-            <span>DNS 管理</span>
-          </button>
-          <button type="button" class="nav-item" data-route="rules">
-            <svg viewBox="0 0 24 24" fill="none" stroke="#10B981" stroke-width="2" aria-hidden="true"><path d="M16 3h5v5M4 20 21 3M21 16v5h-5M15 15l6 6M4 4l5 5"/></svg>
-            <span>规则管理</span>
-          </button>
-        </div>
-      </div>
-
-      <div class="nav-group">
-        <div class="nav-group-head"><span>设置</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></div>
-        <div class="nav-items">
-          <button type="button" class="nav-item" data-route="management">
-            <svg viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0-4h-.09a1.65 1.65 0 0 0-1.51 1Z"/></svg>
-            <span>系统管理</span>
-          </button>
-        </div>
-      </div>`;
+    return `<div class="nav-items">${routeDefs.map((r, i) => `
+      <button type="button" class="nav-item${i === 0 ? ' active' : ''}" data-route="${r.id}" title="${r.label}" aria-label="${r.label}">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">${r.navSvg}</svg>
+        <span>${r.label}</span>
+        ${r.dot ? '<i class="nav-item-dot" aria-hidden="true"></i>' : ''}
+      </button>`).join('')}</div>`;
   }
 
   function fitRuleLayoutHeight(){
@@ -90,8 +52,7 @@ import { loadAliases } from '../logs/aliases.js';
 
   function initShell(){
     document.title=CONFIG.title; setHTML($('#side-nav'), navHtml());
-    const mobile=[['overview','overview','概览'],['logs','logs','日志'],['upstreams','upstream','DNS'],['rules','rules','规则'],['management','management','管理']];
-    setHTML($('#mobile-nav'), mobile.map(([r,i,l])=>`<button data-route="${r}">${icon(i)}<span>${l}</span></button>`).join(''));
+    setHTML($('#mobile-nav'), routeDefs.map(r=>`<button data-route="${r.id}">${icon(r.icon)}<span>${r.label}</span></button>`).join(''));
     setHTML($('#theme-toggle'), icon('theme')); setHTML($('#refresh-button'), icon('refresh')); setHTML($('#restart-button'), icon('power')); setHTML($('#drawer-close'), icon('close')); $$('#modal .icon-button').forEach(x=>setHTML(x, icon('close')));
 
     // 主题对应的 LocalDNS 品牌图形。
@@ -186,10 +147,9 @@ import { loadAliases } from '../logs/aliases.js';
       searchInput.onkeydown = e => {
         if (e.key === 'Enter') {
           const q = searchInput.value.trim();
-          if (['概览','overview'].includes(q)) return navigate('overview');
-          if (['上游','dns','upstreams'].includes(q.toLowerCase())) return navigate('upstreams');
-          if (['规则','rules'].includes(q.toLowerCase())) return navigate('rules');
-          if (['系统','管理','management'].includes(q.toLowerCase())) return navigate('management');
+          const qLower = q.toLowerCase();
+          const matchedRoute = routeDefs.find(r => r.label === q || r.id === qLower || (Array.isArray(r.keywords) && r.keywords.includes(qLower)));
+          if (matchedRoute) return navigate(matchedRoute.id);
           state.logs.q = q;
           state.logs.page = 1;
           navigate('logs');

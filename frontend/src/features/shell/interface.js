@@ -57,7 +57,6 @@ export function initialize() {
   }
   function overview(){
     const main=$('#page-content');if($('.console-kpi',main)||!$('.spark-kpi-card',main))return;
-    $('#btn-overview-custom-bg')?.remove();
     const title=$('.view-title-row'),short=document.createElement('details');short.className='console-shortcuts';short.open=shortcutsOpen;setHTML(short, '<summary><strong>快捷控制</strong><span>客户端分流 / 缓存 / 广告屏蔽</span></summary><div class="console-shortcut-grid"></div>');short.addEventListener('toggle',()=>shortcutsOpen=short.open);
     $$('.control-bar-card',main).forEach(card=>{const old=card.parentElement;$('.console-shortcut-grid',short).append(card);old.remove();});title.after(short);
     $$('.spark-kpi-card',main).forEach((card,i)=>{card.parentElement.classList.add('console-kpi');const key=['total','cache','clients','blocked','latency','domains'][i];const values=series.slice(-60).map(p=>p[key]).filter(Number.isFinite);const svg=$('.sk-chart',card);if(svg){if(values.length<2){svg.remove();}else{setHTML(svg, `<path d="${tinyPath(values)}" fill="none" stroke="var(--console-line)" stroke-width="1.8"/>`);svg.setAttribute('aria-label','当前会话采样趋势');}}});
@@ -65,7 +64,7 @@ export function initialize() {
     const topo=$('.topology-glass-card');topo.parentElement.classList.add('console-topology');if(!$('.console-topology-heading',topo))insertHTML(topo, 'afterbegin', '<div class="console-topology-heading"><h2>DNS 解析路径</h2><span>选择节点锁定路径，再查看详情或相关查询 · 连线为解析路径示意</span></div>');
     const trend=$('.traffic-chart-body');trend.closest('.col-8').classList.add('console-trend');
     const head=$('.gc-head',trend.closest('.glass-card'));setHTML($('.gc-title',head), 'DNS 趋势<span class="console-chart-sub">切换指标查看趋势 · 历史保存在当前浏览器</span>');
-    const range=head.lastElementChild;range.className='console-range';range.removeAttribute('style');range.setAttribute('role','group');range.setAttribute('aria-label','DNS 趋势时间范围');setHTML(range, [[15,'15 分钟'],[60,'1 小时'],[360,'6 小时'],[1440,'24 小时']].map(([m,label])=>`<button type="button" data-chart-range="${m}" aria-pressed="${trafficRange===m}">${label}</button>`).join(''));
+    const range=head.lastElementChild;range.className='console-range';range.removeAttribute('style');range.setAttribute('role','group');range.setAttribute('aria-label','DNS 趋势时间范围');setHTML(range, [[15,'15 分钟'],[60,'1 小时'],[1440,'24 小时'],[10080,'7 天']].map(([m,label])=>`<button type="button" data-chart-range="${m}" aria-pressed="${trafficRange===m}">${label}</button>`).join(''));
     drawTraffic(trend);$$('[data-chart-range]',head).forEach(b=>b.onclick=()=>{trafficRange=+b.dataset.chartRange;$$('[data-chart-range]',head).forEach(x=>x.setAttribute('aria-pressed',String(x===b)));drawTraffic(trend);});
     trafficResize?.disconnect();let trafficWidth=trend.clientWidth;
     const chartResize=new ResizeObserver(()=>{if(!trend.isConnected){chartResize.disconnect();return;}if(Math.abs(trend.clientWidth-trafficWidth)>1){trafficWidth=trend.clientWidth;drawTraffic(trend);}});trafficResize=chartResize;chartResize.observe(trend);

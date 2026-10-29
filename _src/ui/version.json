@@ -1,8 +1,8 @@
 {
   "product": "LocalDNS",
-  "uiVersion": "2026.10.28.3",
+  "uiVersion": "2026.10.29.1",
   "backendVersion": "FJH21",
-  "releaseTag": "fjh21-ui-v2026.10.28.3",
+  "releaseTag": "fjh21-ui-v2026.10.29.1",
   "channel": "stable",
-  "builtAt": "Wed 2026-10-28 04:27 PM CST (UTC+08:00)"
+  "builtAt": "Thu 2026-10-29 05:20 PM CST (UTC+08:00)"
 }

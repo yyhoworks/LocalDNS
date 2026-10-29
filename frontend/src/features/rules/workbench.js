@@ -22,7 +22,7 @@ export function initialize() {
     let pending=false;
     observer=new MutationObserver(()=>{
       if(pending||lifecycle.signal.aborted)return;pending=true;
-      try{paintCounts();tick();}catch{}
+      try{tick();}catch{}
       const frame=requestAnimationFrame(()=>{pending=false;if(!lifecycle.signal.aborted){tick();fitList();}});
       lifecycle.add(()=>cancelAnimationFrame(frame));
     });
@@ -51,7 +51,7 @@ export function initialize() {
   var hist = [], histAt = -1, histLock = false, savedText = '';      /* 撤销/重做：保存每一步的原文 */
   var dragIds = [];                                                   /* 拖动中的行（标题=整组） */
   var sheetBaseline = '', sheetOff = false, pendingLeave = null, focusTimer = null, mainWasInert = false, ownsInert = false;
-  var rawTags = {client_ip:true,direct_ip:true,rewrite:true};
+  var rawTags = {direct_ip:true,rewrite:true};
   var rawMode = false;                                /* 原件行（例如 IP/网段）保存时不加类型前缀 */
   var sheetEl = null, scrimEl = null;                 /* 面板/遮罩只认自己建的那一份 */
   var sheetBack = null;                               /* 关闭面板后把焦点还给原来的地方 */
@@ -60,7 +60,7 @@ export function initialize() {
   var groupSelBase = '';                              /* 打开规则面板时它所在的分组（用来判断有没有改动） */
   var groupRole = 'title';                            /* 标题/说明/备注面板里选的角色 */
   var groupMode = false, editingGroup = null, groupBase = null;  /* 标题（分组）编辑模式 */
-  var counts = {}, countsAt = 0, countsBusy = false, lastTag = null;  /* 名单条数缓存 */
+
 
   function say(msg, type, detail) {
     try {
@@ -780,7 +780,7 @@ export function initialize() {
     var pending = !!pm || hash;                       /* 还没按回车识别，不算错 */
     var bad = !rawMode && !pending && !!body && !valid(body, t);
     inp.classList.toggle('bad', bad);
-    var rawLabels={client_ip:'客户端 IP',direct_ip:'IP 或网段',rewrite:'重定向条目'};
+    var rawLabels={direct_ip:'IP 或网段',rewrite:'重定向条目'};
     sheet().querySelector('#rv-value-label').textContent = rawMode?(rawLabels[activeTag()]||'原文'):NAME[t];
     inp.placeholder=rawMode?(activeTag()==='rewrite'?'例如 home.example.com 192.0.2.10':'例如 192.0.2.10'):'例如 '+TYPE_TIP[t].ph;
     var note = sheet().dataset.note;
@@ -1322,12 +1322,12 @@ export function initialize() {
       setHTML(dl, dl.innerHTML.replace(/下载列表/, '导出'));
     }
     if (dl) dl.classList.add('rv-ghost');
-    loadCounts();
+
   }
   /* 名单胶囊后面的条数已撤掉（用户：感觉鸡肋）。不再逐个名单拉接口填数字，
      条数看列表下方的页脚统计就够，也省掉 11 个并发请求。 */
-  function paintCounts() { }
-  function loadCounts() { }
+
+
   /* 批量粘贴：一行一条，自动认前缀、# 当停用，重复的跳过 */
   function openPaste() {
     var wrap = document.getElementById('rp-wrap');

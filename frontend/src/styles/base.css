@@ -328,7 +328,7 @@ body{overflow-x:clip;font-size:13px}
 @media(max-width:1120px){.master-container{padding-left:18px;padding-right:18px}}
 @media(max-width:900px){.master-container{padding:0 18px 96px}}
 @media(max-width:900px){.top-main-bar{justify-content:flex-end;flex:1}}
-@media(max-width:900px){.mobile-nav{grid-template-columns:repeat(5,1fr);position:fixed;bottom:0;left:0;right:0;z-index:60;padding:8px 12px calc(8px + env(safe-area-inset-bottom));background:var(--glass-bg-strong);backdrop-filter:blur(20px);border-top:1px solid var(--border-glass)}}
+@media(max-width:900px){.mobile-nav{grid-template-columns:repeat(7,1fr);position:fixed;bottom:0;left:0;right:0;z-index:60;padding:8px 12px calc(8px + env(safe-area-inset-bottom));background:var(--glass-bg-strong);backdrop-filter:blur(20px);border-top:1px solid var(--border-glass)}}
 @media(max-width:600px){.master-container{padding-left:14px;padding-right:14px}}
 @media(max-width:600px){.top-main-bar{gap:5px}}
 @media(max-width:600px){.glass-action-capsule{padding:0;gap:0;background:transparent;border:0}}
@@ -347,7 +347,7 @@ body{overflow-x:clip;font-size:13px}
 @media(max-width:600px){.mobile-records tr{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));border:1px solid var(--border-glass);border-radius: calc(11px * var(--radius-scale));padding:12px;gap:12px}}
 @media(max-width:600px){.mobile-records td{display:block;min-width:0;border:0;overflow-wrap:anywhere;font-size:12px}}
 @media(max-width:600px){.mobile-records td:before{content:attr(data-label);display:block;font-size:10px;color:var(--text-3);margin-bottom:4px}}
-@media(max-width:600px){.mobile-records td:nth-child(2),.mobile-records td:last-child,.mobile-address-cell,.mobile-name-cell,.mobile-url-cell{grid-column:span 2}}
+@media(max-width:600px){.mobile-records td:nth-child(2),.mobile-records td:last-child,.mobile-address-cell,.mobile-name-cell,.mobile-url-cell{grid-column:span 2}.mobile-records td.table-empty{grid-column:1/-1}.mobile-records td.table-empty:before{display:none}}
 @media(max-width:600px){.feature-footer{gap:4px}}
 @media(max-width:600px){.mg-tiles{grid-template-columns:repeat(2,minmax(0,1fr))}}
 .console-mobile-status{display:none}@media(max-width:600px){.console-mobile-status{display:block;font-size:11px;color:var(--text-2);margin-top:8px}}@media(max-width:600px){.console-mobile-status.offline{color:var(--console-danger)}}.form-error{padding:12px;border:1px solid rgba(239,68,68,.3);border-radius: calc(8px * var(--radius-scale));color:var(--console-danger);margin-bottom:14px;font-size:13px}

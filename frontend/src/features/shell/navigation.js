@@ -33,15 +33,14 @@ export function initialize() {
     sidebar.prepend(tools);
     const collapseButton = tools.querySelector('button');
     const picker = document.querySelector('#navigation-layout-options');
-    const entries = [...nav.querySelectorAll('[data-route]')];
-    entries.forEach(button => {
-      const label = button.textContent.trim();
-      button.setAttribute('aria-label', label);
-      button.title = label;
-    });
 
     function syncSelection() {
-      entries.forEach(button => {
+      nav.querySelectorAll('[data-route]').forEach(button => {
+        const label = button.textContent.trim();
+        if (label) {
+          if (!button.hasAttribute('aria-label')) button.setAttribute('aria-label', label);
+          if (!button.title) button.title = label;
+        }
         if (button.classList.contains('active')) button.setAttribute('aria-current', 'page');
         else button.removeAttribute('aria-current');
       });
@@ -74,7 +73,7 @@ export function initialize() {
     picker?.querySelectorAll('[data-navigation-layout]').forEach(button => {
       button.onclick = () => chooseLayout(button.dataset.navigationLayout, false);
     });
-    new MutationObserver(syncSelection).observe(nav, { subtree: true, attributes: true, attributeFilter: ['class'] });
+    new MutationObserver(syncSelection).observe(nav, { childList: true, subtree: true, attributes: true, attributeFilter: ['class'] });
     desktop.addEventListener('change', syncLayout);
 
     // A body-level panel stays reachable outside both the floating and fixed header.

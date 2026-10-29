@@ -14,7 +14,7 @@
     html[data-theme="light-glass"] .t-engine-card {
       background: linear-gradient(165deg, rgba(255, 255, 255, 0.96) 0%, rgba(241, 245, 249, 0.96) 100%);
     }
-html[data-theme="light-glass"] input:not([type="checkbox"]):not([type="range"]):not([type="file"]),
+html[data-theme="light-glass"] input:not([type="checkbox"]):not([type="range"]):not([type="file"]):not(#global-search-input):not(#rv-q),
 html[data-theme="light-glass"] select,
 html[data-theme="light-glass"] textarea {
   background: rgba(255, 255, 255, 0.9);
@@ -409,8 +409,8 @@ html[data-skin="claude"] .toast {
 @media (min-width: 901px) {
   html[data-nav="collapsed"] .navigation-tools > span,
   html[data-nav="collapsed"] #side-nav .nav-item > span,
-  html[data-nav="collapsed"] #sidebar .sidebar-status-copy,
-  html[data-nav="collapsed"] #sidebar .sidebar-restart-btn > span { display: none; }
+  html[data-nav="collapsed"] #side-nav .nav-item-dot,
+  html[data-nav="collapsed"] #sidebar .sidebar-status-copy { display: none; }
 }
 
 @media (min-width: 901px) {
@@ -488,8 +488,8 @@ html[data-skin="claude"] .toast {
 }
 
 @media (min-width: 901px) {
-  html[data-nav="top"] #side-nav .nav-group,
   html[data-nav="top"] #side-nav .nav-items { display: contents; }
+  html[data-nav="top"] #side-nav .nav-item.active::before { display: none; }
 }
 
 @media (min-width: 901px) {

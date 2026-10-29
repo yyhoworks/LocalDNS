@@ -18,6 +18,7 @@ import { overviewRoute } from '../../features/overview/route';
 import { logsRoute } from '../../features/logs/route';
 import { upstreamsRoute } from '../../features/upstreams/route';
 import { rulesRoute } from '../../features/rules/route';
+import { devicesRoute } from '../../features/devices/route';
 import { managementRoute } from '../../features/management/route';
 import { proxyConfigRoute } from '../../features/proxy-config/route';
 import { playViewEnter, animateCountUps, syncAllSegThumbs } from '../../shared/components/motion.js';
@@ -28,7 +29,7 @@ import { focusSelectors, restoreFocus } from './focus-restore.js';
 import { setPageLabel, focusPageHeading, markPageHeading } from './page-title.js';
 
   let navigationSeq=0;
-  const routeModules={overview:overviewRoute,logs:logsRoute,upstreams:upstreamsRoute,rules:rulesRoute,management:managementRoute,'proxy-config':proxyConfigRoute};
+  const routeModules={overview:overviewRoute,logs:logsRoute,upstreams:upstreamsRoute,rules:rulesRoute,devices:devicesRoute,management:managementRoute,'proxy-config':proxyConfigRoute};
   /** @param {string} id */
   function routeModule(id){return routeModules[/** @type {keyof typeof routeModules} */ (id)];}
   /** @param {string} id @param {boolean} [write] */
