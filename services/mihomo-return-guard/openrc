@@ -1,0 +1,15 @@
+#!/sbin/openrc-run
+name="mihomo-return-guard"
+description="Validate and restore Mihomo host bypass and client return rules"
+supervisor=supervise-daemon
+command="/usr/bin/python3"
+command_args="/usr/local/sbin/mihomo-return-guard.py --watch --interval 2"
+output_log="/var/log/mihomo-return-guard.log"
+error_log="/var/log/mihomo-return-guard.log"
+respawn_delay=5
+respawn_period=60
+respawn_max=5
+depend() {
+    need networking mihomo
+    after mihomo-return mihomo-ipv6
+}
