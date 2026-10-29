@@ -1056,6 +1056,9 @@
 .dev-tablehead-title span { font-weight:400; font-size:12px; color:var(--text-3); margin-left:9px; }
 .dev-tablehead .dev-actions { margin-left:auto; }
 .dev-actions { display:flex; align-items:center; gap:6px; flex-wrap:wrap; }
+.dev-addbtn { height:36px; border-radius:99px; border:1px solid var(--primary); background:var(--primary); color:#fff; padding:0 16px; font-size:12.5px; font-weight:600; cursor:pointer; white-space:nowrap; }
+.dev-addbtn:hover { filter:brightness(1.08); }
+.dev-addbtn:disabled { opacity:.5; cursor:not-allowed; }
 .dev-hbtn { background:var(--glass-pill); border:1px solid var(--border-glass); color:var(--text-1); border-radius:8px; padding:5px 11px; font-size:12px; cursor:pointer; white-space:nowrap; }
 .dev-hbtn:hover { border-color:var(--primary); color:var(--primary); }
 .dev-hbtn:disabled { opacity:.45; cursor:not-allowed; }
