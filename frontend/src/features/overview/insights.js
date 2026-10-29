@@ -14,6 +14,10 @@ const overviewInsightsService = (() => {
     geosite_cn_nodata: '国内规则无记录', geosite_cn_unverified: '国内规则待验证',
     geosite_cn_conflict_fakeip: '国内规则冲突 FakeIP',
     client_direct_upstream_error: '客户端直连上游错误',
+    geosite_non_cn_upstream_error: '非国内规则上游错误',
+    local_name: '本地保留名应答', local_any: 'ANY 查询本地应答',
+    local_meta: 'META 查询本地应答', local_reverse: '反查区本地应答',
+    local_xfr: '区域传送本地应答',
     unknown_noaddr: '未知域名无地址', foreign_other: '其他国外结果'
   };
   const tones = {

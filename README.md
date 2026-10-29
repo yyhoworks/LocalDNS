@@ -6,11 +6,11 @@
 
 **DNS 核心主要由折腾日记交流群里的 R 大使用 Rust 编写；[yyhoworks](https://github.com/yyhoworks) 负责 UI 设计。**
 
-当前版本：**后端 FJH21 / UI 2026.10.29.2**（发行标签 `fjh21-ui-v2026.10.29.2`），见 [本次更新说明](docs/releases/fjh21-ui-v2026.10.29.2.md)。
+当前版本：**后端 FJH50 / UI 2026.10.29.3**（发行标签 `fjh50-ui-v2026.10.29.3`），见 [本次更新说明](docs/releases/fjh50-ui-v2026.10.29.3.md)。
 
-本次更新补齐概览页「`✓ 链路健康`」状态横条、「响应延迟与解析异常」双线峰值趋势图与五阶段拓扑「仅看活跃路径」聚焦开关，并在「设备」页面新增单机 `FakeIP / RealIP` 策略胶囊直切能力。上一版（[2026.10.29.1](docs/releases/fjh21-ui-v2026.10.29.1.md)）将控制台导航精简为 7 个二字一级入口并新增独立「设备」页；本次仅更新前端界面与安装脚本，DNS 内核、配置、规则与上游不变，更新 UI 无需重启 DNS。
+本次把 DNS 内核从 FJH21 升级到 **FJH50** 并完成整机迁移：新内核在本地区（`home.arpa`、`.localdomain`、反查区）与 ANY / META / XFR 特殊查询上改为本地应答，后台新增 `zone_check` 计数。接口经逐条比对与现网回环验证后确认向后兼容，界面只补齐了新 `domain_set` 取值的中文标签、同步了内核角标与版本元数据。配置、规则、上游、客户端别名与外观全部沿用，升级需整目录替换，更新说明见 [2026.10.29.3](docs/releases/fjh50-ui-v2026.10.29.3.md)。
 
-上一版（UI 2026.10.28.3，后端 FJH21）修复网页端 UI 升级对 FJH21 发行标签的校验，说明见 [2026.10.28.3 更新记录](docs/releases/fjh21-ui-v2026.10.28.3.md)；更早的 [2026.10.28.2](docs/releases/fjh21-ui-v2026.10.28.2.md) 接入新内核 FJH21，新增查询日志存盘开关与缓存参数编辑。
+上一版（UI 2026.10.29.2，后端 FJH21）补齐概览「`✓ 链路健康`」状态横条、双线峰值趋势与设备单机 `FakeIP / RealIP` 直切，说明见 [2026.10.29.2 更新记录](docs/releases/fjh21-ui-v2026.10.29.2.md)；更早的 [2026.10.28.2](docs/releases/fjh21-ui-v2026.10.28.2.md) 接入内核 FJH21，新增查询日志存盘开关与缓存参数编辑。
 
 [产品图集](docs/SCREENSHOTS.md) · [功能指南](docs/FEATURES.md) · [安装说明](INSTALL.md) · [下载 Releases](https://github.com/yyhoworks/LocalDNS/releases) · [作者与分工](AUTHORS.md) · [开发说明](docs/DEVELOPMENT.md) · [近期更新](CHANGELOG.md)
 

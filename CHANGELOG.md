@@ -1,5 +1,13 @@
 # LocalDNS 更新记录
 
+## FJH50 / UI 2026.10.29.3 · 新内核 FJH50、接口兼容性核对与本地应答标签
+
+- **升级内核 FJH50**：来源 `LocalDNS_FJH50.zip`，`localdns/bin/localdns` 与 `LocalDNS_FJH50_Binaries/localdns-amd64-v3` 为同一份程序（SHA-256 `0b8d1f9e…b325fc7`）。Alpine 侧仍由 gcompat 装载并 `LD_PRELOAD=bin/glibc-shim.so` 补齐 `__res_init` 等符号，现有 shim 无需重编。新内核把本地区（`home.arpa`、`.localdomain`、`use-application-dns.net`、反查区）与 ANY / META / XFR 特殊查询改为本地应答，后台新增 `zone_check` 计数，缓存快照标识升到 `v6`。
+- **接口兼容性核对**：升级前在独立端口与现网 FJH21 逐项比对——38 条接口路径状态码完全一致，18 个关键接口结构比对只有 `/api/v1/status` 新增 `background.zone_check`；`/metrics` 27 个指标名一致；按界面真实载荷回环写入上游、开关、别名、名单与缓存参数全部 200 且配置文件 MD5 前后不变；`POST /api/v1/system/restart` 自重启后设置与规则不变。
+- **界面适配**：`VERSION.json` 与 `_src/ui/version.json` 改为后端 FJH50 / UI 2026.10.29.3 / 标签 `fjh50-ui-v2026.10.29.3`，`index.html` 首帧内核角标同步；补齐 FJH50 新增 `domain_set`（`local_any`、`local_reverse`、`local_meta`、`local_xfr`）与此前缺标签的 `local_name`、`geosite_non_cn_upstream_error` 的中文名称；`install-ui.sh` 与 `package_ui.py` 的同核心白名单加入 FJH50。
+- **迁移结果**：保留 `config/`（上游、订阅、全部 settings、`localdns.json`）、`rules/manual`、`rules/online`、`ui/custom`、`ui/config.js`、`bin/glibc-shim.so`、`bin/ui-updater` 与 `.ui-updater`；重置 `cache/`、`generated/`、`rules/compiled/`（内核启动重建）与 `logs/`。现网规则计数与迁移前逐项一致（custom_cn 1250、geosite_cn 112708 等），上游 9/2/1/1、别名 41 条、28 条规则源与 4 个 AdGuard 订阅全部保留，UDP/TCP 53 与 9099、9100 正常。
+- 本次更换内核，必须整目录替换，不能用 `install-ui.sh` 只换界面。
+
 ## FJH21 / UI 2026.10.29.2 · 链路健康横条、延迟异常峰值趋势与设备单机 FakeIP/RealIP 直切
 
 - **设备页单机 `FakeIP / RealIP` 策略直切（`#/devices`）**：受控设备列表每行新增 `[ FakeIP | RealIP ]` 双态胶囊开关，直接切换单机生效策略（`✓ FakeIP 科学分流` / `→ RealIP 真实解析`），右侧活跃设备列表按钮随全局策略联动为 `+ 加入 FakeIP 名单` / `+ 加入 RealIP 名单`。

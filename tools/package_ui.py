@@ -262,8 +262,8 @@ def main():
             with ZipFile(args.kernel_archive) as archive:
                 kernels = read_kernel_bundle(archive, backend)
                 if args.runtime_template:
-                    if backend not in ('FJGLI', 'FJGOE', 'FJH21'):
-                        raise ValueError('The new runtime template currently supports FJGLI/FJGOE/FJH21 only')
+                    if backend not in ('FJGLI', 'FJGOE', 'FJH21', 'FJH50'):
+                        raise ValueError('The new runtime template currently supports FJGLI/FJGOE/FJH21/FJH50 only')
                     template = read_runtime_template(archive)
                     full = {name: data for name, data in full.items() if not name.startswith('localdns/')}
                     full.update(template)
