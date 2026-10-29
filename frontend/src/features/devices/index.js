@@ -165,8 +165,8 @@ async function renderDevices(container, context) {
   });
 
   const badgeHtml = d => {
-    if (d.policy === 'fakeip') return '<span class="dev-pill is-fakeip">走 FakeIP</span>';
-    if (d.policy === 'realip') return '<span class="dev-pill is-realip">走 RealIP</span>';
+    if (d.policy === 'fakeip') return '<span class="dev-pill is-fakeip">✓ FakeIP 科学分流</span>';
+    if (d.policy === 'realip') return '<span class="dev-pill is-realip">→ RealIP 真实解析</span>';
     if (d.policy === 'all') return `<span class="dev-pill is-standby">全员分流${d.entry && !d.entry.enabled ? ' · 已停用' : ''}</span>`;
     if (d.policy === 'none') return '<span class="dev-pill is-none">未受控</span>';
     return '<span class="dev-pill is-none">未知</span>';
@@ -189,8 +189,8 @@ async function renderDevices(container, context) {
       const realNextEnabled = clientMode === 'realip' ? '1' : '0';
       return `
         <span class="dev-mseg" role="group" aria-label="单机分流策略 ${esc(entry.ip)}">
-          <button type="button" class="${d.policy === 'fakeip' ? 'on' : ''}" data-devices-toggle-line="${entry.lineIndex}" data-devices-next-enabled="${fakeNextEnabled}" data-devices-target-policy="fakeip" aria-pressed="${d.policy === 'fakeip'}" ${entryBtnAttrs(`让 ${esc(entry.ip)} 走 FakeIP 科学分流`)}>FakeIP</button>
-          <button type="button" class="${d.policy === 'realip' ? 'on' : ''}" data-devices-toggle-line="${entry.lineIndex}" data-devices-next-enabled="${realNextEnabled}" data-devices-target-policy="realip" aria-pressed="${d.policy === 'realip'}" ${entryBtnAttrs(`让 ${esc(entry.ip)} 走 RealIP 真实解析`)}>RealIP</button>
+          <button type="button" class="${d.policy === 'fakeip' ? 'on' : ''}" data-devices-toggle-line="${entry.lineIndex}" data-devices-next-enabled="${fakeNextEnabled}" data-devices-target-policy="fakeip" aria-pressed="${d.policy === 'fakeip'}" ${entryBtnAttrs(`让 ${esc(entry.ip)} 走 FakeIP 科学分流`)}>指定 FakeIP</button>
+          <button type="button" class="${d.policy === 'realip' ? 'on' : ''}" data-devices-toggle-line="${entry.lineIndex}" data-devices-next-enabled="${realNextEnabled}" data-devices-target-policy="realip" aria-pressed="${d.policy === 'realip'}" ${entryBtnAttrs(`让 ${esc(entry.ip)} 走 RealIP 真实解析`)}>指定 RealIP</button>
         </span>`;
     }
     return `<button type="button" class="dev-join" data-devices-toggle-line="${entry.lineIndex}" data-devices-next-enabled="${entry.enabled ? '0' : '1'}" ${clientIpLoadError ? 'disabled title="名单加载失败，暂不可操作"' : ''}>${entry.enabled ? '停用' : '启用'}</button>`;
@@ -235,16 +235,16 @@ async function renderDevices(container, context) {
 
     <div class="dev-stats">
       <div class="dev-stat"><div><div class="dev-stat-k">设备总数</div><div class="dev-stat-v">${counts.all}</div><div class="dev-stat-d">受控 ${controlledEntries.length} · 未受控 ${counts.none}</div></div><div class="dev-stat-ic">⧉</div></div>
-      <div class="dev-stat"><div><div class="dev-stat-k">走 FakeIP</div><div class="dev-stat-v is-green">${counts.fakeip}</div><div class="dev-stat-d">科学分流</div></div><div class="dev-stat-ic is-green">✓</div></div>
-      <div class="dev-stat"><div><div class="dev-stat-k">走 RealIP</div><div class="dev-stat-v is-amber">${counts.realip}</div><div class="dev-stat-d">真实解析 · 直连优先</div></div><div class="dev-stat-ic is-amber">→</div></div>
+      <div class="dev-stat"><div><div class="dev-stat-k">FakeIP 科学分流</div><div class="dev-stat-v is-green">${counts.fakeip}</div><div class="dev-stat-d">指定客户端</div></div><div class="dev-stat-ic is-green">✓</div></div>
+      <div class="dev-stat"><div><div class="dev-stat-k">RealIP 真实解析</div><div class="dev-stat-v is-amber">${counts.realip}</div><div class="dev-stat-d">指定客户端 · 直连优先</div></div><div class="dev-stat-ic is-amber">→</div></div>
       <div class="dev-stat"><div><div class="dev-stat-k">未受控</div><div class="dev-stat-v is-gray">${counts.none}</div><div class="dev-stat-d">跟随全局默认</div></div><div class="dev-stat-ic">○</div></div>
     </div>
 
     <div class="dev-filterbar">
       <div class="dev-ftabs" id="devices-ftabs" role="group" aria-label="按策略过滤">
         <button type="button" class="${devView.filter === 'all' ? 'on' : ''}" data-devices-filter="all">全部设备 <span class="n">${counts.all}</span></button>
-        <button type="button" class="${devView.filter === 'fakeip' ? 'on' : ''}" data-devices-filter="fakeip">走 FakeIP <span class="n">${counts.fakeip}</span></button>
-        <button type="button" class="${devView.filter === 'realip' ? 'on' : ''}" data-devices-filter="realip">走 RealIP <span class="n">${counts.realip}</span></button>
+        <button type="button" class="${devView.filter === 'fakeip' ? 'on' : ''}" data-devices-filter="fakeip">FakeIP 科学分流 <span class="n">${counts.fakeip}</span></button>
+        <button type="button" class="${devView.filter === 'realip' ? 'on' : ''}" data-devices-filter="realip">RealIP 真实解析 <span class="n">${counts.realip}</span></button>
         <button type="button" class="${devView.filter === 'none' ? 'on' : ''}" data-devices-filter="none">未受控 <span class="n">${counts.none}</span></button>
       </div>
       <div class="dev-search">
