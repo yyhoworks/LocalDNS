@@ -12,7 +12,7 @@ import { safe, safeResult } from '../../shared/async.js';
 import { parseProm } from '../../shared/metrics/prometheus.ts';
 import { parseSystem, parseCaches } from './model.js';
 import { $, state, page, $$, storage, API_BASE } from '../../core/context.js';
-import { compactNum, ms, pct, fullNum, rankCount, num, esc, startTimeMarkup, overviewUptimeMarkup, fmtBytesBrief, duration } from '../../shared/format/number.js';
+import { compactNum, ms, pct, fullNum, rankCount, num, esc, startTimeMarkup, overviewUptimeMarkup, fmtBytesBrief } from '../../shared/format/number.js';
 import { aggregateSlowest, slowOverviewRowsHtml, openDomainDetailModal, openSlowDetailModal, openOutcomeDetail } from './details.js';
 import { upstreamMetrics } from '../upstreams/errors.js';
 import { icon } from '../../shared/components/icons.js';
@@ -20,6 +20,7 @@ import { getNodeIcon, drawTopoCurves } from './topology/graph.js';
 import { trackRouteCleanup, navigate, renderRoute } from '../../core/router/router.js';
 import { toast } from '../../shared/components/toast.js';
 import { openDrawer } from '../../shared/components/drawer.js';
+import { confirmDialog } from '../../shared/components/dialog.js';
 import { cacheName } from '../management/index.js';
 
   const cpuSample = {total:null, at:null};
@@ -257,7 +258,7 @@ import { cacheName } from '../management/index.js';
     const maxSlowMs = slowGroups.length ? Math.round(+slowGroups[0].duration_ms || 0) : Math.round(+stats.average_duration_ms || 0);
     const p95Ms = slowGroups.length > 1 ? Math.round(+slowGroups[Math.min(1, slowGroups.length - 1)].duration_ms || 0) : maxSlowMs;
     const clientModeText = clientMode === 'fakeip' ? '指定 FakeIP' : clientMode === 'realip' ? '指定 RealIP' : clientMode === 'all' ? '全员分流' : '状态未知';
-    const shortcutsSummary = `当前策略：${clientModeText} · 核心缓存 ${cacheState==='on'?'开':cacheState==='off'?'关':'未知'} · 过期缓存 ${lazyState==='on'?'开':lazyState==='off'?'关':'未知'} · AdGuard ${sw.switch7==='A'?'已开启':sw.switch7==='B'?'未启用':'未知'}`;
+    const shortcutsSummary = `当前策略：${clientModeText} · 核心缓存 ${cacheState==='on'?'开':cacheState==='off'?'关':'未知'} · 乐观过期 ${lazyState==='on'?'开':lazyState==='off'?'关':'未知'} · AdGuard ${sw.switch7==='A'?'已开启':sw.switch7==='B'?'未启用':'未知'}`;
 
     trafficClientService.setOverviewContext?.({
       avgLatencyMs: Number.isFinite(+stats.average_duration_ms) ? +stats.average_duration_ms : null,
@@ -284,8 +285,7 @@ import { cacheName } from '../management/index.js';
     setHTML(page, `
       <div class="view-title-row" data-shortcuts-summary="${esc(shortcutsSummary)}">
         <div style="display:flex;align-items:baseline;gap:12px">
-          <h1>运行概览</h1>
-          <span class="mono" style="font-size:12px;color:var(--text-3)">${esc([sys.version || engineStatus?.version || 'FJG20', sys.platform, sys.runtime !== '—' ? sys.runtime : ''].filter(Boolean).join(' · '))}</span>
+          <h1>概览</h1>
         </div>
       </div>
 
@@ -294,12 +294,12 @@ import { cacheName } from '../management/index.js';
           <div class="console-service-health">
             <span class="service-health-mark" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="10"/><path data-service-check d="m7 12 3 3 7-7"/></svg></span>
             <div class="service-health-copy">
-              <div class="service-health-title"><h2 id="service-summary-title">DNS 服务运行中</h2><span class="service-connection">已连接</span></div>
+              <div class="service-health-title"><h2 id="service-summary-title">DNS 服务运行中</h2></div>
               <p class="service-build mono">${esc([sys.version || engineStatus?.version || 'FJG20', sys.platform, sys.runtime !== '—' ? sys.runtime : ''].filter(Boolean).join(' · '))}${sys.start ? ` · 启动于 ${startTimeMarkup(sys.start)}` : ''}</p>
             </div>
           </div>
           <div class="service-metric" data-service-metric="uptime"><div class="service-metric-label"><span>运行时长</span>${icon('uptime')}</div><div class="service-value service-uptime-value">${sys.start?overviewUptimeMarkup(sys.uptime):'—'}</div></div>
-          <div class="service-metric" data-service-metric="upstreams" data-route="upstreams" style="cursor:pointer" title="点击查看上游 DNS 节点与健康状态"><div class="service-metric-label"><span>上游 DNS 健康</span>${icon('globe')}</div><div class="service-value service-uptime-value"><span class="overview-duration-part"><span class="overview-duration-num" style="color:${faultyUps.length ? 'var(--amber)' : 'var(--console-success)'}">${enabledUps.length ? `${healthyUpsCount}/${enabledUps.length}` : '—'}</span><span class="overview-duration-unit">${faultyUps.length ? `(${faultyUps.length} 异常)` : '启用在线'}</span></span></div></div>
+          <div class="service-metric" data-service-metric="upstreams" data-route="upstreams" style="cursor:pointer" title="点击查看上游 DNS 节点与健康状态"><div class="service-metric-label"><span>上游 DNS 健康</span>${icon('globe')}</div><div class="service-value service-uptime-value"><span class="overview-duration-part"><span class="overview-duration-num" style="color:${faultyUps.length ? 'var(--amber)' : 'var(--console-success)'}">${enabledUps.length ? `${healthyUpsCount}/${enabledUps.length}` : '—'}</span><span class="overview-duration-unit">${enabledUps.length ? (faultyUps.length ? `(${faultyUps.length} 异常)` : '在线') : '未启用'}</span></span></div></div>
           <div class="service-metric" data-service-metric="cpu"><div class="service-metric-label"><span>进程 CPU</span>${icon('cpu')}</div><div class="service-value" data-display-number>${cpuPct!=null?cpuPct.toFixed(1)+'%':'—'}</div></div>
           <div class="service-metric" data-service-metric="memory"><div class="service-metric-label"><span>内存占用</span>${icon('memory')}</div><div class="service-value" data-display-number>${metrics.some(m=>m.name==='process_resident_memory_bytes')?fmtBytesBrief(sys.rss):'—'}</div></div>
         </div>
@@ -350,7 +350,7 @@ import { cacheName } from '../management/index.js';
           <div class="cb-right">
             <div class="seg-group" role="group" aria-label="缓存功能开关">
               <button type="button" class="seg-item ${cacheState==='on'?'active':''}" id="btn-toggle-switch13" ${cacheState==='unknown'?'disabled':''} title="${cacheState==='unknown'?'核心缓存开关读取失败，状态未知，暂不可切换':'点击切换核心缓存 (switch13)'}">核心缓存 ${cacheState==='on'?'开':cacheState==='off'?'关':'未知'}</button>
-              <button type="button" class="seg-item ${lazyEnabled?'active':''}" id="btn-toggle-switch4" ${lazyState==='unknown'?'disabled':''} title="${lazyState==='unknown'?'乐观过期缓存开关读取失败，状态未知，暂不可切换':'点击切换乐观过期缓存 (switch4)'}">过期缓存 ${lazyState==='on'?'开':lazyState==='off'?'关':'未知'}</button>
+              <button type="button" class="seg-item ${lazyEnabled?'active':''}" id="btn-toggle-switch4" ${lazyState==='unknown'?'disabled':''} title="${lazyState==='unknown'?'乐观过期缓存开关读取失败，状态未知，暂不可切换':'点击切换乐观过期缓存 (switch4)'}">乐观过期 ${lazyState==='on'?'开':lazyState==='off'?'关':'未知'}</button>
             </div>
             <button type="button" class="glass-btn" id="btn-flush-all-cache">清空</button>
           </div>
@@ -361,7 +361,7 @@ import { cacheName } from '../management/index.js';
         <div class="glass-card control-bar-card">
           <div class="cb-label">
             <span class="dot-online" aria-hidden="true"></span>
-            <span style="color:var(--text-1);font-weight:600">运行中 · ${duration(sys.uptime)}</span>
+            <span style="color:var(--text-1);font-weight:600">功能开关</span>
           </div>
           <div class="cb-right">
             <button type="button" class="glass-btn" id="btn-toggle-switch7" ${sw.switch7==='?'?'disabled':''} title="${sw.switch7==='?'?'AdGuard 开关读取失败，状态未知，暂不可切换':'点击切换 AdGuard 广告屏蔽 (switch7)'}">AdGuard ${sw.switch7==='A'?'已开启':sw.switch7==='B'?'已关闭':'未知'}</button>
@@ -389,7 +389,7 @@ import { cacheName } from '../management/index.js';
             <div class="sk-val tabular">${cacheValue}</div>
             <svg class="sk-chart" viewBox="0 0 100 34" fill="none" aria-hidden="true"></svg>
           </div>
-          <div class="sk-note">${cacheState==='off' ? '核心缓存已手动关闭' : cacheState==='unknown' ? '核心缓存状态未知' : `国内池 ${cDom.hit.toFixed(1)}% · 乐观过期 ${Math.max(cMain.lazy, cDom.lazy).toFixed(1)}%`}</div>
+          <div class="sk-note">${cacheState==='off' ? '核心缓存已关闭' : cacheState==='unknown' ? '核心缓存状态未知' : `国内池 ${cDom.hit.toFixed(1)}% · 乐观过期 ${Math.max(cMain.lazy, cDom.lazy).toFixed(1)}%`}</div>
         </div>
       </div>
 
@@ -405,18 +405,23 @@ import { cacheName } from '../management/index.js';
       </div>
 
       <div class="col-2">
-        <div class="glass-card spark-kpi-card" data-route="rules">
+        <div class="glass-card spark-kpi-card" data-route="rules" title="${sw.switch7==='A' ? 'AdGuard 广告拦截运行中，点击管理规则' : 'AdGuard 未启用，点击去分流页开启'}">
           <div class="sk-top"><span class="sk-title">AdGuard 拦截</span><svg viewBox="0 0 24 24" fill="none" stroke="#EF4444" stroke-width="2" aria-hidden="true"><path d="M12 3 4 7v5c0 5 3.4 9.3 8 10 4.6-.7 8-5 8-10V7l-8-4Z"/></svg></div>
+          ${sw.switch7==='A' ? `
           <div class="sk-bottom">
             <div class="sk-val tabular">${fullNum(adguardBlocked)}</div>
             <svg class="sk-chart" viewBox="0 0 100 34" fill="none" aria-hidden="true"></svg>
           </div>
-          <div class="sk-note">${sw.switch7==='A' ? (blockedPct != null ? `已拦截 ${blockedPctText} 请求` : 'AdGuard 拦截已启用') : `未启用 · 黑名单 ${num(rRules.block || 0)} 条生效`}</div>
+          <div class="sk-note">${blockedPct != null ? `已拦截 ${blockedPctText} 请求` : 'AdGuard 拦截已启用'}</div>` : `
+          <div class="sk-bottom">
+            <div class="sk-val tabular" style="font-size:15px;color:var(--text-3)">未启用</div>
+          </div>
+          <div class="sk-note">黑名单 ${num(rRules.block || 0)} 条 · 点击去开启 ›</div>`}
         </div>
       </div>
 
       <div class="col-2">
-        <div class="glass-card spark-kpi-card" data-route="upstreams">
+        <div class="glass-card spark-kpi-card" data-route="upstreams" title="口径：后端 average_duration_ms 全量均值；解析页为 Prometheus 分段求和均值，两处统计方式不同">
           <div class="sk-top"><span class="sk-title">平均响应</span><svg viewBox="0 0 24 24" fill="none" stroke="#60A5FA" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg></div>
           <div class="sk-bottom">
             <div class="sk-val tabular" style="color:#F59E0B">${ms(stats.average_duration_ms)}</div>
@@ -567,10 +572,6 @@ import { cacheName } from '../management/index.js';
         <div class="glass-card">
           <div class="gc-head">
             <div class="gc-title">服务运行体征与查询吞吐监控</div>
-            <div style="display:flex;gap:8px;align-items:center">
-              <span class="tn-pill" style="color:#93C5FD;background:rgba(59,130,246,0.16)">启动于 ${startTimeMarkup(sys.start)}</span>
-              <span class="tn-pill" style="color:#34D399;background:rgba(16,185,129,0.15)">在线 ${duration(sys.uptime)}</span>
-            </div>
           </div>
           <div class="traffic-chart-body">
             <div class="console-chart-empty">正在积累趋势数据…</div>
@@ -578,7 +579,6 @@ import { cacheName } from '../management/index.js';
               <div class="tcm-row"><span>国内直连</span><strong>${num(eStats.domestic || 0)}</strong></div>
               <div class="tcm-row"><span>国外无污染</span><strong>${num((+eStats.foreign || 0) + (+eStats.foreign_ecs || 0))}</strong></div>
               <div class="tcm-row"><span>FakeIP 映射</span><strong>${num(eStats.fakeip || 0)}</strong></div>
-              <div class="tcm-row"><span>平均耗时</span><strong>${ms(stats.average_duration_ms)}</strong></div>
             </div>
           </div>
         </div>
@@ -591,6 +591,7 @@ import { cacheName } from '../management/index.js';
             <button type="button" class="glass-btn" id="outcome-detail-button">全部 ${allSets.length} 类</button>
           </div>
           <div class="outbound-donut-body">
+            ${ds.length > 1 ? `
             <div class="ring-wrap">
               <svg viewBox="0 0 42 42" width="124" height="124" aria-hidden="true">
                 <circle cx="21" cy="21" r="15.915" fill="transparent" stroke="rgba(148,163,184,0.14)" stroke-width="4.8"></circle>
@@ -600,7 +601,13 @@ import { cacheName } from '../management/index.js';
                 <span class="ring-total">${compactNum(outcomes.total)}</span>
                 <span class="ring-caption">总查询</span>
               </div>
-            </div>
+            </div>` : `
+            <div class="ring-single">
+              <div class="ring-single-dot" style="background:${outcomeColor(ds[0]?.key)}"></div>
+              <div class="ring-single-label">${esc(ds[0]?.label || '暂无数据')}</div>
+              <div class="ring-single-count tabular">${compactNum(outcomes.total)}</div>
+              <div class="ring-single-sub">当前窗口内全部查询走同一分流结果</div>
+            </div>`}
             <div class="ring-legend">
               ${ds.map((x, i) => {
                 const p = ((+x.count || 0) / dsTotal * 100).toFixed(1);
@@ -806,7 +813,7 @@ import { cacheName } from '../management/index.js';
 
     if ($('#btn-flush-all-cache')) {
       $('#btn-flush-all-cache').onclick = async () => {
-        if (!confirm('确定清空全部 DNS 缓存？将同时清空全部、国内、国外与国外 ECS 缓存。')) return;
+        if (!await confirmDialog({message:'确定清空全部 DNS 缓存？将同时清空全部、国内、国外与国外 ECS 缓存。', danger:true})) return;
         const ct = ['cache_main', 'cache_domestic', 'cache_foreign', 'cache_foreign_ecs'];
         const results = await Promise.allSettled(ct.map(t => api.request(`/plugins/${t}/flush`)));
         const failedTags = ct.filter((t, i) => results[i].status === 'rejected');
@@ -831,7 +838,7 @@ import { cacheName } from '../management/index.js';
     $$('[data-overview-cache-flush]', page).forEach(btn => {
       btn.onclick = async () => {
         const tag = btn.dataset.overviewCacheFlush;
-        if (!confirm(`确定清空 ${cacheName(tag)}？`)) return;
+        if (!await confirmDialog({message:`确定清空 ${cacheName(tag)}？`, danger:true})) return;
         try {
           await api.request(`/plugins/${tag}/flush`);
           toast(`${cacheName(tag)}已清空`);

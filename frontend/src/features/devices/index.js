@@ -180,16 +180,20 @@ async function renderDevices(container, context) {
       return `<button type="button" class="dev-join" data-devices-add-ip="${esc(d.ip)}">${label}</button>`;
     }
     const entry = d.entry;
+    // 名单加载失败时禁用行内写按钮，避免点击静默无反馈
+    const entryBtnAttrs = text => clientIpLoadError
+      ? 'disabled title="名单加载失败，暂不可操作"'
+      : `title="${text}"`;
     if (clientMode === 'fakeip' || clientMode === 'realip') {
       const fakeNextEnabled = clientMode === 'fakeip' ? '1' : '0';
       const realNextEnabled = clientMode === 'realip' ? '1' : '0';
       return `
         <span class="dev-mseg" role="group" aria-label="单机分流策略 ${esc(entry.ip)}">
-          <button type="button" class="${d.policy === 'fakeip' ? 'on' : ''}" data-devices-toggle-line="${entry.lineIndex}" data-devices-next-enabled="${fakeNextEnabled}" data-devices-target-policy="fakeip" aria-pressed="${d.policy === 'fakeip'}" title="让 ${esc(entry.ip)} 走 FakeIP 科学分流">FakeIP</button>
-          <button type="button" class="${d.policy === 'realip' ? 'on' : ''}" data-devices-toggle-line="${entry.lineIndex}" data-devices-next-enabled="${realNextEnabled}" data-devices-target-policy="realip" aria-pressed="${d.policy === 'realip'}" title="让 ${esc(entry.ip)} 走 RealIP 真实解析">RealIP</button>
+          <button type="button" class="${d.policy === 'fakeip' ? 'on' : ''}" data-devices-toggle-line="${entry.lineIndex}" data-devices-next-enabled="${fakeNextEnabled}" data-devices-target-policy="fakeip" aria-pressed="${d.policy === 'fakeip'}" ${entryBtnAttrs(`让 ${esc(entry.ip)} 走 FakeIP 科学分流`)}>FakeIP</button>
+          <button type="button" class="${d.policy === 'realip' ? 'on' : ''}" data-devices-toggle-line="${entry.lineIndex}" data-devices-next-enabled="${realNextEnabled}" data-devices-target-policy="realip" aria-pressed="${d.policy === 'realip'}" ${entryBtnAttrs(`让 ${esc(entry.ip)} 走 RealIP 真实解析`)}>RealIP</button>
         </span>`;
     }
-    return `<button type="button" class="dev-join" data-devices-toggle-line="${entry.lineIndex}" data-devices-next-enabled="${entry.enabled ? '0' : '1'}">${entry.enabled ? '停用' : '启用'}</button>`;
+    return `<button type="button" class="dev-join" data-devices-toggle-line="${entry.lineIndex}" data-devices-next-enabled="${entry.enabled ? '0' : '1'}" ${clientIpLoadError ? 'disabled title="名单加载失败，暂不可操作"' : ''}>${entry.enabled ? '停用' : '启用'}</button>`;
   };
 
   const rowHtml = d => {
@@ -238,18 +242,18 @@ async function renderDevices(container, context) {
 
     <div class="dev-filterbar">
       <div class="dev-ftabs" id="devices-ftabs" role="group" aria-label="按策略过滤">
-        <button type="button" class="on" data-devices-filter="all">全部设备 <span class="n">${counts.all}</span></button>
-        <button type="button" data-devices-filter="fakeip">走 FakeIP <span class="n">${counts.fakeip}</span></button>
-        <button type="button" data-devices-filter="realip">走 RealIP <span class="n">${counts.realip}</span></button>
-        <button type="button" data-devices-filter="none">未受控 <span class="n">${counts.none}</span></button>
+        <button type="button" class="${devView.filter === 'all' ? 'on' : ''}" data-devices-filter="all">全部设备 <span class="n">${counts.all}</span></button>
+        <button type="button" class="${devView.filter === 'fakeip' ? 'on' : ''}" data-devices-filter="fakeip">走 FakeIP <span class="n">${counts.fakeip}</span></button>
+        <button type="button" class="${devView.filter === 'realip' ? 'on' : ''}" data-devices-filter="realip">走 RealIP <span class="n">${counts.realip}</span></button>
+        <button type="button" class="${devView.filter === 'none' ? 'on' : ''}" data-devices-filter="none">未受控 <span class="n">${counts.none}</span></button>
       </div>
       <div class="dev-search">
-        <div class="dev-searchbox"><input type="text" id="devices-q" placeholder="搜索别名、IP…" autocomplete="off"></div>
-        <button type="button" class="dev-sortbtn" id="devices-sort">${icon('chevron')} 请求数</button>
+        <div class="dev-searchbox"><input type="text" id="devices-q" placeholder="搜索别名、IP…" autocomplete="off" value="${esc(devView.q)}"></div>
+        <button type="button" class="dev-sortbtn" id="devices-sort">${icon('chevron')} ${devView.sort === 'req' ? '请求数 ↓' : 'IP 地址 ↑'}</button>
       
         <button type="button" class="dev-sortbtn" id="devices-bulk-alias" title="批量修改别名，或给还没出现过的 IP 预置名称">批量别名</button>
         <button type="button" class="dev-sortbtn" id="devices-auto-collect" aria-pressed="${autoCollectOn}" title="自动把有查询记录但没有别名的活跃 IP 写进别名表">自动收录 ${autoCollectOn ? '开' : '关'}</button>
-        <button type="button" class="dev-addbtn" id="devices-add-controlled" ${clientIpLoadError ? 'disabled' : ''}>+ 新增受控 IP</button>
+        <button type="button" class="dev-addbtn" id="devices-add-controlled" ${clientIpLoadError ? 'disabled title="名单加载失败，暂不可操作"' : ''}>+ 新增受控 IP</button>
       </div>
     </div>
 
@@ -262,6 +266,7 @@ async function renderDevices(container, context) {
         <div class="dev-col-ops"></div>
       </div>
       <div id="devices-rows">${devices.map(rowHtml).join('') || '<div class="dev-empty">暂无设备记录</div>'}</div>
+      <div class="dev-empty" id="devices-empty-filter" hidden>无匹配设备，试试更换关键词或 <button type="button" class="dev-linkbtn" id="devices-clear-filter">清除筛选</button></div>
     </div>
     <div class="dev-batchbar" id="devices-batchbar">
       <span id="devices-batch-n">已选 0 台</span>
@@ -272,22 +277,22 @@ async function renderDevices(container, context) {
     </div>
   </div>`);
 
-  // ---- 视图状态：过滤 / 搜索 / 排序（纯 DOM，不触发重渲染） ----
-  let devFilter = 'all';
-  let devSort = 'req';
+  // ---- 视图状态：过滤 / 搜索 / 排序（状态在模块级 devView，多次渲染之间保留；纯 DOM，不触发重渲染） ----
   const applyView = () => {
-    const q = ($('#devices-q', page).value || '').toLowerCase();
+    const q = (devView.q || '').toLowerCase();
     const rows = [...$$('.dev-row', page)];
     rows.forEach(r => {
       const hitQ = !q || r.dataset.q.includes(q);
-      const hitF = devFilter === 'all' || r.dataset.policy === devFilter;
+      const hitF = devView.filter === 'all' || r.dataset.policy === devView.filter;
       r.style.display = hitQ && hitF ? '' : 'none';
     });
     const body = $('#devices-rows', page);
-    rows
-      .filter(r => r.style.display !== 'none')
-      .sort((a, b) => devSort === 'req' ? (+b.dataset.req - +a.dataset.req) : a.dataset.ip.localeCompare(b.dataset.ip))
+    const visible = rows.filter(r => r.style.display !== 'none');
+    visible
+      .sort((a, b) => devView.sort === 'req' ? (+b.dataset.req - +a.dataset.req) : a.dataset.ip.localeCompare(b.dataset.ip))
       .forEach(r => body.appendChild(r));
+    const emptyFilter = $('#devices-empty-filter', page);
+    if (emptyFilter) emptyFilter.hidden = rows.length === 0 || visible.length > 0;
     syncBatchUI();
   };
   $('#devices-ftabs', page).addEventListener('click', e => {
@@ -295,13 +300,22 @@ async function renderDevices(container, context) {
     if (!b) return;
     $$('#devices-ftabs [data-devices-filter]', page).forEach(x => x.classList.remove('on'));
     b.classList.add('on');
-    devFilter = b.dataset.devicesFilter;
+    devView.filter = b.dataset.devicesFilter;
     applyView();
   });
-  $('#devices-q', page).addEventListener('input', applyView);
+  const qInput = $('#devices-q', page);
+  qInput.addEventListener('input', () => { devView.q = qInput.value; applyView(); });
   $('#devices-sort', page).onclick = function () {
-    devSort = devSort === 'req' ? 'ip' : 'req';
-    this.textContent = devSort === 'req' ? '请求数 ↓' : 'IP 地址 ↑';
+    devView.sort = devView.sort === 'req' ? 'ip' : 'req';
+    this.innerHTML = `${icon('chevron')} ${devView.sort === 'req' ? '请求数 ↓' : 'IP 地址 ↑'}`;
+    applyView();
+  };
+  const clearFilterBtn = $('#devices-clear-filter', page);
+  if (clearFilterBtn) clearFilterBtn.onclick = () => {
+    devView.q = '';
+    devView.filter = 'all';
+    qInput.value = '';
+    $$('#devices-ftabs [data-devices-filter]', page).forEach(x => x.classList.toggle('on', x.dataset.devicesFilter === 'all'));
     applyView();
   };
 
@@ -480,14 +494,31 @@ async function renderDevices(container, context) {
     }
   });
 
-  // 6. 更多菜单：查看日志 / 移入移出名单
+  // 6. 更多菜单：查看日志 / 移入移出名单（fixed 定位挂到 body，避免菜单显示不全）
   let openMenu = null;
   const closeMenu = () => { if (openMenu) { openMenu.remove(); openMenu = null; } };
+  const placeMenu = (m, btn) => {
+    const r = btn.getBoundingClientRect();
+    const mw = m.offsetWidth, mh = m.offsetHeight;
+    // 右对齐触发按钮，并钳制在视口内；下方放不下时翻到上方
+    let left = Math.max(8, Math.min(r.right - mw, window.innerWidth - mw - 8));
+    let top = r.bottom + 6;
+    if (top + mh > window.innerHeight - 8) top = Math.max(8, r.top - mh - 6);
+    m.style.left = `${left}px`;
+    m.style.top = `${top}px`;
+  };
   const menuCloser = e => {
     if (openMenu && !e.target.closest('.dev-menu') && !e.target.closest('[data-devices-menu]')) closeMenu();
   };
+  const menuDismiss = () => closeMenu();
   document.addEventListener('click', menuCloser);
-  renderScope.signal.addEventListener('abort', () => document.removeEventListener('click', menuCloser), { once: true });
+  document.addEventListener('scroll', menuDismiss, true);
+  window.addEventListener('resize', menuDismiss);
+  renderScope.signal.addEventListener('abort', () => {
+    document.removeEventListener('click', menuCloser);
+    document.removeEventListener('scroll', menuDismiss, true);
+    window.removeEventListener('resize', menuDismiss);
+  }, { once: true });
   $$('[data-devices-menu]', page).forEach(btn => {
     btn.onclick = e => {
       e.stopPropagation();
@@ -500,7 +531,8 @@ async function renderDevices(container, context) {
         (entry
           ? `<button type="button" data-m="rm" class="danger">移出受控名单</button>`
           : `<button type="button" data-m="join">加入受控名单</button>`);
-      btn.closest('.dev-ops').appendChild(m);
+      document.body.appendChild(m);
+      placeMenu(m, btn);
       openMenu = m;
       m.onclick = ev => {
         const b = ev.target.closest('[data-m]');
@@ -573,7 +605,6 @@ async function renderDevices(container, context) {
     };
   }
 // 9. 别名管理弹窗
-  if ($('#devices-open-alias-modal', page)) $('#devices-open-alias-modal', page).onclick = openAliasModal;
   $$('[data-devices-edit-alias]', page).forEach(btn => {
     btn.onclick = () => {
       const ip = btn.closest('[data-ip]')?.dataset.ip;
@@ -600,4 +631,6 @@ async function renderDevices(container, context) {
 }
 
 let autoCollecting = false;
+// 视图状态（模块级）：过滤 / 排序 / 关键词，在多次渲染之间保留（写操作后的静默重渲染会重置 render 闭包变量）
+const devView = { filter: 'all', sort: 'req', q: '' };
 export { renderDevices };

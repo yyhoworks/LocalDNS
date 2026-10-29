@@ -51,3 +51,6 @@
 }.badge.danger,.button.danger,.latency-chip.bad,.up-error-detail-trigger{color:var(--console-danger)}
 .workspace-upstream-groups{display:grid;gap:18px}.workspace-upstream-group{min-width:0}.workspace-upstream-group .gc-head{margin-bottom:12px;gap:16px}.workspace-upstream-total{font-size:12px;color:var(--text-2);font-variant-numeric:tabular-nums}.workspace-upstream-table{width:100%;min-width:850px;border-collapse:collapse}.workspace-upstream-table td,.workspace-upstream-table th{padding:12px 10px;border-bottom:1px solid var(--border-glass);font-size:12px;vertical-align:middle}.workspace-upstream-table th{color:var(--text-3);font-size:11px;font-weight:400;white-space:nowrap}.workspace-upstream-table td:nth-child(2){width:31%;max-width:370px}.workspace-upstream-table .mono{font-size:11px;overflow-wrap:anywhere}.workspace-upstream-table .workspace-actions{flex-wrap:nowrap}.workspace-upstream-table td:not(:nth-child(2)){font-variant-numeric:tabular-nums}
 @media(max-width:760px){.workspace-upstream-total{font-size:11px}}
+/* ≤600px 时恢复上游表格的横向滚动：全局 .table-wrap 在此断点被置为 overflow:visible，
+   而本表 min-width:850px 需要滚动容器，否则右侧操作列会被截断点不到 */
+@media(max-width:600px){.workspace-upstream-group .table-wrap{overflow-x:auto}}
