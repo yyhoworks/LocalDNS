@@ -569,7 +569,7 @@
 .traffic-line-alt{fill:none;stroke:var(--console-success);stroke-width:1.8;stroke-linejoin:round;vector-effect:non-scaling-stroke;stroke-opacity:.92}
 .traffic-axis-alt{fill:var(--console-success);fill-opacity:.85;font-size:11px;font-family:var(--font-mono)}
 .glass-card.traffic-alarm{border-color:rgba(248,113,113,.42);box-shadow:0 0 0 1px rgba(248,113,113,.16),0 10px 40px rgba(248,113,113,.10)}
-.traffic-caption {display:flex;flex-wrap:wrap;justify-content:space-between;gap:6px 16px;font-size:11px;color:var(--text-2);line-height:1.6;padding-top:8px;}
+.traffic-caption {display:flex;flex-wrap:wrap;justify-content:space-between;gap:6px 16px;font-size:11.5px;color:var(--text-2);line-height:1.6;padding-top:8px;}
 @media(max-width:600px) {
   .traffic-metric-tabs{gap:6px}
   .traffic-metric-tabs button{flex:1;min-height:44px;padding:8px 10px}
@@ -1083,3 +1083,9 @@
 .console-health-strip .chs-actions { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
 .console-health-strip .chs-actions .glass-btn[aria-pressed="true"] { color:var(--primary-light); background:var(--selection-fill,var(--glass-pill-active)); border-color:var(--border-highlight); }
 .topo-stage-wrap.only-active-flow .t-node[data-zero-flow="true"] { opacity:0.28; filter:saturate(0.25); }
+
+.traffic-storage-note { color:var(--text-2); }
+.dev-sub { color:var(--text-2); }
+/* 触控目标：行内按钮补足最小热区 */
+.dev-hbtn { min-height:34px; }
+.dev-table .icon-button, .dev-table .dev-act { min-height:34px; min-width:34px; }

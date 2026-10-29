@@ -552,3 +552,9 @@ body[data-console-route="rules"] .rp-foot{flex-wrap:wrap}
    带 display:flex 且特异性更高，原先位于文件中段的 .rule-menu{display:none} 在真实
    控制台路由下从不生效；同特异性、更靠后才能真正隐藏。 */
 @media(max-width:600px){.rule-menu,body[data-console-route="rules"] .rule-menu{display:none}}
+
+/* 名单分组：标签与页签明确区分，组间加分隔线 */
+.rule-menu { display:flex; flex-wrap:wrap; align-items:center; gap:6px 0; }
+.rule-menu-group { display:flex; align-items:center; gap:4px; }
+.rule-menu-group + .rule-menu-group { margin-left:14px; padding-left:14px; border-left:1px solid var(--border-glass); }
+.rule-menu-group-label { font-size:11px; font-weight:600; letter-spacing:.06em; color:var(--text-3); margin-right:8px; white-space:nowrap; user-select:none; }
