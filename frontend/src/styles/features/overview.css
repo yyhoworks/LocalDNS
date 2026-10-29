@@ -1051,6 +1051,7 @@
 .dev-menu button:hover { background:var(--glass-pill); }
 .dev-menu button.danger { color:var(--console-danger); }
 .dev-col-ops { display:flex; align-items:center; justify-content:flex-end; gap:6px; flex-wrap:wrap; }
+.dev-actions { display:flex; align-items:center; gap:6px; flex-wrap:wrap; }
 .dev-hbtn { background:var(--glass-pill); border:1px solid var(--border-glass); color:var(--text-1); border-radius:8px; padding:5px 11px; font-size:12px; cursor:pointer; white-space:nowrap; }
 .dev-hbtn:hover { border-color:var(--primary); color:var(--primary); }
 .dev-hbtn:disabled { opacity:.45; cursor:not-allowed; }
