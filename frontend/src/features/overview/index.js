@@ -6,7 +6,7 @@ import { overviewInsightsService } from './insights.js';
 import { workspaceService } from '../../shared/workspace.js';
 import { clientsService } from '../logs/clients.js';
 import { setHTML } from '../../core/security/safe-dom.ts';
-import { loadAliases, openAliasModal } from '../logs/aliases.js';
+import { loadAliases } from '../logs/aliases.js';
 import { api } from '../../core/api/api.js';
 import { safe, safeResult } from '../../shared/async.js';
 import { parseProm } from '../../shared/metrics/prometheus.ts';
@@ -79,12 +79,13 @@ import { cacheName } from '../management/index.js';
     const cacheValue = cacheState === 'off' ? '已关闭' : cacheState === 'unknown' ? '未知' : pct(overallHitRate);
 
     const now = Date.now();
-    // CPU 占用统一用相邻两次渲染的增量口径（ΔCPU 秒 / Δ墙钟秒），并钳制到
-    // 100% 以内。首帧没有前值样本时显示「—」，不再用「进程生命周期平均」
-    // 冒充当前占用（旧实现首帧与后续帧口径不一致，且多核可超过 100%）。
+    // CPU 占用优先用相邻两次渲染的增量口径（ΔCPU 秒 / Δ墙钟秒），首帧无前值时
+    // 回退进程运行均值以消除首屏空值，统一钳制到 100% 以内。
     let cpuPct = null;
     if (cpuSample.total != null && cpuSample.at != null && sys.cpu >= cpuSample.total && now > cpuSample.at) {
       cpuPct = Math.min(100, Math.max(0, (sys.cpu - cpuSample.total) / ((now - cpuSample.at) / 1000) * 100));
+    } else if (sys.uptime > 0 && sys.cpu >= 0) {
+      cpuPct = Math.min(100, Math.max(0, (sys.cpu / sys.uptime) * 100));
     }
     cpuSample.total = sys.cpu; cpuSample.at = now;
 
@@ -241,6 +242,34 @@ import { cacheName } from '../management/index.js';
       muted: Boolean(topoClients.find(c => c.id === from)?.muted || topoServers.find(s => s.id === to)?.muted)
     }));
 
+    // 上游健康统计、国内并发竞速均值、慢查询与异常摘要（供首屏服务条与趋势图共享）
+    const enabledUps = allRealUps.filter(x => x.u.enabled !== false);
+    const faultyUps = enabledUps.filter(x => x.m.err > 0 && (x.m.success !== null ? x.m.success < 80 : x.m.win === 0));
+    const healthyUpsCount = Math.max(0, enabledUps.length - faultyUps.length);
+    const domActiveUps = (groupUpstreams.domestic || []).filter(x => x.u.enabled !== false && x.m.latency > 0);
+    const domAvgNum = domActiveUps.length ? domActiveUps.reduce((s, x) => s + x.m.latency, 0) / domActiveUps.length : 0;
+    const domAvgTxt = domActiveUps.length ? `${domAvgNum.toFixed(1)} ms` : '就绪';
+    const domTopAdopted = (groupUpstreams.domestic || []).filter(x => x.u.enabled !== false && x.m.q > 0).sort((a, b) => b.m.adoption - a.m.adoption).slice(0, 2);
+    const domAdoptedTxt = domTopAdopted.map(x => `${esc(x.u.tag)} ${Math.round(x.m.adoption)}% 采纳`).join(' · ');
+    const domShortLabel = domTopAdopted.length ? domTopAdopted.map(x => x.u.tag).join('/') : '国内竞速';
+    const totalUpErr = allRealUps.reduce((s, x) => s + (+x.m.err || 0), 0);
+    const slowOver100Count = slowGroups.filter(g => (+g.duration_ms || 0) >= 100).length;
+    const maxSlowMs = slowGroups.length ? Math.round(+slowGroups[0].duration_ms || 0) : Math.round(+stats.average_duration_ms || 0);
+    const p95Ms = slowGroups.length > 1 ? Math.round(+slowGroups[Math.min(1, slowGroups.length - 1)].duration_ms || 0) : maxSlowMs;
+    const clientModeText = clientMode === 'fakeip' ? '指定 FakeIP' : clientMode === 'realip' ? '指定 RealIP' : clientMode === 'all' ? '全员分流' : '状态未知';
+    const shortcutsSummary = `当前策略：${clientModeText} · 核心缓存 ${cacheState==='on'?'开':cacheState==='off'?'关':'未知'} · 过期缓存 ${lazyState==='on'?'开':lazyState==='off'?'关':'未知'} · AdGuard ${sw.switch7==='A'?'已开启':sw.switch7==='B'?'未启用':'未知'}`;
+
+    trafficClientService.setOverviewContext?.({
+      avgLatencyMs: Number.isFinite(+stats.average_duration_ms) ? +stats.average_duration_ms : null,
+      upstreamAvgMs: domAvgNum > 0 ? domAvgNum : null,
+      upstreamLabel: domShortLabel,
+      p95Ms,
+      maxSlowMs,
+      failCount: totalUpErr,
+      slowOver100Count,
+      slowSpikes: slowGroups.slice(0, 2).map(g => ({ domain: g.query_name, ms: +g.duration_ms || 0 }))
+    });
+
     // 分流结果占比环形图数据（基于真实 domain_set 排行 ds）
     const dsTotal = Math.max(1, outcomes.total);
     const outcomeColor = key => overviewInsightsService.color(key,isClaude?'claude':'glass');
@@ -253,7 +282,7 @@ import { cacheName } from '../management/index.js';
     }).join('');
 
     setHTML(page, `
-      <div class="view-title-row">
+      <div class="view-title-row" data-shortcuts-summary="${esc(shortcutsSummary)}">
         <div style="display:flex;align-items:baseline;gap:12px">
           <h1>运行概览</h1>
           <span class="mono" style="font-size:12px;color:var(--text-3)">${esc([sys.version || engineStatus?.version || 'FJG20', sys.platform, sys.runtime !== '—' ? sys.runtime : ''].filter(Boolean).join(' · '))}</span>
@@ -266,13 +295,31 @@ import { cacheName } from '../management/index.js';
             <span class="service-health-mark" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="10"/><path data-service-check d="m7 12 3 3 7-7"/></svg></span>
             <div class="service-health-copy">
               <div class="service-health-title"><h2 id="service-summary-title">DNS 服务运行中</h2><span class="service-connection">已连接</span></div>
-              <p class="service-build mono">${esc([sys.version || engineStatus?.version || 'FJG20', sys.platform, sys.runtime !== '—' ? sys.runtime : ''].filter(Boolean).join(' · '))}</p>
+              <p class="service-build mono">${esc([sys.version || engineStatus?.version || 'FJG20', sys.platform, sys.runtime !== '—' ? sys.runtime : ''].filter(Boolean).join(' · '))}${sys.start ? ` · 启动于 ${startTimeMarkup(sys.start)}` : ''}</p>
             </div>
           </div>
-          <div class="service-metric" data-service-metric="start"><div class="service-metric-label"><span>启动时间</span>${icon('clock')}</div><div class="service-value service-start-value">${startTimeMarkup(sys.start)}</div></div>
           <div class="service-metric" data-service-metric="uptime"><div class="service-metric-label"><span>运行时长</span>${icon('uptime')}</div><div class="service-value service-uptime-value">${sys.start?overviewUptimeMarkup(sys.uptime):'—'}</div></div>
+          <div class="service-metric" data-service-metric="upstreams" data-route="upstreams" style="cursor:pointer" title="点击查看上游 DNS 节点与健康状态"><div class="service-metric-label"><span>上游 DNS 健康</span>${icon('globe')}</div><div class="service-value service-uptime-value"><span class="overview-duration-part"><span class="overview-duration-num" style="color:${faultyUps.length ? 'var(--amber)' : 'var(--console-success)'}">${enabledUps.length ? `${healthyUpsCount}/${enabledUps.length}` : '—'}</span><span class="overview-duration-unit">${faultyUps.length ? `(${faultyUps.length} 异常)` : '启用在线'}</span></span></div></div>
           <div class="service-metric" data-service-metric="cpu"><div class="service-metric-label"><span>进程 CPU</span>${icon('cpu')}</div><div class="service-value" data-display-number>${cpuPct!=null?cpuPct.toFixed(1)+'%':'—'}</div></div>
           <div class="service-metric" data-service-metric="memory"><div class="service-metric-label"><span>内存占用</span>${icon('memory')}</div><div class="service-value" data-display-number>${metrics.some(m=>m.name==='process_resident_memory_bytes')?fmtBytesBrief(sys.rss):'—'}</div></div>
+        </div>
+        <div class="console-health-strip ${faultyUps.length ? 'is-anomaly' : ''}">
+          <div class="chs-left">
+            <span class="chs-tag">${faultyUps.length ? `● ${faultyUps.length} 项待处理告警` : '✓ 链路健康'}</span>
+            <div class="chs-items">
+              ${faultyUps.length
+                ? `<span>1. <strong>${esc(faultyUps[0].u.tag)}</strong> 累计 ${num(faultyUps[0].m.err)} 次连接超时或异常</span>
+                   <span>2. 最近 ${num(stats.total_queries)} 次查询 · 慢查询(&gt;100ms) ${num(slowOver100Count)} 组</span>`
+                : `<span>国内并发竞速均值 <strong>${esc(domAvgTxt)}</strong>${domAdoptedTxt ? `（${domAdoptedTxt}）` : ''}</span>
+                   <span>最近 ${num(stats.total_queries)} 次查询 <strong>${num(totalUpErr)} 次 SERVFAIL</strong> · 慢查询(&gt;100ms) ${slowOver100Count ? `仅 ${num(slowOver100Count)} 组` : '0 组'}</span>`}
+            </div>
+          </div>
+          <div class="chs-actions">
+            ${faultyUps.length
+              ? `<button type="button" class="glass-btn" data-chs-lock="r3">定位超时拓扑路径</button>
+                 <button type="button" class="glass-btn" data-route="upstreams">去上游 DNS 排查 ›</button>`
+              : `<button type="button" class="glass-btn" data-chs-lock="r1">高亮当前主流量路径</button>`}
+          </div>
         </div>
       </section>
 
@@ -289,7 +336,7 @@ import { cacheName } from '../management/index.js';
               <button type="button" class="seg-item ${clientMode==='fakeip'?'active':''}" data-client-mode="fakeip" ${clientMode==='unknown'?'disabled':''} title="${clientMode==='unknown'?'分流开关读取失败，状态未知，暂不可切换':'switch2：只允许指定客户端科学'}">指定 FakeIP</button>
               <button type="button" class="seg-item ${clientMode==='realip'?'active':''}" data-client-mode="realip" ${clientMode==='unknown'?'disabled':''} title="${clientMode==='unknown'?'分流开关读取失败，状态未知，暂不可切换':'switch12：指定客户端不允许科学'}">指定 RealIP</button>
             </div>
-            <button type="button" class="glass-btn" id="manage-alias">别名</button>
+            <button type="button" class="glass-btn" id="manage-alias">名单与别名 ›</button>
           </div>
         </div>
       </div>
@@ -331,7 +378,7 @@ import { cacheName } from '../management/index.js';
             <div class="sk-val tabular">${num(stats.total_queries)}</div>
             <svg class="sk-chart" viewBox="0 0 100 34" fill="none" aria-hidden="true"></svg>
           </div>
-          <div class="sk-note">${cacheState==='off' ? '缓存已关闭' : cacheState==='unknown' ? '缓存开关状态未知' : '缓存命中占 ' + pct(overallHitRate)}</div>
+          <div class="sk-note">${cacheState==='off' ? '缓存已关闭' : cacheState==='unknown' ? '缓存开关状态未知' : `缓存命中占 ${pct(overallHitRate)} · ${num(totalUpErr)} 失败`}</div>
         </div>
       </div>
 
@@ -342,7 +389,7 @@ import { cacheName } from '../management/index.js';
             <div class="sk-val tabular">${cacheValue}</div>
             <svg class="sk-chart" viewBox="0 0 100 34" fill="none" aria-hidden="true"></svg>
           </div>
-          <div class="sk-note">${activeCachePoolCount} 个活跃缓存池</div>
+          <div class="sk-note">${cacheState==='off' ? '核心缓存已手动关闭' : cacheState==='unknown' ? '核心缓存状态未知' : `国内池 ${cDom.hit.toFixed(1)}% · 乐观过期 ${Math.max(cMain.lazy, cDom.lazy).toFixed(1)}%`}</div>
         </div>
       </div>
 
@@ -353,7 +400,7 @@ import { cacheName } from '../management/index.js';
             <div class="sk-val tabular">${clientCount}</div>
             <svg class="sk-chart" viewBox="0 0 100 34" fill="none" aria-hidden="true"></svg>
           </div>
-          <div class="sk-note">活跃来源 IP</div>
+          <div class="sk-note">活跃来源 IP · ${clientModeText} ›</div>
         </div>
       </div>
 
@@ -364,7 +411,7 @@ import { cacheName } from '../management/index.js';
             <div class="sk-val tabular">${fullNum(adguardBlocked)}</div>
             <svg class="sk-chart" viewBox="0 0 100 34" fill="none" aria-hidden="true"></svg>
           </div>
-          <div class="sk-note">${blockedPct != null ? `${blockedPctText} 的请求被 AdGuard 拦截（引擎拦截数 ÷ 审计累计请求，窗口可能不一致）` : '— 的请求被 AdGuard 拦截（运行统计暂不可用，分母缺失）'}</div>
+          <div class="sk-note">${sw.switch7==='A' ? (blockedPct != null ? `已拦截 ${blockedPctText} 请求` : 'AdGuard 拦截已启用') : `未启用 · 黑名单 ${num(rRules.block || 0)} 条生效`}</div>
         </div>
       </div>
 
@@ -375,7 +422,7 @@ import { cacheName } from '../management/index.js';
             <div class="sk-val tabular" style="color:#F59E0B">${ms(stats.average_duration_ms)}</div>
             <svg class="sk-chart" viewBox="0 0 100 34" fill="none" aria-hidden="true"></svg>
           </div>
-          <div class="sk-note">当前浏览器会话采样</div>
+          <div class="sk-note">上游竞速 <strong>${esc(domAvgTxt)}</strong> · P95 ${num(p95Ms)} ms</div>
         </div>
       </div>
 
@@ -462,7 +509,7 @@ import { cacheName } from '../management/index.js';
                 <div class="topo-col-title"><span>03</span>分流规则集</div>
                 <div class="topo-col-body">
                   ${topoRules.map(r => `
-                    <div class="t-node" data-node-id="${r.id}" data-rule-jump="${r.tab}">
+                    <div class="t-node" data-node-id="${r.id}" data-rule-jump="${r.tab}" data-zero-flow="${r.val === '0' || r.val === '—' ? 'true' : 'false'}">
                       <div class="tn-left">
                         <div class="tn-icon-box">${getNodeIcon(r.icon, r.iconColor)}</div>
                         <div class="tn-meta">
@@ -480,7 +527,7 @@ import { cacheName } from '../management/index.js';
                 <div class="topo-col-title"><span>04</span>上游策略组</div>
                 <div class="topo-col-body">
                   ${topoGroups.map(g => `
-                    <div class="t-node" data-node-id="${g.id}" data-route="upstreams">
+                    <div class="t-node" data-node-id="${g.id}" data-route="upstreams" data-zero-flow="${/\b0\s*(?:次|拦截)$/.test(g.sub) ? 'true' : 'false'}">
                       <div class="tn-left">
                         <div class="tn-icon-box" style="color:${g.codeColor};background:${g.codeBg};border-color:${g.codeColor}33">${esc(g.code)}</div>
                         <div class="tn-meta">
@@ -497,7 +544,7 @@ import { cacheName } from '../management/index.js';
                 <div class="topo-col-title"><span>05</span>上游 DNS 节点</div>
                 <div class="topo-col-body">
                   ${topoServers.map(s => `
-                    <div class="t-node" data-node-id="${s.id}" data-route="upstreams">
+                    <div class="t-node" data-node-id="${s.id}" data-route="upstreams" data-zero-flow="${s.muted || /^0\b/.test(s.badge) ? 'true' : 'false'}">
                       <div class="tn-left">
                         <div class="tn-icon-box">${getNodeIcon(s.icon, '#94A3B8')}</div>
                         <div class="tn-meta">
@@ -794,7 +841,7 @@ import { cacheName } from '../management/index.js';
         }
       };
     });
-    if ($('#manage-alias')) $('#manage-alias').onclick = openAliasModal;
+    if ($('#manage-alias')) $('#manage-alias').onclick = () => navigate('devices');
     if ($('#kpi-card-clients')) $('#kpi-card-clients').onclick = () => navigate('devices');
     if ($('#kpi-card-domains')) $('#kpi-card-domains').onclick = () => openDomainDetailModal(domains || []);
     if ($('#slow-detail-button')) $('#slow-detail-button').onclick = () => openSlowDetailModal(slowGroups);

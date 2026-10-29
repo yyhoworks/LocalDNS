@@ -21,7 +21,7 @@ const routeDefs = [
     label: '解析',
     icon: 'upstream',
     navSvg: '<circle cx="12" cy="12" r="9"/><path d="M3.6 9h16.8M3.6 15h16.8M12 3a15 15 0 0 1 0 18M12 3a15 15 0 0 0 0 18"/>',
-    dot: true,
+
     subtitle: '管理上游 DNS 服务器并查看请求、采纳与错误统计',
     keywords: ['解析', '上游', 'dns', 'dns管理', 'upstreams']
   },

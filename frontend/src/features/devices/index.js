@@ -112,20 +112,40 @@ async function renderDevices(container, context) {
     ...controlledEntries.map(e => e.ip)
   ])];
 
+  const effectivePolicy = entry => {
+    if (clientMode === 'fakeip') return entry.enabled ? 'fakeip' : 'realip';
+    if (clientMode === 'realip') return entry.enabled ? 'realip' : 'fakeip';
+    if (clientMode === 'all') return 'all';
+    return 'unknown';
+  };
+
   const strategyBadgeHtml = entry => {
-    if (!entry.enabled) {
-      return '<span class="devices-badge is-muted">已停用</span>';
-    }
-    if (clientMode === 'fakeip') {
+    const policy = effectivePolicy(entry);
+    if (policy === 'fakeip') {
       return '<span class="devices-badge is-fakeip">✓ FakeIP 科学分流</span>';
     }
-    if (clientMode === 'realip') {
-      return '<span class="devices-badge is-realip">✓ 强制 RealIP</span>';
+    if (policy === 'realip') {
+      return '<span class="devices-badge is-realip">→ RealIP 真实解析</span>';
     }
-    if (clientMode === 'all') {
-      return '<span class="devices-badge is-standby">全员分流中（名单待命）</span>';
+    if (policy === 'all') {
+      return `<span class="devices-badge is-standby">全员分流中（名单${entry.enabled ? '待命' : '停用'}）</span>`;
     }
     return '<span class="devices-badge is-muted">策略状态未知</span>';
+  };
+
+  const rowControlHtml = entry => {
+    const policy = effectivePolicy(entry);
+    if (clientMode === 'fakeip' || clientMode === 'realip') {
+      const fakeNextEnabled = clientMode === 'fakeip' ? '1' : '0';
+      const realNextEnabled = clientMode === 'realip' ? '1' : '0';
+      return `
+        <div class="seg-group devices-inline-seg" role="group" aria-label="单机分流策略 ${esc(entry.ip)}">
+          <button type="button" class="seg-item ${policy === 'fakeip' ? 'active' : ''}" data-devices-toggle-line="${entry.lineIndex}" data-devices-next-enabled="${fakeNextEnabled}" data-devices-target-policy="fakeip" ${policy === 'fakeip' ? 'aria-pressed="true"' : 'aria-pressed="false"'} title="让 ${esc(entry.ip)} 走 FakeIP 科学分流">FakeIP</button>
+          <button type="button" class="seg-item ${policy === 'realip' ? 'active' : ''}" data-devices-toggle-line="${entry.lineIndex}" data-devices-next-enabled="${realNextEnabled}" data-devices-target-policy="realip" ${policy === 'realip' ? 'aria-pressed="true"' : 'aria-pressed="false"'} title="让 ${esc(entry.ip)} 强制返回 RealIP 真实解析">RealIP</button>
+        </div>
+      `;
+    }
+    return `<button type="button" class="button small" data-devices-toggle-line="${entry.lineIndex}" data-devices-next-enabled="${entry.enabled ? '0' : '1'}">${entry.enabled ? '停用' : '启用'}</button>`;
   };
 
   setHTML(page, `
@@ -158,9 +178,9 @@ async function renderDevices(container, context) {
             <strong>当前全局客户端策略：</strong>
             <small>${
               clientMode === 'fakeip'
-                ? '仅下方受控名单内启用的客户端允许返回 FakeIP 科学分流'
+                ? '下方每台设备可直接切换「FakeIP / RealIP」；未列入名单的其它内网设备默认走 RealIP 真实解析'
                 : clientMode === 'realip'
-                  ? '下方受控名单内启用的客户端强制返回真实 IP（不走 FakeIP）'
+                  ? '下方每台设备可直接切换「FakeIP / RealIP」；未列入名单的其它内网设备默认走 FakeIP 科学分流'
                   : clientMode === 'all'
                     ? '局域网所有设备默认按分流规则正常解析，下方受控名单保留待命'
                     : '分流开关状态读取失败，暂不可切换'
@@ -186,20 +206,20 @@ async function renderDevices(container, context) {
                   <th>客户端 IP / 网段</th>
                   <th>设备别名</th>
                   <th>当前生效策略</th>
-                  <th>状态与操作</th>
+                  <th>单机策略与操作</th>
                 </tr>
               </thead>
               <tbody>
                 ${controlledEntries.length ? controlledEntries.map(entry => {
                   const alias = clientAliases[entry.ip] || entry.note || '—';
                   return `
-                    <tr class="${entry.enabled ? '' : 'is-disabled'}">
+                    <tr class="${clientMode === 'all' && !entry.enabled ? 'is-disabled' : ''}">
                       <td class="mono"><button type="button" class="workspace-text-button mono" data-devices-log-ip="${esc(entry.ip)}">${esc(entry.ip)}</button></td>
                       <td>${esc(alias)}</td>
                       <td>${strategyBadgeHtml(entry)}</td>
                       <td>
                         <div class="devices-row-actions">
-                          <button type="button" class="button small" data-devices-toggle-line="${entry.lineIndex}" data-devices-next-enabled="${entry.enabled ? '0' : '1'}">${entry.enabled ? '停用' : '启用'}</button>
+                          ${rowControlHtml(entry)}
                           <button type="button" class="button small danger" data-devices-delete-line="${entry.lineIndex}" data-devices-note-line="${entry.noteLineIndex ?? ''}" aria-label="移出受控名单 ${esc(entry.ip)}">移除</button>
                         </div>
                       </td>
@@ -245,6 +265,7 @@ async function renderDevices(container, context) {
                 const alias = clientAliases[ip] || (isLoopback ? 'LocalDNS' : '—');
                 const count = recordedMap.get(ip);
                 const inControlled = controlledIpSet.has(ip);
+                const addLabel = clientMode === 'fakeip' ? '+ 加入 FakeIP 名单' : clientMode === 'realip' ? '+ 加入 RealIP 名单' : '+ 加入受控名单';
                 return `
                   <tr>
                     <td class="mono"><button type="button" class="workspace-text-button mono" data-devices-log-ip="${esc(ip)}" title="查看 ${esc(ip)} 的查询日志">${esc(ip)}</button></td>
@@ -256,7 +277,7 @@ async function renderDevices(container, context) {
                           ? '<span class="devices-status-tag">本机系统</span>'
                           : inControlled
                             ? '<span class="devices-status-tag">已在受控名单</span>'
-                            : `<button type="button" class="button small" data-devices-add-ip="${esc(ip)}" ${clientIpLoadError ? 'disabled' : ''}>+ 加入受控名单</button>`
+                            : `<button type="button" class="button small" data-devices-add-ip="${esc(ip)}" ${clientIpLoadError ? 'disabled' : ''}>${addLabel}</button>`
                         }
                       </div>
                     </td>
@@ -332,16 +353,22 @@ async function renderDevices(container, context) {
     renderRoute(true, true);
   };
 
-  // 3. 单条启停与移除
+  // 3. 单条 FakeIP/RealIP 策略切换或启停与移除
   $$('[data-devices-toggle-line]', page).forEach(btn => {
     btn.onclick = async () => {
-      if (clientIpLoadError) return;
+      if (clientIpLoadError || btn.classList.contains('active')) return;
       const lineIndex = Number(btn.dataset.devicesToggleLine);
       const nextEnabled = btn.dataset.devicesNextEnabled === '1';
+      const targetPolicy = btn.dataset.devicesTargetPolicy;
       btn.disabled = true;
       try {
         const nextText = serializeToggleLine(clientIpText, lineIndex, nextEnabled);
-        await saveClientIpList(nextText, nextEnabled ? '受控客户端已启用' : '受控客户端已停用');
+        const msg = targetPolicy === 'fakeip'
+          ? '已将该设备切换为 FakeIP 科学分流'
+          : targetPolicy === 'realip'
+            ? '已将该设备切换为 RealIP 真实解析'
+            : nextEnabled ? '受控客户端已启用' : '受控客户端已停用';
+        await saveClientIpList(nextText, msg);
       } catch (e) {
         btn.disabled = false;
         toast('操作失败', 'error', e.message);

@@ -6,7 +6,7 @@ import { assetHttp } from '../../../core/api/network.ts';
 export let trafficClientService;
 export function initialize() {
   const series=[];
-  let range=60,metric='qps',pending=null,lastAttempt=0,error='',storageError='',loading=true,mountedScope,breakNext=true;
+  let range=60,metric='anomaly',overviewContext=null,pending=null,lastAttempt=0,error='',storageError='',loading=true,mountedScope,breakNext=true;
   const overview=()=>!location.hash||location.hash==='#/overview'||location.hash==='#overview';
   const base=()=>new URL(String(window.LOCALDNS_UI_CONFIG?.apiBase||location.origin).replace(/\/$/,''),location.origin);
   const source=base().href.replace(/\/$/,'');
@@ -18,9 +18,10 @@ export function initialize() {
   }).catch(()=>{storageError='无法读取浏览器历史';}).finally(()=>{loading=false;redraw();});
   function draw(container,minutes=range){
     if(!container?.isConnected)return;range=minutes;container.dataset.trafficMinutes=String(minutes);
-    trafficService.render(container,series,minutes,Date.now(),{metric,error,storageError,loading});
+    trafficService.render(container,series,minutes,Date.now(),{metric,error,storageError,loading,overviewContext});
   }
   function redraw(){for(const container of document.querySelectorAll('.traffic-chart-body'))draw(container,Number(container.dataset.trafficMinutes)||range);}
+  function setOverviewContext(ctx){overviewContext=ctx;redraw();}
   async function refresh(force=false){
     const scope=currentScope();
     if(pending?.scope===scope)return pending.promise;
@@ -72,5 +73,5 @@ export function initialize() {
     refresh(true);
   }
   function mount(container,minutes){draw(container,minutes);start();}
-  trafficClientService={render:draw,refresh,start,mount,ready};
+  trafficClientService={render:draw,refresh,start,mount,ready,setOverviewContext};
 }

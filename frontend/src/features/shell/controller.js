@@ -32,7 +32,6 @@ import { routeDefs } from '../../core/router/routes.js';
       <button type="button" class="nav-item${i === 0 ? ' active' : ''}" data-route="${r.id}" title="${r.label}" aria-label="${r.label}">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">${r.navSvg}</svg>
         <span>${r.label}</span>
-        ${r.dot ? '<i class="nav-item-dot" aria-hidden="true"></i>' : ''}
       </button>`).join('')}</div>`;
   }
 

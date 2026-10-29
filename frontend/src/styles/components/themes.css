@@ -409,7 +409,7 @@ html[data-skin="claude"] .toast {
 @media (min-width: 901px) {
   html[data-nav="collapsed"] .navigation-tools > span,
   html[data-nav="collapsed"] #side-nav .nav-item > span,
-  html[data-nav="collapsed"] #side-nav .nav-item-dot,
+
   html[data-nav="collapsed"] #sidebar .sidebar-status-copy { display: none; }
 }
 
