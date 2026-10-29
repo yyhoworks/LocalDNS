@@ -231,18 +231,20 @@ async function renderDevices(container, context) {
       <div class="dev-search">
         <div class="dev-searchbox"><input type="text" id="devices-q" placeholder="搜索别名、IP…" autocomplete="off"></div>
         <button type="button" class="dev-sortbtn" id="devices-sort">⇅ 请求数 ↓</button>
-      
-        <div class="dev-actions">
-          <button type="button" class="dev-hbtn" id="devices-add-controlled" ${clientIpLoadError ? 'disabled' : ''}>+ 新增受控 IP</button>
-                    <button type="button" class="dev-hbtn" id="devices-edit-raw" ${clientIpLoadError ? 'disabled' : ''}>原文编辑</button>
-                    <button type="button" class="dev-hbtn" id="devices-open-alias-modal">管理全部别名</button>
-        </div>
       </div>
     </div>
 
     ${clientIpLoadError ? `<div class="dev-errpanel"><strong>受控客户端 IP 名单读取失败</strong><p>${esc(clientIpLoadError.message)}</p></div>` : ''}
 
-    <div class="dev-table">
+        <div class="dev-tablehead">
+      <div class="dev-tablehead-title">设备列表<span>共 ${counts.all} 台 · 受控 ${counts.all - counts.none} · 未受控 ${counts.none}</span></div>
+      <div class="dev-actions">
+        <button type="button" class="dev-hbtn" id="devices-add-controlled" ${clientIpLoadError ? 'disabled' : ''}>+ 新增受控 IP</button>
+                    <button type="button" class="dev-hbtn" id="devices-edit-raw" ${clientIpLoadError ? 'disabled' : ''}>原文编辑</button>
+                    <button type="button" class="dev-hbtn" id="devices-open-alias-modal">管理全部别名</button>
+      </div>
+    </div>
+<div class="dev-table">
       <div class="dev-thead">
         <div><input type="checkbox" class="dev-ck" id="devices-ck-all" aria-label="全选"></div>
         <div>设备</div><div>生效策略</div><div class="dev-col-act">活跃度</div><div class="dev-col-ctl">单机策略</div>

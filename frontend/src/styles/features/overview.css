@@ -1051,6 +1051,10 @@
 .dev-menu button:hover { background:var(--glass-pill); }
 .dev-menu button.danger { color:var(--console-danger); }
 .dev-col-ops { display:flex; align-items:center; justify-content:flex-end; gap:6px; flex-wrap:wrap; }
+.dev-tablehead { display:flex; align-items:center; gap:12px; margin:10px 2px 10px; flex-wrap:wrap; }
+.dev-tablehead-title { font-size:13px; font-weight:600; color:var(--text-1); }
+.dev-tablehead-title span { font-weight:400; font-size:12px; color:var(--text-3); margin-left:9px; }
+.dev-tablehead .dev-actions { margin-left:auto; }
 .dev-actions { display:flex; align-items:center; gap:6px; flex-wrap:wrap; }
 .dev-hbtn { background:var(--glass-pill); border:1px solid var(--border-glass); color:var(--text-1); border-radius:8px; padding:5px 11px; font-size:12px; cursor:pointer; white-space:nowrap; }
 .dev-hbtn:hover { border-color:var(--primary); color:var(--primary); }
