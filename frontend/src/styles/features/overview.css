@@ -539,6 +539,44 @@
 .traffic-point {fill:var(--console-line);}
 .traffic-peak{stroke:var(--console-line);stroke-width:1;stroke-opacity:.55;vector-effect:non-scaling-stroke}
 .traffic-grid {stroke:var(--text-3);stroke-opacity:.2;stroke-dasharray:3 5;}
+/* KPI strip: health / upstream race / average / tail in one bordered row. */
+.traffic-kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));margin:16px 0 10px;background:rgba(127,127,127,.05);border:1px solid var(--border-glass);border-radius:12px;overflow:hidden}
+.traffic-kpi{padding:13px 18px;position:relative;min-width:0}
+.traffic-kpi+.traffic-kpi::before{content:"";position:absolute;left:0;top:14px;bottom:14px;width:1px;background:var(--border-glass)}
+.traffic-kpi dt{font-size:12px;color:var(--text-2);display:flex;align-items:center;gap:7px;margin:0 0 4px}
+.traffic-kpi dd{margin:0;font-family:var(--font-mono);font-size:22px;line-height:1.3;color:var(--text-1);font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
+.traffic-kpi dd small{font-family:var(--font-sans);font-size:11.5px;color:var(--text-2);margin-left:4px}
+.traffic-kpi dd.traffic-kpi-note{font-family:var(--font-sans);font-size:11.5px;color:var(--text-3);margin-top:3px;overflow-wrap:anywhere}
+.traffic-kpi.is-health[data-route]{cursor:pointer}
+.traffic-kpi.is-health[data-route]:hover{background:rgba(127,127,127,.06)}
+.traffic-health-dot{width:8px;height:8px;border-radius:50%;background:var(--console-success);box-shadow:0 0 7px var(--console-success);flex:none}
+.traffic-health-dot.is-bad{background:var(--console-danger);box-shadow:0 0 7px var(--console-danger);animation:trafficPulse 1.5s infinite}
+@keyframes trafficPulse{50%{opacity:.4}}
+.traffic-health-value{font-size:22px;font-weight:600;color:var(--console-success)}
+.traffic-health-value.is-bad{color:var(--console-danger)}
+/* Legend lives in HTML so it wraps and keeps readable type at any width. */
+.traffic-legend{display:flex;flex-wrap:wrap;gap:8px 18px;margin:2px 2px 6px;font-size:11.5px;color:var(--text-3)}
+.traffic-legend i{display:inline-block;width:14px;height:3px;border-radius:2px;margin-right:6px;vertical-align:middle}
+.traffic-legend i.is-line{background:var(--console-line)}
+.traffic-legend i.is-slow{background:var(--amber,#f59e0b)}
+.traffic-legend i.is-bar{background:var(--console-line);opacity:.45}
+.traffic-legend i.is-cache{background:var(--console-success)}
+.traffic-grad-top{stop-color:var(--console-line);stop-opacity:.26}
+.traffic-grad-bottom{stop-color:var(--console-line);stop-opacity:0}
+.traffic-threshold{stroke:var(--console-danger);stroke-opacity:.45;stroke-width:1.2;stroke-dasharray:5 5;vector-effect:non-scaling-stroke}
+.traffic-threshold-label{fill:var(--console-danger);font-size:10.5px;font-family:var(--font-mono)}
+.traffic-peak-dot{fill:var(--console-line)}
+.traffic-peak-dot.is-slow{fill:var(--amber,#f59e0b)}
+.traffic-callout-box{fill:rgba(127,127,127,.14);stroke:var(--border-glass)}
+.traffic-callout-box.is-slow{fill:rgba(245,158,11,.16);stroke:rgba(245,158,11,.42)}
+.traffic-callout-text{fill:var(--text-1);font-size:11.5px;font-family:var(--font-mono)}
+.traffic-last-value{fill:var(--console-line);font-size:11.5px;font-family:var(--font-mono)}
+.traffic-bar{fill:var(--console-line);fill-opacity:.42}
+.traffic-line-alt{fill:none;stroke:var(--console-success);stroke-width:1.8;stroke-linejoin:round;vector-effect:non-scaling-stroke;stroke-opacity:.92}
+.traffic-axis-alt{fill:var(--console-success);fill-opacity:.85;font-size:11px;font-family:var(--font-mono)}
+.glass-card.traffic-alarm{border-color:rgba(248,113,113,.42);box-shadow:0 0 0 1px rgba(248,113,113,.16),0 10px 40px rgba(248,113,113,.10)}
+@media(max-width:900px){.traffic-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:600px){.traffic-kpis{grid-template-columns:minmax(0,1fr)}.traffic-kpi+.traffic-kpi::before{display:none}.traffic-kpi+.traffic-kpi{border-top:1px solid var(--border-glass)}}
 .traffic-caption {display:flex;flex-wrap:wrap;justify-content:space-between;gap:6px 16px;font-size:11px;color:var(--text-2);line-height:1.6;padding-top:8px;}
 @media(max-width:600px) {
   .traffic-metric-tabs{gap:6px}

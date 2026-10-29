@@ -6,10 +6,43 @@ export function initialize() {
   const nonnegative = n => finite(n) && n >= 0;
   const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const definitions = {
-    anomaly: {label:'延迟与异常 (默认视图)', unit:'ms', note:'主线：上游真实竞速耗时 · 底线：含缓存整体均值 · 峰值：慢查询(>100ms)与失败事件', count:'失败与慢查询', empty:'正在建立延迟与异常基线，通常约 2 秒后显示数据'},
-    qps: {label:'请求量与缓存命中率', unit:'QPS', note:'每秒 DNS 请求数 · 按实际采样秒数计算', count:'区间请求', empty:'正在建立查询采样基线，通常约 2 秒后显示数据'},
-    cache: {label:'缓存命中率', unit:'%', note:'主缓存命中数 ÷ 主缓存查询数 · 区间均值按查询数加权', count:'缓存查询', empty:'所选时段暂无有效缓存查询，或核心未提供主缓存计数'},
-    latency: {label:'平均延迟', unit:'ms', note:'上游实际响应的平均耗时 · 不包含缓存命中请求', count:'上游响应', empty:'所选时段暂无上游响应，或核心未提供延迟计数'},
+    anomaly: {label:'延迟与异常', unit:'ms', note:'上游真实竞速耗时 · 慢查询(>100ms)单独标注', count:'失败与慢查询', empty:'正在建立延迟与异常基线，通常约 2 秒后显示数据'},
+    qps: {label:'请求量与缓存命中率', unit:'QPS', note:'左轴每秒请求数 · 右轴主缓存命中率', count:'区间请求', empty:'正在建立查询采样基线，通常约 2 秒后显示数据'},
+    // Hidden from the tab row but still used for series and summaries: the cache
+    // rate is drawn on the request tab's right axis, and latency is the very
+    // series the anomaly view plots.
+    cache: {label:'缓存命中率', unit:'%', note:'主缓存命中数 ÷ 主缓存查询数 · 区间均值按查询数加权', count:'缓存查询', empty:'所选时段暂无有效缓存查询，或核心未提供主缓存计数', hidden:true},
+    latency: {label:'平均延迟', unit:'ms', note:'上游实际响应的平均耗时 · 不包含缓存命中请求', count:'上游响应', empty:'所选时段暂无上游响应，或核心未提供延迟计数', hidden:true},
+  };
+  const visibleMetrics = () => Object.entries(definitions).filter(([, item]) => !item.hidden);
+  /** Axis ceiling on a 1/1.2/1.5/2/2.5/3/4/5/6/8/10 ladder so the curve fills the frame. */
+  const axisCeiling = value => {
+    if (!finite(value) || value <= 0) return 10;
+    const scale = 10 ** Math.floor(Math.log10(value)), ratio = value / scale;
+    const step = [1, 1.2, 1.5, 2, 2.5, 3, 4, 5, 6, 8, 10].find(item => item >= ratio - 1e-9) || 10;
+    return step * scale;
+  };
+  /** Cubic through the points; control points stay inside the plot band. */
+  const smoothPath = (pts, top = 0, bottom = Infinity) => {
+    if (!pts.length) return '';
+    const clamp = v => Math.min(bottom, Math.max(top, v));
+    let d = `M${pts[0][0].toFixed(1)},${pts[0][1].toFixed(1)}`;
+    for (let i = 0; i < pts.length - 1; i++) {
+      const p0 = pts[i - 1] || pts[i], p1 = pts[i], p2 = pts[i + 1], p3 = pts[i + 2] || p2;
+      const c1x = p1[0] + (p2[0] - p0[0]) * 0.16, c1y = clamp(p1[1] + (p2[1] - p0[1]) * 0.16);
+      const c2x = p2[0] - (p3[0] - p1[0]) * 0.16, c2y = clamp(p2[1] - (p3[1] - p1[1]) * 0.16);
+      d += ` C${c1x.toFixed(1)},${c1y.toFixed(1)} ${c2x.toFixed(1)},${c2y.toFixed(1)} ${p2[0].toFixed(1)},${p2[1].toFixed(1)}`;
+    }
+    return d;
+  };
+  /** Split a series into runs of finite values so gaps are never bridged. */
+  const runs = points => {
+    const groups = []; let group = [];
+    for (const p of points) {
+      if (!finite(p.value)) { if (group.length) groups.push(group); group = []; } else group.push(p);
+    }
+    if (group.length) groups.push(group);
+    return groups;
   };
   function parse(text) {
     const metrics = parseProm(text);
@@ -120,10 +153,10 @@ export function initialize() {
   const shortClock = (n, date = false) => new Date(n).toLocaleString('zh-CN', date
     ? {month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',hour12:false}
     : {hour:'2-digit',minute:'2-digit',hour12:false});
-  function chart(points, width = 660, metric = 'qps', inspected = null) {
+  function chart(points, width = 660, metric = 'qps', inspected = null, secondary = null) {
     const baseMetric = metric === 'anomaly' ? 'qps' : metric;
     const ps = aggregate(points,baseMetric), definition = definitions[baseMetric] || definitions.qps;
-    const w=Math.max(280,Math.round(width)),h=216,left=48,right=16,top=26,bottom=30;
+    const w=Math.max(280,Math.round(width)),h=216,left=48,right=secondary?58:16,top=26,bottom=30;
     const first=points[0].time,last=points.at(-1).time,span=last-first||1;
     const peak=ps.reduce((n,p)=>finite(p.value)?Math.max(n,p.peak):n,0);
     const magnitude=10**Math.floor(Math.log10(peak||1));
@@ -140,67 +173,80 @@ export function initialize() {
     const tick=v=>v>=10000?v.toLocaleString('zh-CN',{notation:'compact',maximumFractionDigits:1}):v>=1000?v.toLocaleString('zh-CN',{maximumFractionDigits:0}):rate(v);
     const grids=[0,max/2,max].map(v=>`<line class="traffic-grid" x1="${left}" x2="${w-right}" y1="${y(v)}" y2="${y(v)}"/><text x="${left-8}" y="${y(v)+4}" text-anchor="end">${tick(v)}</text>`).join('');
     const ticks=first===last?[first]:[first,...(w>=480?[(first+last)/2]:[]),last];
-    return `<div class="traffic-plot" tabindex="0" role="group" aria-label="${definition.label}趋势，单位 ${definition.unit}。左右方向键查看采样，Escape 关闭提示。"><svg class="console-chart traffic-chart" viewBox="0 0 ${w} ${h}" role="img" aria-label="${definition.label}，${time(first,true)} 至 ${time(last,true)}，单位 ${definition.unit}"><title>按实际采样显示，断采不连线；长范围按请求量汇总并保留峰值</title><text class="traffic-axis-unit" x="${left}" y="14">${definition.unit}</text>${grids}${paths}${ticks.map((t,i)=>`<text x="${left+(t-first)/span*(w-left-right)}" y="${h-7}" text-anchor="${i===0?'start':i===ticks.length-1?'end':'middle'}">${time(t,span>=43200000)}</text>`).join('')}<line class="traffic-inspect-line" x1="0" x2="0" y1="${top}" y2="${h-bottom}" visibility="hidden"/></svg><output class="traffic-tooltip" hidden></output><span class="sr-only traffic-live" aria-live="polite"></span></div>`;
+    // Request volume reads better as bars; the cache hit rate rides the right axis.
+    const showBars = metric === 'qps';
+    const slot = (w - left - right) / Math.max(1, ps.length);
+    const barW = Math.max(1.6, Math.min(16, slot * 0.62));
+    const bars = showBars ? ps.filter(p=>finite(p.value)).map(p=>{
+      const bx = x(p) - barW / 2, by = y(p.value);
+      return `<rect class="traffic-bar" x="${bx.toFixed(1)}" y="${by.toFixed(1)}" width="${barW.toFixed(1)}" height="${Math.max(0.6,(h-bottom)-by).toFixed(1)}" rx="${Math.min(3,barW/2).toFixed(1)}"><title>${time(p.time,true)} · ${rate(p.value)} ${definition.unit}</title></rect>`;
+    }).join('') : '';
+    const secondaryPath = (secondary && secondary.length > 1)
+      ? runs(secondary).map(g=>`<path class="traffic-line-alt" d="${smoothPath(g.map(p=>[left+(p.time-first)/span*(w-left-right), top+(1-Math.min(100,Math.max(0,p.value))/100)*(h-top-bottom)]),top,h-bottom)}"/>`).join('')
+      : '';
+    const rightAxis = secondary ? [0,50,100].map(v=>`<text class="traffic-axis-alt" x="${w-right+8}" y="${(top+(1-v/100)*(h-top-bottom)+4).toFixed(1)}" text-anchor="start">${v}%</text>`).join('') : '';
+    return `<div class="traffic-plot" tabindex="0" role="group" aria-label="${definition.label}趋势，单位 ${definition.unit}。左右方向键查看采样，Escape 关闭提示。"><svg class="console-chart traffic-chart" viewBox="0 0 ${w} ${h}" role="img" aria-label="${definition.label}，${time(first,true)} 至 ${time(last,true)}，单位 ${definition.unit}"><title>按实际采样显示，断采不连线；长范围按请求量汇总并保留峰值</title>${grids}${bars}${secondaryPath}${rightAxis}${showBars?'':paths}${ticks.map((t,i)=>`<text x="${left+(t-first)/span*(w-left-right)}" y="${h-7}" text-anchor="${i===0?'start':i===ticks.length-1?'end':'middle'}">${time(t,span>=43200000)}</text>`).join('')}<line class="traffic-inspect-line" x1="0" x2="0" y1="${top}" y2="${h-bottom}" visibility="hidden"/></svg><output class="traffic-tooltip" hidden></output><span class="sr-only traffic-live" aria-live="polite"></span></div>`;
   }
-  function anomalyChart(now, minutes, ctx = {}) {
-    const spikes = Array.isArray(ctx.slowSpikes) ? ctx.slowSpikes : [];
-    const sPeak = spikes[0] || null;
-    const sSub = spikes[1] || null;
-    const baseMs = finite(ctx.upstreamAvgMs) && ctx.upstreamAvgMs > 0 ? Math.round(ctx.upstreamAvgMs) : 35;
-    const mapY = msVal => {
-      const v = Math.max(0, Number(msVal) || 0);
-      if (v <= baseMs) return 184 - (v / Math.max(1, baseMs)) * 46;
-      if (v <= 150) return 138 - ((v - baseMs) / Math.max(1, 150 - baseMs)) * 52;
-      return Math.max(34, 86 - (Math.min(700, v - 150) / 550) * 52);
-    };
-    const ySub = sSub ? Math.round(mapY(sSub.ms)) : 136;
-    const yPeak = sPeak ? Math.round(mapY(sPeak.ms)) : 134;
-    const yCacheSub = sSub ? 176 : 181;
-    const yCachePeak = sPeak ? 171 : 181;
-    const isLong = minutes >= 720;
-    const spanMs = minutes * 60000;
-    const t0 = shortClock(now - spanMs, isLong);
-    const t1 = shortClock(now - Math.round(spanMs * 0.58), isLong);
-    const t2 = shortClock(now - Math.round(spanMs * 0.24), isLong);
-    const t3 = shortClock(now, isLong);
-    const curveD = `M48,140 L102,139 L158,136 L216,140 L272,138 L330,${ySub} L388,139 L444,141 L500,137 L556,${yPeak} L610,139 L638,141 L664,139`;
-    const cacheD = `M48,181 L158,181 L216,180 L272,181 L330,${yCacheSub} L388,181 L444,181 L500,180 L556,${yCachePeak} L610,181 L664,181`;
-    return `<div class="traffic-plot" tabindex="0" role="group" aria-label="响应延迟与解析异常趋势，单位 ms。">
-      <svg class="console-chart traffic-chart" viewBox="0 0 680 210" role="img" aria-label="响应延迟与解析异常趋势">
-        <defs>
-          <linearGradient id="proto-lat-grad" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stop-color="#C96442" stop-opacity="0.22"></stop>
-            <stop offset="100%" stop-color="#C96442" stop-opacity="0.0"></stop>
-          </linearGradient>
-        </defs>
-        <text class="traffic-axis-unit" x="48" y="16">延迟 (ms)</text>
-        <line class="traffic-grid" x1="48" x2="664" y1="34" y2="34"></line><text x="40" y="38" text-anchor="end">600ms+</text>
-        <line class="traffic-grid" x1="48" x2="664" y1="86" y2="86"></line><text x="40" y="90" text-anchor="end">150ms</text>
-        <line class="traffic-grid" x1="48" x2="664" y1="138" y2="138"></line><text x="40" y="142" text-anchor="end">${baseMs}ms</text>
-        <line class="traffic-grid" x1="48" x2="664" y1="184" y2="184"></line><text x="40" y="188" text-anchor="end">0</text>
-        <path d="${curveD} L664,184 L48,184 Z" fill="url(#proto-lat-grad)"></path>
-        <path class="traffic-line" d="${curveD}" fill="none" stroke="#C96442" stroke-width="2.2"></path>
-        <path d="${cacheD}" fill="none" stroke="#2D6A4F" stroke-width="1.6" stroke-dasharray="4 4"></path>
-        ${sSub ? `
-          <line class="traffic-peak" x1="330" x2="330" y1="${ySub}" y2="184" stroke="rgba(217,119,6,0.45)" stroke-width="5" stroke-linecap="round"></line>
-          <circle class="traffic-point" cx="330" cy="${ySub}" r="4.5" fill="#D97706"></circle>
-          <text x="330" y="${Math.max(18, ySub - 12)}" text-anchor="middle" fill="var(--text-1)" font-weight="600">${esc(sSub.domain)} · ${Math.round(sSub.ms)}ms</text>
-        ` : ''}
-        ${sPeak ? `
-          <line class="traffic-peak" x1="556" x2="556" y1="${yPeak}" y2="184" stroke="rgba(185,28,28,0.45)" stroke-width="5" stroke-linecap="round"></line>
-          <circle class="traffic-point" cx="556" cy="${yPeak}" r="5" fill="#B91C1C"></circle>
-          <text x="556" y="${Math.max(18, yPeak - 12)}" text-anchor="middle" fill="var(--text-1)" font-weight="600">${esc(sPeak.domain)}${sPeak.ms >= 100 ? ' 慢查' : ''} · ${Math.round(sPeak.ms)}ms</text>
-        ` : ''}
-        <circle class="traffic-point" cx="664" cy="139" r="3.5" fill="#C96442"></circle>
-        <text x="48" y="204" text-anchor="start">${t0}</text>
-        <text x="276" y="204" text-anchor="middle">${t1}</text>
-        <text x="466" y="204" text-anchor="middle">${t2}</text>
-        <text x="664" y="204" text-anchor="end">${t3}</text>
-        <line class="traffic-inspect-line" x1="0" x2="0" y1="26" y2="184" visibility="hidden"/>
-      </svg>
-      <output class="traffic-tooltip" hidden></output>
-      <span class="sr-only traffic-live" aria-live="polite"></span>
-    </div>`;
+  /**
+   * Latency chart drawn from the recorded samples: linear adaptive Y axis, a
+   * 100 ms slow-query line only once the axis actually reaches it, and one
+   * callout on the highest sample.
+   */
+  function latencyChart(points, width) {
+    const w = Math.max(280, Math.round(width)), h = 216, left = 52, right = 62, top = 30, bottom = 30;
+    const valid = points.filter(p => finite(p.value));
+    if (!valid.length) return '';
+    const first = points[0].time, last = points.at(-1).time, span = Math.max(1, last - first);
+    const peakValue = valid.reduce((n, p) => Math.max(n, p.value), 0);
+    const max = axisCeiling(Math.max(peakValue * 1.15, 10));
+    const x = p => left + (p.time - first) / span * (w - left - right);
+    const y = v => top + (1 - Math.min(v, max) / max) * (h - top - bottom);
+    const baseline = h - bottom;
+
+    const groups = runs(points);
+    const area = groups.filter(g => g.length > 1)
+      .map(g => smoothPath(g.map(p => [x(p), y(p.value)]), top, baseline)
+        + ` L${x(g.at(-1)).toFixed(1)},${baseline} L${x(g[0]).toFixed(1)},${baseline} Z`).join('');
+    const lines = groups.map(g => smoothPath(g.map(p => [x(p), y(p.value)]), top, baseline)).join('');
+
+    const grid = [0, 0.25, 0.5, 0.75, 1].map(f => {
+      const v = max * f;
+      return `<line class="traffic-grid" x1="${left}" x2="${w - right}" y1="${y(v)}" y2="${y(v)}"/>`
+        + `<text x="${left - 8}" y="${y(v) + 4}" text-anchor="end">${rate(v)}</text>`;
+    }).join('');
+
+    // The 100 ms slow-query line only means something once the axis reaches it.
+    const threshold = max >= 110
+      ? `<line class="traffic-threshold" x1="${left}" x2="${w - right}" y1="${y(100)}" y2="${y(100)}"/>`
+        + `<text class="traffic-threshold-label" x="${w - right + 8}" y="${y(100) + 4}" text-anchor="start">100ms</text>`
+      : '';
+
+    const peak = valid.reduce((best, p) => p.value > best.value ? p : best, valid[0]);
+    const slow = peak.value >= 100;
+    const cx = x(peak), cy = y(peak.value), label = `${rate(peak.value)}ms · ${time(peak.time)}`;
+    const boxW = label.length * 6.4 + 16;
+    const boxX = Math.min(w - right - boxW, Math.max(left, cx - boxW / 2));
+    const callout = `<line class="traffic-peak" x1="${cx.toFixed(1)}" x2="${cx.toFixed(1)}" y1="${(cy - 8).toFixed(1)}" y2="${(cy - 22).toFixed(1)}"/>`
+      + `<circle class="traffic-peak-dot${slow ? ' is-slow' : ''}" cx="${cx.toFixed(1)}" cy="${cy.toFixed(1)}" r="4"/>`
+      + `<rect class="traffic-callout-box${slow ? ' is-slow' : ''}" x="${boxX.toFixed(1)}" y="${(cy - 46).toFixed(1)}" width="${boxW.toFixed(1)}" height="20" rx="6"/>`
+      + `<text class="traffic-callout-text" x="${(boxX + boxW / 2).toFixed(1)}" y="${(cy - 32).toFixed(1)}" text-anchor="middle">${esc(label)}</text>`;
+
+    const lastPoint = valid.at(-1);
+    const ticks = first === last ? [first] : [first, (first + last) / 2, last];
+    return `<div class="traffic-plot" tabindex="0" role="group" aria-label="延迟与异常趋势，单位 ms。左右方向键查看采样，Escape 关闭提示。">`
+      + `<svg class="console-chart traffic-chart" viewBox="0 0 ${w} ${h}" role="img" aria-label="延迟与异常，${time(first, true)} 至 ${time(last, true)}">`
+      + `<title>按实际采样显示，断采不连线</title>`
+      + `<defs><linearGradient id="traffic-lat-grad" x1="0" y1="0" x2="0" y2="1"><stop class="traffic-grad-top" offset="0%"/><stop class="traffic-grad-bottom" offset="100%"/></linearGradient></defs>`
+      + `<text class="traffic-axis-unit" x="${left}" y="16">延迟 (ms)</text>`
+      + grid + threshold
+      + `<path class="traffic-area" d="${area}" fill="url(#traffic-lat-grad)"/>`
+      + `<path class="traffic-line" d="${lines}"/>`
+      + callout
+      + `<circle class="traffic-point" cx="${x(lastPoint).toFixed(1)}" cy="${y(lastPoint.value).toFixed(1)}" r="3.4"/>`
+      + `<text class="traffic-last-value" x="${w - right + 8}" y="${(y(lastPoint.value) + 4).toFixed(1)}" text-anchor="start">${rate(lastPoint.value)}ms</text>`
+      + ticks.map((t, i) => `<text x="${left + (t - first) / span * (w - left - right)}" y="${h - 8}" text-anchor="${i === 0 ? 'start' : i === ticks.length - 1 ? 'end' : 'middle'}">${shortClock(t, span >= 43200000)}</text>`).join('')
+      + `<line class="traffic-inspect-line" x1="0" x2="0" y1="${top}" y2="${baseline}" visibility="hidden"/></svg>`
+      + `<output class="traffic-tooltip" hidden></output><span class="sr-only traffic-live" aria-live="polite"></span></div>`;
   }
   function inspect(container,points,metric) {
     const plot=container.querySelector('.traffic-plot');if(!plot||!points.length)return;
@@ -233,11 +279,13 @@ export function initialize() {
     };
   }
   function render(container,series,minutes,now=Date.now(),state={}) {
-    const metric=definitions[state.metric]?state.metric:'anomaly',definition=definitions[metric],s=summary(series,minutes,now,metric);
+    const metric=definitions[state.metric]&&!definitions[state.metric].hidden?state.metric:'anomaly';
+    const definition=definitions[metric],s=summary(series,minutes,now,metric);
     const focus=container.contains(document.activeElement)?document.activeElement?.dataset.trafficMetric:null;
     const plotFocused=document.activeElement?.classList.contains('traffic-plot')&&container.contains(document.activeElement);
-    const item=(label,value,unit)=>`<div><dt>${label}</dt><dd>${value}<small>${unit}</small></dd></div>`;
-    let summaryHtml, chartHtml;
+    const kpi=(label,value,unit,note,extra='')=>`<div class="traffic-kpi${extra}"><dt>${label}</dt><dd>${value}<small>${unit}</small></dd><dd class="traffic-kpi-note">${note}</dd></div>`;
+    const empty=(hint)=>`<div class="console-chart-empty">${state.loading&&!series.length?'正在读取 DNS 采样，本机历史在后台恢复…':definition.empty}<br>${hint}</div>`;
+    let summaryHtml, chartHtml, legendHtml, alarm=false;
     if (metric === 'anomaly') {
       const ctx = state.overviewContext || {};
       const latS = summary(series, minutes, now, 'latency');
@@ -248,23 +296,43 @@ export function initialize() {
       const maxVal = finite(ctx.maxSlowMs) ? Math.round(ctx.maxSlowMs) : p95Val;
       const failVal = finite(ctx.failCount) ? ctx.failCount : 0;
       const slowVal = finite(ctx.slowOver100Count) ? ctx.slowOver100Count : 0;
-      summaryHtml = `<dl class="traffic-summary">
-        <div><dt>整体平均响应</dt><dd>${avgCached}<small>ms (含缓存)</small></dd></div>
-        <div><dt>上游竞速均值</dt><dd>${upRace}<small>ms (${esc(upLabel)})</small></dd></div>
-        <div><dt>P95 / 最大耗时</dt><dd>${p95Val}<small>ms / ${maxVal}ms</small></dd></div>
-        <div><dt>失败与慢查询</dt><dd style="color:${failVal > 0 ? 'var(--console-danger)' : 'var(--console-success)'}">${failVal}<small>失败 · ${slowVal} 慢查</small></dd></div>
+      const bad = failVal > 0 || slowVal > 0;
+      alarm = bad;
+      const healthLabel = bad ? `${failVal} 失败 · ${slowVal} 慢查` : '正常';
+      summaryHtml = `<dl class="traffic-kpis">
+        <div class="traffic-kpi is-health${bad?' is-bad':''}"${failVal>0?' data-traffic-health="1" data-route="logs" role="button" tabindex="0"':''}>
+          <dt><span class="traffic-health-dot${bad?' is-bad':''}"></span>解析健康</dt>
+          <dd class="traffic-health-value${bad?' is-bad':''}">${healthLabel}</dd>
+          <dd class="traffic-kpi-note">${bad?(failVal>0?'点击查看查询日志':`慢查询 ${slowVal} 次`):'0 失败 · 0 慢查（>100ms）'}</dd>
+        </div>
+        ${kpi('上游竞速',upRace,'ms',`当前优胜：${esc(upLabel)}`)}
+        ${kpi('平均响应',avgCached,'ms','含缓存整体均值')}
+        ${kpi('P95 / 最大耗时',p95Val,`ms / ${maxVal}ms`,'慢查询长尾')}
       </dl>`;
-      chartHtml = (s.samples || state.overviewContext)
-        ? anomalyChart(now, minutes, ctx)
-        : `<div class="console-chart-empty">${state.loading&&!series.length?'正在读取 DNS 采样，本机历史在后台恢复…':definition.empty}<br>${series.length?'已读取查询计数，正在等待下一次采样':'未采集和无有效请求的区间不补零'}</div>`;
+      legendHtml = `<div class="traffic-legend"><span><i class="is-line"></i>上游真实竞速耗时</span><span><i class="is-slow"></i>慢查询 / 失败峰值</span></div>`;
+      const latPoints = latS.points.length ? aggregate(latS.points,'latency') : [];
+      chartHtml = latPoints.length
+        ? latencyChart(latPoints, container.clientWidth)
+        : empty(series.length?'已读取查询计数，正在等待下一次采样':'未采集和无有效请求的区间不补零');
     } else {
-      summaryHtml = `<dl class="traffic-summary">${item('最近采样',rate(s.current),definition.unit)}${item('区间均值',rate(s.average),definition.unit)}${item('区间峰值',rate(s.peak),definition.unit)}${item(definition.count,s.samples?rate(s.count):'—','次')}</dl>`;
+      const cacheS = summary(series, minutes, now, 'cache');
+      const cachePoints = cacheS.points.length ? aggregate(cacheS.points,'cache') : [];
+      const hitNow = cachePoints.filter(p => finite(p.value)).at(-1);
+      summaryHtml = `<dl class="traffic-kpis">
+        ${kpi('最近请求',rate(s.current),'QPS','每秒查询数')}
+        ${kpi('区间峰值',rate(s.peak),'QPS','最高瞬时速率')}
+        ${kpi('区间请求',s.samples?rate(s.count):'—','次','本时段总查询')}
+        ${kpi('缓存命中率',hitNow?rate(hitNow.value):'—','%','主缓存命中 ÷ 查询')}
+      </dl>`;
+      legendHtml = `<div class="traffic-legend"><span><i class="is-bar"></i>请求量</span><span><i class="is-cache"></i>缓存命中率</span></div>`;
       chartHtml = s.samples
-        ? chart(s.points,container.clientWidth,metric)
-        : `<div class="console-chart-empty">${state.loading&&!series.length?'正在读取 DNS 采样，本机历史在后台恢复…':definition.empty}<br>${series.length&&metric==='qps'?'已读取查询计数，正在等待下一次采样':'未采集和无有效请求的区间不补零'}</div>`;
+        ? chart(s.points,container.clientWidth,metric,null,cachePoints)
+        : empty(series.length?'已读取查询计数，正在等待下一次采样':'未采集和无有效请求的区间不补零');
     }
-    setHTML(container,`<div class="traffic-metric-tabs" role="group" aria-label="选择 DNS 趋势指标">${Object.entries(definitions).map(([key,d])=>`<button type="button" data-traffic-metric="${key}" aria-pressed="${metric===key}">${d.label}</button>`).join('')}</div>${metric==='anomaly'?'':`<p class="traffic-metric-note">${definition.note}</p>`}${summaryHtml}${chartHtml}`
+    setHTML(container,`<div class="traffic-metric-tabs" role="group" aria-label="选择 DNS 趋势指标">${visibleMetrics().map(([key,d])=>`<button type="button" data-traffic-metric="${key}" aria-pressed="${metric===key}">${d.label}</button>`).join('')}</div><p class="traffic-metric-note">${definition.note}</p>${summaryHtml}${legendHtml}${chartHtml}`
       +`<div class="traffic-caption"><span>${s.stale?'采样暂时中断，正在自动重试':s.samples?`有效采样 ${rate(s.seconds)} 秒 · 最近间隔 ${rate(s.interval)} 秒`:'概览可见时每 5 秒采样'}</span><span>本浏览器保留 7 天 · 当前 ${({15:'15 分钟',60:'1 小时',360:'6 小时',1440:'24 小时',10080:'7 天'})[minutes]||minutes+' 分钟'}</span></div><p class="traffic-storage-note">${state.storageError?'本机历史存储暂不可用，新增采样仅临时保留。':'刷新后可继续查看本机历史。'}关闭网页、切换页面或后台休眠期间留空。</p>`);
+    const card = container.closest('.glass-card');
+    if (card) card.classList.toggle('traffic-alarm', alarm);
     if(state.error){const error=document.createElement('div');error.className='traffic-read-error';error.setAttribute('role','status');const message=document.createElement('span');message.textContent=state.error;const retry=document.createElement('button');retry.type='button';retry.className='button small';retry.dataset.trafficRetry='';retry.textContent='重新读取';error.append(message,retry);container.append(error);}
     inspect(container,s.points,metric);
     if(definitions[focus])container.querySelector(`[data-traffic-metric="${focus}"]`)?.focus({preventScroll:true});

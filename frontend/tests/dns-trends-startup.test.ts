@@ -13,7 +13,17 @@ describe('DNS trend sampling is independent of browser storage', () => {
   beforeEach(() => {
     vi.useFakeTimers(); vi.setSystemTime(1792459200000); beginRoute(); initializeModel(); count = 0;
     fake.load.mockReset().mockResolvedValue([]); fake.save.mockReset().mockResolvedValue(undefined);
-    fake.fetch.mockReset().mockImplementation(async () => new Response(`process_start_time_seconds 1\nlocaldns_queries_total ${100 + count++ * 10}\n`));
+    fake.fetch.mockReset().mockImplementation(async () => {
+      // The latency view plots real upstream deltas, so the fixture has to
+      // expose the upstream sum/count pair the core exports.
+      const n = count++;
+      return new Response(
+        'process_start_time_seconds 1\n' +
+        `localdns_queries_total ${100 + n * 10}\n` +
+        `localdns_upstream_response_latency_millisecond_sum{tag="a"} ${n * 50}\n` +
+        `localdns_upstream_response_latency_millisecond_count{tag="a"} ${n * 5}\n`,
+      );
+    });
     document.body.innerHTML = '<div class="traffic-chart-body"></div>';
   });
   afterEach(() => { currentScope().dispose(); vi.useRealTimers(); document.body.innerHTML = ''; });
