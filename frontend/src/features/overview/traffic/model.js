@@ -74,7 +74,8 @@ export function initialize() {
       if (nonnegative(p.value)) p50.set(JSON.stringify(Object.entries(rest).sort(([a],[b]) => a.localeCompare(b))), p.value);
     }
     let weighted = 0, weightSum = 0, plain = 0, seen = 0;
-    for (const [key, , count] of latency) {
+    for (const [key, row] of latency) {
+      const count = row?.count ?? 0;
       const value = p50.get(key);
       if (value === undefined) continue;
       plain += value; seen++;
@@ -136,7 +137,7 @@ export function initialize() {
     const cutoff = now - minutes * 60000;
     const rows = series.filter(p => p.time >= cutoff && p.time <= now);
     const points = rows.map(p => ({...p,value:p.time - p.elapsed * 1000 >= cutoff ? p[baseMetric] : null}));
-    const valid = points.filter(p => nonnegative(p.value) && p.elapsed > 0 && weight(p,baseMetric) > 0);
+    const valid = points.filter(p => nonnegative(p.value) && weight(p,baseMetric) > 0 && (baseMetric === 'latency' || p.elapsed > 0));
     const requests = points.filter(p => p.qps !== null && p.time - p.elapsed * 1000 >= cutoff).reduce((n,p) => n + p.delta,0);
     const denominator = valid.reduce((n,p) => n + weight(p,baseMetric),0);
     const total = valid.reduce((n,p) => n + numerator(p,baseMetric),0);
@@ -235,16 +236,19 @@ export function initialize() {
         + ` L${x(g.at(-1)).toFixed(1)},${baseline} L${x(g[0]).toFixed(1)},${baseline} Z`).join('');
     const lines = groups.map(g => smoothPath(g.map(p => [x(p), y(p.value)]), top, baseline)).join('');
 
-    const grid = [0, 0.5, 1].map(f => {
+    const steps = max % 2 === 0 ? [0, 0.5, 1] : [0, 1];
+    const grid = steps.map(f => {
       const v = max * f;
       return `<line class="traffic-grid" x1="${left}" x2="${w - right}" y1="${y(v)}" y2="${y(v)}"/>`
         + `<text x="${left - 8}" y="${y(v) + 4}" text-anchor="end">${Math.round(v)}</text>`;
     }).join('');
 
-    // The 100 ms slow-query line only means something once the axis reaches it.
+    // The 100 ms slow-query line only means something once the axis reaches it,
+    // and its label steps aside when the last-value label sits at the same height.
     const threshold = max >= 110
       ? `<line class="traffic-threshold" x1="${left}" x2="${w - right}" y1="${y(100)}" y2="${y(100)}"/>`
-        + `<text class="traffic-threshold-label" x="${w - right + 8}" y="${y(100) + 4}" text-anchor="start">100ms</text>`
+        + (Math.abs(y(100) - y(valid.at(-1).value)) < 26 ? ''
+          : `<text class="traffic-threshold-label" x="${w - right + 8}" y="${y(100) + 4}" text-anchor="start">100ms</text>`)
       : '';
 
     const peak = valid.reduce((best, p) => p.value > best.value ? p : best, valid[0]);
