@@ -498,61 +498,57 @@ async function renderDevices(container, context) {
   });
 
   // 7. 新增受控 IP 弹窗
-  const addControlledBtn = $('#devices-add-controlled', page);
+    const addControlledBtn = $('#devices-add-controlled', page);
   if (addControlledBtn) {
     addControlledBtn.onclick = () => {
-      if (clientIpLoadError) {
-        toast('名单未成功加载，暂不可新增', 'error');
-        return;
-      }
-      modalOpen(
-        '新增受控客户端 IP / 网段',
-        '支持 IPv4、IPv6 或 CIDR 网段（如 192.168.1.10 或 192.168.1.0/24）',
-        `<div class="stack">
-          <div class="field"><label for="devices-new-ip">客户端 IP / CIDR 网段</label><input id="devices-new-ip" placeholder="例如：192.168.1.50 或 192.168.1.0/24" autocomplete="off"></div>
-          <div class="field"><label for="devices-new-note">备注说明（可选）</label><input id="devices-new-note" placeholder="例如：书房电脑" autocomplete="off"></div>
-        </div>`,
-        async () => {
-          const ip = $('#devices-new-ip').value.trim();
-          const note = $('#devices-new-note').value.trim();
-          if (!ip || /\s/.test(ip) || !IP_OR_CIDR_RE.test(ip)) throw new Error('请输入有效的客户端 IP 或 CIDR 网段');
-          const block = note ? `# 备注：${note}\n${ip}` : ip;
-          const nextText = clientIpText ? `${clientIpText}\n${block}` : block;
-          await saveClientIpList(nextText, `已添加受控客户端 ${ip}`);
-        }
-      );
-    };
-  }
-
-  // 8. 原文编辑弹窗（支持批量粘贴与导出下载）
-  const editRawBtn = $('#devices-edit-raw', page);
-  if (editRawBtn) {
-    editRawBtn.onclick = () => {
       if (clientIpLoadError) {
         toast('名单未成功加载，暂不可编辑', 'error');
         return;
       }
+      let mode = 'single';
       modalOpen(
-        '编辑受控客户端 IP 名单原文',
-        '一行一条客户端 IP 或 CIDR 网段，以 # 开头表示停用或注释',
+        '受控客户端 IP',
+        '逐条添加，或切到原文批量维护整份名单',
         `<div class="stack">
-          <div class="field">
-            <label for="devices-raw-textarea">客户端 IP 名单 (/plugins/client_ip)</label>
-            <textarea id="devices-raw-textarea" class="rule-textarea" rows="12" spellcheck="false">${esc(clientIpText)}</textarea>
+          <div class="dev-modeswitch" role="group" aria-label="编辑方式">
+            <button type="button" class="on" data-ipmode="single">逐条添加</button>
+            <button type="button" data-ipmode="raw">原文批量</button>
           </div>
-          <div><button type="button" class="button small" id="devices-download-raw">${icon('download')}下载 client_ip.txt</button></div>
+          <div id="devices-panel-single">
+            <div class="field"><label for="devices-new-ip">客户端 IP / CIDR 网段</label><input id="devices-new-ip" placeholder="例如：192.168.1.50 或 192.168.1.0/24" autocomplete="off"></div>
+            <div class="field"><label for="devices-new-note">备注说明（可选）</label><input id="devices-new-note" placeholder="例如：书房电脑" autocomplete="off"></div>
+          </div>
+          <div id="devices-panel-raw" hidden>
+            <div class="field"><label for="devices-raw-textarea">客户端 IP 名单 (/plugins/client_ip)</label><textarea id="devices-raw-textarea" class="rule-textarea" rows="12" spellcheck="false">${esc(clientIpText)}</textarea></div>
+            <div><button type="button" class="button small" id="devices-download-raw">${icon('download')}下载 client_ip.txt</button></div>
+          </div>
         </div>`,
         async () => {
-          const nextText = $('#devices-raw-textarea').value.trim();
-          await saveClientIpList(nextText, '受控客户端 IP 名单已保存');
+          if (mode === 'raw') {
+            await saveClientIpList($('#devices-raw-textarea').value.trim(), '受控客户端 IP 名单已保存');
+            return;
+          }
+          const ip = $('#devices-new-ip').value.trim();
+          const note = $('#devices-new-note').value.trim();
+          if (!ip || /\s/.test(ip) || !IP_OR_CIDR_RE.test(ip)) throw new Error('请输入有效的客户端 IP 或 CIDR 网段');
+          const block = note ? `# 备注：${note}\n${ip}` : ip;
+          await saveClientIpList(clientIpText ? `${clientIpText}\n${block}` : block, `已添加受控客户端 ${ip}`);
         }
       );
-      const dlBtn = $('#devices-download-raw');
-      if (dlBtn) dlBtn.onclick = () => downloadText('client_ip.txt', $('#devices-raw-textarea').value);
+      $$('[data-ipmode]').forEach(button => {
+        button.onclick = () => {
+          mode = button.dataset.ipmode;
+          $$('[data-ipmode]').forEach(other => other.classList.toggle('on', other === button));
+          const single = $('#devices-panel-single'), raw = $('#devices-panel-raw');
+          if (single) single.hidden = mode !== 'single';
+          if (raw) raw.hidden = mode !== 'raw';
+        };
+      });
+      const dl = $('#devices-download-raw');
+      if (dl) dl.onclick = () => downloadText('client_ip.txt', $('#devices-raw-textarea').value);
     };
   }
-
-  // 9. 别名管理弹窗
+// 9. 别名管理弹窗
   if ($('#devices-open-alias-modal', page)) $('#devices-open-alias-modal', page).onclick = openAliasModal;
   $$('[data-devices-edit-alias]', page).forEach(btn => { btn.onclick = openAliasModal; });
 
