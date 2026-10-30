@@ -31,7 +31,7 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.x'
-      # Each tools/test_*.py is a self-contained stdlib unittest module and
+      # Each test_*.py is a self-contained stdlib unittest module and
       # is run the same way docs/DEVELOPMENT.md documents locally.
       # tools/test_proxy_config_installer.py is intentionally not listed: it
       # exercises the packaged ProxyConfig service archive under
@@ -44,7 +44,8 @@ jobs:
             tools/test_oneclick_installer.py \
             tools/test_package_ui.py \
             tools/test_shared_ui.py \
-            tools/test_ui_updater.py; do
+            tools/test_ui_updater.py \
+            services/mihomo-return-guard/test_guard.py; do
             echo "== $test_file"
             python3 "$test_file"
           done
