@@ -553,15 +553,32 @@ body[data-console-route="rules"] .rp-foot{flex-wrap:wrap}
    控制台路由下从不生效；同特异性、更靠后才能真正隐藏。 */
 @media(max-width:600px){.rule-menu,body[data-console-route="rules"] .rule-menu{display:none}}
 
-/* 名单分组：组名抬到页签上方当小标题，页签保持各自的描边胶囊，组间只留白不画竖线。
+/* 名单分组：一级选组（分段控件），二级选名单（胶囊），两级之间只留白不画竖线。
    必须带 body[data-console-route="rules"] 前缀并放在 console 层之后——上层
    `body[...] .rule-menu-group{padding-right;border-right}` 与 `... button{background;border}`
    同特异性、更靠前，裸类名压不住。 */
-body[data-console-route="rules"] .rule-menu { display:flex; flex-wrap:wrap; align-items:flex-start; gap:12px 26px; }
-body[data-console-route="rules"] .rule-menu-group { display:inline-flex; flex-direction:column; align-items:flex-start; gap:7px; padding:0; border:0; margin:0; }
-body[data-console-route="rules"] .rule-menu-group + .rule-menu-group { margin-left:0; padding-left:0; border-left:0; }
-body[data-console-route="rules"] .rule-menu-group-label { font:600 10.5px/1.2 var(--font-sans); letter-spacing:.14em; color:var(--text-3); margin:0; white-space:nowrap; user-select:none; }
-body[data-console-route="rules"] .rule-menu-group-items { display:inline-flex; align-items:center; gap:6px; flex-wrap:wrap; padding:0; background:none; border:0; }
-body[data-console-route="rules"] .rule-menu button { min-height:32px; padding:6px 12px; border-radius:calc(9px * var(--radius-scale)); background:var(--glass-pill); border:1px solid var(--border-glass); box-shadow:var(--inner-specular); color:var(--text-2); }
-body[data-console-route="rules"] .rule-menu button:hover { background:var(--glass-pill-active); }
-body[data-console-route="rules"] .rule-menu button.active { background:var(--glass-pill-active); border-color:var(--border-highlight); color:var(--primary-light); font-weight:600; }
+body[data-console-route="rules"] .rule-menu { display:flex; flex-direction:column; align-items:flex-start; gap:10px; }
+body[data-console-route="rules"] .rule-menu-level1 { display:inline-flex; align-items:center; gap:2px; padding:3px; background:var(--glass-pill); border:1px solid var(--border-glass); border-radius:calc(9px * var(--radius-scale)); }
+body[data-console-route="rules"] .rule-menu .rule-group-btn { min-height:28px; padding:4px 12px; border-radius:calc(6px * var(--radius-scale)); background:transparent; border:1px solid transparent; box-shadow:none; color:var(--text-2); font-weight:500; }
+body[data-console-route="rules"] .rule-menu .rule-group-btn:hover { background:var(--glass-pill-active); color:var(--text-1); }
+body[data-console-route="rules"] .rule-menu .rule-group-btn.active { background:var(--glass-pill-active); border-color:var(--border-highlight); color:var(--text-1); font-weight:600; }
+body[data-console-route="rules"] .rule-menu-items { display:inline-flex; flex-wrap:wrap; align-items:center; gap:6px; }
+
+/* 在线分流：按类型折叠的分组表，组头显示来源数、规则数与组级更新 */
+.div-group { border:1px solid var(--border-glass); border-radius:calc(12px * var(--radius-scale)); margin-bottom:10px; overflow:hidden; }
+.div-group[hidden] { display:none; }
+.div-group-head { display:flex; align-items:center; gap:10px; padding:11px 16px; background:var(--glass-pill); cursor:pointer; }
+.div-group-head:hover { background:var(--glass-pill-active); }
+.div-group-head strong { font-size:13.5px; color:var(--text-1); }
+.div-group-chevron { flex:none; color:var(--text-3); transform:rotate(-90deg); transition:transform .15s ease; }
+.div-group-chevron.open { transform:rotate(0deg); }
+.div-group-kind { font-size:11px; color:var(--text-3); }
+.div-group-meta { margin-left:auto; font-size:11.5px; color:var(--text-3); font-variant-numeric:tabular-nums; white-space:nowrap; }
+.div-group-update { flex:none; }
+.div-group-body .table-wrap { border:0; border-radius:0; }
+.div-group-body .collection-diversion-table { min-width:1040px; }
+.collection-diversion-table .div-name { min-width:150px; overflow-wrap:anywhere; }
+.collection-diversion-table .div-format,
+.collection-diversion-table .div-updated,
+.collection-diversion-table .div-auto { white-space:nowrap; }
+.collection-diversion-table .div-updated { color:var(--text-3); font-variant-numeric:tabular-nums; }

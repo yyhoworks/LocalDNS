@@ -6,7 +6,7 @@ export function initialize() {
 
   'use strict';
   const definitions = [
-    { key:'diversion', name:'在线分流规则', selector:'.workspace-rule-filter', fallback:'cards' },
+    { key:'diversion', name:'在线分流规则', selector:'.workspace-rule-filter', fallback:'list' },
     { key:'adguard', name:'广告订阅', selector:'.adguard-rules-table', fallback:'list' },
     { key:'logs', name:'查询日志', selector:'.workspace-log-table', fallback:'list' },
     { key:'upstreams', name:'DNS 上游', selector:'.workspace-upstream-groups', fallback:'list' },

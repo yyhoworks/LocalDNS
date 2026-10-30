@@ -33,7 +33,7 @@ import { safeResult } from '../../shared/async.js';
     else toast(label,'error',error.message);
   }
   function syncDiversionUpdateState(body){
-    $$('.div-update,#div-update-all',body).forEach(button=>{button.disabled=diversionUpdating});
+    $$('.div-update,#div-update-all,[data-div-update-group]',body).forEach(button=>{button.disabled=diversionUpdating});
     const button=$('#div-update-all',body);if(button)button.textContent=diversionUpdating?'更新中…':'更新全部';
   }
 
@@ -70,14 +70,19 @@ if(!approved&&rulesWorkbenchService?.canLeave(()=>renderRuleTab(tab,true))===fal
     const tag=state.ruleTag,profile=ruleProfiles.find(x=>x[0]===tag)||ruleProfiles[0];
     let text='',loadError=null;
     try{text=await renderScope.guard(api.request(`/plugins/${tag}/show?all=1`,{signal:renderScope.signal}))}catch(e){if(renderScope.signal.aborted)return;loadError=e}
-    const menu=`<div class="rule-menu">${ruleGroups.map(([gLabel,items])=>`<div class="rule-menu-group"><span class="rule-menu-group-label">${esc(gLabel)}</span><div class="rule-menu-group-items">${items.map(([t,n])=>`<button data-rule-tag="${t}" class="${t===tag?'active':''}"><span>${n}</span><span class="rule-count"></span></button>`).join('')}</div></div>`).join('')}</div>`;
+    const activeGroup=ruleGroups.find(([,items])=>items.some(([t])=>t===tag))||ruleGroups[0];
+    const menu=`<div class="rule-menu"><div class="rule-menu-level1" role="group" aria-label="规则分组">${ruleGroups.map(([gLabel])=>`<button type="button" class="rule-group-btn${gLabel===activeGroup[0]?' active':''}" data-rule-group="${esc(gLabel)}">${esc(gLabel)}</button>`).join('')}</div><div class="rule-menu-items" role="group" aria-label="${esc(activeGroup[0])}名单">${activeGroup[1].map(([t,n])=>`<button type="button" data-rule-tag="${t}" class="${t===tag?'active':''}"><span>${n}</span><span class="rule-count"></span></button>`).join('')}</div></div>`;
+    const bindMenu=()=>{
+      $$('[data-rule-tag]').forEach(x=>x.onclick=()=>{const go=()=>{state.ruleTag=x.dataset.ruleTag;renderListRules(body)};if(rulesWorkbenchService?.canLeave(go)!==false)go();});
+      $$('[data-rule-group]').forEach(x=>x.onclick=()=>{const entry=ruleGroups.find(([g])=>g===x.dataset.ruleGroup);if(!entry||!entry[1].length)return;const go=()=>{state.ruleTag=entry[1][0][0];renderListRules(body)};if(rulesWorkbenchService?.canLeave(go)!==false)go();});
+    };
     if(loadError){
       setHTML(body, `<section class="card"><div class="rule-layout">${menu}<div class="rule-editor"><div class="section-header"><div><h2>${profile[1]}</h2><p>读取失败时禁止保存，现有规则不会被覆盖。</p></div><button class="button" id="rule-retry">${icon('refresh')}重试</button></div><div class="error-panel"><strong>规则列表加载失败</strong><p>${esc(loadError.message)}</p></div></div></div></section>`);
-      $$('[data-rule-tag]').forEach(x=>x.onclick=()=>{const go=()=>{state.ruleTag=x.dataset.ruleTag;renderListRules(body)};if(rulesWorkbenchService?.canLeave(go)!==false)go();});$('#rule-retry').onclick=()=>renderListRules(body);requestAnimationFrame(fitRuleLayoutHeight);return;
+      bindMenu();$('#rule-retry').onclick=()=>renderListRules(body);requestAnimationFrame(fitRuleLayoutHeight);return;
     }
     const trimmed=String(text).trim();
     setHTML(body, `<section class="card"><div class="rule-layout">${menu}<div class="rule-editor"><div class="section-header"><div><h2>${profile[1]}</h2><p>一行一条；完整读取后才允许保存</p></div><div class="section-header-actions"><button class="button small" id="rule-download">${icon('download')}下载列表</button><button class="button primary" id="rule-save">${icon('save')}保存</button></div></div><textarea id="rule-text" class="rule-textarea" spellcheck="false">${esc(trimmed)}</textarea><div class="rule-editor-footer"><span id="rule-lines">共 ${trimmed?trimmed.split('\n').filter(line=>line.trim()).length:0} 行</span></div></div></div></section>`);
-    $$('[data-rule-tag]').forEach(x=>x.onclick=()=>{const go=()=>{state.ruleTag=x.dataset.ruleTag;renderListRules(body)};if(rulesWorkbenchService?.canLeave(go)!==false)go();});
+    bindMenu();
     $('#rule-text').oninput=()=>$('#rule-lines').textContent=`共 ${$('#rule-text').value.split('\n').filter(line=>line.trim()).length} 行`;
     $('#rule-save').onclick=async()=>{
       const button=$('#rule-save'),text=$('#rule-text'),value=text.value,baseline=text.dataset.original;
@@ -246,8 +251,22 @@ if(!approved&&rulesWorkbenchService?.canLeave(()=>renderRuleTab(tab,true))===fal
       auto_update:Boolean(i.auto_update),update_interval_hours:+i.update_interval_hours||24
     })));
     rows.sort((a,b)=>Number(b.enabled)-Number(a.enabled));
-    setHTML(body, card('在线分流规则',workspaceService.diversion(rows,errors,diversionFormatLabel),{iconName:'rules',actions:'<button class="button" id="div-update-all">更新全部</button><button class="button primary" id="div-add">'+icon('plus')+'添加规则</button>'}));
+    setHTML(body, card('在线分流规则',workspaceService.diversion(rows,errors,diversionFormatLabel,diversionDefs.map(({tag,label,domainRules})=>({tag,label,domainRules}))),{iconName:'rules',actions:'<button class="button" id="div-update-all">更新全部</button><button class="button primary" id="div-add">'+icon('plus')+'添加规则</button>'}));
     workspaceService.bindDiversion(body);
+    $$('[data-div-update-group]',body).forEach(button=>button.onclick=async()=>{
+      if(diversionUpdating)return;
+      const tag=button.dataset.divUpdateGroup,label=diversionDefByTag(tag)?.label||tag;
+      if(!rows.some(r=>r.tag===tag&&r.enabled&&r.url)){toast(`${label}没有可更新的已启用规则`,'info');return}
+      diversionUpdating=true;syncDiversionUpdateState(body);
+      try{
+        const result=await updateRule(`/plugins/${tag}/update-all`);
+        const failed=Number(result?.failed||0);
+        if(failed)toast(`${label}：${Number(result?.updated||0)} 个来源已更新，${failed} 个失败`,'error',(result.errors||[]).map(x=>`${x.name}：${x.error}`).join('；'));
+        else toast(`${label}：${Number(result?.updated||0)} 个来源已更新`);
+        await renderDiversion(body);
+      }catch(e){updateError(e,`${label} 更新失败`)}
+      finally{diversionUpdating=false;syncDiversionUpdateState(body)}
+    });
     if(staleOriginal){
       const notice=document.createElement('div');
       notice.className='error-panel';
