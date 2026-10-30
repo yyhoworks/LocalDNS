@@ -39,9 +39,12 @@ export function initialize() {
     host.dataset.workbench='1';
     document.body.classList.add('has-rules-workbench');
     const bar=$('.rv-toolbar',host),actions=$('.section-header-actions',bar);
-    const activeTag=$('.rule-menu button.active')?.dataset.ruleTag;
+    /* 只认名单胶囊（data-rule-tag）上的 .active；分组按钮也带 .active 但没有 data-rule-tag */
+    const activeTag=$('.rule-menu [data-rule-tag].active')?.dataset.ruleTag;
     const heading=document.createElement('div');heading.className='wb-list-heading';
-    setHTML(heading, `<div><h2>${esc(names[activeTag]||'名单管理')}</h2><p>${esc(notes[activeTag]||'启停与编辑先保留为草稿，保存后生效。')}</p></div><div class="wb-list-tools"><button type="button" class="workspace-text-button" data-route="devices">客户端 IP 与分流模式已移至「设备」›</button></div>`);
+    /* 卡头提示已带「先保留为草稿」，这里只显示名单本身的用途说明 */
+    const note=(notes[activeTag]||'').split(' · ')[0]||'本地名单';
+    setHTML(heading, `<div><h2>${esc(names[activeTag]||'名单管理')}</h2><p>${esc(note)}</p></div><div class="wb-list-tools"><button type="button" class="workspace-text-button" data-route="devices">客户端 IP 与分流模式已移至「设备」›</button></div>`);
     bar.before(heading);
     const modes=document.createElement('div');modes.className='wb-modes';modes.setAttribute('role','group');modes.setAttribute('aria-label','名单编辑方式');
     setHTML(modes, '<button type="button" data-wb-mode="list" aria-pressed="true">列表</button><button type="button" data-wb-mode="raw" aria-pressed="false">原文</button>');

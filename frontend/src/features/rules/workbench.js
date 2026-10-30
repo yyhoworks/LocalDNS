@@ -172,9 +172,9 @@ export function initialize() {
     if (histAt >= hist.length - 1) { say('没有更新的状态了'); return; }
     histAt++; applyHist(); say('已重做（' + (histAt + 1) + '/' + hist.length + '）');
   }
-  /* 当前正在看的名单 tag（胶囊上的 data-rule-tag 由站点自己维护） */
+  /* 当前正在看的名单 tag（只认名单胶囊 data-rule-tag 上的 .active，分组按钮不带它） */
   function activeTag() {
-    var b = document.querySelector('.rule-menu button.active');
+    var b = document.querySelector('.rule-menu [data-rule-tag].active');
     return b && b.dataset.ruleTag;
   }
   function setDirty(v) {
@@ -825,7 +825,7 @@ export function initialize() {
     sheet().querySelector('#rv-rulefields').hidden = false;
     sheet().querySelector('#rv-grpfields').hidden = true;
     sheet().querySelector('#rv-sheet-tip').textContent = '应用到名单后，点击名单页保存才生效';
-    var scope = document.querySelector('.rule-menu button.active span');
+    var scope = document.querySelector('.rule-menu [data-rule-tag].active span');
     sheet().querySelector('#rv-sheet-title').textContent = fresh ? '新增规则' : '编辑规则';
     sheet().querySelector('#rv-sheet-scope').textContent = scope ? scope.textContent : '名单';
     sheet().querySelector('#rv-del').style.display = fresh ? 'none' : '';
@@ -877,7 +877,7 @@ export function initialize() {
     groupMode = true;
     editingGroup = g || null; editing = null; isNew = false; armedEnter = false; rawMode = false;
     var docOnly = !!(g && g.docOnly);
-    var scope = document.querySelector('.rule-menu button.active span');
+    var scope = document.querySelector('.rule-menu [data-rule-tag].active span');
     var lines = g ? g.lines : [];
     var title = g ? stripTitlePrefix(groupTitle(g)) : '';
     var notes = g ? g.notes.map(function (n) { return String(n.value || '').trim(); }).filter(Boolean).join('\n') : '';

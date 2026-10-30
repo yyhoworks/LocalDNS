@@ -553,16 +553,23 @@ body[data-console-route="rules"] .rp-foot{flex-wrap:wrap}
    控制台路由下从不生效；同特异性、更靠后才能真正隐藏。 */
 @media(max-width:600px){.rule-menu,body[data-console-route="rules"] .rule-menu{display:none}}
 
-/* 名单分组：一级选组（分段控件），二级选名单（胶囊），两级之间只留白不画竖线。
+/* 名单分组：一级选组（分段控件）在卡片头右侧，二级选名单（胶囊）单独一行。
    必须带 body[data-console-route="rules"] 前缀并放在 console 层之后——上层
    `body[...] .rule-menu-group{padding-right;border-right}` 与 `... button{background;border}`
-   同特异性、更靠前，裸类名压不住。 */
+   同特异性、更靠前，裸类名压不住。一级按钮已移出 .rule-menu，样式直接挂在
+   .rule-group-btn 上（字体/光标原来由 `.rule-menu button` 通用规则提供，这里补齐）。 */
 body[data-console-route="rules"] .rule-menu { display:flex; flex-direction:column; align-items:flex-start; gap:10px; }
 body[data-console-route="rules"] .rule-menu-level1 { display:inline-flex; align-items:center; gap:2px; padding:3px; background:var(--glass-pill); border:1px solid var(--border-glass); border-radius:calc(9px * var(--radius-scale)); }
-body[data-console-route="rules"] .rule-menu .rule-group-btn { min-height:28px; padding:4px 12px; border-radius:calc(6px * var(--radius-scale)); background:transparent; border:1px solid transparent; box-shadow:none; color:var(--text-2); font-weight:500; }
-body[data-console-route="rules"] .rule-menu .rule-group-btn:hover { background:var(--glass-pill-active); color:var(--text-1); }
-body[data-console-route="rules"] .rule-menu .rule-group-btn.active { background:var(--glass-pill-active); border-color:var(--border-highlight); color:var(--text-1); font-weight:600; }
+body[data-console-route="rules"] .rule-group-btn { min-height:28px; padding:4px 12px; border-radius:calc(6px * var(--radius-scale)); background:transparent; border:1px solid transparent; box-shadow:none; color:var(--text-2); font:500 12px/1.4 var(--font-sans); cursor:pointer; }
+body[data-console-route="rules"] .rule-group-btn:hover { background:var(--glass-pill-active); color:var(--text-1); }
+body[data-console-route="rules"] .rule-group-btn.active { background:var(--glass-pill-active); border-color:var(--border-highlight); color:var(--text-1); font-weight:600; }
 body[data-console-route="rules"] .rule-menu-items { display:inline-flex; flex-wrap:wrap; align-items:center; gap:6px; }
+
+/* 名单卡头与 card() 模板同构（card-header 自带标题左/动作右与底部分隔线）；
+   窄屏收起说明行，让标题与分组分段控件保持一行 */
+@media(max-width:600px){
+  body[data-console-route="rules"] .rule-card-header .card-title p{display:none}
+}
 
 /* 在线分流：顶部按类型汇总的总数卡，点一下展开并滚到该组 */
 .div-stats { display:grid; grid-template-columns:repeat(6,minmax(0,1fr)); gap:10px; margin-bottom:14px; }
