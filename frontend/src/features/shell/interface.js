@@ -93,7 +93,23 @@ export function initialize() {
     return groups.map(g=>`<optgroup label="${escape(g)}">${items.filter(x=>(x.group||'')===g).map(option).join('')}</optgroup>`).join('');
   }
   function ruleState(){const el=$('.console-rule-state'),tag=activeTag();if(!el)return;const dirty=drafts.has(tag);el.classList.toggle('dirty',dirty);el.textContent=dirty?'有未保存修改 · 切换名单将保留草稿':'当前内容已保存';}
-  function rules(){const text=$('#rule-text'),tag=activeTag();if(!text||!tag)return;if(!text.dataset.consoleDraft){text.dataset.consoleDraft='1';text.dataset.original=text.value;if(drafts.has(tag)&&drafts.get(tag)===text.value){drafts.delete(tag);persistDrafts();}if(drafts.has(tag))text.value=drafts.get(tag);text.addEventListener('input',()=>{rememberDraft();ruleState();});insertHTML($('.section-header>div'), 'beforeend', '<div class="console-rule-state" role="status"></div>');if(!$('.console-rule-select')){const select=document.createElement('div');select.className='console-rule-select';setHTML(select, '<label for="console-list-select">名单类别</label><select id="console-list-select">'+ruleMenuOptions(tag)+'</select>');$('.rule-editor').prepend(select);$('select',select).onchange=e=>{rememberDraft();$(`.rule-menu [data-rule-tag="${e.target.value}"]`)?.click();};}}ruleState();}
+  /* 两级化后 .rule-menu 只渲染当前分组的胶囊，下拉却列出全部分组：
+     跨分组时先点分组按钮切组（菜单异步重渲染），等目标胶囊出现再点。 */
+  function selectRuleTag(value){
+    const capsule=()=>$(`.rule-menu [data-rule-tag="${value}"]`);
+    const hit=capsule();
+    if(hit){hit.click();return;}
+    let group='';
+    try{group=(JSON.parse($('.rule-menu')?.dataset.ruleOptions||'[]').find(x=>x.tag===value)||{}).group||'';}catch{}
+    const groupBtn=group&&$(`.rule-menu-level1 [data-rule-group="${group}"]`);
+    if(!groupBtn)return;
+    groupBtn.click();
+    const root=$('#page-content')||document;
+    const mo=new MutationObserver(()=>{const c=capsule();if(c){mo.disconnect();if(!c.classList.contains('active'))c.click();}});
+    mo.observe(root,{childList:true,subtree:true});
+    setTimeout(()=>mo.disconnect(),8000);
+  }
+  function rules(){const text=$('#rule-text'),tag=activeTag();if(!text||!tag)return;if(!text.dataset.consoleDraft){text.dataset.consoleDraft='1';text.dataset.original=text.value;if(drafts.has(tag)&&drafts.get(tag)===text.value){drafts.delete(tag);persistDrafts();}if(drafts.has(tag))text.value=drafts.get(tag);text.addEventListener('input',()=>{rememberDraft();ruleState();});insertHTML($('.section-header>div'), 'beforeend', '<div class="console-rule-state" role="status"></div>');if(!$('.console-rule-select')){const select=document.createElement('div');select.className='console-rule-select';setHTML(select, '<label for="console-list-select">名单类别</label><select id="console-list-select">'+ruleMenuOptions(tag)+'</select>');$('.rule-editor').prepend(select);$('select',select).onchange=e=>{rememberDraft();selectRuleTag(e.target.value);};}}ruleState();}
   function ruleSaved(tag,value){if(drafts.get(tag)===value||!drafts.has(tag))drafts.delete(tag);persistDrafts();if(activeTag()===tag){const text=$('#rule-text');if(text)text.dataset.original=value;ruleState();}}
   function displayNumerals(){
     $$('.console-kpi .sk-val,.tec-big,.ring-total,.service-value[data-display-number]').forEach(el=>{
