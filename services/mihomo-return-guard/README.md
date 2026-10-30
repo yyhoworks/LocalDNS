@@ -21,6 +21,24 @@ configuration service uses `post-reload-mihomo.sh` for synchronous validation.
 Direct API reloads that bypass that hook are covered by the periodic guard;
 there can be a brief recovery interval after such a reload.
 
+## `--check` output contract
+
+`guard.py --check` prints exactly one JSON object on stdout, so a monitor can
+parse it without handling tracebacks. The exit code is 0 only for a healthy
+state.
+
+| State | Payload | Exit |
+|---|---|---|
+| Healthy | `{"ok": true, "ready": true, "ipv4": [], "ipv6": []}` | 0 |
+| Rules missing or misplaced | `{"ok": false, "ready": true, "ipv4": [...], "ipv6": [...]}` | 1 |
+| Configuration or command failure | `{"ok": false, "error": "..."}` | 1 |
+
+The failure payload is deliberately minimal: it carries no `ready`, `ipv4` or
+`ipv6` keys, so read `error` first and only fall back to the health fields when
+it is absent. Configuration is read before the firewall snapshot, so a host
+with missing `/etc/conf.d` files fails fast instead of running `iptables-save`
+first.
+
 ## Installation on a matching VM
 
 Back up the current firewall, policy routes, scripts and reload hook first.
