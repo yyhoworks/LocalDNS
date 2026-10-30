@@ -12,7 +12,8 @@ export function initialize() {
   const route=()=>location.hash.replace(/^#\/?/,'')||'overview';
   const escape=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const labels={r1:'国内域名',r2:'白名单与自定义',r3:'海外域名',r4:'FakeIP 与灰名单',r5:'广告与追踪拦截',r6:'黑名单与类型过滤',g1:'国内解析组',g2:'海外解析组',g3:'海外 ECS 组',g4:'代理解析组',g5:'本地拦截'};
-  const activeTag=()=>$('.rule-menu button.active')?.dataset.ruleTag;
+  // 名单菜单现在是两级：一级分组按钮也带 .active，但没有 data-rule-tag，必须直接找名单按钮。
+  const activeTag=()=>$('.rule-menu [data-rule-tag].active')?.dataset.ruleTag;
   function persistDrafts(){try{sessionPreferences.setItem(draftKey,JSON.stringify([...drafts]));}catch{}}
   function rememberDraft(){const text=$('#rule-text'),tag=activeTag();if(text&&tag&&text.dataset.original!==undefined){if(text.value!==text.dataset.original)drafts.set(tag,text.value);else drafts.delete(tag);persistDrafts();}}
   function updateBrand(){
@@ -79,8 +80,20 @@ export function initialize() {
     $$('table',root).forEach(table=>{const heads=$$('thead th',table).map(x=>x.textContent.trim());if(!heads.length)return;const dedicated=table.matches('.workspace-rank-table,.workspace-upstream-table,.overview-slow-table,.overview-detail-table');table.classList.toggle('mobile-records',!dedicated);$$('tbody tr',table).forEach(tr=>$$('td',tr).forEach((td,i)=>{if(!td.dataset.label)td.dataset.label=heads[i]||'';}));});
     $$('label',root).forEach(label=>{if(label.querySelector('input[type=file]')){label.tabIndex=0;label.setAttribute('role','button');if(!label.dataset.consoleKeyboard){label.dataset.consoleKeyboard='1';label.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();label.querySelector('input').click();}};}}});
   }
+  /* 名单菜单两级化后，一级分组按钮也在 .rule-menu 里且没有 data-rule-tag：
+     直接按 .rule-menu button 取会拿到分组按钮（没有 <span>）而报错，也会漏掉其它分组的名单。
+     优先读页面写在 data-rule-options 上的完整清单，按分组输出 optgroup；没有就退回当前可见的名单按钮。 */
+  function ruleMenuOptions(tag){
+    const menu=$('.rule-menu');let items=[];
+    try{items=JSON.parse(menu?.dataset.ruleOptions||'[]');}catch{}
+    if(!Array.isArray(items)||!items.length)items=$$('.rule-menu [data-rule-tag]').map(b=>({tag:b.dataset.ruleTag,label:b.querySelector('span')?.textContent||b.textContent.trim(),group:''}));
+    const option=x=>`<option value="${escape(x.tag)}" ${x.tag===tag?'selected':''}>${escape(x.label)}</option>`;
+    const groups=[...new Set(items.map(x=>x.group||''))];
+    if(groups.length<2||groups.every(g=>!g))return items.map(option).join('');
+    return groups.map(g=>`<optgroup label="${escape(g)}">${items.filter(x=>(x.group||'')===g).map(option).join('')}</optgroup>`).join('');
+  }
   function ruleState(){const el=$('.console-rule-state'),tag=activeTag();if(!el)return;const dirty=drafts.has(tag);el.classList.toggle('dirty',dirty);el.textContent=dirty?'有未保存修改 · 切换名单将保留草稿':'当前内容已保存';}
-  function rules(){const text=$('#rule-text'),tag=activeTag();if(!text||!tag)return;if(!text.dataset.consoleDraft){text.dataset.consoleDraft='1';text.dataset.original=text.value;if(drafts.has(tag)&&drafts.get(tag)===text.value){drafts.delete(tag);persistDrafts();}if(drafts.has(tag))text.value=drafts.get(tag);text.addEventListener('input',()=>{rememberDraft();ruleState();});insertHTML($('.section-header>div'), 'beforeend', '<div class="console-rule-state" role="status"></div>');if(!$('.console-rule-select')){const select=document.createElement('div');select.className='console-rule-select';setHTML(select, '<label for="console-list-select">名单类别</label><select id="console-list-select">'+$$('.rule-menu button').map(b=>`<option value="${escape(b.dataset.ruleTag)}" ${b.dataset.ruleTag===tag?'selected':''}>${escape(b.querySelector('span').textContent)}</option>`).join('')+'</select>');$('.rule-editor').prepend(select);$('select',select).onchange=e=>{rememberDraft();$(`.rule-menu [data-rule-tag="${e.target.value}"]`)?.click();};}}ruleState();}
+  function rules(){const text=$('#rule-text'),tag=activeTag();if(!text||!tag)return;if(!text.dataset.consoleDraft){text.dataset.consoleDraft='1';text.dataset.original=text.value;if(drafts.has(tag)&&drafts.get(tag)===text.value){drafts.delete(tag);persistDrafts();}if(drafts.has(tag))text.value=drafts.get(tag);text.addEventListener('input',()=>{rememberDraft();ruleState();});insertHTML($('.section-header>div'), 'beforeend', '<div class="console-rule-state" role="status"></div>');if(!$('.console-rule-select')){const select=document.createElement('div');select.className='console-rule-select';setHTML(select, '<label for="console-list-select">名单类别</label><select id="console-list-select">'+ruleMenuOptions(tag)+'</select>');$('.rule-editor').prepend(select);$('select',select).onchange=e=>{rememberDraft();$(`.rule-menu [data-rule-tag="${e.target.value}"]`)?.click();};}}ruleState();}
   function ruleSaved(tag,value){if(drafts.get(tag)===value||!drafts.has(tag))drafts.delete(tag);persistDrafts();if(activeTag()===tag){const text=$('#rule-text');if(text)text.dataset.original=value;ruleState();}}
   function displayNumerals(){
     $$('.console-kpi .sk-val,.tec-big,.ring-total,.service-value[data-display-number]').forEach(el=>{
