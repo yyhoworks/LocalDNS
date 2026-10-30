@@ -133,6 +133,7 @@ if(!approved&&rulesWorkbenchService?.canLeave(()=>renderRuleTab(tab,true))===fal
     {tag:'custom_cn',type:'custom_cn',label:'国内规则',domainRules:true},
     {tag:'custom_non_cn',type:'custom_non_cn',label:'海外规则',domainRules:true},
     {tag:'geoip_cn',type:'geoip_cn',label:'GeoIP CN',domainRules:false},
+    {tag:'geoip_non_cn',type:'geoip_non_cn',label:'GeoIP 非 CN',domainRules:false},
     {tag:'geosite_cn',type:'geosite_cn',label:'Geosite CN',domainRules:true},
     {tag:'geosite_non_cn',type:'geosite_non_cn',label:'Geosite 非 CN',domainRules:true}
   ];

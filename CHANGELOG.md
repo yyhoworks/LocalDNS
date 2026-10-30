@@ -1,5 +1,13 @@
 # LocalDNS 更新记录
 
+## FJH7Q / UI 2026.10.30.3 · 在线分流新增「GeoIP 非 CN」分组，界面正式适配新内核
+
+- **新内核能力**：FJH7Q 内核新增 `geoip_non_cn` 规则类型，按国家/地区拆分非 CN IP 段（默认 18 组、约 57.7 万条）。前端此前只认 5 个分组，新类型在界面上完全不可见。
+- **前端适配**：`features/rules` 的 `diversionDefs` 补入 `geoip_non_cn`（标签「GeoIP 非 CN」，按 IP 段而非域名处理），在线分流页自动归入「海外解析」分组，可启停、编辑、更新、删除，「添加规则」的类型下拉同步可选；`core/api/backend-client` 的分组白名单加入该类型，`/plugins/geoip_non_cn/config` 正确映射到 `/api/v1/rule-groups/geoip_non_cn`。
+- **版本线切换**：`VERSION.json` 与 `_src/ui/version.json` 改为后端 FJH7Q / 标签 `fjh7q-ui-v2026.10.30.3`，界面角标同步 FJH7Q；`tools/package_ui.py` 的运行时模板白名单加入 FJH7Q，完整包可直接以 FJH7Q 内核包为模板重建。
+- **测试**：`frontend/tests/backend-client.test.ts` 增加 geoip_non_cn 映射断言；`npm run check` 全部通过（21 个测试文件 170 项单测）。
+- 仅前端资源改动；DNS 内核、配置、规则与上游不变，更新 UI 无需重启 DNS。
+
 ## 未发布 · 回流守护 `--check` 输出契约、CI 覆盖与文档对齐
 
 - **回流守护 `--check`**：配置或命令失败时输出 `{"ok": false, "error": ...}` 并 exit 1，不再抛 traceback；先读 `/etc/conf.d` 配置再做快照，缺配置时 fast-fail，不白跑一遍 `iptables-save`；报错信息保留完整命令。单测增至 14 项，新增用例断言配置失败时不调用 `snapshot()`。

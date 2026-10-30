@@ -1,6 +1,6 @@
-﻿# 安装与更新
+# 安装与更新
 
-当前发行版本：**后端 FJH50 / UI 2026.10.30.2**（发行标签 `fjh50-ui-v2026.10.30.2`），见 [本次更新说明](docs/releases/fjh50-ui-v2026.10.30.2.md)。FJH50 内核提供 amd64-v1 / v2 / v3 / arm64 程序，本地区与 ANY / META / XFR 特殊查询改为本地应答；发行包附完整配置迁移工具，保留 DNS 趋势、静态共享设置、日志目录与 Mihomo / sing-box 配置编辑器。
+当前发行版本：**后端 FJH7Q / UI 2026.10.30.3**（发行标签 `fjh7q-ui-v2026.10.30.3`），见 [本次更新说明](docs/releases/fjh7q-ui-v2026.10.30.3.md)。FJH7Q 内核提供 amd64-v1 / v2 / v3 / arm64 程序，新增按国家/地区拆分的「GeoIP 非 CN」分流分组（18 组，默认随包提供）；界面已适配该分组，可在「规则 → 在线分流 → 海外解析」中启停与更新。发行包附完整配置迁移工具，保留 DNS 趋势、静态共享设置、日志目录与 Mihomo / sing-box 配置编辑器。
 
 ## 名称、Logo 与字体共享
 
@@ -26,12 +26,12 @@ curl -fsSL https://raw.githubusercontent.com/yyhoworks/LocalDNS/main/tools/insta
 
 包含此功能的发行包可一次性安装更新执行端，之后在顶部「版本与更新」中直接发起 UI 更新或恢复上一版。只更新 UI，保留配置与核心。安装方法及 HTTPS 接入见 [网页升级指南](docs/WEB_UPDATE.md)。
 
-从 [本版 Releases](https://github.com/yyhoworks/LocalDNS/releases/tag/fjh50-ui-v2026.10.30.2) 下载；本地构建位于 `dist/fjh50-ui-v2026.10.30.2/`。
+从 [本版 Releases](https://github.com/yyhoworks/LocalDNS/releases/tag/fjh7q-ui-v2026.10.30.3) 下载；本地构建位于 `dist/fjh7q-ui-v2026.10.30.3/`。
 
 | 文件 | 用途 |
 |---|---|
-| `LocalDNS_FJH50_UI_2026.10.30.2_Full.zip` | 新安装或完整迁移：FJH50 程序（含 v1/v2/v3/arm64）、新配置结构、迁移工具与当前双皮肤 UI |
-| `LocalDNS_UI_2026.10.30.2_Update.zip` | 已安装环境更新界面 |
+| `LocalDNS_FJH7Q_UI_2026.10.30.3_Full.zip` | 新安装或完整迁移：FJH7Q 程序（含 v1/v2/v3/arm64）、新配置结构、迁移工具与当前双皮肤 UI |
+| `LocalDNS_UI_2026.10.30.3_Update.zip` | 已安装环境更新界面 |
 | `SHA256SUMS.txt` | 发行包的 SHA-256 校验值 |
 
 在同一目录核对：
@@ -68,7 +68,7 @@ sh install-ui.sh /opt/localdns
 
 ## 新安装
 
-完整包中的 `localdns/` 放到 `/opt/localdns`。默认程序为 **amd64-v3**；其他二进制位于 `LocalDNS_FJH50_Binaries/`，按设备架构与指令集选择。内核支持自适应多核 CPU，日常使用推荐双核即可满足性能需求，四核测试 QPS 更高。
+完整包中的 `localdns/` 放到 `/opt/localdns`。默认程序为 **amd64-v3**；其他二进制位于 `LocalDNS_FJH7Q_Binaries/`，按设备架构与指令集选择。内核支持自适应多核 CPU，日常使用推荐双核即可满足性能需求，四核测试 QPS 更高。
 
 | 文件 | 平台与指令集要求 |
 |---|---|

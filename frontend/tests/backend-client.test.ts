@@ -63,6 +63,8 @@ describe('backend compatibility', () => {
       path: '/api/v1/lists/direct', method: 'PUT', body: '{"values":[]}' });
     expect(await client.request('/plugins/geosite_cn/update/a%2Fb', { method: 'POST', timeout: 300000 })).toMatchObject({
       path: '/api/v1/rule-groups/geosite_cn/a%2Fb/update', method: 'POST' });
+    expect(await client.request('/plugins/geoip_non_cn/config')).toMatchObject({
+      path: '/api/v1/rule-groups/geoip_non_cn', method: 'GET' });
     expect(await client.request('/plugins/requery/scheduler/config', { method: 'POST', body: '{}' })).toMatchObject({
       path: '/api/v1/route-refresh/schedule', method: 'PUT' });
     expect(await client.request('/plugins/cache_foreign_ecs/flush')).toMatchObject({

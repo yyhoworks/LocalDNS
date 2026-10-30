@@ -15,7 +15,7 @@ const switches: Record<string, { key: string; value?: string }> = {
   switch2: { key: 'client_policy', value: 'listed_proxy_only' },
   switch12: { key: 'client_policy', value: 'listed_direct' },
 };
-const groups = 'custom_cn|custom_non_cn|geoip_cn|geosite_cn|geosite_non_cn';
+const groups = 'custom_cn|custom_non_cn|geoip_cn|geoip_non_cn|geosite_cn|geosite_non_cn';
 
 function features(value: unknown): Features {
   if (!value || typeof value !== 'object' || Array.isArray(value)) {
