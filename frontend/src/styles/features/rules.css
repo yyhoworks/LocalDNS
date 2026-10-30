@@ -553,8 +553,15 @@ body[data-console-route="rules"] .rp-foot{flex-wrap:wrap}
    控制台路由下从不生效；同特异性、更靠后才能真正隐藏。 */
 @media(max-width:600px){.rule-menu,body[data-console-route="rules"] .rule-menu{display:none}}
 
-/* 名单分组：标签与页签明确区分，组间加分隔线 */
-.rule-menu { display:flex; flex-wrap:wrap; align-items:center; gap:6px 0; }
-.rule-menu-group { display:flex; align-items:center; gap:4px; }
-.rule-menu-group + .rule-menu-group { margin-left:14px; padding-left:14px; border-left:1px solid var(--border-glass); }
-.rule-menu-group-label { font-size:11px; font-weight:600; letter-spacing:.06em; color:var(--text-3); margin-right:8px; white-space:nowrap; user-select:none; }
+/* 名单分组：组名抬到页签上方当小标题，页签保持各自的描边胶囊，组间只留白不画竖线。
+   必须带 body[data-console-route="rules"] 前缀并放在 console 层之后——上层
+   `body[...] .rule-menu-group{padding-right;border-right}` 与 `... button{background;border}`
+   同特异性、更靠前，裸类名压不住。 */
+body[data-console-route="rules"] .rule-menu { display:flex; flex-wrap:wrap; align-items:flex-start; gap:12px 26px; }
+body[data-console-route="rules"] .rule-menu-group { display:inline-flex; flex-direction:column; align-items:flex-start; gap:7px; padding:0; border:0; margin:0; }
+body[data-console-route="rules"] .rule-menu-group + .rule-menu-group { margin-left:0; padding-left:0; border-left:0; }
+body[data-console-route="rules"] .rule-menu-group-label { font:600 10.5px/1.2 var(--font-sans); letter-spacing:.14em; color:var(--text-3); margin:0; white-space:nowrap; user-select:none; }
+body[data-console-route="rules"] .rule-menu-group-items { display:inline-flex; align-items:center; gap:6px; flex-wrap:wrap; padding:0; background:none; border:0; }
+body[data-console-route="rules"] .rule-menu button { min-height:32px; padding:6px 12px; border-radius:calc(9px * var(--radius-scale)); background:var(--glass-pill); border:1px solid var(--border-glass); box-shadow:var(--inner-specular); color:var(--text-2); }
+body[data-console-route="rules"] .rule-menu button:hover { background:var(--glass-pill-active); }
+body[data-console-route="rules"] .rule-menu button.active { background:var(--glass-pill-active); border-color:var(--border-highlight); color:var(--primary-light); font-weight:600; }
