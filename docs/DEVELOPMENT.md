@@ -18,7 +18,7 @@ python tools/package_ui.py
 
 `check` 先执行 `build`，再依次执行严格 TS 类型检查、Vitest、ESLint 和 `verify:generated`，因此新克隆无需预先构建即可直接运行。迁移后的业务 JS 全部纳入 lint；JS 采用显式 ESM，尚未开启全量 `checkJs`：`src/core/` 的 JS 文件已逐个以 `// @ts-check` 纳入类型检查，后续按 `src/shared/`、再 `src/features/` 逐目录扩围（见 `frontend/tsconfig.json` 注释），基础设施和新增查询模型使用严格 TypeScript。仓库版本号以根目录 `VERSION.json` 为唯一来源；`frontend/package.json` 的 `version` 只是占位（`0.0.0`），不参与发布，打包时由构建读取 `VERSION.json` 注入。构建输出到忽略的 `dist/ui/`，包含哈希 JS/CSS、生成 HTML、所有公共资源以及 `build-meta.json`。不输出 source map，不提交普通 bundle；趋势图为自绘 SVG，不再分发 Chart.js vendor。源 CSS 使用 cascade layers，构建时编译层级以保留较旧浏览器的 CSS 语法兼容性。
 
-持续集成由 `.github/workflows/ci.yml` 提供：每次推送与 PR 自动运行前端 `check`、`tools/` 的 Python 单元测试与配置服务（`services/proxy-config/`）的 Go 测试；其中 `tools/test_proxy_config_installer.py` 依赖发行打包产物，未纳入 CI。
+持续集成由 `.github/workflows/ci.yml` 提供：每次推送与 PR 自动运行前端 `check`、`tools/` 与 `services/mihomo-return-guard/` 的 Python 单元测试、以及配置服务（`services/proxy-config/`）的 Go 测试；其中 `tools/test_proxy_config_installer.py` 依赖发行打包产物，未纳入 CI。
 
 `verify:generated` 先检查源指纹和文件清单，再在系统临时目录干净重建，逐文件比较 SHA-256，最后清理临时目录。共用指纹实现为普通 `.mjs`，不要求 Node 原生加载 TypeScript。打包工具不隐式执行 npm，拒绝缺失、过期、篡改或多出文件的构建。
 
@@ -40,6 +40,7 @@ Playwright 模块需可被 Node 加载，或者将 `LOCALDNS_PLAYWRIGHT` 设为�
 node --test tools/test_countup.cjs tools/test_traffic.cjs tools/test_rule_conversion.cjs tools/test_query_path.cjs tools/test_rank_latency.cjs tools/test_overview_insights.cjs tools/test_clients.cjs tools/test_wallpaper.cjs
 python tools/test_shared_ui.py
 python tools/test_oneclick_installer.py
+python services/mihomo-return-guard/test_guard.py
 node tools/verify_frontend_build.cjs
 node tools/verify_frontend_routes.cjs
 node tools/verify_frontend_actions.cjs

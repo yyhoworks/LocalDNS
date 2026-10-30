@@ -1,5 +1,12 @@
 # LocalDNS 更新记录
 
+## 未发布 · 回流守护 `--check` 输出契约、CI 覆盖与文档对齐
+
+- **回流守护 `--check`**：配置或命令失败时输出 `{"ok": false, "error": ...}` 并 exit 1，不再抛 traceback；先读 `/etc/conf.d` 配置再做快照，缺配置时 fast-fail，不白跑一遍 `iptables-save`；报错信息保留完整命令。单测增至 14 项，新增用例断言配置失败时不调用 `snapshot()`。
+- **CI**：`services/mihomo-return-guard/test_guard.py` 纳入 `.github/workflows/ci.yml` 的 Python 单元测试任务（此前只在本地运行），任务名同步改为「Python unit tests」。
+- **文档**：`services/mihomo-return-guard/README.md` 补 `--check` 输出契约（健康 / 不健康 / 配置失败三种载荷与退出码，并说明错误载荷没有 `ready` / `ipv4` / `ipv6`）；`docs/DEVELOPMENT.md` 的 CI 说明与本地回归清单同步。
+- 仅守护脚本、CI 与文档改动；DNS 内核、配置、规则与上游不变。
+
 ## FJH50 / UI 2026.10.30.2 · 恢复概览趋势卡标题与设备策略名称，渲染增强链纳入测试
 
 - **标题消失**：概览「响应延迟与解析异常」这张卡一直不显示标题，时间范围按钮顶在左上角。`shell/interface.js` 用 `head.lastElementChild` 定位范围控件，而 `.gc-head` 里只有 `.gc-title` 一个子元素，标题被就地改名成 `.console-range`、文字被按钮替换。
