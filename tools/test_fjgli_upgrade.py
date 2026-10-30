@@ -79,6 +79,14 @@ class MigrationTests(unittest.TestCase):
         with self.assertRaisesRegex(MigrationError, 'URL'):
             migrate_configuration(self.old, self.new)
 
+    def test_keeps_the_querylog_persist_switch_from_fjh21_onwards(self):
+        write_json(self.old / 'config/settings/querylog.json', {'capacity': 5000, 'persist': True})
+        migrate_configuration(self.old, self.new)
+        self.assertEqual(read_json(self.new / 'config/settings/querylog.json'), {'capacity': 5000, 'persist': True})
+        write_json(self.old / 'config/settings/querylog.json', {'capacity': 5000, 'unknown': 1})
+        with self.assertRaisesRegex(MigrationError, '查询日志'):
+            migrate_configuration(self.old, self.new)
+
     def test_rejects_subscription_paths_outside_runtime_and_flags_missing_sources(self):
         p = self.old / 'config/subscriptions/custom_cn.json'
         entries = read_json(p)

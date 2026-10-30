@@ -180,7 +180,8 @@ def migrate_configuration(source, target):
     if log is None:
         log = load('config/settings/audit.json')
     if log is not None:
-        if set(log) - {'capacity', 'dir'}:
+        # `persist` arrived with FJH21 (记录存盘); older installs only carry capacity/dir.
+        if set(log) - {'capacity', 'dir', 'persist'}:
             raise MigrationError('查询日志存在未知设置字段')
         save('config/settings/querylog.json', log)
     switches = load('config/settings/switches.json')

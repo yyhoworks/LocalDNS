@@ -10,12 +10,16 @@ export interface CachePool {
   stale_ttl: number;
   save_interval: number;
   running: Record<CacheField, number> | null;
+  /** Bytes the kernel reserves for this pool; absent on cores that only report limits. */
+  budget_bytes?: number;
 }
 
 export interface CacheSettings {
   restart_needed: boolean;
   limits: CacheLimits;
   caches: CachePool[];
+  /** Total cache budget in MB; the kernel reports it next to the per-pool budgets. */
+  cache_memory_mb?: number;
 }
 
 export interface CacheUnit {
@@ -68,6 +72,7 @@ function pool(value: unknown): CachePool | null {
     stale_ttl: Number(item.stale_ttl),
     save_interval: Number(item.save_interval),
     running,
+    ...(isNumber(item.budget_bytes) && item.budget_bytes >= 0 ? { budget_bytes: Number(item.budget_bytes) } : {}),
   };
 }
 
@@ -90,7 +95,12 @@ export function cacheSettings(value: unknown): CacheSettings | null {
   };
   const caches = (Array.isArray(data.caches) ? data.caches : []).map(pool).filter((item): item is CachePool => item !== null);
   if (!caches.length) throw new ApiError('缓存设置缺少缓存池信息。', 0, null, 'contract');
-  return { restart_needed: data.restart_needed === true, limits, caches };
+  return {
+    restart_needed: data.restart_needed === true,
+    limits,
+    caches,
+    ...(isNumber(data.cache_memory_mb) && data.cache_memory_mb > 0 ? { cache_memory_mb: Number(data.cache_memory_mb) } : {}),
+  };
 }
 
 export async function readCacheSettings(request: (path: string) => Promise<unknown>): Promise<CacheSettings | null> {
@@ -134,6 +144,28 @@ export const cacheLimitRowSelector = (key: string): string => `tr[data-cache-key
 /** Input selector shared by the dialog markup and its reader. */
 export const cacheLimitInputSelector = (key: string, field: CacheField): string => `${cacheLimitRowSelector(key)} input[data-field="${field}"]`;
 
+const BYTES_PER_MB = 1048576;
+
+/**
+ * Memory the kernel reserves for one pool and its share of the total budget.
+ *
+ * The kernel splits `cache_memory_mb` by each pool's `max_entries` weight, so a
+ * bigger cap buys a bigger share. FJH7T changed only the shipped default caps
+ * (500k/500k/100k/100k → 400k/100k/50k/50k), which moves a fresh install from
+ * 5/5/1/1 to 8/2/1/1; the split is not a constant, and an upgraded install that
+ * keeps its old caps keeps its old split.
+ */
+export function cacheBudget(cache: CachePool, totalMb?: number): { size: string; share: number | null } | null {
+  const bytes = cache.budget_bytes;
+  if (bytes === undefined || !Number.isFinite(bytes)) return null;
+  const mb = bytes / BYTES_PER_MB;
+  const total = totalMb !== undefined && totalMb > 0 ? totalMb * BYTES_PER_MB : null;
+  return {
+    size: mb >= 100 ? String(Math.round(mb)) : mb.toFixed(1),
+    share: total === null ? null : Math.round((bytes / total) * 100),
+  };
+}
+
 /** Dialog body for the four cache pools; one row per pool, one input per field. */
 export function cacheLimitsForm(settings: CacheSettings, helpers: CacheFormHelpers): string {
   const { cacheName, esc, num } = helpers;
@@ -148,16 +180,24 @@ export function cacheLimitsForm(settings: CacheSettings, helpers: CacheFormHelpe
       const label = `${unit.label}（${unit.unit}）`;
       return `<td data-label="${label}"><input type="number" inputmode="decimal" data-field="${field}" min="${min}" max="${max}" step="${unit.step}" required value="${toDisplay(field, cache[field])}" aria-label="${esc(cacheName(cache.tag))} ${label}"></td>`;
     }).join('');
+    const budget = cacheBudget(cache, settings.cache_memory_mb);
+    const budgetText = budget
+      ? `<span class="cache-limit-budget" title="内存预算按各池记录上限的比例分配，改上限并重启内核后重新计算">预算 ${budget.size} MB${budget.share === null ? '' : ` · ${budget.share}%`}</span>`
+      : '';
     const pending = poolPending(cache) ? '<span class="badge pink cache-limit-pending">待重启</span>' : '';
-    return `<tr data-cache-key="${esc(cache.key)}"><th scope="row"><span class="cache-limit-name">${esc(cacheName(cache.tag))}</span><code class="cache-limit-key">${esc(cache.key)}</code>${pending}</th>${cells}</tr>`;
+    return `<tr data-cache-key="${esc(cache.key)}"><th scope="row"><span class="cache-limit-name">${esc(cacheName(cache.tag))}</span><code class="cache-limit-key">${esc(cache.key)}</code>${budgetText}${pending}</th>${cells}</tr>`;
   }).join('');
   const [minEntries, maxEntries] = settings.limits.max_entries;
   const [minTtl, maxTtl] = displayBounds('stale_ttl', settings.limits.stale_ttl);
   const [minSave, maxSave] = displayBounds('save_interval', settings.limits.save_interval);
+  const budgetNote = settings.caches.some(cache => cacheBudget(cache, settings.cache_memory_mb))
+    ? `<p class="form-note">内存预算按各池记录上限的比例分配${settings.cache_memory_mb ? `（当前 ${settings.cache_memory_mb} MB）` : ''}：上限越大分到的预算越多，改上限后要重启内核才按新比例重新分配。</p>`
+    : '';
   return `<div class="cache-limit-editor">
       <div class="table-wrap"><table class="cache-limit-table"><thead><tr><th scope="col">缓存池</th>${header}</tr></thead><tbody>${rows}</tbody></table></div>
       <p class="form-note">取值范围：记录数 ${num(minEntries)}–${num(maxEntries)} 条；过期保留 ${minTtl}–${maxTtl} 小时；写盘间隔 ${minSave}–${maxSave} 分钟。</p>
       <p class="form-note">记录上限在缓存启动时分配，保存后若内核提示需要重启，请用上方「重启内核」应用新上限；过期保留与写盘间隔保存后即可生效。</p>
+      ${budgetNote}
     </div>`;
 }
 

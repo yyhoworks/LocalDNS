@@ -23,6 +23,7 @@
 .cache-limit-table tbody th { color: var(--text-1); font-weight: 500; white-space: nowrap; }
 .cache-limit-table tbody tr:last-child th, .cache-limit-table tbody tr:last-child td { border-bottom: 0; }
 .cache-limit-table .cache-limit-key { display: block; margin-top: 2px; font-family: var(--font-mono); font-size: 10.5px; color: var(--text-3); }
+.cache-limit-table .cache-limit-budget { display: block; margin-top: 2px; font-family: var(--font-mono); font-size: 10.5px; color: var(--text-2); white-space: nowrap; }
 .cache-limit-table .cache-limit-pending { margin-top: 4px; }
 .cache-limit-table td input { width: 100%; min-width: 84px; }
 .cache-limit-unit { color: var(--text-3); font-size: 11px; font-weight: 400; }

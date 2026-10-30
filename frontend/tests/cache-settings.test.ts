@@ -2,30 +2,31 @@
 import { describe, expect, it } from 'vitest';
 import { ApiError } from '../src/core/api/api-error';
 import {
-  CACHE_FIELDS, buildCacheLimits, cacheLimitInputSelector, cacheLimitsForm, cacheSettings, displayBounds,
+  CACHE_FIELDS, buildCacheLimits, cacheBudget, cacheLimitInputSelector, cacheLimitsForm, cacheSettings, displayBounds,
   fromDisplay, poolPending, readCacheLimits, readCacheSettings, toDisplay,
 } from '../src/features/management/cache-settings';
 
 const helpers = { cacheName: (tag: string) => tag, esc: (value: unknown) => String(value), num: (value: number) => String(value) };
 
+// FJH7T defaults: 128 MB split 8/12 · 2/12 · 1/12 · 1/12 across the four pools.
 const payload = () => ({
-  cache_memory_mb: 150,
+  cache_memory_mb: 128,
   default_mb: 128,
   restart_needed: false,
   limits: { max_entries: [128, 10000000], stale_ttl: [0, 2592000], save_interval: [60, 604800] },
   caches: [
-    { tag: 'cache_main', key: 'main', entries: 0, bytes: 0, budget_bytes: 1, max_entries: 500000, stale_ttl: 604800, save_interval: 1800, running: { max_entries: 500000, stale_ttl: 604800, save_interval: 1800 } },
-    { tag: 'cache_domestic', key: 'domestic', entries: 0, bytes: 0, budget_bytes: 1, max_entries: 500000, stale_ttl: 604800, save_interval: 1800, running: { max_entries: 500000, stale_ttl: 604800, save_interval: 1800 } },
-    { tag: 'cache_foreign', key: 'foreign', entries: 0, bytes: 0, budget_bytes: 1, max_entries: 100000, stale_ttl: 604800, save_interval: 1800, running: { max_entries: 100000, stale_ttl: 604800, save_interval: 1800 } },
-    { tag: 'cache_foreign_ecs', key: 'foreign_ecs', entries: 0, bytes: 0, budget_bytes: 1, max_entries: 100000, stale_ttl: 604800, save_interval: 1800, running: { max_entries: 100000, stale_ttl: 604800, save_interval: 1800 } },
+    { tag: 'cache_main', key: 'main', entries: 0, bytes: 0, budget_bytes: 89478485, max_entries: 400000, stale_ttl: 604800, save_interval: 1800, running: { max_entries: 400000, stale_ttl: 604800, save_interval: 1800 } },
+    { tag: 'cache_domestic', key: 'domestic', entries: 0, bytes: 0, budget_bytes: 22369621, max_entries: 100000, stale_ttl: 604800, save_interval: 1800, running: { max_entries: 100000, stale_ttl: 604800, save_interval: 1800 } },
+    { tag: 'cache_foreign', key: 'foreign', entries: 0, bytes: 0, budget_bytes: 11184810, max_entries: 50000, stale_ttl: 604800, save_interval: 1800, running: { max_entries: 50000, stale_ttl: 604800, save_interval: 1800 } },
+    { tag: 'cache_foreign_ecs', key: 'foreign_ecs', entries: 0, bytes: 0, budget_bytes: 11184810, max_entries: 50000, stale_ttl: 604800, save_interval: 1800, running: { max_entries: 50000, stale_ttl: 604800, save_interval: 1800 } },
   ],
 });
 
 const values = () => ({
-  main: { max_entries: 500000, stale_ttl: 604800, save_interval: 1800 },
-  domestic: { max_entries: 500000, stale_ttl: 604800, save_interval: 1800 },
-  foreign: { max_entries: 100000, stale_ttl: 604800, save_interval: 1800 },
-  foreign_ecs: { max_entries: 100000, stale_ttl: 604800, save_interval: 1800 },
+  main: { max_entries: 400000, stale_ttl: 604800, save_interval: 1800 },
+  domestic: { max_entries: 100000, stale_ttl: 604800, save_interval: 1800 },
+  foreign: { max_entries: 50000, stale_ttl: 604800, save_interval: 1800 },
+  foreign_ecs: { max_entries: 50000, stale_ttl: 604800, save_interval: 1800 },
 });
 
 describe('cache settings contract', () => {
@@ -49,8 +50,21 @@ describe('cache settings contract', () => {
     expect(parsed.restart_needed).toBe(false);
     expect(parsed.limits.max_entries).toEqual([128, 10000000]);
     expect(parsed.caches.map(cache => cache.key)).toEqual(['main', 'domestic', 'foreign', 'foreign_ecs']);
-    expect(parsed.caches[0]).toMatchObject({ tag: 'cache_main', max_entries: 500000, stale_ttl: 604800, save_interval: 1800 });
+    expect(parsed.caches[0]).toMatchObject({ tag: 'cache_main', max_entries: 400000, stale_ttl: 604800, save_interval: 1800 });
     expect(poolPending(parsed.caches[0])).toBe(false);
+  });
+
+  it('keeps the per-pool budget the kernel reports and tolerates cores without one', () => {
+    const parsed = cacheSettings(payload())!;
+    expect(parsed.cache_memory_mb).toBe(128);
+    expect(parsed.caches.map(cache => cache.budget_bytes)).toEqual([89478485, 22369621, 11184810, 11184810]);
+
+    const legacy = payload() as Record<string, unknown>;
+    delete legacy.cache_memory_mb;
+    for (const cache of legacy.caches as Record<string, unknown>[]) delete cache.budget_bytes;
+    const withoutBudget = cacheSettings(legacy)!;
+    expect(withoutBudget.cache_memory_mb).toBeUndefined();
+    expect(withoutBudget.caches[0].budget_bytes).toBeUndefined();
   });
 
   it('flags a pool whose saved value differs from the running value', () => {
@@ -93,8 +107,31 @@ describe('cache limits dialog markup', () => {
       }
     }
     const body = readCacheLimits(settings, (key, field) => document.querySelector<HTMLInputElement>(cacheLimitInputSelector(key, field))!.value);
-    expect(body.main).toEqual({ max_entries: 500000, stale_ttl: 604800, save_interval: 1800 });
+    expect(body.main).toEqual({ max_entries: 400000, stale_ttl: 604800, save_interval: 1800 });
     expect(Object.keys(body)).toEqual(['main', 'domestic', 'foreign', 'foreign_ecs']);
+  });
+
+  it('shows the per-pool memory budget and its share of the kernel total', () => {
+    const settings = cacheSettings(payload())!;
+    expect(cacheBudget(settings.caches[0], settings.cache_memory_mb)).toEqual({ size: '85.3', share: 67 });
+    expect(cacheBudget(settings.caches[1], settings.cache_memory_mb)).toEqual({ size: '21.3', share: 17 });
+    expect(cacheBudget(settings.caches[2], settings.cache_memory_mb)).toEqual({ size: '10.7', share: 8 });
+
+    const html = cacheLimitsForm(settings, helpers);
+    expect(html).toContain('预算 85.3 MB · 67%');
+    expect(html).toContain('内存预算按各池记录上限的比例分配（当前 128 MB）');
+    expect(html).toContain('改上限后要重启内核才按新比例重新分配');
+  });
+
+  it('leaves the budget out on cores that do not report it', () => {
+    const value = payload() as Record<string, unknown>;
+    delete value.cache_memory_mb;
+    for (const cache of value.caches as Record<string, unknown>[]) delete cache.budget_bytes;
+    const settings = cacheSettings(value)!;
+    expect(cacheBudget(settings.caches[0], settings.cache_memory_mb)).toBeNull();
+    const html = cacheLimitsForm(settings, helpers);
+    expect(html).not.toContain('cache-limit-budget');
+    expect(html).not.toContain('内存预算按各池记录上限的比例分配');
   });
 
   it('marks a pool whose saved value is waiting for a restart', () => {

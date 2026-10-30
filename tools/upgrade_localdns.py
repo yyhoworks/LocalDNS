@@ -98,7 +98,7 @@ def dns(port, protocol):
     return {'protocol': protocol, 'answers': answers}
 
 
-SUPPORTED_BACKENDS = ('FJGLI', 'FJGOE', 'FJH21', 'FJH50', 'FJH7Q')
+SUPPORTED_BACKENDS = ('FJGLI', 'FJGOE', 'FJH21', 'FJH50', 'FJH7Q', 'FJH7T')
 
 
 def verify(root, http_port, udp_port, tcp_port):
@@ -176,7 +176,7 @@ def prepare(root, package, expected, stage, arch):
         metadata = installer.extract_verified(package, payload)
         backend = metadata.get('backendVersion')
         if metadata.get('packageType') != 'full' or backend not in SUPPORTED_BACKENDS:
-            raise MigrationError('需要 FJGLI/FJGOE/FJH21/FJH50/FJH7Q 完整发行包')
+            raise MigrationError('需要 FJGLI/FJGOE/FJH21/FJH50/FJH7Q/FJH7T 完整发行包')
         installer.require_space(stage.parent, sum(p.stat().st_size for p in payload.rglob('*') if p.is_file()))
         shutil.copytree(payload / 'localdns', stage)
         binary = payload / f'LocalDNS_{backend}_Binaries' / ('localdns-' + installer.choose_arch(arch))
