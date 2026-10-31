@@ -1,6 +1,6 @@
 # 安装与更新
 
-当前发行版本：**后端 FJH7T / UI 2026.10.30.7**（发行标签 `fjh7t-ui-v2026.10.30.7`），见 [本次更新说明](docs/releases/fjh7t-ui-v2026.10.30.7.md)。FJH7T 内核提供 amd64-v1 / v2 / v3 / arm64 程序，把缓存内存改为「主缓存 8/12、国内 2/12、国外与国外 ECS 各 1/12」，随包默认记录上限调成 40 万 / 10 万 / 5 万 / 5 万，并把分流刷新定时任务的默认间隔从 7 天改成 1 天；界面「缓存参数」已逐池显示内存预算与占比。发行包附完整配置迁移工具，保留 DNS 趋势、静态共享设置、日志目录与 Mihomo / sing-box 配置编辑器。
+当前发行版本：**后端 FJH7T / UI 2026.10.31.1**（发行标签 `fjh7t-ui-v2026.10.31.1`），见 [本次更新说明](docs/releases/fjh7t-ui-v2026.10.31.1.md)。FJH7T 内核提供 amd64-v1 / v2 / v3 / arm64 程序，把缓存内存改为「主缓存 8/12、国内 2/12、国外与国外 ECS 各 1/12」，随包默认记录上限调成 40 万 / 10 万 / 5 万 / 5 万，并把分流刷新定时任务的默认间隔从 7 天改成 1 天；界面「缓存参数」已逐池显示内存预算与占比。发行包附完整配置迁移工具，保留 DNS 趋势、静态共享设置、日志目录与 Mihomo / sing-box 配置编辑器。
 
 ## 名称、Logo 与字体共享
 
@@ -26,12 +26,12 @@ curl -fsSL https://raw.githubusercontent.com/yyhoworks/LocalDNS/main/tools/insta
 
 包含此功能的发行包可一次性安装更新执行端，之后在顶部「版本与更新」中直接发起 UI 更新或恢复上一版。只更新 UI，保留配置与核心。安装方法及 HTTPS 接入见 [网页升级指南](docs/WEB_UPDATE.md)。
 
-从 [本版 Releases](https://github.com/yyhoworks/LocalDNS/releases/tag/fjh7t-ui-v2026.10.30.7) 下载；本地构建位于 `dist/fjh7t-ui-v2026.10.30.7/`。
+从 [本版 Releases](https://github.com/yyhoworks/LocalDNS/releases/tag/fjh7t-ui-v2026.10.31.1) 下载；本地构建位于 `dist/fjh7t-ui-v2026.10.31.1/`。
 
 | 文件 | 用途 |
 |---|---|
-| `LocalDNS_FJH7T_UI_2026.10.30.7_Full.zip` | 新安装或完整迁移：FJH7T 程序（含 v1/v2/v3/arm64）、新配置结构、迁移工具与当前双皮肤 UI |
-| `LocalDNS_UI_2026.10.30.7_Update.zip` | 已安装环境更新界面 |
+| `LocalDNS_FJH7T_UI_2026.10.31.1_Full.zip` | 新安装或完整迁移：FJH7T 程序（含 v1/v2/v3/arm64）、新配置结构、迁移工具与当前双皮肤 UI |
+| `LocalDNS_UI_2026.10.31.1_Update.zip` | 已安装环境更新界面 |
 | `SHA256SUMS.txt` | 发行包的 SHA-256 校验值 |
 
 在同一目录核对：
