@@ -6,9 +6,11 @@
 
 **DNS 核心主要由折腾日记交流群里的 R 大使用 Rust 编写；[yyhoworks](https://github.com/yyhoworks) 负责 UI 设计。**
 
-当前版本：**后端 FJHAI / UI 2026.10.31.6**（发行标签 `fjhai-ui-v2026.10.31.6`），见 [本次更新说明](docs/releases/fjhai-ui-v2026.10.31.6.md)。
+当前版本：**后端 FJHAI / UI 2026.11.01.1**（发行标签 `fjhai-ui-v2026.11.01.1`），见 [本次更新说明](docs/releases/fjhai-ui-v2026.11.01.1.md)。
 
-本版合入 [PR #24](https://github.com/yyhoworks/LocalDNS/pull/24)：升级确认期间阻止重复或交叉提交，取消后可再次操作；升级任务元数据一次完整落盘，保留回滚参数和上一版本快照。已有网页升级服务需同步更新，详见 [网页升级说明](docs/WEB_UPDATE.md)。内核继续使用 FJHAI。
+本版修复概览「快捷控制」里缓存开关看起来像没开的问题：核心缓存与乐观过期原先共用一组分段控件，滑块只认第一个激活项，两项都开时第二项没有底，又容易被读成二选一。现在拆成两个独立开关，名称在左、轨道在右、右侧标「开 / 关」，读取失败仍显示琥珀「未知」。只改前端，`switch13` / `switch4` 接口与摘要文案不变，内核继续使用 FJHAI。
+
+2026.10.31.6 合入 [PR #24](https://github.com/yyhoworks/LocalDNS/pull/24)：升级确认期间阻止重复或交叉提交，取消后可再次操作；升级任务元数据一次完整落盘，保留回滚参数和上一版本快照。已有网页升级服务需同步更新，详见 [网页升级说明](docs/WEB_UPDATE.md)。
 
 2026.10.31.5 的内核更新改为上传原作者 ZIP，自动匹配服务器架构并保留当前 UI 和设置；先下载并校验完整备份，再隔离预检和切换。该版同时合入 [PR #23](https://github.com/yyhoworks/LocalDNS/pull/23)，升级包缺少对应架构程序时给出明确错误。
 
@@ -164,7 +166,7 @@ curl -fsSL https://raw.githubusercontent.com/yyhoworks/LocalDNS/main/tools/insta
 
 ## 手动安装
 
-1. 在 [Releases](https://github.com/yyhoworks/LocalDNS/releases/tag/fjhai-ui-v2026.10.31.6) 下载完整包或 UI 升级包，并核对同页的 `SHA256SUMS.txt`。**从旧核心升级 FJHAI 请使用完整包和迁移工具，先备份并保留原设置；UI 升级包只更新界面。**
+1. 在 [Releases](https://github.com/yyhoworks/LocalDNS/releases/tag/fjhai-ui-v2026.11.01.1) 下载完整包或 UI 升级包，并核对同页的 `SHA256SUMS.txt`。**从旧核心升级 FJHAI 请使用完整包和迁移工具，先备份并保留原设置；UI 升级包只更新界面。**
 2. 已有 LocalDNS 服务时，解压 UI 升级包并运行：
 
    ```sh

@@ -348,9 +348,19 @@ import { cacheName } from '../management/index.js';
             <span>缓存与过期</span>
           </div>
           <div class="cb-right">
-            <div class="seg-group" role="group" aria-label="缓存功能开关">
-              <button type="button" class="seg-item ${cacheState==='on'?'active':''}" id="btn-toggle-switch13" ${cacheState==='unknown'?'disabled':''} title="${cacheState==='unknown'?'核心缓存开关读取失败，状态未知，暂不可切换':'点击切换核心缓存 (switch13)'}">核心缓存 ${cacheState==='on'?'开':cacheState==='off'?'关':'未知'}</button>
-              <button type="button" class="seg-item ${lazyEnabled?'active':''}" id="btn-toggle-switch4" ${lazyState==='unknown'?'disabled':''} title="${lazyState==='unknown'?'乐观过期缓存开关读取失败，状态未知，暂不可切换':'点击切换乐观过期缓存 (switch4)'}">乐观过期 ${lazyState==='on'?'开':lazyState==='off'?'关':'未知'}</button>
+            <div class="cache-switches" role="group" aria-label="缓存功能开关">
+              <label class="switch cache-switch ${cacheState==='unknown'?'is-unknown':''}" title="${cacheState==='unknown'?'核心缓存开关读取失败，状态未知，暂不可切换':'点击切换核心缓存 (switch13)'}">
+                <input type="checkbox" role="switch" id="btn-toggle-switch13" ${cacheState==='on'?'checked':''} ${cacheState==='unknown'?'disabled':''} aria-label="核心缓存">
+                <span class="switch-label">核心缓存</span>
+                <span class="switch-track"><span class="switch-thumb"></span></span>
+                <span class="cache-switch-state">${cacheState==='on'?'开':cacheState==='off'?'关':'未知'}</span>
+              </label>
+              <label class="switch cache-switch ${lazyState==='unknown'?'is-unknown':''}" title="${lazyState==='unknown'?'乐观过期缓存开关读取失败，状态未知，暂不可切换':'点击切换乐观过期缓存 (switch4)'}">
+                <input type="checkbox" role="switch" id="btn-toggle-switch4" ${lazyEnabled?'checked':''} ${lazyState==='unknown'?'disabled':''} aria-label="乐观过期">
+                <span class="switch-label">乐观过期</span>
+                <span class="switch-track"><span class="switch-thumb"></span></span>
+                <span class="cache-switch-state">${lazyState==='on'?'开':lazyState==='off'?'关':'未知'}</span>
+              </label>
             </div>
             <button type="button" class="glass-btn" id="btn-flush-all-cache">清空</button>
           </div>
@@ -807,8 +817,27 @@ import { cacheName } from '../management/index.js';
         }
       };
     };
-    bindSwitchBtn('#btn-toggle-switch13', 'switch13', sw.switch13, '核心缓存');
-    bindSwitchBtn('#btn-toggle-switch4', 'switch4', sw.switch4, '乐观过期缓存');
+    const bindSwitchToggle = (sel, tag, curVal, label) => {
+      const el = $(sel);
+      if (!el) return;
+      el.onchange = async () => {
+        // 未知态已 disabled，这里再防一层；提交期间禁用防连点，失败回滚勾选状态。
+        if (curVal !== 'A' && curVal !== 'B') { el.checked = curVal === 'A'; return; }
+        const nextVal = el.checked ? 'A' : 'B';
+        el.disabled = true;
+        try {
+          await api.json(`/plugins/${tag}/post`, 'POST', { value: nextVal });
+          toast(`${label}已${nextVal === 'A' ? '开启' : '关闭'}`);
+          renderRoute(true, true);
+        } catch (e) {
+          el.checked = curVal === 'A';
+          el.disabled = false;
+          toast('操作失败', 'error', e.message);
+        }
+      };
+    };
+    bindSwitchToggle('#btn-toggle-switch13', 'switch13', sw.switch13, '核心缓存');
+    bindSwitchToggle('#btn-toggle-switch4', 'switch4', sw.switch4, '乐观过期缓存');
     bindSwitchBtn('#btn-toggle-switch7', 'switch7', sw.switch7, 'AdGuard 广告拦截');
 
     if ($('#btn-flush-all-cache')) {

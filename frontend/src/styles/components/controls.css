@@ -171,6 +171,22 @@
 }
 .switch-label { font-size: 12.5px; color: var(--text-2); }
 
+/* 概览「缓存与过期」：两个互相独立的开关，名称在左、开关在右，右侧补开/关文字。
+   分段控件是单选语义，两个独立项放在同一组里会被读成二选一，这里改用开关。 */
+.cache-switches { display: inline-flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+.switch.cache-switch { gap: 6px; min-height: 26px; }
+.cache-switch .switch-track { width: 30px; height: 17px; }
+.cache-switch .switch-thumb { top: 1.5px; left: 1.5px; width: 12px; height: 12px; }
+.cache-switch input:checked ~ .switch-track { background: var(--primary); border-color: var(--primary-light); }
+.cache-switch input:checked ~ .switch-track .switch-thumb { transform: translateX(13px); }
+.cache-switch-state { font-size: 11px; color: var(--text-3); min-width: 13px; }
+.cache-switch input:checked ~ .cache-switch-state { color: var(--console-success); }
+.cache-switch.is-unknown { cursor: not-allowed; }
+.cache-switch.is-unknown input { cursor: not-allowed; }
+.cache-switch.is-unknown .switch-track { background: transparent; border-style: dashed; border-color: rgba(245, 158, 11, .45); }
+.cache-switch.is-unknown .switch-thumb { left: 50%; transform: translateX(-50%); width: 11px; height: 11px; background: var(--text-3); }
+.cache-switch.is-unknown .cache-switch-state { color: var(--amber); }
+
 
 .status-dot {
   width: 8px;
