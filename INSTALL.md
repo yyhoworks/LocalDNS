@@ -108,3 +108,8 @@ chmod +x /opt/localdns/bin/localdns
 ### 清单工作台与吞吐趋势
 
 名单直接通过 DNS 核心 API 保存，保存前重新读取并核对变化；失败时保留草稿。需要回退时先下载原名单。DNS 趋势提供 QPS、缓存命中率和上游平均延迟，默认 1 小时，可选 15 分钟 / 1 小时 / 6 小时 / 24 小时。历史保存在本浏览器，刷新可恢复；关闭网页和后台休眠期间留空，无需服务器采样服务。详见 [趋势说明](docs/DNS_TRENDS.md)。
+
+
+## 网页内分别升级 UI 与内核
+
+UI 2026.10.31.4 起，使用 `python3 ui-updater/install_ui_updater.py --unified --dir /opt/localdns --origin http://服务器IP:9099` 安装一次独立升级服务，即可在顶部「版本与更新」中选择 UI、内核或一起升级。内核更新前须下载并校验完整备份。详见 [网页升级说明](docs/WEB_UPDATE.md)。

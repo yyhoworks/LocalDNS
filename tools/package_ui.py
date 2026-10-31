@@ -199,7 +199,11 @@ def main():
     common['docs/FJGLI_UPGRADE.md'] = (ROOT / 'docs/FJGLI_UPGRADE.md').read_bytes()
     common['docs/FJHAI_UPGRADE.md'] = (ROOT / 'docs/FJHAI_UPGRADE.md').read_bytes()
     common['docs/validation/fjhai-2026.10.31.3.md'] = (ROOT / 'docs/validation/fjhai-2026.10.31.3.md').read_bytes()
-    for name in ['install_ui_updater.py', 'ui_updater.py', 'install_localdns.py']:
+    validation = 'docs/validation/' + version['backendVersion'].lower() + '-' + version['uiVersion'] + '.md'
+    if (ROOT / validation).is_file():
+        common[validation] = (ROOT / validation).read_bytes()
+    for name in ['install_ui_updater.py', 'install_online_updater.py', 'ui_updater.py', 'online_updater.py',
+                 'install_localdns.py', 'upgrade_localdns.py', 'fjgli_config.py']:
         common['ui-updater/' + name] = (ROOT / 'tools' / name).read_bytes()
     common['docs/WEB_UPDATE.md'] = (ROOT / 'docs/WEB_UPDATE.md').read_bytes()
     common['docs/PROXY_CONFIG.md'] = (ROOT / 'docs/PROXY_CONFIG.md').read_bytes()

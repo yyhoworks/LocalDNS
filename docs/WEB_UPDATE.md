@@ -1,89 +1,93 @@
-# 网页内升级 UI
+# 网页内升级 UI 与内核
 
-网页在「版本与更新」中调用服务器的 `POST /upgrade/ui`，下载和文件替换由服务器执行。借鉴 zashboard 调用核心升级接口的方式；FJGAC 当前没有在本仓库提供可扩展的核心源码，因此当前实现配套一个可选的 Python 更新执行端，首次需要安装一次。它与已移除的 9098 配置服务无关。
+在顶部「版本与更新」扩展弹窗中，可分别选择：
 
-## 首次安装
+| 操作 | 更新内容 | DNS 服务 |
+|---|---|---|
+| 升级 UI | 只更新界面；保留当前内核、站点设置、Logo 和字体 | 继续运行 |
+| 升级内核 | 使用完整发行包的新内核与运行目录；逐项迁移原设置，完整保留当前 UI | 切换时短暂重启 |
+| 升级 UI + 内核 | 使用同一正式发行版的界面与内核，迁移原设置 | 切换时短暂重启 |
 
-需要已有 LocalDNS、Python 3.8+、root，以及 systemd / OpenRC。使用**包含本功能的版本**的 UI 升级包或完整包；旧发行包没有 `ui-updater/`。在解压后的包目录运行：
+只有检查更新自动运行。安装、恢复均由用户点击发起。关闭弹窗或网页不会中断已提交任务，再打开可以查看进度。
+
+## 首次安装或从旧版服务迁移
+
+需要已有 LocalDNS、Python 3.8+、root，以及 systemd / OpenRC。在本版 UI 升级包或完整包解压目录运行一次：
 
 ```sh
-python3 ui-updater/install_ui_updater.py --dir /opt/localdns --origin http://服务器IP:9099
+python3 ui-updater/install_ui_updater.py --unified \
+  --dir /opt/localdns --origin http://服务器IP:9099
 ```
 
-`--origin` 必须是浏览器实际访问网页的来源，只含协议、主机、端口。默认执行端监听 `0.0.0.0:9100`；可以通过 `--listen` / `--port` 调整。只在可信管理网络开放该端口。安装器注册 `localdns-ui-updater` 启动项，将入口地址写入 `ui/config.js`，保留原有站点设置。无需设置升级口令。
+源码安装使用 `python3 tools/install_ui_updater.py --unified`，参数相同。新发行包的安装器添加 `--with-ui-updater --origin http://服务器IP:9099` 时，会自动选择新版服务。
 
-从源码安装时，可直接运行 `python3 tools/install_ui_updater.py`，参数相同。它不会更新或重启 DNS 核心。
+新版服务名称是 `localdns-updater`，程序位于 `/opt/localdns-updater`，配置与任务、备份位于 `/var/lib/localdns-updater`。它们均在 `/opt/localdns` 之外，因此替换内核目录不会删除升级服务。默认端口仍为 9100，安装成功后关闭旧 `localdns-ui-updater` 启动项，并将入口写入现有 `ui/config.js`。安装服务本身不重启 DNS。
 
-安装器 1.3.0 可在新安装或命令行 UI 更新时添加 `--with-ui-updater --origin http://服务器IP:9099`，自动安装发行包中配套的执行端。此选项从 UI `2026.10.19.9` 发行包起可用，`.8` 及更早发行包会在修改安装前明确提示不支持。
+`--origin` 是浏览器实际访问网页的来源，只包含协议、主机和端口。可通过 `--listen`、`--port`、`--public-url` 调整；只在可信管理网络开放。原有配置不打印到日志。安装时有未完成任务则拒绝覆盖服务。
 
-刷新网页，打开顶部「版本与更新」，即可直接查看状态和升级。发现更高版本的同核心正式 UI 后，点击「升级至…」。升级完成后手动刷新；关闭网页不会中断服务器任务。重新打开网页即可查看服务器保存的任务结果。
+旧版升级服务仍可供新界面单独升级 UI；弹窗会提示安装新版服务后启用内核升级。旧版 `POST /upgrade/ui` 接口保留兼容。
 
-只有检查更新会自动运行。安装升级始终由用户点击发起，不会自动替换 UI 或升级 DNS 内核。
+## 内核与整套升级流程
+
+1. 服务器只从本项目 GitHub 正式发行版下载包，验证附件摘要、`SHA256SUMS.txt` 和覆盖全部文件的 `MANIFEST.sha256`。
+2. 生成原 LocalDNS 的完整压缩备份，准备独立的新运行目录，原服务继续运行。
+3. 弹窗提供备份下载。用户保存到电脑后，选择该文件进行分块 SHA-256 校验；局域网 HTTP 页面也可使用，不依赖 HTTPS WebCrypto。
+4. 只有完整传输且本机文件摘要一致，才允许继续。设置在备份后发生变化会停止升级，必须重新准备。
+5. 在回环地址、临时独立端口启动新内核，检查管理接口、上游、别名、开关、缓存预算与 UDP/TCP DNS。
+6. 预检通过后短暂停服、同盘切换目录、重新启动和验收。验收失败自动恢复原目录；事务中断时，下次启动根据持久化日志恢复。
+
+保留上游 `config/upstreams`、手工规则 `rules/manual`、别名 `config/settings/client_aliases.json`、订阅 `config/subscriptions`、已下载订阅源和适配范围内的其他设置。未知配置字段或缺失的已启用订阅来源会阻止升级，避免静默丢失配置。
+
+“只升级内核”会复制当前整个 UI；实际内核版号另记在 `core-version.json`，不再用 UI 包原先的内核要求代替实际内核版本。未来同接口、同配置格式的内核版本通过 `updateCompatibility` 契约适配，不以当前内核代号写死限制；契约变化时需先适配服务。
+
+## 回退与备份
+
+UI 升级可恢复上一版 UI，同时保留当前站点设置、Logo 和字体。内核或整套升级可恢复上一整套快照，设置也恢复到快照时；恢复前同样要求下载、校验当前完整备份。
+
+等待备份确认时可以取消；进入预检或切换后按钮锁定，等待结果。网络超时会先重新查询任务，避免重复提交。备份及历史快照不自动删除；已取消或失败任务的下载、暂存目录会清理，完整备份保留。磁盘不足时停止准备，不切换现网。可在确认本机备份可用后按运维流程清理不再需要的历史备份。
 
 ## HTTPS 与反向代理
 
-通过 HTTPS 访问网页时，升级执行端也必须提供 HTTPS 入口。可只监听本机，再由现有反向代理提供同源路径：
+HTTPS 页面必须配置 HTTPS 升级入口。例如：
 
 ```sh
-python3 ui-updater/install_ui_updater.py --dir /opt/localdns \
+python3 ui-updater/install_ui_updater.py --unified --dir /opt/localdns \
   --origin https://dns.example --listen 127.0.0.1 \
   --public-url https://dns.example/_updater
 ```
-
-Nginx 示例（转发时去掉 `/_updater/` 前缀，保留实际网页 Host）：
 
 ```nginx
 location /_updater/ {
     proxy_pass http://127.0.0.1:9100/;
     proxy_set_header Host $host;
-    proxy_read_timeout 15s;
+    proxy_read_timeout 300s;
 }
 ```
 
-后台任务异步运行，网页请求只提交任务或读取状态，不占用长连接。前端的 `uiUpdaterBase` 留空时尝试同源接口，便于以后由核心直接实现相同协议。
-
-使用自定义 Content-Security-Policy 时，需将实际升级入口加入 `connect-src`；同源反向代理只需保留 `'self'`。
-
-## 校验、保留与回退
-
-- 固定下载本项目 GitHub 指定正式标签的 UI 升级包，校验 `SHA256SUMS.txt`、附件摘要（如有）及覆盖全部文件的 `MANIFEST.sha256`。摘要用于完整性校验，不等同于独立发行签名。
-- 拒绝任意下载地址、文件路径、命令、低于或等于当前 UI 的版本以及不同 DNS 核心的发行版。
-- 先备份、同盘暂存，再切换 UI。保留 `ui/config.js` 和 `ui/custom/`；不替换核心、DNS 配置、规则和缓存。
-- 保留上一构建清单中的静态资源，供已打开的页面加载旧版模块；不会无限累计全部历史构建资源。
-- 更新前管理接口在线时，更新后核对 UI 版号和管理接口，失败恢复旧 UI。原服务离线时只更新文件，结果会明确提示服务尚未验证。
-- 文件切换前保存事务日志。执行端或安装器重新启动时，在共用安装锁下恢复未确认的切换。旧版安装器留下的无格式锁仍需确认没有安装任务后手动清理。
-- 最近一次成功操作之后可点击「恢复上一版 UI」。恢复同样保留当前站点配置、Logo 和字体；因此不会回退这些个性化设置。
-
-备份目录和压缩备份不自动删除。服务器任务记录保存在 `.ui-updater/state.json`，执行端源码安装于 `bin/ui-updater/`，普通 UI 更新不自动替换执行端自身。
+备份传输使用固定 POST 接口，确保同源代理也携带网页 Origin。自定义 CSP 需将实际入口加入 `connect-src`。
 
 ## 权限与维护
 
-执行端需要写入既有 UI 目录及安装锁，默认随 root 服务运行。它不执行 shell 或压缩包里的安装脚本；写操作必须来自配置允许的 Host / Origin，并使用 JSON 提交固定操作。无需额外口令或登录。HTTP 明文入口仅适合可信管理网络；跨不可信网络使用 HTTPS。
-
-从 UI 2026.10.19.9 更新时需重新安装执行端（或在命令行 UI 更新时添加 `--with-ui-updater`），同步移除服务端口令校验并自动清除旧口令摘要。修改管理地址或端口时重新执行并提供新 `--origin`。更新执行端代码同样重新执行安装命令，保留站点设置。
+服务以 root 运行，仅接受固定 JSON 操作，不接受客户端路径、URL 或命令，也不执行包里的安装脚本。写操作和备份下载限制已配置的 Host / Origin。无需额外升级口令；明文入口用于可信管理网络，跨不可信网络使用 HTTPS。摘要用于完整性验证，不等同于独立发行签名。
 
 ```sh
 # systemd
-systemctl status localdns-ui-updater
-journalctl -u localdns-ui-updater
+systemctl status localdns-updater
+journalctl -u localdns-updater
 
 # OpenRC
-rc-service localdns-ui-updater status
+rc-service localdns-updater status
 ```
 
-升级成功只代表该次 UI 文件和已执行的健康检查通过，不代表已验证所有浏览器或设备架构。校验失败、空间不足或网络不可达时，可重试或继续使用命令行 / 离线安装。
+升级服务代码本身通过上述安装命令更新，常规 UI 或内核升级不会替换正在运行的服务。变更接口或配置格式的发行版须先发布对应适配，不会自动尝试不兼容迁移。
 
 ## 验证
 
 ```sh
-python3 -m unittest discover -s tools -p 'test_ui_updater.py'
+python3 tools/test_online_updater.py
+python3 tools/test_ui_updater.py
+python3 tools/test_fjgli_upgrade.py
 npm run --prefix frontend check
-node tools/verify_ui_update.cjs
 ```
 
-自动测试使用隔离目录、模拟发行包和回环 HTTP 服务；浏览器写请求全部由夹具响应，不访问真实设备升级接口。
-
-
-## FJGLI 跨核心更新
-
-FJGLI 改变配置结构与管理接口。普通 UI 更新会检查核心要求；旧核心更新到本版须使用完整包的 `upgrade-localdns.py`，先下载备份并进行配置迁移，见 [完整更新指南](FJGLI_UPGRADE.md#完整更新命令)。保留旧核心时，指定其同核心发行版，例如 `--version fjgir-ui-v2026.10.21.2`。
+测试覆盖三种升级方式、备份门槛、设置变化、暂存篡改、未来同契约内核、重复请求、重启等待恢复、取消、完整回退、失败恢复和 HTTP 限制。正式发布前另在隔离 Linux 服务上运行真实内核升级与回退，并验证桌面、手机和两套外观。
