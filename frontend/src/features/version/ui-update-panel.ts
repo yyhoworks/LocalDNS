@@ -22,7 +22,7 @@ export function createUIUpdatePanel(container: HTMLElement) {
   const retry = get<HTMLButtonElement>('[data-retry]'), download = get<HTMLButtonElement>('[data-download]');
   const file = get<HTMLInputElement>('[data-file]'), proceed = get<HTMLButtonElement>('[data-continue]'), cancel = get<HTMLButtonElement>('[data-cancel]');
   const coreFile = get<HTMLInputElement>('[data-core-file]');
-  let client: UIUpdateClient | undefined, available = false, busy = false, reading = false, uncertain = false, error = '';
+  let client: UIUpdateClient | undefined, available = false, busy = false, reading = false, uncertain = false, confirming = false, error = '';
   let installed: InstalledUI | null = null, latest: UIRelease | null = null, verifiedHash = '', backupResult = '尚未校验本机文件。', notEnabled = false;
   let selectedCore: File | undefined, uploading = false, uploadMessage = '';
   let task: UIUpdateStatus = { state: 'idle', canRollback: false }, timer: ReturnType<typeof setTimeout> | undefined;
@@ -95,7 +95,12 @@ export function createUIUpdatePanel(container: HTMLElement) {
     if (!client || !available || busy || running() || uncertain || (mode === 'core' ? !selectedCore || !client.coreUpload : mode !== 'rollback' && !eligibility?.tag)) return;
     if (mode === 'core') {
       const selected = selectedCore!;
-      if (!await confirmDialog({ title: '准备更新内核', confirmText: '上传并准备', message: `上传「${selected.name}」并准备更换内核？请先保存修改。下载并校验完整备份后才会切换，DNS 届时会短暂重启。` })) return;
+      // 确认框弹出期间 busy 仍为 false，连点会弹出两个确认框；用 confirming 占位
+      if (confirming) return;
+      confirming = true;
+      try {
+        if (!await confirmDialog({ title: '准备更新内核', confirmText: '上传并准备', message: `上传「${selected.name}」并准备更换内核？请先保存修改。下载并校验完整备份后才会切换，DNS 届时会短暂重启。` })) return;
+      } finally { confirming = false; }
       uploading = true; uploadMessage = '正在校验内核 ZIP…';
       try {
         await mutate(async () => {
@@ -109,7 +114,11 @@ export function createUIUpdatePanel(container: HTMLElement) {
       return;
     }
     const text = mode === 'rollback' ? (task.rollbackKind === 'full' ? '准备恢复上一整套版本？将先备份当前状态，恢复后设置也回到快照时。' : '恢复上一版 UI？当前 Logo、字体和站点配置会保留。') : mode === 'ui' ? '开始升级 UI？请先保存未提交的修改。DNS 服务继续运行。' : '开始准备升级？请先保存修改。备份下载并校验后才会切换，DNS 届时会短暂重启。';
-    if (!await confirmDialog({ message: text, danger: mode === 'rollback' })) return;
+    if (confirming) return;
+    confirming = true;
+    try {
+      if (!await confirmDialog({ message: text, danger: mode === 'rollback' })) return;
+    } finally { confirming = false; }
     await mutate(() => mode === 'rollback' ? client!.rollback() : client!.upgrade(eligibility!.tag!, mode));
   }
   for (const mode of modes) get(`[data-start="${mode}"]`).addEventListener('click', () => void execute(mode));
