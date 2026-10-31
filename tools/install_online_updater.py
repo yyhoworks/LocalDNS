@@ -13,7 +13,7 @@ import install_localdns as installer
 from install_ui_updater import configure_script
 from ui_updater import canonical_origin
 
-MODULES = ('ui_updater.py', 'online_updater.py', 'install_localdns.py', 'upgrade_localdns.py', 'fjgli_config.py')
+MODULES = ('ui_updater.py', 'online_updater.py', 'core_upload.py', 'install_localdns.py', 'upgrade_localdns.py', 'fjgli_config.py')
 
 
 def service_files():

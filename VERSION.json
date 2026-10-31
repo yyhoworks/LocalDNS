@@ -1,10 +1,10 @@
 {
   "product": "LocalDNS",
-  "uiVersion": "2026.10.31.4",
+  "uiVersion": "2026.10.31.5",
   "backendVersion": "FJHAI",
-  "releaseTag": "fjhai-ui-v2026.10.31.4",
+  "releaseTag": "fjhai-ui-v2026.10.31.5",
   "channel": "stable",
-  "builtAt": "2026-10-31T20:20:00+08:00",
+  "builtAt": "2026-10-31T22:22:33+08:00",
   "updateCompatibility": {
     "schema": 1,
     "apiFamily": "localdns-v1",

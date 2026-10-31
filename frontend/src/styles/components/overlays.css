@@ -159,6 +159,8 @@ html:has(#drawer.open) { overflow: hidden; padding-right: var(--sbw, 0px); }
 .version-ui-update h4{margin:0 0 5px;font:500 15px/1.5 var(--font-sans)}
 .version-upgrade-row .version-note{margin:4px 0;overflow-wrap:anywhere}
 .version-upgrade-row button{min-width:132px}
+.version-upgrade-controls{display:flex;flex-direction:column;gap:8px;min-width:156px}
+.version-upgrade-controls .button{justify-content:center;text-align:center}
 .version-backup{margin-top:20px;padding:18px;background:var(--glass-bg);border-radius:12px}
 .version-backup-hash{font:12px/1.7 var(--font-mono);overflow-wrap:anywhere;user-select:all}
 .version-file-label{position:relative;overflow:hidden;cursor:pointer}

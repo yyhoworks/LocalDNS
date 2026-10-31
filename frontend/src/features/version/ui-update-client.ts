@@ -4,7 +4,10 @@ import { sha256 } from '@noble/hashes/sha2.js';
 export interface InstalledUI { uiVersion: string; backendVersion?: string }
 export interface UIRelease { tag: string; version: string; backend: string; packages: string[] }
 export type UpdateMode = 'ui' | 'core' | 'full';
-export interface UpdateCapabilities { protocol: string; modes: UpdateMode[]; installed: InstalledUI }
+export interface UpdateCapabilities {
+  protocol: string; modes: UpdateMode[]; installed: InstalledUI;
+  coreUpload?: { format: 'upstream-zip'; maxBytes: number; architecture: string };
+}
 export interface UIUpdateStatus {
   state: 'idle' | 'queued' | 'running' | 'awaiting_backup' | 'rolling_back' | 'rolled_back' | 'succeeded' | 'failed';
   jobId?: string;
@@ -13,6 +16,8 @@ export interface UIUpdateStatus {
   message?: string;
   installedVersion?: string;
   installedBackend?: string;
+  targetBackend?: string;
+  source?: 'upload';
   mode?: UpdateMode | 'rollback';
   rollbackKind?: 'ui' | 'full';
   backupDownloaded?: boolean;
@@ -53,6 +58,10 @@ export class UIUpdateClient {
   private http: HttpClient;
   capabilities?: UpdateCapabilities;
   get unified() { return this.capabilities?.protocol === 'localdns-updater/v2'; }
+  get coreUpload() {
+    const upload = this.capabilities?.coreUpload;
+    return this.unified && upload?.format === 'upstream-zip' && Number.isSafeInteger(upload.maxBytes) && upload.maxBytes > 0 ? upload : undefined;
+  }
   constructor(base: string, pageURL = document.baseURI, fetcher?: typeof fetch) {
     const address = new URL(base || new URL(pageURL).origin, pageURL);
     if (!['http:', 'https:'].includes(address.protocol) || address.username || address.password || address.search || address.hash) {
@@ -92,6 +101,17 @@ export class UIUpdateClient {
     return this.validate(await this.request(this.path, { releaseTag, ...(this.unified ? { mode } : {}) }));
   }
   async rollback() { return this.validate(await this.request(this.path + '/rollback', {})); }
+  async uploadCore(file: File, progress?: (percent: number) => void) {
+    if (!this.coreUpload) throw new Error('请先更新升级服务，以支持上传内核 ZIP。');
+    if (!/\.zip$/i.test(file.name) || !file.size || file.size > this.coreUpload.maxBytes) {
+      throw new Error(`请选择原作者内核 ZIP 文件，大小不超过 ${Math.floor(this.coreUpload.maxBytes / 1048576)} MB。`);
+    }
+    const digest = await hashBackup(file, progress);
+    return this.validate(await this.http.request('/upgrade/core/upload', {
+      method: 'POST', body: file, timeout: 300000, credentials: 'omit', cache: 'no-store',
+      headers: { Accept: 'application/json', 'Content-Type': 'application/zip', 'X-Content-SHA256': digest },
+    }));
+  }
   async continue(jobId: string, sha256: string) { return this.validate(await this.request('/upgrade/continue', { jobId, sha256 })); }
   async cancel(jobId: string) { return this.validate(await this.request('/upgrade/cancel', { jobId })); }
   async download(task: UIUpdateStatus): Promise<Blob> {

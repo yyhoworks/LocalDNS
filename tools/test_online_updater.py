@@ -19,6 +19,7 @@ import ui_updater as http
 import upgrade_localdns as upgrade
 from fjgli_config import hashes, read_json, write_json, MigrationError
 from package_ui import write_archive
+from test_core_upload import bundle, zipped, elf
 import test_fjgli_upgrade as migration_fixtures
 
 
@@ -212,10 +213,112 @@ class OnlineTests(unittest.TestCase):
             setup.main(['--stage-root', str(stage), '--origin', 'http://dns.example:9099'])
         self.assertEqual(hashes(target / 'config'), before)
         self.assertTrue((stage / 'opt/localdns-updater/online_updater.py').is_file())
+        self.assertTrue((stage / 'opt/localdns-updater/core_upload.py').is_file())
         self.assertFalse((target / 'bin/ui-updater/online_updater.py').exists())
         self.assertEqual(read_json(stage / 'var/lib/localdns-updater/config.json')['protocol'], 'localdns-updater/v2')
         self.assertIn('localdns-updater', (stage / 'etc/init.d/localdns-updater').read_text())
         self.assertIn('http://dns.example:9100', (target / 'ui/config.js').read_text())
+
+    def prepare_upload(self, backend='FJNEW'):
+        # Uploaded cores retain the installed layout. Use the current config schema.
+        from fjgli_config import migrate_configuration, replace_tree
+        migrate_configuration(self.root, self.new)
+        replace_tree(self.new / 'config', self.root / 'config')
+        data = zipped(bundle(backend))
+        self.manager.receive_core(io.BytesIO(data), len(data), installer.digest(data))
+        result = self.finish()
+        self.assertEqual(result['state'], 'awaiting_backup', result)
+        return result
+
+    def test_uploaded_core_works_without_release_tag_preserves_files_and_restores(self):
+        status = self.prepare_upload()
+        original_ui, original_config = hashes(self.root / 'ui'), hashes(self.root / 'config')
+        self.assertEqual(status['targetBackend'], 'FJNEW')
+        self.assertEqual(status['source'], 'upload')
+        self.assertEqual(hashes(self.manager.stage_path() / 'ui'), original_ui)
+        self.assertEqual(hashes(self.manager.stage_path() / 'config'), original_config)
+        self.assertEqual((self.root / 'bin/localdns').read_bytes(), b'original')
+        self.assertEqual((self.manager.stage_path() / 'bin/localdns').read_bytes(), elf())
+        self.assertFalse((self.manager.stage_path() / 'install.sh').exists())
+        self.manager = self.manager_at()
+        self.assertEqual(self.manager.status()['jobId'], status['jobId'])
+        with self.assertRaises(http.UpdateError):
+            self.manager.receive_core(io.BytesIO(b'abc'), 3, installer.digest(b'abc'))
+        with self.assertRaises(http.UpdateError):
+            self.manager.continue_job(status['jobId'], status['backup']['sha256'])
+        self.assertEqual(self.continue_update()['state'], 'succeeded')
+        self.assertEqual(self.manager.current()['backendVersion'], 'FJNEW')
+        self.assertEqual(hashes(self.root / 'ui'), original_ui)
+        self.assertEqual(hashes(self.root / 'config'), original_config)
+        self.manager.start(rollback=True)
+        self.assertEqual(self.finish()['state'], 'awaiting_backup')
+        self.assertEqual(self.continue_update()['state'], 'succeeded')
+        self.assertEqual((self.root / 'bin/localdns').read_bytes(), b'original')
+
+    def test_uploaded_same_version_uses_binary_identity_and_preflight_failure_keeps_old_core(self):
+        self.prepare_upload('FJH7T')
+        self.manager.downloaded(self.manager.status()['jobId'])
+        with patch.object(upgrade, 'preflight', side_effect=MigrationError('接口不兼容')):
+            status = self.manager.status()
+            self.manager.continue_job(status['jobId'], status['backup']['sha256'])
+            self.assertEqual(self.finish()['state'], 'failed')
+        self.assertEqual((self.root / 'bin/localdns').read_bytes(), b'original')
+        data = zipped(bundle('FJH7T'))
+        (self.root / 'bin/localdns').write_bytes(elf())
+        self.manager.receive_core(io.BytesIO(data), len(data), installer.digest(data))
+        self.assertIn('无需重复更新', self.finish()['message'])
+
+    def test_uploaded_corrupt_incomplete_or_changed_bytes_never_touch_runtime(self):
+        before = hashes(self.root)
+        for data, length, digest in [(b'not zip', 7, installer.digest(b'not zip')),
+                                     (b'abc', 6, installer.digest(b'abcdef')),
+                                     (b'abc', 3, '0' * 64)]:
+            with self.subTest(length=length):
+                try:
+                    self.manager.receive_core(io.BytesIO(data), length, digest)
+                    self.finish()
+                except http.UpdateError:
+                    pass
+                self.assertEqual(self.manager.status()['state'], 'failed')
+                self.assertEqual(hashes(self.root), before)
+                self.assertFalse(self.manager.stage_path().exists())
+                self.assertFalse((self.manager.job_directory() / 'download').exists())
+
+    def test_upload_http_content_limits_origin_and_checksum(self):
+        config = {'allowedOrigins': ['http://127.0.0.1:9099']}
+        server = http.UpdateServer(('127.0.0.1', 0), config, self.manager)
+        thread = threading.Thread(target=server.serve_forever, daemon=True); thread.start()
+        data = zipped(bundle())
+        def request(headers):
+            req = Request('http://127.0.0.1:' + str(server.server_port) + '/upgrade/core/upload',
+                          data=data, headers=headers, method='POST')
+            return build_opener(ProxyHandler({})).open(req, timeout=5)
+        headers = {'Origin': config['allowedOrigins'][0], 'Content-Type': 'application/zip',
+                   'X-Content-SHA256': installer.digest(data)}
+        try:
+            preflight = Request('http://127.0.0.1:' + str(server.server_port) + '/upgrade/core/upload',
+                                headers={'Origin': config['allowedOrigins'][0],
+                                         'Access-Control-Request-Method': 'POST',
+                                         'Access-Control-Request-Headers': 'content-type,x-content-sha256'}, method='OPTIONS')
+            with build_opener(ProxyHandler({})).open(preflight, timeout=5) as response:
+                self.assertIn('X-Content-SHA256', response.headers['Access-Control-Allow-Headers'])
+                self.assertEqual(response.headers['Access-Control-Allow-Origin'], config['allowedOrigins'][0])
+            for extra, code in [({'Origin': 'http://evil.test'}, 403), ({'Origin': ''}, 403),
+                                ({'Content-Type': 'application/json'}, 415), ({'X-Content-SHA256': ''}, 400),
+                                ({'Content-Length': '0'}, 413), ({'Content-Length': str(online.MAX_UPLOAD_BYTES + 1)}, 413)]:
+                with self.subTest(extra=extra), self.assertRaises(HTTPError) as error:
+                    request(dict(headers, **extra))
+                self.assertEqual(error.exception.code, code)
+            with request(headers) as response:
+                self.assertEqual(response.status, 202)
+            self.assertEqual(self.finish()['state'], 'awaiting_backup')
+            self.assertEqual((self.root / 'bin/localdns').read_bytes(), b'original')
+            status = self.manager.status()
+            self.manager.cancel(status['jobId'])
+            self.assertFalse(self.manager.stage_path().exists())
+            self.assertTrue(self.manager.backup_file(status['jobId'])[0].is_file())
+        finally:
+            server.shutdown(); server.server_close(); thread.join(5)
 
 
 if __name__ == '__main__': unittest.main()

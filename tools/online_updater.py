@@ -1,5 +1,6 @@
-"""Independent, persistent UI/core/full update jobs. Only trusted release packages."""
+"""Persistent release updates and explicitly uploaded upstream core updates."""
 import contextlib
+import hashlib
 import json
 import re
 import secrets
@@ -11,6 +12,7 @@ import install_localdns as installer
 import upgrade_localdns as upgrade
 from fjgli_config import hashes, read_json, safe_tree, write_json
 from ui_updater import UpdateError, TAG, now, version_parts
+from core_upload import MAX_UPLOAD_BYTES, read_kernel
 
 CONTRACT = {'schema': 1, 'apiFamily': 'localdns-v1', 'configSchema': 1}
 ACTIVE = {'queued', 'running', 'awaiting_backup', 'rolling_back'}
@@ -117,7 +119,7 @@ class OnlineUpdateManager:
         with self.mutex:
             previous = self.previous_path()
             result = {k: self.state[k] for k in ('state', 'jobId', 'action', 'mode', 'step', 'message',
-                      'targetTag', 'targetVersion', 'targetBackend', 'startedAt', 'finishedAt', 'backupDownloaded') if k in self.state}
+                      'targetTag', 'targetVersion', 'targetBackend', 'source', 'startedAt', 'finishedAt', 'backupDownloaded') if k in self.state}
             result.update(state=self.state.get('state', 'idle'), canRollback=previous is not None,
                           rollbackKind=(self.state.get('previous') or {}).get('kind'), protocol='localdns-updater/v2')
             current = self.current()
@@ -130,7 +132,8 @@ class OnlineUpdateManager:
     def capabilities(self):
         return {'protocol': 'localdns-updater/v2', 'repository': installer.REPO,
                 'modes': sorted(MODES), 'architecture': self.arch, 'compatibility': CONTRACT,
-                'backupRequired': ['core', 'full', 'rollback'], 'installed': self.current()}
+                'backupRequired': ['core', 'full', 'rollback'], 'installed': self.current(),
+                'coreUpload': {'format': 'upstream-zip', 'maxBytes': MAX_UPLOAD_BYTES, 'architecture': self.arch}}
 
     def _launch(self, function):
         self.thread = threading.Thread(target=function, daemon=True)
@@ -167,14 +170,53 @@ class OnlineUpdateManager:
                     raise UpdateError('当前 UI 与内核均已是此版本', 409)
                 check_contract(self.core_metadata())
                 check_contract(self.installed_version())
-            old_previous = self.state.get('previous')
-            self.state = {'previous': old_previous} if old_previous else {}
-            self.save(state='queued', jobId=secrets.token_hex(12), action='rollback' if rollback else 'upgrade',
-                      mode=mode, targetTag=tag, startedAt=now(), finishedAt=None, step='queued',
-                      message='任务已提交，正在准备；关闭页面后仍可查看进度。', sourceVersion=current)
-            self.job_directory().mkdir(mode=0o700)
+            self.begin_job(current, mode, targetTag=tag, action='rollback' if rollback else 'upgrade')
             self._launch(self.prepare_job)
             return self.status()
+
+    def begin_job(self, current, mode, **values):
+        old_previous = self.state.get('previous')
+        self.state = {'previous': old_previous} if old_previous else {}
+        self.save(state='queued', jobId=secrets.token_hex(12), action='upgrade', mode=mode,
+                  startedAt=now(), finishedAt=None, step='queued',
+                  message='任务已提交，正在准备；关闭页面后仍可查看进度。', sourceVersion=current)
+        self.save(**values)
+        self.job_directory().mkdir(mode=0o700)
+
+    def receive_core(self, stream, length, expected):
+        if not 0 < length <= MAX_UPLOAD_BYTES:
+            raise UpdateError('内核 ZIP 需大于 0 且不超过 256 MB', 413)
+        if not re.fullmatch(r'[a-f0-9]{64}', expected or ''):
+            raise UpdateError('内核 ZIP 的 SHA-256 格式无效')
+        with self.mutex:
+            if self.state.get('state') in ACTIVE:
+                raise UpdateError('已有升级任务，请先完成或取消备份准备。', 409)
+            check_contract(self.core_metadata())
+            check_contract(self.installed_version())
+            installer.require_space(self.directory, length)
+            self.begin_job(self.current(), 'core', source='upload', uploadSha256=expected)
+            self.step('upload', '正在接收内核 ZIP，上传完成后准备备份…')
+        try:
+            work = self.job_directory() / 'download'
+            work.mkdir(mode=0o700)
+            digest, remaining = hashlib.sha256(), length
+            with (work / 'core.zip').open('xb') as output:
+                while remaining:
+                    chunk = stream.read(min(1024 * 1024, remaining))
+                    if not chunk:
+                        raise UpdateError('内核 ZIP 上传不完整，请重新上传')
+                    output.write(chunk)
+                    digest.update(chunk)
+                    remaining -= len(chunk)
+            if digest.hexdigest() != expected:
+                raise UpdateError('内核 ZIP 上传摘要不一致，请重新上传')
+            with self.mutex:
+                self.save(state='queued', step='queued', message='内核 ZIP 已接收，正在校验并准备备份…')
+                self._launch(self.prepare_job)
+                return self.status()
+        except Exception as error:
+            self.fail(error)
+            raise
 
     def step(self, name, message):
         self.save(state='running', step=name, message=message)
@@ -196,10 +238,13 @@ class OnlineUpdateManager:
         try:
             with installer.locked(self.root):
                 work = self.job_directory() / 'download'
-                work.mkdir()
+                work.mkdir(exist_ok=True)
                 mode = self.state['mode']
                 if mode == 'rollback':
                     self.prepare_restore(work)
+                    return
+                if self.state.get('source') == 'upload':
+                    self.prepare_uploaded_core(work)
                     return
                 self.step('download', '正在下载并校验正式发行包…')
                 packages = installer.Packages(work, self.state['targetTag'])
@@ -229,6 +274,38 @@ class OnlineUpdateManager:
                 shutil.rmtree(work)
         except Exception as error:
             self.fail(error)
+
+    def prepare_uploaded_core(self, work):
+        self.step('validate', '正在校验内核 ZIP 与服务器架构…')
+        package = work / 'core.zip'
+        if upgrade.sha(package) != self.state['uploadSha256']:
+            raise UpdateError('已上传的内核 ZIP 内容发生变化，请重新上传')
+        backend, binary = read_kernel(package, self.arch)
+        if installer.digest(binary) == upgrade.sha(self.root / 'bin/localdns'):
+            raise UpdateError('当前内核文件与上传文件一致，无需重复更新', 409)
+        self.save(targetBackend=backend)
+        self.step('backup', '正在备份现有版本并准备上传的内核，现网仍在运行…')
+        archive = self.make_backup()
+        safe_tree(self.root)
+        installer.require_space(self.root.parent, sum(p.stat().st_size for p in self.root.rglob('*') if p.is_file()) + len(binary))
+        stage = self.stage_path()
+        shutil.copytree(self.root, stage)
+        saved = read_json(self.job_directory() / 'backup/backup.json')
+        if upgrade.fingerprint(stage) != saved['sourceFingerprint']:
+            raise UpdateError('准备期间设置发生变化，请重新上传并准备')
+        (stage / 'bin/localdns').write_bytes(binary)
+        (stage / 'bin/localdns').chmod(0o755)
+        write_json(stage / 'core-version.json', {'backendVersion': backend, 'updateCompatibility': CONTRACT,
+                   'source': 'upload', 'archiveSha256': self.state['uploadSha256']})
+        record = {'schema': 1, 'sourceRoot': str(self.root), 'sourceFingerprint': saved['sourceFingerprint'],
+                  'packageSha256': self.state['uploadSha256'], 'preflight': None,
+                  'targetFingerprint': upgrade.fingerprint(stage),
+                  'report': {'targetBackend': backend, 'missingSubscriptionFiles': [],
+                             'preserved': {name: hashes(stage / name) for name in
+                                           ('config/upstreams', 'rules/manual', 'config/subscriptions')}}}
+        installer.atomic_json(stage / upgrade.MARKER, record)
+        shutil.rmtree(work)
+        self.wait_for_backup(archive)
 
     def make_backup(self):
         result = upgrade.backup(self.root, self.job_directory() / 'backup')

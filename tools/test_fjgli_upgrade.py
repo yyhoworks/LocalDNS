@@ -136,6 +136,19 @@ class MigrationTests(unittest.TestCase):
         write_json(self.archive.parent / 'backup.json', {'sourceRoot': str(self.old), 'sha256': self.sha,
                                                         'sourceFingerprint': metadata['sourceFingerprint']})
 
+    def test_missing_architecture_binary_reports_error_before_creating_stage(self):
+        version = {'uiVersion': '2026.10.31.5', 'backendVersion': 'FJHAI', 'builtAt': '2026-10-31T22:00:00+08:00'}
+        package = self.work / 'missing-binary.zip'
+        payload = {'release.json': json.dumps(dict(version, packageType='full')).encode(),
+                   'localdns/config/localdns.json': b'{}'}
+        write_archive(package, payload, version, {})
+        before = hashes(self.old)
+        target = self.work / 'missing-stage'
+        with self.assertRaisesRegex(MigrationError, '发行包缺少二进制文件 localdns-amd64-v1'):
+            upgrade.prepare(self.old, package, upgrade.sha(package), target, 'amd64-v1')
+        self.assertFalse(target.exists())
+        self.assertEqual(hashes(self.old), before)
+
     def test_fjhai_prepare_preserves_user_settings_and_reports_the_target_core(self):
         version = {'uiVersion': '2026.10.31.3', 'backendVersion': 'FJHAI', 'builtAt': '2026-10-31T16:00:00+08:00'}
         package = self.work / 'FJHAI-Full.zip'

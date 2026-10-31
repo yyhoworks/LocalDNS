@@ -229,7 +229,7 @@ class UpdateHandler(BaseHTTPRequestHandler):
         if origin in self.server.origins:
             self.send_header('Access-Control-Allow-Origin', origin)
             self.send_header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
-            self.send_header('Access-Control-Allow-Headers', 'Content-Type')
+            self.send_header('Access-Control-Allow-Headers', 'Content-Type, X-Content-SHA256')
         self.end_headers()
         self.wfile.write(payload)
 
@@ -291,6 +291,15 @@ class UpdateHandler(BaseHTTPRequestHandler):
                 self.respond(200, self.server.manager.capabilities())
             elif unified and self.command == 'GET' and path == '/upgrade/status':
                 self.respond(200, self.server.manager.status())
+            elif unified and self.command == 'POST' and path == '/upgrade/core/upload':
+                if self.headers.get('Content-Type', '').split(';')[0].strip() != 'application/zip':
+                    raise UpdateError('请上传原作者内核 ZIP 文件', 415)
+                try:
+                    length = int(self.headers.get('Content-Length', '0'))
+                except ValueError:
+                    raise UpdateError('内核 ZIP 文件大小无效') from None
+                self.connection.settimeout(300)
+                self.respond(202, self.server.manager.receive_core(self.rfile, length, self.headers.get('X-Content-SHA256')))
             elif unified and self.command in ('GET', 'POST') and re.fullmatch(r'/upgrade/backup/[a-f0-9]{24}', path):
                 if self.command == 'POST' and self.body() != {}:
                     raise UpdateError('备份下载不接受额外参数')
