@@ -1,5 +1,5 @@
 import { LatestView } from '../../core/lifecycle/latest-view';
-import { mountToolbar } from './toolbar.js';
+import { mountToolbar, ruleDescriptions } from './toolbar.js';
 import { currentScope } from '../../core/router/route-lifetime';
 import { ruleConversionService } from './conversion.js';
 import { shellInterfaceService } from '../shell/interface.js';
@@ -25,7 +25,8 @@ import { safeResult } from '../../shared/async.js';
   ];
   const ruleProfiles=ruleGroups.flatMap(([,items])=>items);
 
-  let ruleViews, activeTab='lists', diversionUpdating=false;
+  let ruleViews, activeTab='lists', diversionUpdating=false, ruleCounts=new Map();
+  const ruleEntryCount=text=>String(text).split('\n').filter(line=>line.trim()&&!line.trim().startsWith('#')).length;
   const updateRule=path=>api.request(path,{method:'POST',timeout:300000});
   const updateUncertain=error=>['timeout','network','invalid-json'].includes(error?.code);
   function updateError(error,label='更新失败'){
@@ -40,6 +41,7 @@ import { safeResult } from '../../shared/async.js';
   async function renderRules(container, context){
  const renderScope = context.scope, page = container;
  ruleViews=new LatestView(renderScope);
+ ruleCounts=new Map();
  activeTab='lists';
  rulesWorkbenchService.mount();
  mountToolbar();
@@ -70,15 +72,22 @@ if(!approved&&rulesWorkbenchService?.canLeave(()=>renderRuleTab(tab,true))===fal
     const tag=state.ruleTag,profile=ruleProfiles.find(x=>x[0]===tag)||ruleProfiles[0];
     let text='',loadError=null;
     try{text=await renderScope.guard(api.request(`/plugins/${tag}/show?all=1`,{signal:renderScope.signal}))}catch(e){if(renderScope.signal.aborted)return;loadError=e}
+    const counts=ruleCounts;
+    if(!loadError)counts.set(tag,ruleEntryCount(text));
     const activeGroup=ruleGroups.find(([,items])=>items.some(([t])=>t===tag))||ruleGroups[0];
-    const menuOptions=esc(JSON.stringify(ruleProfiles.map(([t,n])=>({tag:t,label:n,group:(ruleGroups.find(([,items])=>items.some(([x])=>x===t))||[''])[0]}))));
-    /* 分组分段控件放在卡片头（方案 D）：.rule-menu 里只留名单胶囊一行，
-       一级分组按钮带 .active 但不在 .rule-menu 内，当前名单的选择器不会命中它 */
-    const cardHead=`<div class="card-header rule-card-header"><div class="card-title"><span class="icon">${icon('rules')}</span><div><h2>名单管理</h2><p>本地名单 · 启停与编辑先保留为草稿</p></div></div><div class="card-actions"><div class="rule-menu-level1" role="group" aria-label="规则分组">${ruleGroups.map(([gLabel])=>`<button type="button" class="rule-group-btn${gLabel===activeGroup[0]?' active':''}" data-rule-group="${esc(gLabel)}">${esc(gLabel)}</button>`).join('')}</div></div></div>`;
-    const menu=`<div class="rule-menu" data-rule-options="${menuOptions}"><div class="rule-menu-items" role="group" aria-label="${esc(activeGroup[0])}名单">${activeGroup[1].map(([t,n])=>`<button type="button" data-rule-tag="${t}" class="${t===tag?'active':''}"><span>${n}</span><span class="rule-count"></span></button>`).join('')}</div></div>`;
+    const cardHead=`<div class="card-header rule-card-header"><div class="card-title"><span class="icon">${icon('rules')}</span><h2>名单管理</h2><span class="rule-card-subtitle">本地名单 · 启停与编辑先保留为草稿</span></div><button type="button" class="workspace-text-button rule-devices-link" data-route="devices">客户端 IP 与分流模式已移至「设备」›</button></div>`;
+    const menu=`<div class="rule-menu rule-selector-bar"><div class="rule-menu-level1" role="group" aria-label="规则分组">${ruleGroups.map(([name])=>`<button type="button" class="rule-group-btn${name===activeGroup[0]?' active':''}" data-rule-group="${esc(name)}" aria-pressed="${name===activeGroup[0]}">${esc(name)}</button>`).join('')}</div><span class="rule-menu-arrow" aria-hidden="true">${icon('chevron')}</span><div class="rule-menu-items" role="group" aria-label="${esc(activeGroup[0])}名单">${activeGroup[1].map(([t,n])=>`<button type="button" data-rule-tag="${t}" aria-pressed="${t===tag}" class="${t===tag?'active':''}"><span class="rule-tone-dot" aria-hidden="true"></span><span>${n}</span><span class="rule-count" data-rule-count="${t}" title="启用规则">${counts.has(t)?num(counts.get(t)):'—'}</span></button>`).join('')}</div><span class="rule-menu-note">${esc(ruleDescriptions[tag]||'')}</span></div>`;
     const bindMenu=()=>{
-      $$('[data-rule-tag]').forEach(x=>x.onclick=()=>{const go=()=>{state.ruleTag=x.dataset.ruleTag;renderListRules(body)};if(rulesWorkbenchService?.canLeave(go)!==false)go();});
-      $$('[data-rule-group]').forEach(x=>x.onclick=()=>{const entry=ruleGroups.find(([g])=>g===x.dataset.ruleGroup);if(!entry||!entry[1].length)return;const go=()=>{state.ruleTag=entry[1][0][0];renderListRules(body)};if(rulesWorkbenchService?.canLeave(go)!==false)go();});
+      const selectTag=next=>{
+        const go=()=>{shellInterfaceService?.rememberDraft();state.ruleTag=next;renderListRules(body);};
+        if(rulesWorkbenchService?.canLeave(go)===false)return false;
+        go();return true;
+      };
+      $$('[data-rule-tag]',body).forEach(x=>x.onclick=()=>selectTag(x.dataset.ruleTag));
+      $$('[data-rule-group]',body).forEach(button=>button.onclick=()=>{
+        const entry=ruleGroups.find(([name])=>name===button.dataset.ruleGroup);
+        if(entry?.[1].length)selectTag(entry[1][0][0]);
+      });
     };
     if(loadError){
       setHTML(body, `<section class="card">${cardHead}<div class="rule-layout">${menu}<div class="rule-editor"><div class="section-header"><div><h2>${profile[1]}</h2><p>读取失败时禁止保存，现有规则不会被覆盖。</p></div><button class="button" id="rule-retry">${icon('refresh')}重试</button></div><div class="error-panel"><strong>规则列表加载失败</strong><p>${esc(loadError.message)}</p></div></div></div></section>`);
@@ -87,6 +96,16 @@ if(!approved&&rulesWorkbenchService?.canLeave(()=>renderRuleTab(tab,true))===fal
     const trimmed=String(text).trim();
     setHTML(body, `<section class="card">${cardHead}<div class="rule-layout">${menu}<div class="rule-editor"><div class="section-header"><div><h2>${profile[1]}</h2><p>一行一条；完整读取后才允许保存</p></div><div class="section-header-actions"><button class="button small" id="rule-download">${icon('download')}下载列表</button><button class="button primary" id="rule-save">${icon('save')}保存</button></div></div><textarea id="rule-text" class="rule-textarea" spellcheck="false">${esc(trimmed)}</textarea><div class="rule-editor-footer"><span id="rule-lines">共 ${trimmed?trimmed.split('\n').filter(line=>line.trim()).length:0} 行</span></div></div></div></section>`);
     bindMenu();
+    // Count only the current group's remaining lists; pending reads belong to this view.
+    activeGroup[1].forEach(([listTag])=>{
+      if(counts.has(listTag))return;
+      api.request(`/plugins/${listTag}/show?all=1`,{signal:renderScope.signal}).then(value=>{
+        if(renderScope.signal.aborted)return;
+        counts.set(listTag,ruleEntryCount(value));
+        const count=$(`[data-rule-count="${listTag}"]`,body);
+        if(count)count.textContent=num(counts.get(listTag));
+      }).catch(()=>{});
+    });
     $('#rule-text').oninput=()=>$('#rule-lines').textContent=`共 ${$('#rule-text').value.split('\n').filter(line=>line.trim()).length} 行`;
     $('#rule-save').onclick=async()=>{
       const button=$('#rule-save'),text=$('#rule-text'),value=text.value,baseline=text.dataset.original;
@@ -94,6 +113,8 @@ if(!approved&&rulesWorkbenchService?.canLeave(()=>renderRuleTab(tab,true))===fal
       button.disabled=true;
       try{
         await ruleSaveService.save(tag,value,baseline,()=>api.request(`/plugins/${tag}/show?all=1`),values=>api.json(`/plugins/${tag}/post`,'POST',{values}));
+        counts.set(tag,ruleEntryCount(value));
+        const count=$(`[data-rule-count="${tag}"]`,body);if(count)count.textContent=num(counts.get(tag));
         shellInterfaceService?.ruleSaved(tag,value);toast(`${profile[1]}已保存`);
       }catch(e){toast('保存失败','error',e.message)}finally{if(button.isConnected)button.disabled=false}
     };

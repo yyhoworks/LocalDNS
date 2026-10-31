@@ -9,6 +9,7 @@ let context: typeof import('../src/core/context.js');
 let lifetime: typeof import('../src/core/router/route-lifetime');
 let root: HTMLElement;
 let firstControlDelay = 0;
+let listBodies: Record<string, string>;
 
 const features = {
   request_blocking: true, block_special_qtypes: true, adguard: true,
@@ -38,6 +39,7 @@ beforeEach(() => {
   context.state.ruleTag = 'whitelist';
   context.state.route = 'rules';
   firstControlDelay = 0;
+  listBodies = {};
   shell.initialize();
   toolbar.initialize();
   workbench.initialize();
@@ -54,7 +56,7 @@ beforeEach(() => {
       const abort = () => { clearTimeout(timer); reject(signal?.reason); };
       const timer = setTimeout(() => {
         signal?.removeEventListener('abort', abort);
-        resolve(new Response('domain:' + list + '.example.com', { headers: { 'Content-Type': 'text/plain' } }));
+        resolve(new Response(listBodies[list] ?? 'domain:' + list + '.example.com', { headers: { 'Content-Type': 'text/plain' } }));
       }, delay);
       signal?.addEventListener('abort', abort, { once: true });
     });
@@ -78,9 +80,7 @@ async function enterRules() {
 }
 
 function selectList(tag: string) {
-  const select = root.querySelector<HTMLSelectElement>('#console-list-select')!;
-  select.value = tag;
-  select.dispatchEvent(new Event('change', { bubbles: true }));
+  root.querySelector<HTMLButtonElement>('[data-rule-tag="' + tag + '"]')!.click();
 }
 
 function selectGroup(index: number) {
@@ -92,18 +92,35 @@ function activeList() {
 }
 
 describe('rule selection', () => {
+  it('selects the group and its list from the same navigation rail', async () => {
+    await enterRules();
+    selectGroup(2);
+    await vi.advanceTimersByTimeAsync(40);
+    expect(activeList()).toBe('pcdn_domains');
+    root.querySelector<HTMLButtonElement>('[data-rule-tag="pcdn_regex_v4"]')!.click();
+    await vi.advanceTimersByTimeAsync(40);
+    expect(activeList()).toBe('pcdn_regex_v4');
+    expect(root.querySelector<HTMLButtonElement>('.rule-selector-bar [data-rule-group].active')!.dataset.ruleGroup).toBe('PCDN 抑制');
+    expect(root.querySelector('.rule-selector-bar [data-rule-tag="pcdn_regex_v4"]')!.getAttribute('aria-pressed')).toBe('true');
+    expect(root.querySelector('#console-list-select')).toBeNull();
+  });
+
   it('opens the requested list in another group', async () => {
     await enterRules();
+    selectGroup(1);
+    await vi.advanceTimersByTimeAsync(40);
     selectList('direct_ip');
     await vi.advanceTimersByTimeAsync(40);
     expect(activeList()).toBe('direct_ip');
   });
 
-  it('keeps the latest dropdown selection when a previous group is still loading', async () => {
+  it('keeps the latest group selection when a previous group is still loading', async () => {
     await enterRules();
     firstControlDelay = 1000;
-    selectList('direct_ip');
+    selectGroup(1);
     await vi.advanceTimersByTimeAsync(20);
+    selectGroup(2);
+    await vi.advanceTimersByTimeAsync(40);
     selectList('pcdn_regex_v6');
     await vi.advanceTimersByTimeAsync(40);
     expect(activeList()).toBe('pcdn_regex_v6');
@@ -115,28 +132,32 @@ describe('rule selection', () => {
   it('opens the requested list after a slow successful group load', async () => {
     await enterRules();
     firstControlDelay = 8500;
-    selectList('direct_ip');
+    selectGroup(1);
     await vi.advanceTimersByTimeAsync(8600);
+    selectList('direct_ip');
+    await vi.advanceTimersByTimeAsync(40);
     expect(activeList()).toBe('direct_ip');
   });
 
-  it('keeps the manually selected group after an earlier dropdown request is cancelled', async () => {
+  it('restores a draft after switching to another group and back', async () => {
     await enterRules();
-    firstControlDelay = 1000;
-    selectList('direct_ip');
-    await vi.advanceTimersByTimeAsync(20);
-    selectGroup(2);
-    await vi.advanceTimersByTimeAsync(20);
-    expect(activeList()).toBe('pcdn_domains');
+    const text = root.querySelector<HTMLTextAreaElement>('#rule-text')!;
+    const draft = text.value + '\ndomain:draft.example.net';
+    text.value = draft;
+    text.dispatchEvent(new Event('input', { bubbles: true }));
     selectGroup(1);
+    await vi.advanceTimersByTimeAsync(40);
+    selectGroup(0);
+    await vi.advanceTimersByTimeAsync(40);
+    shell.shellInterfaceService.apply();
     await vi.advanceTimersByTimeAsync(20);
-    expect(activeList()).toBe('force_realip');
+    expect(root.querySelector<HTMLTextAreaElement>('#rule-text')!.value).toBe(draft);
   });
 
-  it('does not revive a dropdown selection after leaving and returning to the rules page', async () => {
+  it('does not revive a cancelled request after leaving and returning to the rules page', async () => {
     await enterRules();
     firstControlDelay = 1000;
-    selectList('direct_ip');
+    selectGroup(1);
     await vi.advanceTimersByTimeAsync(20);
     lifetime.beginRoute();
     history.replaceState(null, '', '#/logs');
@@ -145,5 +166,16 @@ describe('rule selection', () => {
     history.replaceState(null, '', '#/rules');
     await enterRules();
     expect(activeList()).toBe('force_realip');
+  });
+
+  it('counts saved enabled entries rather than comments, blank lines or a local draft', async () => {
+    listBodies.direct = '# group\ndomain:a.example.com\n\n# domain:disabled.example.com\nfull:b.example.com';
+    await enterRules();
+    expect(root.querySelector('[data-rule-count="whitelist"]')!.textContent).toBe('2');
+    expect(root.querySelector('[data-rule-count="greylist"]')!.textContent).toBe('1');
+    const text = root.querySelector<HTMLTextAreaElement>('#rule-text')!;
+    text.value += '\ndomain:draft.example.net';
+    text.dispatchEvent(new Event('input', { bubbles: true }));
+    expect(root.querySelector('[data-rule-count="whitelist"]')!.textContent).toBe('2');
   });
 });

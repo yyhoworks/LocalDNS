@@ -2,7 +2,6 @@ import { trafficClientService } from '../overview/traffic/client.js';
 import { identityService } from '../identity/index.js';
 import { setHTML, insertHTML } from '../../core/security/safe-dom.ts';
 import { sessionPreferences } from '../../core/persistence/preferences.ts';
-import { currentScope } from '../../core/router/route-lifetime';
 export let shellInterfaceService;
 export function initialize() {
 
@@ -81,60 +80,19 @@ export function initialize() {
     $$('table',root).forEach(table=>{const heads=$$('thead th',table).map(x=>x.textContent.trim());if(!heads.length)return;const dedicated=table.matches('.workspace-rank-table,.workspace-upstream-table,.overview-slow-table,.overview-detail-table');table.classList.toggle('mobile-records',!dedicated);$$('tbody tr',table).forEach(tr=>$$('td',tr).forEach((td,i)=>{if(!td.dataset.label)td.dataset.label=heads[i]||'';}));});
     $$('label',root).forEach(label=>{if(label.querySelector('input[type=file]')){label.tabIndex=0;label.setAttribute('role','button');if(!label.dataset.consoleKeyboard){label.dataset.consoleKeyboard='1';label.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();label.querySelector('input').click();}};}}});
   }
-  /* 名单菜单两级化后，一级分组按钮也在 .rule-menu 里且没有 data-rule-tag：
-     直接按 .rule-menu button 取会拿到分组按钮（没有 <span>）而报错，也会漏掉其它分组的名单。
-     优先读页面写在 data-rule-options 上的完整清单，按分组输出 optgroup；没有就退回当前可见的名单按钮。 */
-  function ruleMenuOptions(tag){
-    const menu=$('.rule-menu');let items=[];
-    try{items=JSON.parse(menu?.dataset.ruleOptions||'[]');}catch{}
-    if(!Array.isArray(items)||!items.length)items=$$('.rule-menu [data-rule-tag]').map(b=>({tag:b.dataset.ruleTag,label:b.querySelector('span')?.textContent||b.textContent.trim(),group:''}));
-    const option=x=>`<option value="${escape(x.tag)}" ${x.tag===tag?'selected':''}>${escape(x.label)}</option>`;
-    const groups=[...new Set(items.map(x=>x.group||''))];
-    if(groups.length<2||groups.every(g=>!g))return items.map(option).join('');
-    return groups.map(g=>`<optgroup label="${escape(g)}">${items.filter(x=>(x.group||'')===g).map(option).join('')}</optgroup>`).join('');
-  }
   function ruleState(){const el=$('.console-rule-state'),tag=activeTag();if(!el)return;const dirty=drafts.has(tag);el.classList.toggle('dirty',dirty);el.textContent=dirty?'有未保存修改 · 切换名单将保留草稿':'当前内容已保存';}
-  /* 两级化后 .rule-menu 只渲染当前分组的胶囊，下拉却列出全部分组：
-     选了其它分组的名单时，先点分组按钮切组（菜单异步重渲染），等目标胶囊出现再点。 */
-  let pendingRuleSelection = null;
-  function selectRuleTag(value){
-    pendingRuleSelection?.();
-    const capsule=()=>$(`.rule-menu [data-rule-tag="${value}"]`);
-    const hit=capsule();
-    if(hit){hit.click();return;}
-    let group='';
-    try{group=(JSON.parse($('.rule-menu')?.dataset.ruleOptions||'[]').find(x=>x.tag===value)||{}).group||'';}catch{}
-    const groupBtn=group&&$(`.rule-menu-level1 [data-rule-group="${group}"]`);
-    if(!groupBtn)return;
-    groupBtn.click();
-    const scope=currentScope();
-    if(scope.signal.aborted)return;
-    const root=$('#page-content')||document;
-    const mo=new MutationObserver(()=>{
-      const c=capsule();
-      if(c){
-        cancel();
-        if(!c.classList.contains('active'))c.click();
-      }
-    });
-    const onNavigation=event=>{
-      if(event.target?.closest?.('[data-rule-group],[data-rule-tag],[data-rule-tab]'))cancel();
-    };
-    let timer;
-    const cancel=scope.add(()=>{
-      mo.disconnect();
-      clearTimeout(timer);
-      root.removeEventListener('click',onNavigation,true);
-      if(pendingRuleSelection===cancel)pendingRuleSelection=null;
-    });
-    pendingRuleSelection=cancel;
-    // Explicit navigation supersedes the pending dropdown selection.
-    root.addEventListener('click',onNavigation,true);
-    mo.observe(root,{childList:true,subtree:true});
-    /* 兜底超时必须大于 API 超时（默认 10s），否则慢响应下目标胶囊还没渲染监听器就断了 */
-    timer=setTimeout(cancel,12000);
+  function rules(){
+    const text=$('#rule-text'),tag=activeTag();
+    if(!text||!tag)return;
+    if(!text.dataset.consoleDraft){
+      text.dataset.consoleDraft='1';text.dataset.original=text.value;
+      if(drafts.has(tag)&&drafts.get(tag)===text.value){drafts.delete(tag);persistDrafts();}
+      if(drafts.has(tag))text.value=drafts.get(tag);
+      text.addEventListener('input',()=>{rememberDraft();ruleState();});
+      insertHTML($('.section-header>div'), 'beforeend', '<div class="console-rule-state" role="status"></div>');
+    }
+    ruleState();
   }
-  function rules(){const text=$('#rule-text'),tag=activeTag();if(!text||!tag)return;if(!text.dataset.consoleDraft){text.dataset.consoleDraft='1';text.dataset.original=text.value;if(drafts.has(tag)&&drafts.get(tag)===text.value){drafts.delete(tag);persistDrafts();}if(drafts.has(tag))text.value=drafts.get(tag);text.addEventListener('input',()=>{rememberDraft();ruleState();});insertHTML($('.section-header>div'), 'beforeend', '<div class="console-rule-state" role="status"></div>');if(!$('.console-rule-select')){const select=document.createElement('div');select.className='console-rule-select';setHTML(select, '<label for="console-list-select">名单类别</label><select id="console-list-select">'+ruleMenuOptions(tag)+'</select>');$('.rule-editor').prepend(select);$('select',select).onchange=e=>{rememberDraft();selectRuleTag(e.target.value);};}}ruleState();}
   function ruleSaved(tag,value){if(drafts.get(tag)===value||!drafts.has(tag))drafts.delete(tag);persistDrafts();if(activeTag()===tag){const text=$('#rule-text');if(text)text.dataset.original=value;ruleState();}}
   function displayNumerals(){
     $$('.console-kpi .sk-val,.tec-big,.ring-total,.service-value[data-display-number]').forEach(el=>{

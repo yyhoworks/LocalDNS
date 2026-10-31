@@ -543,28 +543,43 @@ body[data-console-route="rules"] .rp-foot{flex-wrap:wrap}
 @media(max-width:600px) {
   #rv-root button,.wb-list-tools button,.collection-switch button { min-width:44px; }
 }
-/* 移动端隐藏名单菜单：控制台内改用 shell 注入的类别下拉（console-rule-select）切换。
-   此规则必须放在文件末尾——上方 console 层的 body[data-console-route="rules"] .rule-menu
-   带 display:flex 且特异性更高，原先位于文件中段的 .rule-menu{display:none} 在真实
-   控制台路由下从不生效；同特异性、更靠后才能真正隐藏。 */
-@media(max-width:600px){.rule-menu,body[data-console-route="rules"] .rule-menu{display:none}}
-
-/* 名单分组：一级选组（分段控件）在卡片头右侧，二级选名单（胶囊）单独一行。
-   必须带 body[data-console-route="rules"] 前缀并放在 console 层之后——上层
-   `... .rule-menu button{background;border}` 同特异性、更靠前，裸类名压不住。
-   一级按钮已移出 .rule-menu，样式直接挂在 .rule-group-btn 上
-   （字体/光标原来由 `.rule-menu button` 通用规则提供，这里补齐）。 */
-body[data-console-route="rules"] .rule-menu { display:flex; flex-direction:column; align-items:flex-start; gap:10px; }
-body[data-console-route="rules"] .rule-menu-level1 { display:inline-flex; align-items:center; gap:2px; padding:3px; background:var(--glass-pill); border:1px solid var(--border-glass); border-radius:calc(9px * var(--radius-scale)); }
-body[data-console-route="rules"] .rule-group-btn { min-height:28px; padding:4px 12px; border-radius:calc(6px * var(--radius-scale)); background:transparent; border:1px solid transparent; box-shadow:none; color:var(--text-2); font:500 12px/1.4 var(--font-sans); cursor:pointer; }
-body[data-console-route="rules"] .rule-group-btn:hover { background:var(--glass-pill-active); color:var(--text-1); }
-body[data-console-route="rules"] .rule-group-btn.active { background:var(--glass-pill-active); border-color:var(--border-highlight); color:var(--text-1); font-weight:600; }
-body[data-console-route="rules"] .rule-menu-items { display:inline-flex; flex-wrap:wrap; align-items:center; gap:6px; }
-
-/* 名单卡头与 card() 模板同构（card-header 自带标题左/动作右与底部分隔线）；
-   窄屏收起说明行，让标题与分组分段控件保持一行 */
+/* Keep group selection and its lists together in one left-to-right rail. */
+body[data-console-route="rules"] .rule-card-header{border-bottom:0;padding-bottom:0;align-items:center}
+body[data-console-route="rules"] .rule-card-header .card-title{flex-wrap:wrap;row-gap:4px}
+body[data-console-route="rules"] .rule-card-header .card-title h2{font:600 16px/1.4 var(--font-sans)}
+body[data-console-route="rules"] .rule-card-subtitle{font:12px/1.5 var(--font-sans);color:var(--text-2)}
+body[data-console-route="rules"] .rule-devices-link{font:12px/1.5 var(--font-sans);padding:4px 8px;border:0;background:transparent;color:var(--text-2);white-space:normal}
+body[data-console-route="rules"] .rule-selector-bar{display:flex;flex-direction:row;align-items:center;flex-wrap:wrap;gap:14px;padding:10px 14px;margin:0 0 20px;border:1px solid var(--border-glass);border-radius:calc(13px * var(--radius-scale));background:var(--glass-pill);overflow:visible}
+body[data-console-route="rules"] .rule-selector-bar .rule-menu-level1{display:inline-flex;align-items:center;flex:none;gap:3px;padding:4px;border:1px solid var(--border-glass);border-radius:calc(10px * var(--radius-scale));background:var(--glass-bg-strong)}
+body[data-console-route="rules"] .rule-selector-bar .rule-group-btn{display:inline-flex;justify-content:center;align-items:center;gap:6px;min-height:34px;padding:7px 14px;border:1px solid transparent;border-radius:calc(7px * var(--radius-scale));background:transparent;color:var(--text-2);font:500 13px/1.3 var(--font-sans);cursor:pointer;box-shadow:none}
+body[data-console-route="rules"] .rule-selector-bar .rule-group-btn:hover{color:var(--text-1)}
+body[data-console-route="rules"] .rule-selector-bar .rule-group-btn.active{background:var(--glass-pill-active);border-color:var(--border-highlight);color:var(--text-1);font-weight:600}
+body[data-console-route="rules"] .rule-menu-arrow{display:inline-flex;align-items:center;justify-content:center;flex:none;width:16px;height:16px;color:var(--text-3)}
+body[data-console-route="rules"] .rule-menu-arrow svg{width:16px;height:16px}
+body[data-console-route="rules"] .rule-selector-bar .rule-menu-items{display:flex;align-items:center;flex-wrap:wrap;gap:8px;min-width:0;max-width:100%}
+body[data-console-route="rules"] .rule-selector-bar .rule-menu-items button{display:inline-flex;align-items:center;gap:8px;min-height:36px;padding:8px 15px;border:1px solid var(--border-glass);border-radius:calc(9px * var(--radius-scale));background:var(--glass-bg);color:var(--text-2);font:500 13px/1.3 var(--font-sans);box-shadow:none}
+body[data-console-route="rules"] .rule-selector-bar .rule-menu-items button:hover{color:var(--text-1);border-color:var(--border-highlight)}
+body[data-console-route="rules"] .rule-selector-bar .rule-menu-items button.active{background:var(--selection-fill,var(--glass-pill-active));border-color:var(--border-highlight);color:var(--primary-light);font-weight:600}
+body[data-console-route="rules"] .rule-tone-dot{width:6px;height:6px;border-radius:50%;background:var(--teal);flex:none}
+body[data-console-route="rules"] [data-rule-tag="whitelist"] .rule-tone-dot{background:var(--green)}
+body[data-console-route="rules"] [data-rule-tag="greylist"] .rule-tone-dot{background:var(--primary-light)}
+body[data-console-route="rules"] [data-rule-tag="blocklist"] .rule-tone-dot{background:var(--red)}
+body[data-console-route="rules"] [data-rule-tag="rewrite"] .rule-tone-dot{background:#c084fc}
+html[data-theme="light-glass"] body[data-console-route="rules"] [data-rule-tag="rewrite"] .rule-tone-dot{background:#7c3aed}
+body[data-console-route="rules"] [data-rule-tag^="pcdn"] .rule-tone-dot{background:var(--amber)}
+body[data-console-route="rules"] .rule-selector-bar .rule-menu-items .rule-count{display:inline-flex;align-items:center;justify-content:center;min-width:22px;padding:2px 6px;border-radius:6px;background:var(--glass-pill-active);color:var(--text-2);font:500 11px/1.4 var(--font-mono);font-variant-numeric:tabular-nums}
+body[data-console-route="rules"] .rule-selector-bar .rule-menu-items .active .rule-count{background:var(--selection-fill,var(--glass-pill-active));color:var(--primary-light)}
+body[data-console-route="rules"] .rule-menu-note{margin-left:auto;max-width:46ch;font:12px/1.5 var(--font-sans);color:var(--text-3)}
 @media(max-width:600px){
-  body[data-console-route="rules"] .rule-card-header .card-title p{display:none}
+  body[data-console-route="rules"] .rule-card-subtitle{display:none}
+  body[data-console-route="rules"] .rule-devices-link{max-width:55%;font-size:11px;text-align:right}
+  body[data-console-route="rules"] .rule-selector-bar{gap:10px;padding:10px;margin-bottom:18px}
+  body[data-console-route="rules"] .rule-selector-bar .rule-menu-level1{width:100%}
+  body[data-console-route="rules"] .rule-selector-bar .rule-group-btn{flex:1;min-height:44px;padding:7px 6px;font-size:12px}
+  body[data-console-route="rules"] .rule-menu-arrow,body[data-console-route="rules"] .rule-menu-note{display:none}
+  body[data-console-route="rules"] .rule-selector-bar .rule-menu-items{width:100%;gap:6px}
+  body[data-console-route="rules"] .rule-selector-bar .rule-menu-items button{min-height:44px;padding:8px 10px;font-size:12px}
+  body[data-console-route="rules"] .rule-selector-bar .rule-menu-items .rule-count{display:none}
 }
 
 /* 在线分流：顶部按类型汇总的总数卡，点一下展开并滚到该组 */
