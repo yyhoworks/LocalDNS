@@ -49,6 +49,11 @@ def service_files(directory):
 
 
 def main(argv=None):
+    arguments = list(sys.argv[1:] if argv is None else argv)
+    if '--unified' in arguments:
+        from install_online_updater import main as unified_main
+        arguments.remove('--unified')
+        return unified_main(arguments)
     parser = argparse.ArgumentParser(description='为已有 LocalDNS 安装网页 UI 升级执行端')
     parser.add_argument('--dir', default='/opt/localdns')
     parser.add_argument('--origin', required=True, help='实际打开网页的来源，例如 http://192.168.1.2:9099')

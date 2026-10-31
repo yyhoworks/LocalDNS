@@ -30,7 +30,7 @@ from zipfile import BadZipFile, ZipFile
 
 REPO = 'https://github.com/yyhoworks/LocalDNS'
 API = 'https://api.github.com/repos/yyhoworks/LocalDNS/releases/'
-INSTALLER_VERSION = '1.3.1'
+INSTALLER_VERSION = '1.4.0'
 ALPINE_RESOLVER_BRIDGE = '#include <resolv.h>\nint __res_init(void) { return res_init(); }\n'
 
 
@@ -464,13 +464,13 @@ def recover_ui_update(root):
     return True
 
 
-def update_ui(root, payload, metadata, stage=None, on_step=None):
+def update_ui(root, payload, metadata, stage=None, on_step=None, backend_compatible=False):
     report = on_step or (lambda step: None)
     recover_ui_update(root)
     current_version = root / 'ui/version.json'
     if current_version.is_file():
         current_backend = json.loads(current_version.read_text(encoding='utf-8')).get('backendVersion')
-        if current_backend and metadata.get('backendVersion') != current_backend:
+        if current_backend and metadata.get('backendVersion') != current_backend and not backend_compatible:
             raise InstallError('目标发行版需要不同的 DNS 核心，请使用完整包中的 upgrade-localdns.py 先备份并迁移；'
                                '只更新 UI 时请用 --version 指定同核心发行版。')
     for path in (root / 'ui', root / 'ui/config.js', root / 'bin', root / 'config'):
@@ -762,6 +762,8 @@ def main(argv=None):
         if any(ui_metadata.get(key) != metadata.get(key) for key in ('uiVersion', 'backendVersion')):
             raise InstallError('UI 与发行包的版本元数据不一致')
         setup_names = ('install_ui_updater.py', 'ui_updater.py', 'install_localdns.py')
+        if (payload / 'ui-updater/install_online_updater.py').is_file():
+            setup_names += ('install_online_updater.py', 'online_updater.py', 'upgrade_localdns.py', 'fjgli_config.py')
         if args.with_ui_updater and not all((payload / 'ui-updater' / name).is_file() for name in setup_names):
             raise InstallError('此发行包尚未包含网页升级执行端，请选择包含此功能的新发行版')
         log('模式：' + ('保留现有核心的 UI 更新' if mode == 'ui' else '全新安装') + '；架构：' + arch)
@@ -786,6 +788,8 @@ def main(argv=None):
                      '--dir', args.dir, '--origin', origin_value]
         if stage:
             arguments.extend(['--stage-root', str(stage)])
+        if (root / '.ui-updater/setup/install_online_updater.py').is_file():
+            arguments.append('--unified')
         if args.ui_updater_url:
             arguments.extend(['--public-url', args.ui_updater_url])
         run(arguments)

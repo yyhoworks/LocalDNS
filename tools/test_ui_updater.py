@@ -281,5 +281,12 @@ class UIUpdaterHTTPTests(_UpdateFixture):
             self.assertIn(self.request(path, body)[0], (400, 404))
 
 
+def load_tests(loader, standard_tests, _pattern):
+    # Keep the existing CI entry point; exercise both deployed protocol versions.
+    import test_online_updater
+    standard_tests.addTests(loader.loadTestsFromModule(test_online_updater))
+    return standard_tests
+
+
 if __name__ == '__main__':
     unittest.main()

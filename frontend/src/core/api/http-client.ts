@@ -71,7 +71,7 @@ export class HttpClient {
 
   // Buffer while the timeout and cancellation handlers are still attached.
   // Asset callers retain Response APIs and their existing status handling.
-  fetch(path: string | URL, options: RequestInit = {}): Promise<Response> {
+  fetch(path: string | URL, options: HttpRequestOptions = {}): Promise<Response> {
     return this.run(path, options, async response => {
       const body = [204, 205, 304].includes(response.status) ? null : await response.arrayBuffer();
       return new Response(body, { status: response.status, statusText: response.statusText, headers: response.headers });

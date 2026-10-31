@@ -101,11 +101,23 @@ def dns(port, protocol):
 SUPPORTED_BACKENDS = ('FJGLI', 'FJGOE', 'FJH21', 'FJH50', 'FJH7Q', 'FJH7T', 'FJHAI')
 
 
+def compatible_release(metadata):
+    contract = metadata.get('updateCompatibility', {})
+    return (isinstance(contract, dict) and contract.get('schema') == 1
+            and contract.get('apiFamily') == 'localdns-v1' and contract.get('configSchema') == 1
+            and re.fullmatch(r'FJ[A-Z][A-Z0-9]+', str(metadata.get('backendVersion', ''))) is not None)
+
+
 def verify(root, http_port, udp_port, tcp_port):
     expected_versions = SUPPORTED_BACKENDS
+    marker = root / 'core-version.json'
+    if marker.is_file():
+        version = read_json(marker)
+        if version.get('backendVersion') in SUPPORTED_BACKENDS or compatible_release(version):
+            expected_versions = (version['backendVersion'],)
     if (root / 'ui/version.json').is_file():
         v = read_json(root / 'ui/version.json').get('backendVersion')
-        if v in SUPPORTED_BACKENDS:
+        if not marker.is_file() and v in SUPPORTED_BACKENDS:
             expected_versions = (v,)
     status = None
     for _ in range(40):
@@ -163,7 +175,7 @@ def backup(root, output):
             'next': '下载归档到本机并校验摘要后，再执行 prepare、preflight、apply'}
 
 
-def prepare(root, package, expected, stage, arch):
+def prepare(root, package, expected, stage, arch, mode='full'):
     installer.no_symlinks(stage)
     if stage.exists() or stage.resolve() == root or root in stage.resolve().parents:
         raise MigrationError('暂存目录必须是安装目录外尚不存在的目录')
@@ -175,19 +187,27 @@ def prepare(root, package, expected, stage, arch):
         payload = Path(temporary) / 'payload'
         metadata = installer.extract_verified(package, payload)
         backend = metadata.get('backendVersion')
-        if metadata.get('packageType') != 'full' or backend not in SUPPORTED_BACKENDS:
+        if metadata.get('packageType') != 'full' or (backend not in SUPPORTED_BACKENDS and not compatible_release(metadata)):
             raise MigrationError('需要 ' + '/'.join(SUPPORTED_BACKENDS) + ' 完整发行包')
-        installer.require_space(stage.parent, sum(p.stat().st_size for p in payload.rglob('*') if p.is_file()))
-        shutil.copytree(payload / 'localdns', stage)
         binary = payload / f'LocalDNS_{backend}_Binaries' / ('localdns-' + installer.choose_arch(arch))
+        installer.require_space(stage.parent, sum(p.stat().st_size for p in (payload / 'localdns').rglob('*') if p.is_file()) + binary.stat().st_size)
+        shutil.copytree(payload / 'localdns', stage)
         shutil.copy2(binary, stage / 'bin/localdns')
         (stage / 'bin/localdns').chmod(0o755)
     report = migrate_configuration(root, stage)
     report['targetBackend'] = backend
+    if mode == 'core':
+        from fjgli_config import replace_tree
+        replace_tree(root / 'ui', stage / 'ui')
+        if (root / 'UI-VERSION').is_file():
+            shutil.copy2(root / 'UI-VERSION', stage / 'UI-VERSION')
+    write_json(stage / 'core-version.json', {'backendVersion': backend,
+               **({'updateCompatibility': metadata['updateCompatibility']} if 'updateCompatibility' in metadata else {})})
     if fingerprint(root) != before:
         raise MigrationError('准备期间原设置发生变化，请重新准备')
     record = {'schema': 1, 'sourceRoot': str(root), 'sourceFingerprint': before,
-              'packageSha256': expected, 'report': report, 'preflight': None}
+              'packageSha256': expected, 'report': report, 'preflight': None,
+              'targetFingerprint': fingerprint(stage)}
     installer.atomic_json(stage / MARKER, record)
     return {'stage': str(stage), 'preservedDirectories': list(report['preserved']),
             'missingSubscriptionFiles': report['missingSubscriptionFiles']}
@@ -225,10 +245,15 @@ def preflight(stage, http_port, dns_port):
         # process can claim a port between the probe and the core's bind.
         probes = []
         try:
-            for port, kind in [(http_port, socket.SOCK_STREAM), (dns_port, socket.SOCK_STREAM), (dns_port, socket.SOCK_DGRAM)]:
+            for label, kind in [('http', socket.SOCK_STREAM), ('dns', socket.SOCK_STREAM), ('dns', socket.SOCK_DGRAM)]:
                 probe = socket.socket(socket.AF_INET, kind)
+                port = http_port if label == 'http' else dns_port
                 probe.bind(('127.0.0.1', port))
                 probes.append(probe)
+                if label == 'http':
+                    http_port = probe.getsockname()[1]
+                else:
+                    dns_port = probe.getsockname()[1]
         except OSError:
             for probe in probes:
                 probe.close()
@@ -298,10 +323,22 @@ def journal_path(root):
     return root.parent / ('.' + root.name + '-core-upgrade.json')
 
 
+def core_service(action, init, name='localdns'):
+    if not re.fullmatch(r'localdns(?:-[a-zA-Z0-9-]+)?', name):
+        raise MigrationError('核心服务名称无效')
+    if name == 'localdns':
+        return installer.manage(action, init)
+    command = ['rc-service', name, action] if init == 'openrc' else ['systemctl', action, name + '.service']
+    return installer.run(command)
+
+
 def recover(root, init):
     journal = journal_path(root)
     installer.no_symlinks(journal)
     value = read_json(journal)
+    service_name = value.get('serviceName', 'localdns')
+    if not re.fullmatch(r'localdns(?:-[a-zA-Z0-9-]+)?', service_name):
+        raise MigrationError('核心服务名称无效')
     if value.get('sourceRoot') != str(root):
         raise MigrationError('更新事务的目标目录无效')
     name = value.get('previous', '')
@@ -311,20 +348,20 @@ def recover(root, init):
     installer.no_symlinks(previous)
     if previous.exists():
         with contextlib.suppress(Exception):
-            installer.manage('stop', init)
+            core_service('stop', init, service_name)
         if root.exists():
             root.rename(root.parent / (root.name + '.failed-fjgli-' + uuid.uuid4().hex))
         previous.rename(root)
         installer.sync_directory(root.parent)
     if value['wasRunning']:
-        installer.manage('start', init)
+        core_service('start', init, service_name)
     if value['updaterRunning'] and not updater('start', init):
         raise MigrationError('旧目录已恢复，但 UI 更新服务未能启动，请检查服务')
     journal.unlink()
     return {'recovered': True, 'root': str(root)}
 
 
-def apply(root, stage, backup_file, downloaded_sha, init):
+def apply(root, stage, backup_file, downloaded_sha, init, service_name='localdns'):
     safe_tree(stage)
     record = read_json(stage / MARKER)
     saved = read_json(backup_file.parent / 'backup.json')
@@ -343,31 +380,33 @@ def apply(root, stage, backup_file, downloaded_sha, init):
     if root.stat().st_dev != stage.stat().st_dev or root in stage.parents or root == stage:
         raise MigrationError('暂存目录必须位于安装目录外的同一文件系统')
     previous = root.parent / (root.name + '.previous-fjgli-' + uuid.uuid4().hex)
-    was_running = subprocess.run(['rc-service', 'localdns', 'status'] if init == 'openrc' else
-                                 ['systemctl', 'is-active', '--quiet', 'localdns.service'],
+    if not re.fullmatch(r'localdns(?:-[a-zA-Z0-9-]+)?', service_name):
+        raise MigrationError('核心服务名称无效')
+    was_running = subprocess.run(['rc-service', service_name, 'status'] if init == 'openrc' else
+                                 ['systemctl', 'is-active', '--quiet', service_name + '.service'],
                                  stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL).returncode == 0
     state = {'schema': 1, 'sourceRoot': str(root), 'previous': previous.name,
-             'wasRunning': was_running, 'updaterRunning': updater('status', init)}
+             'wasRunning': was_running, 'updaterRunning': service_name == 'localdns' and updater('status', init), 'serviceName': service_name}
     installer.atomic_json(journal_path(root), state)
     try:
         if state['updaterRunning'] and not updater('stop', init):
             raise MigrationError('无法暂停 UI 更新服务')
         if was_running:
-            installer.manage('stop', init)
+            core_service('stop', init, service_name)
         if fingerprint(root) != record['sourceFingerprint']:
             raise MigrationError('停服前设置发生变化，已取消切换')
         root.rename(previous)
         installer.sync_directory(root.parent)
         stage.rename(root)
         installer.sync_directory(root.parent)
-        installer.manage('start', init)
+        core_service('start', init, service_name)
         config = read_json(root / 'config/localdns.json')
         result = verify(root, int(config['api']['http'].rsplit(':', 1)[1]),
                         int(config['dns']['udp_listen'].rsplit(':', 1)[1]), int(config['dns']['tcp_listen'].rsplit(':', 1)[1]))
         for relative, expected in record['report']['preserved'].items():
             if relative == 'config/subscriptions':
                 current = {k: v for k, v in fingerprint(root).items() if k.startswith('config/subscriptions/')}
-                original = {k: v for k, v in record['sourceFingerprint'].items() if k.startswith('config/subscriptions/')}
+                original = {k: v for k, v in record.get('targetFingerprint', record['sourceFingerprint']).items() if k.startswith('config/subscriptions/')}
                 if current != original:
                     raise MigrationError('切换后订阅设置校验失败')
                 continue

@@ -9,6 +9,7 @@ import re
 import secrets
 import shutil
 import socket
+import sys
 import tempfile
 import threading
 from datetime import datetime, timezone
@@ -232,6 +233,26 @@ class UpdateHandler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(payload)
 
+    def send_backup(self, job_id):
+        if self.headers.get('Origin') not in self.server.origins:
+            raise UpdateError('备份下载必须来自已配置的网页', 403)
+        path, name = self.server.manager.backup_file(job_id)
+        self.connection.settimeout(300)
+        with path.open('rb') as source:
+            self.send_response(200)
+            self.send_header('Content-Type', 'application/gzip')
+            self.send_header('Content-Length', str(path.stat().st_size))
+            self.send_header('Content-Disposition', 'attachment; filename="' + name + '"')
+            self.send_header('Cache-Control', 'no-store')
+            self.send_header('X-Content-Type-Options', 'nosniff')
+            self.send_header('Vary', 'Origin')
+            self.send_header('Access-Control-Allow-Origin', self.headers['Origin'])
+            self.send_header('Access-Control-Expose-Headers', 'Content-Disposition, Content-Length')
+            self.end_headers()
+            shutil.copyfileobj(source, self.wfile, 1024 * 1024)
+            self.wfile.flush()
+        self.server.manager.downloaded(job_id)
+
     def check_request(self):
         try:
             host = urlsplit('http://' + self.headers.get('Host', '')).hostname
@@ -265,12 +286,38 @@ class UpdateHandler(BaseHTTPRequestHandler):
         try:
             self.check_request()
             path = self.path
-            if self.command == 'OPTIONS':
+            unified = hasattr(self.server.manager, 'capabilities')
+            if unified and self.command == 'GET' and path == '/upgrade':
+                self.respond(200, self.server.manager.capabilities())
+            elif unified and self.command == 'GET' and path == '/upgrade/status':
+                self.respond(200, self.server.manager.status())
+            elif unified and self.command in ('GET', 'POST') and re.fullmatch(r'/upgrade/backup/[a-f0-9]{24}', path):
+                if self.command == 'POST' and self.body() != {}:
+                    raise UpdateError('备份下载不接受额外参数')
+                self.send_backup(path.rsplit('/', 1)[1])
+            elif unified and self.command == 'POST' and path in ('/upgrade', '/upgrade/rollback', '/upgrade/continue', '/upgrade/cancel'):
+                body = self.body()
+                expected = {'/upgrade': {'releaseTag', 'mode'}, '/upgrade/rollback': set(),
+                            '/upgrade/continue': {'jobId', 'sha256'}, '/upgrade/cancel': {'jobId'}}[path]
+                if set(body) != expected or any(not isinstance(v, str) for v in body.values()):
+                    raise UpdateError('只接受固定的升级操作参数')
+                manager = self.server.manager
+                if path == '/upgrade':
+                    result = manager.start(body['releaseTag'], mode=body['mode'])
+                elif path == '/upgrade/rollback':
+                    result = manager.start(rollback=True)
+                elif path == '/upgrade/continue':
+                    result = manager.continue_job(body['jobId'], body['sha256'])
+                else:
+                    result = manager.cancel(body['jobId'])
+                self.respond(202, result)
+            elif self.command == 'OPTIONS':
                 if self.headers.get('Origin') not in self.server.origins:
                     raise UpdateError('网页来源未被允许', 403)
                 self.respond(200, {})
             elif self.command == 'GET' and path == '/upgrade/ui':
-                self.respond(200, {'protocol': PROTOCOL, 'repository': installer.REPO, 'requiresAuth': False})
+                self.respond(200, {'protocol': PROTOCOL, 'repository': installer.REPO, 'requiresAuth': False,
+                                  **({'capabilities': self.server.manager.capabilities()} if unified else {})})
             elif self.command == 'GET' and path == '/upgrade/ui/status':
                 self.respond(200, self.server.manager.status())
             elif self.command == 'POST' and path in ('/upgrade/ui', '/upgrade/ui/rollback'):
@@ -280,11 +327,15 @@ class UpdateHandler(BaseHTTPRequestHandler):
                     raise UpdateError('只接受固定的 UI 升级操作')
                 if not rollback and not isinstance(body['releaseTag'], str):
                     raise UpdateError('发行版本无效')
+                if unified and rollback and self.server.manager.status().get('rollbackKind') != 'ui':
+                    raise UpdateError('请在新版弹窗中恢复上一整套版本，以完成备份校验。', 409)
                 self.respond(202, self.server.manager.start(body.get('releaseTag'), rollback))
             else:
                 raise UpdateError('接口不存在', 404)
         except UpdateError as error:
             self.respond(error.status, {'error': str(error)})
+        except (BrokenPipeError, ConnectionResetError):
+            pass
         except (OSError, ValueError, installer.InstallError):
             self.respond(500, {'error': '更新执行端状态读取失败，请检查服务日志或安装配置'})
 
@@ -298,11 +349,17 @@ def main():
     installer.no_symlinks(args.config)
     config = json.loads(args.config.read_text(encoding='utf-8'))
     root = installer.install_path(config['installDir'])
-    manager = UpdateManager(root)
+    if config.get('protocol') == 'localdns-updater/v2':
+        from online_updater import OnlineUpdateManager
+        manager = OnlineUpdateManager(root, config['stateDir'], arch=config.get('architecture'),
+                                      service_name=config.get('serviceName', 'localdns'))
+    else:
+        manager = UpdateManager(root)
     server = UpdateServer((config['listenHost'], int(config['port'])), config, manager)
     with contextlib.closing(server):
         server.serve_forever()
 
 
 if __name__ == '__main__':
+    sys.modules.setdefault('ui_updater', sys.modules[__name__])
     main()
