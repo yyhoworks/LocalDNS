@@ -145,15 +145,15 @@ export function initialize() {
     root.querySelector('#div-search').oninput = event => { ruleFilter.q = event.target.value.trim(); apply(); };
     root.querySelectorAll('[data-div-purpose]').forEach(button => button.onclick = () => { ruleFilter.group = button.dataset.divPurpose; apply(); });
     root.querySelectorAll('[data-div-stat]').forEach(card => card.onclick = () => {
-      let section = root.querySelector(`[data-diversion-group="${card.dataset.divStat}"]`);
-      if (!section) {
-        /* 分组卡片视图下没有分组 DOM：先切到表格列表视图再定位 */
+      /* 卡片/列表两套 DOM 同时存在、仅靠 hidden 切换：不能按元素是否存在判断，
+         必须看列表视图当前是否隐藏 */
+      const listView = root.querySelector('[data-collection-view="list"]');
+      if (listView && listView.hidden) {
         const listBtn = root.querySelector('.collection-switch [data-layout="list"]');
-        if (!listBtn) return;
-        listBtn.click();
-        section = root.querySelector(`[data-diversion-group="${card.dataset.divStat}"]`);
-        if (!section) return;
+        if (listBtn) listBtn.click();
       }
+      const section = root.querySelector(`[data-diversion-group="${card.dataset.divStat}"]`);
+      if (!section) return;
       const body = section.querySelector('.div-group-body');
       const head = section.querySelector('.div-group-head');
       if (body?.hidden && head) head.click();

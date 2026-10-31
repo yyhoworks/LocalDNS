@@ -94,8 +94,10 @@ export function initialize() {
   }
   function ruleState(){const el=$('.console-rule-state'),tag=activeTag();if(!el)return;const dirty=drafts.has(tag);el.classList.toggle('dirty',dirty);el.textContent=dirty?'有未保存修改 · 切换名单将保留草稿':'当前内容已保存';}
   /* 两级化后 .rule-menu 只渲染当前分组的胶囊，下拉却列出全部分组：
-     跨分组时先点分组按钮切组（菜单异步重渲染），等目标胶囊出现再点。 */
+     选了其它分组的名单时，先点分组按钮切组（菜单异步重渲染），等目标胶囊出现再点。 */
+  let pendingRuleObserver = null;
   function selectRuleTag(value){
+    if (pendingRuleObserver) { pendingRuleObserver.disconnect(); pendingRuleObserver = null; }
     const capsule=()=>$(`.rule-menu [data-rule-tag="${value}"]`);
     const hit=capsule();
     if(hit){hit.click();return;}
@@ -105,9 +107,18 @@ export function initialize() {
     if(!groupBtn)return;
     groupBtn.click();
     const root=$('#page-content')||document;
-    const mo=new MutationObserver(()=>{const c=capsule();if(c){mo.disconnect();if(!c.classList.contains('active'))c.click();}});
+    const mo=new MutationObserver(()=>{
+      const c=capsule();
+      if(c){
+        mo.disconnect();
+        if(pendingRuleObserver===mo)pendingRuleObserver=null;
+        if(!c.classList.contains('active'))c.click();
+      }
+    });
+    pendingRuleObserver=mo;
     mo.observe(root,{childList:true,subtree:true});
-    setTimeout(()=>mo.disconnect(),8000);
+    /* 兜底超时必须大于 API 超时（默认 10s），否则慢响应下目标胶囊还没渲染监听器就断了 */
+    setTimeout(()=>{mo.disconnect();if(pendingRuleObserver===mo)pendingRuleObserver=null;},12000);
   }
   function rules(){const text=$('#rule-text'),tag=activeTag();if(!text||!tag)return;if(!text.dataset.consoleDraft){text.dataset.consoleDraft='1';text.dataset.original=text.value;if(drafts.has(tag)&&drafts.get(tag)===text.value){drafts.delete(tag);persistDrafts();}if(drafts.has(tag))text.value=drafts.get(tag);text.addEventListener('input',()=>{rememberDraft();ruleState();});insertHTML($('.section-header>div'), 'beforeend', '<div class="console-rule-state" role="status"></div>');if(!$('.console-rule-select')){const select=document.createElement('div');select.className='console-rule-select';setHTML(select, '<label for="console-list-select">名单类别</label><select id="console-list-select">'+ruleMenuOptions(tag)+'</select>');$('.rule-editor').prepend(select);$('select',select).onchange=e=>{rememberDraft();selectRuleTag(e.target.value);};}}ruleState();}
   function ruleSaved(tag,value){if(drafts.get(tag)===value||!drafts.has(tag))drafts.delete(tag);persistDrafts();if(activeTag()===tag){const text=$('#rule-text');if(text)text.dataset.original=value;ruleState();}}
