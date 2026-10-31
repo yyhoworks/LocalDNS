@@ -177,10 +177,12 @@ class OnlineUpdateManager:
     def begin_job(self, current, mode, **values):
         old_previous = self.state.get('previous')
         self.state = {'previous': old_previous} if old_previous else {}
-        self.save(state='queued', jobId=secrets.token_hex(12), action='upgrade', mode=mode,
-                  startedAt=now(), finishedAt=None, step='queued',
-                  message='任务已提交，正在准备；关闭页面后仍可查看进度。', sourceVersion=current)
-        self.save(**values)
+        # 一次落盘：两次 save 之间崩溃会留下不完整任务（单次 save 本身是原子的）
+        job = {'state': 'queued', 'jobId': secrets.token_hex(12), 'action': 'upgrade', 'mode': mode,
+               'startedAt': now(), 'finishedAt': None, 'step': 'queued',
+               'message': '任务已提交，正在准备；关闭页面后仍可查看进度。', 'sourceVersion': current}
+        job.update(values)
+        self.save(**job)
         self.job_directory().mkdir(mode=0o700)
 
     def receive_core(self, stream, length, expected):
