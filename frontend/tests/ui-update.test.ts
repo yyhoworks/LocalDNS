@@ -28,6 +28,32 @@ describe('UI upgrade eligibility', () => {
 });
 
 describe('UI update requests', () => {
+  it('uploads the selected original ZIP independently of GitHub release versions', async () => {
+    const file = new File(['abc'], 'LocalDNS_FJNEW.zip', { type: 'application/zip' });
+    const fetcher = vi.fn<typeof fetch>().mockImplementation(async () => json({ state: 'awaiting_backup', source: 'upload', targetBackend: 'FJNEW', canRollback: false }));
+    fetcher.mockResolvedValueOnce(json({ protocol: 'localdns-ui-updater/v1', repository: 'https://github.com/yyhoworks/LocalDNS', capabilities: {
+      protocol: 'localdns-updater/v2', modes: ['ui', 'core', 'full'], installed,
+      coreUpload: { format: 'upstream-zip', maxBytes: 256 * 1048576, architecture: 'amd64-v1' },
+    } }));
+    const client = new UIUpdateClient('http://dns.example:9100', 'http://dns.example:9099/ui/', fetcher);
+    await client.discover();
+    expect((await client.uploadCore(file)).targetBackend).toBe('FJNEW');
+    expect(fetcher.mock.calls[1][0]).toBe('http://dns.example:9100/upgrade/core/upload');
+    expect(fetcher.mock.calls[1][1]).toMatchObject({ method: 'POST', body: file, credentials: 'omit', headers: {
+      'Content-Type': 'application/zip', 'X-Content-SHA256': 'ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad',
+    } });
+    await expect(client.uploadCore(new File(['abc'], 'not-a-kernel.exe'))).rejects.toThrow('ZIP');
+    await expect(client.uploadCore(new File([], 'empty.zip'))).rejects.toThrow('ZIP');
+    expect(fetcher).toHaveBeenCalledTimes(2);
+  });
+  it('requires upload capability on older updater services', async () => {
+    const fetcher = vi.fn<typeof fetch>().mockResolvedValue(json({ protocol: 'localdns-ui-updater/v1', repository: 'https://github.com/yyhoworks/LocalDNS', capabilities: { protocol: 'localdns-updater/v2', modes: ['ui', 'core', 'full'], installed } }));
+    const client = new UIUpdateClient('', 'http://dns.example/ui/', fetcher);
+    await client.discover();
+    expect(client.unified).toBe(true); expect(client.coreUpload).toBeUndefined();
+    await expect(client.uploadCore(new File(['abc'], 'core.zip'))).rejects.toThrow('请先更新升级服务');
+    expect(fetcher).toHaveBeenCalledTimes(1);
+  });
   it('uses independent versions and three operations with the unified service', async () => {
     const next = { ...release, backend: 'FJHAI', tag: 'fjhai-ui-v2026.10.19.9', packages: ['UI 升级包', '含核心完整包'] };
     expect(upgradeTarget(installed, next, { mode: 'ui', unified: true }).tag).toBe(next.tag);
