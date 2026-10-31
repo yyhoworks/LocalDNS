@@ -197,6 +197,8 @@ def main():
     for name in ['upgrade_localdns.py', 'fjgli_config.py']:
         common[name.replace('_', '-') if name == 'upgrade_localdns.py' else name] = (ROOT / 'tools' / name).read_bytes()
     common['docs/FJGLI_UPGRADE.md'] = (ROOT / 'docs/FJGLI_UPGRADE.md').read_bytes()
+    common['docs/FJHAI_UPGRADE.md'] = (ROOT / 'docs/FJHAI_UPGRADE.md').read_bytes()
+    common['docs/validation/fjhai-2026.10.31.3.md'] = (ROOT / 'docs/validation/fjhai-2026.10.31.3.md').read_bytes()
     for name in ['install_ui_updater.py', 'ui_updater.py', 'install_localdns.py']:
         common['ui-updater/' + name] = (ROOT / 'tools' / name).read_bytes()
     common['docs/WEB_UPDATE.md'] = (ROOT / 'docs/WEB_UPDATE.md').read_bytes()
@@ -266,8 +268,8 @@ def main():
             with ZipFile(args.kernel_archive) as archive:
                 kernels = read_kernel_bundle(archive, backend)
                 if args.runtime_template:
-                    if backend not in ('FJGLI', 'FJGOE', 'FJH21', 'FJH50', 'FJH7Q', 'FJH7T'):
-                        raise ValueError('The new runtime template currently supports FJGLI/FJGOE/FJH21/FJH50/FJH7Q/FJH7T only')
+                    if backend not in ('FJGLI', 'FJGOE', 'FJH21', 'FJH50', 'FJH7Q', 'FJH7T', 'FJHAI'):
+                        raise ValueError('The new runtime template currently supports FJGLI/FJGOE/FJH21/FJH50/FJH7Q/FJH7T/FJHAI only')
                     template = read_runtime_template(archive)
                     full = {name: data for name, data in full.items() if not name.startswith('localdns/')}
                     full.update(template)

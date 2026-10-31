@@ -6,16 +6,16 @@ import { groupName } from './groups.js';
 import { api } from '../../core/api/api.js';
 
   const upstreamErrorReasonLabels={
-    timeout:'Timeout',upstream_timeout:'Timeout',deadline:'Timeout',
-    tls:'TLS',tls_handshake:'TLS',certificate:'TLS',
-    socks5:'SOCKS5',socks:'SOCKS5',proxy:'SOCKS5',
-    eof_reset:'EOF / Reset',eof:'EOF / Reset',reset:'EOF / Reset',broken_pipe:'EOF / Reset',
-    dial_connect:'Dial / Connect',dial:'Dial / Connect',connect:'Dial / Connect',
-    refused_unreachable:'Refused / Unreachable',refused:'Refused / Unreachable',unreachable:'Refused / Unreachable',
-    http:'HTTP',protocol:'Protocol',unpack:'Protocol',other:'Other'
+    timeout:'超时',upstream_timeout:'超时',deadline:'超时',
+    tls:'TLS 握手失败',tls_handshake:'TLS 握手失败',certificate:'TLS 握手失败',
+    socks5:'SOCKS5 出错',socks:'SOCKS5 出错',proxy:'SOCKS5 出错',
+    eof_reset:'连接中断',eof:'连接中断',reset:'连接中断',broken_pipe:'连接中断',
+    dial_connect:'连接失败',dial:'连接失败',connect:'连接失败',
+    refused_unreachable:'拒绝或不可达',refused:'拒绝或不可达',unreachable:'拒绝或不可达',
+    http:'HTTP 错误',protocol:'回答格式错误',unpack:'回答格式错误',other:'其他错误'
   };
 
-  function upstreamErrorReasonName(reason){return upstreamErrorReasonLabels[String(reason||'').toLowerCase()]||String(reason||'Other').replace(/_/g,' ')}
+  function upstreamErrorReasonName(reason){return upstreamErrorReasonLabels[String(reason||'').toLowerCase()]||String(reason||'其他错误').replace(/_/g,' ')}
 
   function upstreamMetrics(metrics,group,tag){
     const labels={metrics_tag:group,tag};
@@ -54,7 +54,7 @@ import { api } from '../../core/api/api.js';
       ?(m.reasons.length
         ?`<div class="up-error-reason-list">${m.reasons.map(x=>`<div class="up-error-reason-row"><span>${esc(x.label)}</span><strong>${num(x.value)}</strong></div>`).join('')}</div>`
         :`<div class="up-error-compat"><strong>分类计数异常</strong><span>当前错误总数大于 0，但分类计数均为 0。请检查当前二进制是否提供完整的错误分类指标。</span></div>`)
-      :`<div class="up-error-compat"><strong>等待错误分类数据</strong><span>当前错误分类指标不可用；当二进制提供分类指标后，这里会自动显示 Timeout、TLS、SOCKS5、EOF / Reset 等分类。</span></div>`;
+      :`<div class="up-error-compat"><strong>等待错误分类数据</strong><span>当前错误分类指标不可用；当二进制提供分类指标后，这里会自动显示超时、TLS 握手失败、SOCKS5 出错、连接中断等分类。</span></div>`;
     const totalMismatch=m.reasonSupported&&reasonTotal!==Number(m.err||0)?`<div class="up-error-warning">分类合计 ${num(reasonTotal)} 与错误总数 ${num(m.err)} 不一致，请检查后端统计口径。</div>`:'';
     const last=m.lastError?`<div class="up-error-meta-row"><span>最近错误</span><strong>${esc(upstreamErrorTime(m.lastError))}</strong></div>`:'';
     const pop=document.createElement('div'); pop.id='upstream-error-popover'; pop.className='up-error-popover'; pop.setAttribute('role','dialog'); pop.setAttribute('aria-label',`${u.tag} 错误详情`);

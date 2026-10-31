@@ -52,7 +52,7 @@ export function initialize() {
   var hist = [], histAt = -1, histLock = false, savedText = '';      /* 撤销/重做：保存每一步的原文 */
   var dragIds = [];                                                   /* 拖动中的行（标题=整组） */
   var sheetBaseline = '', sheetOff = false, pendingLeave = null, focusTimer = null, mainWasInert = false, ownsInert = false;
-  var rawTags = {direct_ip:true,rewrite:true};
+  var rawTags = {direct_ip:true,foreign_ip:true,rewrite:true};
   var rawMode = false;                                /* 原件行（例如 IP/网段）保存时不加类型前缀 */
   var sheetEl = null, scrimEl = null;                 /* 面板/遮罩只认自己建的那一份 */
   var sheetBack = null;                               /* 关闭面板后把焦点还给原来的地方 */
@@ -781,7 +781,7 @@ export function initialize() {
     var pending = !!pm || hash;                       /* 还没按回车识别，不算错 */
     var bad = !rawMode && !pending && !!body && !valid(body, t);
     inp.classList.toggle('bad', bad);
-    var rawLabels={direct_ip:'IP 或网段',rewrite:'重定向条目'};
+    var rawLabels={direct_ip:'IP 或网段',foreign_ip:'IP 或网段',rewrite:'重定向条目'};
     sheet().querySelector('#rv-value-label').textContent = rawMode?(rawLabels[activeTag()]||'原文'):NAME[t];
     inp.placeholder=rawMode?(activeTag()==='rewrite'?'例如 home.example.com 192.0.2.10':'例如 192.0.2.10'):'例如 '+TYPE_TIP[t].ph;
     var note = sheet().dataset.note;

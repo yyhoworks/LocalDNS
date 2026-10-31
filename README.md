@@ -6,9 +6,11 @@
 
 **DNS 核心主要由折腾日记交流群里的 R 大使用 Rust 编写；[yyhoworks](https://github.com/yyhoworks) 负责 UI 设计。**
 
-当前版本：**后端 FJH7T / UI 2026.10.31.2**（发行标签 `fjh7t-ui-v2026.10.31.2`），见 [本次更新说明](docs/releases/fjh7t-ui-v2026.10.31.2.md)。
+当前版本：**后端 FJHAI / UI 2026.10.31.3**（发行标签 `fjhai-ui-v2026.10.31.3`），见 [本次更新说明](docs/releases/fjhai-ui-v2026.10.31.3.md)。
 
-本次按选定的方案 2 调整名单管理：分组与名单从左向右排在同一条导航中，名单带语义色点和实际启用数量，当前名单用途显示在右侧；手机端自动换行。保留草稿、列表编辑与保存流程。说明见 [2026.10.31.2](docs/releases/fjh7t-ui-v2026.10.31.2.md)。
+本版补齐中文上游错误与分流提示，广告和分流规则写入最多等待 5 分钟；更新期间按钮显示「更新中…」，切换页面后仍保留状态，并补上「国外 IP 段」名单。完整包采用清理过私人示例的 FJHAI 模板，升级工具保留原上游、自定义规则、别名、订阅及其余配置。旧核心先按 [FJHAI 升级指南](docs/FJHAI_UPGRADE.md) 下载并校验备份，再切换完整目录。
+
+上一版按选定的方案 2 调整名单管理：分组与名单从左向右排在同一条导航中，名单带语义色点和实际启用数量，当前名单用途显示在右侧；手机端自动换行。保留草稿、列表编辑与保存流程。说明见 [2026.10.31.2](docs/releases/fjh7t-ui-v2026.10.31.2.md)。
 
 更早的 2026.10.30.7 把名单管理的分组切换从卡片内部搬到卡片头：卡头左侧是「名单管理」标题与草稿提示，右侧是核心分流 / 解析控制 / PCDN 抑制的分段控件，卡片内部只剩一行名单胶囊，说明见 [2026.10.30.7](docs/releases/fjh7t-ui-v2026.10.30.7.md)。
 
@@ -158,7 +160,7 @@ curl -fsSL https://raw.githubusercontent.com/yyhoworks/LocalDNS/main/tools/insta
 
 ## 手动安装
 
-1. 在 [Releases](https://github.com/yyhoworks/LocalDNS/releases/tag/fjh7t-ui-v2026.10.31.2) 下载完整包或 UI 升级包，并核对同页的 `SHA256SUMS.txt`。**从旧核心升级 FJH7T 请使用完整包和迁移工具，先备份并保留原设置；UI 升级包只更新界面。**
+1. 在 [Releases](https://github.com/yyhoworks/LocalDNS/releases/tag/fjhai-ui-v2026.10.31.3) 下载完整包或 UI 升级包，并核对同页的 `SHA256SUMS.txt`。**从旧核心升级 FJHAI 请使用完整包和迁移工具，先备份并保留原设置；UI 升级包只更新界面。**
 2. 已有 LocalDNS 服务时，解压 UI 升级包并运行：
 
    ```sh

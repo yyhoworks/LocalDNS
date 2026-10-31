@@ -7,7 +7,7 @@ const overviewInsightsService = (() => {
     client_direct: '客户端直连', geosite_non_cn: '非国内规则命中',
     whitelist: '白名单命中', greylist: '灰名单命中', blocked: '请求屏蔽',
     direct_list: '直连名单命中', proxy_list: '代理名单命中', proxy_realip_list: '代理真实 IP 名单命中',
-    geosite_cn_use_foreign_cn: '国内规则使用国外 ECS', rewrite: '重定向规则命中',
+    geosite_cn_use_foreign_cn: '国内规则采用国外返回的国内地址', rewrite: '重定向规则命中',
     learned_realip: '已学习 RealIP', learned_fakeip: '已学习 FakeIP',
     geosite_cn: '国内规则命中', custom_cn: '自定义国内规则',
     custom_non_cn: '自定义非国内规则', unknown_fakeip: '未知域名 FakeIP',
@@ -18,8 +18,25 @@ const overviewInsightsService = (() => {
     local_name: '本地保留名应答', local_any: 'ANY 查询本地应答',
     local_meta: 'META 查询本地应答', local_reverse: '反查区本地应答',
     local_xfr: '区域传送本地应答',
-    unknown_noaddr: '未知域名无地址', foreign_other: '其他国外结果'
+    unknown_noaddr: '未知域名无地址', foreign_other: '其他国外结果',
+    blocked_aaaa: 'IPv6 屏蔽', adguard: '广告拦截', pcdn: 'PCDN 拦截',
+    domestic_ddns: 'DDNS 直连', prefer_blocked: '双栈优选屏蔽', unknown: '列表外域名',
+    nxdomain_reuse: '域名不存在·复用', zone_fakeip: '同站·国外', zone_domestic: '同站·国内',
+    zone_miss: '同站·未定', zone_check: '同站复核（后台）', zone_apex: '主域名查询（后台）',
+    other: '其他类型', domestic: '国内解析', foreign: '国外解析',
+    domestic_other: '其他类型·国内', domestic_after_ecs: '国内·ECS 之后'
   };
+  const suffixes = {
+    other:'其他类型', service_empty:'HTTPS 本地回空', service_timeout:'HTTPS 超时回空',
+    unverified_noreply:'待验证·国外无回应', unverified:'待验证', noreply:'国外无回应', nodata:'无记录', noaddr:'无地址',
+    nxdomain:'域名不存在', conflict:'冲突复核', follow_a:'跟随 A', hidden_recent:'刚发现隐藏',
+    hidden:'隐藏域名', fakeip:'走代理', realip:'直连', ecs:'ECS', domestic_fallback:'国内兜底',
+    domestic_negative:'国内无结果', domestic:'问国内', direct_ip:'直连 IP 段',
+    foreign_cn:'国外返回国内地址', use_foreign_cn:'采用国外返回的国内地址', unknown:'列表外',
+    sinkhole:'黑洞地址', upstream_error:'上游出错', overload:'繁忙拒绝', error:'出错'
+  };
+  const baseKeys = Object.keys(names).sort((a,b)=>b.length-a.length);
+  const suffixKeys = Object.keys(suffixes).sort((a,b)=>b.length-a.length);
   const tones = {
     cache_main: 0, blocked_qtype: 2, blocked_nodata: 4, client_direct: 1,
     geosite_non_cn: 3, geosite_cn: 1, whitelist: 1, greylist: 3,
@@ -35,7 +52,19 @@ const overviewInsightsService = (() => {
     cache_foreign: { code: 'GL', short: '国外缓存', shortLabel: '国外缓存', sub: '海外无污染缓存', tag: 'cache_foreign', full: '国外缓存 (cache_foreign)', tone: 'foreign' },
     cache_foreign_ecs: { code: 'ECS', short: '国外 ECS', shortLabel: '国外 ECS', sub: 'EDNS 子网缓存', tag: 'cache_foreign_ecs', full: '国外 ECS (cache_foreign_ecs)', tone: 'ecs' }
   };
-  const label = key => names[key] || String(key || '未分类');
+  function label(key) {
+    const code=String(key||'');if(!code)return '未分类';
+    if(names[code])return names[code];
+    const base=baseKeys.find(name=>code.startsWith(name+'_'));
+    if(!base)return code;
+    const out=[names[base]];let rest=code.slice(base.length);
+    while(rest.startsWith('_')){
+      const suffix=suffixKeys.find(name=>rest==='_'+name||rest.startsWith('_'+name+'_'));
+      if(!suffix){out.push(rest.slice(1));break}
+      out.push(suffixes[suffix]);rest=rest.slice(suffix.length+1);
+    }
+    return out.join('·');
+  }
   function color(key, skin) {
     const hash = [...String(key)].reduce((value, ch) => (value * 31 + ch.charCodeAt(0)) >>> 0, 0);
     return (palettes[skin] || palettes.glass)[tones[key] ?? hash % 5];

@@ -8,6 +8,7 @@ export const ruleDescriptions={
     force_realip:'匹配域名禁用 FakeIP，强制返回真实 IP 地址',
     ddns_domains:'动态域名直连解析并缩短缓存生存周期',
     direct_ip:'指定目的 IP 或 CIDR 网段强制直连',
+    foreign_ip:'指定 IP 或 CIDR 网段按国外地址处理，优先于中国 IP 表',
     rewrite:'自定义域名重定向或 A/AAAA/CNAME 静态映射',
     pcdn_domains:'匹配常见 PCDN 节点域名并抑制解析',
     pcdn_regex_v4:'按正则表达式识别并过滤 PCDN IPv4 节点请求',
@@ -18,7 +19,7 @@ export function initialize() {
   'use strict';
   const $=(s,r=document)=>r.querySelector(s);
   const esc=value=>String(value).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-  const names={whitelist:'白名单',blocklist:'黑名单',greylist:'灰名单',force_realip:'强制 RealIP',ddns_domains:'DDNS 域名',pcdn_domains:'PCDN 域名',pcdn_regex_v4:'PCDN IPv4 规则',pcdn_regex_v6:'PCDN IPv6 规则',direct_ip:'直连 IP',rewrite:'重定向'};
+  const names={whitelist:'白名单',blocklist:'黑名单',greylist:'灰名单',force_realip:'强制 RealIP',ddns_domains:'DDNS 域名',pcdn_domains:'PCDN 域名',pcdn_regex_v4:'PCDN IPv4 规则',pcdn_regex_v6:'PCDN IPv6 规则',direct_ip:'直连 IP',foreign_ip:'国外 IP 段',rewrite:'重定向'};
 
   function syncMode(){
     const host=$('#rv-root');

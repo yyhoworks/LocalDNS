@@ -3,10 +3,15 @@ import { throwIfAborted } from '../lifecycle/abort';
 
 export type HttpRequestOptions = RequestInit & { timeout?: number };
 
+export const RULE_DOWNLOAD_TIMEOUT = 300000;
+const downloadsRules = (path: string | URL, method: string): boolean => method !== 'GET' && method !== 'HEAD' &&
+  /^\/(?:api\/v1\/(?:rule-groups|adguard)|plugins\/(?:adguard|custom_cn|custom_non_cn|geoip_cn|geoip_non_cn|geosite_cn|geosite_non_cn))(?:\/|$)/.test(new URL(String(path), 'http://localdns.invalid').pathname);
+
 export class HttpClient {
   constructor(private options: {
     base?: string;
     timeout?: number;
+    downloadTimeout?: number;
     signal?: () => AbortSignal | undefined;
     fetch?: typeof fetch;
   } = {}) {}
@@ -17,7 +22,8 @@ export class HttpClient {
   }
 
   private async run<T>(path: string | URL, request: HttpRequestOptions, read: (response: Response) => Promise<T>): Promise<T> {
-    const { timeout = this.options.timeout ?? 10000, ...options } = request;
+    const long = downloadsRules(path, String(request.method || 'GET').toUpperCase());
+    const { timeout = long ? this.options.downloadTimeout ?? RULE_DOWNLOAD_TIMEOUT : this.options.timeout ?? 10000, ...options } = request;
     const controller = new AbortController();
     const signal = options.signal || (String(options.method || 'GET').toUpperCase() === 'GET' ? this.options.signal?.() : undefined);
     const forward = () => controller.abort(signal?.reason);
@@ -33,7 +39,9 @@ export class HttpClient {
       return value;
     } catch (error) {
       if (signal?.aborted) throw signal.reason || new DOMException('Request cancelled', 'AbortError');
-      if (timedOut) throw new ApiError('请求超时，请重试。', 0, null, 'timeout');
+      if (timedOut) throw new ApiError(long
+        ? `等待超过 ${Math.round(timeout / 60000)} 分钟仍未收到结果，服务器可能仍在更新。请稍后刷新查看更新时间，请勿重复提交。`
+        : '请求超时，请检查与 LocalDNS 的连接。', 0, null, 'timeout');
       if (error instanceof ApiError) throw error;
       if (error instanceof SyntaxError) throw new ApiError('服务器返回了无效的 JSON。', 0, null, 'invalid-json');
       if (error instanceof Error && error.name === 'AbortError') throw error;

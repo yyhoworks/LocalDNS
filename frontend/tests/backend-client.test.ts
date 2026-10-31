@@ -59,6 +59,9 @@ describe('backend compatibility', () => {
       path: '/api/v1/querylog/entries?page=3&client_contains=192.0.2.1', method: 'GET' });
     expect(await client.request('/plugins/client_name', { method: 'PUT', body: '{}' })).toMatchObject({ path: '/api/v1/client-aliases', method: 'PUT' });
     expect(await client.request('/plugins/greylist/show?all=1')).toMatchObject({ path: '/api/v1/lists/proxy?all=1' });
+    expect(await client.request('/plugins/foreign_ip/show?all=1')).toMatchObject({ path: '/api/v1/lists/foreign_cidrs?all=1' });
+    expect(await client.request('/plugins/foreign_ip/post', { method: 'POST', body: '{"values":["192.0.2.0/24"]}' })).toMatchObject({
+      path: '/api/v1/lists/foreign_cidrs', method: 'PUT', body: '{"values":["192.0.2.0/24"]}' });
     expect(await client.request('/plugins/whitelist/post', { method: 'POST', body: '{"values":[]}' })).toMatchObject({
       path: '/api/v1/lists/direct', method: 'PUT', body: '{"values":[]}' });
     expect(await client.request('/plugins/geosite_cn/update/a%2Fb', { method: 'POST', timeout: 300000 })).toMatchObject({
