@@ -88,7 +88,7 @@
 @media(max-width:760px){.workspace-rule-card>footer{align-items:flex-start}}
 .collection-diversion-table{min-width:1160px;width:100%;border-collapse:collapse}.collection-diversion-table th,.collection-diversion-table td{padding:12px 10px;font-size:12px;text-align:left;vertical-align:middle;border-bottom:1px solid var(--border-glass)}
 .collection-diversion-table th{font-size:11px;font-weight:400;color:var(--text-3);white-space:nowrap}.collection-diversion-table .collection-source{max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text-3);font-size:11px}
-.collection-diversion-table td:nth-child(3){min-width:130px;overflow-wrap:anywhere}.collection-diversion-table td:last-child{min-width:210px}.collection-diversion-table .workspace-actions{flex-wrap:nowrap;gap:5px}.collection-diversion-table .button{font-size:11px;padding:6px 8px}.collection-surface[data-collection-layout=list] .adguard-rules-table{min-width:950px}
+.collection-diversion-table td:last-child{min-width:210px}.collection-diversion-table .workspace-actions{flex-wrap:nowrap;gap:5px}.collection-diversion-table .button{font-size:11px;padding:6px 8px}.collection-surface[data-collection-layout=list] .adguard-rules-table{min-width:950px}
 .collection-surface[data-collection-layout=list] .adguard-rules-table td:last-child>div,.collection-surface[data-collection-layout=list] .workspace-upstream-table td:last-child>div{display:flex;gap:7px;white-space:nowrap}
 .collection-surface[data-collection-layout=list] .adguard-rules-table .table-ellipsis{display:block;max-width:300px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .collection-surface[data-collection-layout=cards] .adguard-rules-table td:nth-child(3){grid-column:1/-1}
@@ -336,10 +336,6 @@ body[data-console-route="rules"] .wb-list-heading p{font:12px/1.6 var(--font-san
 body[data-console-route="rules"] .wb-list-tools{display:flex;align-items:center;gap:16px}
 body[data-console-route="rules"] .rule-editor{min-width:0}
 body[data-console-route="rules"] .rule-menu{gap:10px 14px;padding-bottom:14px;margin-bottom:18px;align-items:center}
-body[data-console-route="rules"] .rule-menu-group{display:inline-flex;align-items:center;gap:6px;flex-wrap:wrap;padding-right:14px;border-right:1px solid var(--border-glass)}
-body[data-console-route="rules"] .rule-menu-group:last-child{padding-right:0;border-right:0}
-body[data-console-route="rules"] .rule-menu-group-label{font:600 11px/1.4 var(--font-sans);color:var(--text-3);padding-right:2px;white-space:nowrap}
-body[data-console-route="rules"] .rule-menu-group-items{display:inline-flex;align-items:center;gap:5px;flex-wrap:wrap}
 body[data-console-route="rules"] .rule-menu button{font:12px/1.4 var(--font-sans);min-height:35px;padding:7px 12px;border-radius:8px;box-shadow:none;background:transparent}
 body[data-console-route="rules"] .rule-menu button.active{color:var(--primary-light);background:var(--selection-fill,var(--glass-pill-active));border-color:var(--border-highlight)}
 body[data-console-route="rules"] .rv{gap:0}
@@ -555,9 +551,9 @@ body[data-console-route="rules"] .rp-foot{flex-wrap:wrap}
 
 /* 名单分组：一级选组（分段控件）在卡片头右侧，二级选名单（胶囊）单独一行。
    必须带 body[data-console-route="rules"] 前缀并放在 console 层之后——上层
-   `body[...] .rule-menu-group{padding-right;border-right}` 与 `... button{background;border}`
-   同特异性、更靠前，裸类名压不住。一级按钮已移出 .rule-menu，样式直接挂在
-   .rule-group-btn 上（字体/光标原来由 `.rule-menu button` 通用规则提供，这里补齐）。 */
+   `... .rule-menu button{background;border}` 同特异性、更靠前，裸类名压不住。
+   一级按钮已移出 .rule-menu，样式直接挂在 .rule-group-btn 上
+   （字体/光标原来由 `.rule-menu button` 通用规则提供，这里补齐）。 */
 body[data-console-route="rules"] .rule-menu { display:flex; flex-direction:column; align-items:flex-start; gap:10px; }
 body[data-console-route="rules"] .rule-menu-level1 { display:inline-flex; align-items:center; gap:2px; padding:3px; background:var(--glass-pill); border:1px solid var(--border-glass); border-radius:calc(9px * var(--radius-scale)); }
 body[data-console-route="rules"] .rule-group-btn { min-height:28px; padding:4px 12px; border-radius:calc(6px * var(--radius-scale)); background:transparent; border:1px solid transparent; box-shadow:none; color:var(--text-2); font:500 12px/1.4 var(--font-sans); cursor:pointer; }

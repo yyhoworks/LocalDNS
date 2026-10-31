@@ -112,7 +112,7 @@ export function initialize() {
       const open = diversionOpen.has(section.tag);
       const kind = section.domainRules === false ? 'IP 段' : '域名规则';
       const body = section.items.map(item => diversionRow(item, format)).join('');
-      return `<section class="div-group" data-diversion-group="${esc(section.tag)}"><header class="div-group-head" data-div-toggle="${esc(section.tag)}" aria-expanded="${open}" aria-controls="div-group-${esc(section.tag)}"><svg class="div-group-chevron${open?' open':''}" viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg><strong>${esc(section.label)}</strong><span class="div-group-kind">${kind}</span><span class="div-group-meta">${section.items.length} 个来源 · ${number(total)} 条</span><button type="button" class="button small div-group-update" data-div-update-group="${esc(section.tag)}">全部更新</button></header><div class="div-group-body" id="div-group-${esc(section.tag)}"${open?'':' hidden'}><div class="table-wrap collection-diversion-wrap"><table class="collection-diversion-table"><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table></div></div></section>`;
+      return `<section class="div-group" data-diversion-group="${esc(section.tag)}"><header class="div-group-head" data-div-toggle="${esc(section.tag)}" tabindex="0" role="button" aria-expanded="${open}" aria-controls="div-group-${esc(section.tag)}"><svg class="div-group-chevron${open?' open':''}" viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg><strong>${esc(section.label)}</strong><span class="div-group-kind">${kind}</span><span class="div-group-meta">${section.items.length} 个来源 · ${number(total)} 条</span><button type="button" class="button small div-group-update" data-div-update-group="${esc(section.tag)}">全部更新</button></header><div class="div-group-body" id="div-group-${esc(section.tag)}"${open?'':' hidden'}><div class="table-wrap collection-diversion-wrap"><table class="collection-diversion-table"><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table></div></div></section>`;
     }).join('');
   }
   function diversionStats(rows, defs) {
@@ -145,6 +145,13 @@ export function initialize() {
     root.querySelector('#div-search').oninput = event => { ruleFilter.q = event.target.value.trim(); apply(); };
     root.querySelectorAll('[data-div-purpose]').forEach(button => button.onclick = () => { ruleFilter.group = button.dataset.divPurpose; apply(); });
     root.querySelectorAll('[data-div-stat]').forEach(card => card.onclick = () => {
+      /* 卡片/列表两套 DOM 同时存在、仅靠 hidden 切换：不能按元素是否存在判断，
+         必须看列表视图当前是否隐藏 */
+      const listView = root.querySelector('[data-collection-view="list"]');
+      if (listView && listView.hidden) {
+        const listBtn = root.querySelector('.collection-switch [data-layout="list"]');
+        if (listBtn) listBtn.click();
+      }
       const section = root.querySelector(`[data-diversion-group="${card.dataset.divStat}"]`);
       if (!section) return;
       const body = section.querySelector('.div-group-body');
@@ -162,6 +169,10 @@ export function initialize() {
       head.querySelector('.div-group-chevron')?.classList.toggle('open', open);
       const tag = head.dataset.divToggle;
       if (open) diversionOpen.add(tag); else diversionOpen.delete(tag);
+    });
+    root.querySelectorAll('[data-div-toggle]').forEach(head => head.onkeydown = event => {
+      if (event.target.closest('[data-div-update-group]')) return;
+      if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); head.click(); }
     });
     apply();
   }
