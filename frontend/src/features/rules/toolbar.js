@@ -1,24 +1,25 @@
 import { currentScope } from '../../core/router/route-lifetime';
 export let mountToolbar;
 import { setHTML } from '../../core/security/safe-dom.ts';
+export const ruleDescriptions={
+    whitelist:'强制走国内直连解析，最高优先级放行',
+    greylist:'强制走代理解析组（FakeIP / 远程无污染解析）',
+    blocklist:'直接拦截并拒绝解析请求',
+    force_realip:'匹配域名禁用 FakeIP，强制返回真实 IP 地址',
+    ddns_domains:'动态域名直连解析并缩短缓存生存周期',
+    direct_ip:'指定目的 IP 或 CIDR 网段强制直连',
+    rewrite:'自定义域名重定向或 A/AAAA/CNAME 静态映射',
+    pcdn_domains:'匹配常见 PCDN 节点域名并抑制解析',
+    pcdn_regex_v4:'按正则表达式识别并过滤 PCDN IPv4 节点请求',
+    pcdn_regex_v6:'按正则表达式识别并过滤 PCDN IPv6 节点请求'
+  };
 export function initialize() {
 
   'use strict';
   const $=(s,r=document)=>r.querySelector(s);
   const esc=value=>String(value).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const names={whitelist:'白名单',blocklist:'黑名单',greylist:'灰名单',force_realip:'强制 RealIP',ddns_domains:'DDNS 域名',pcdn_domains:'PCDN 域名',pcdn_regex_v4:'PCDN IPv4 规则',pcdn_regex_v6:'PCDN IPv6 规则',direct_ip:'直连 IP',rewrite:'重定向'};
-  const notes={
-    whitelist:'强制走国内直连解析，最高优先级放行 · 修改先保留为草稿，点击右侧“保存”后生效',
-    greylist:'强制走代理解析组（FakeIP / 远程无污染解析）· 修改先保留为草稿，保存后生效',
-    blocklist:'直接拦截并拒绝解析请求 · 修改先保留为草稿，保存后生效',
-    force_realip:'匹配域名禁用 FakeIP，强制返回真实 IP 地址 · 修改先保留为草稿，保存后生效',
-    ddns_domains:'动态域名直连解析并缩短缓存生存周期 · 修改先保留为草稿，保存后生效',
-    direct_ip:'指定目的 IP 或 CIDR 网段强制直连 · 修改先保留为草稿，保存后生效',
-    rewrite:'自定义域名重定向或 A/AAAA/CNAME 静态映射 · 修改先保留为草稿，保存后生效',
-    pcdn_domains:'匹配常见 PCDN 节点域名并抑制解析 · 修改先保留为草稿，保存后生效',
-    pcdn_regex_v4:'按正则表达式识别并过滤 PCDN IPv4 节点请求 · 修改先保留为草稿，保存后生效',
-    pcdn_regex_v6:'按正则表达式识别并过滤 PCDN IPv6 节点请求 · 修改先保留为草稿，保存后生效'
-  };
+
   function syncMode(){
     const host=$('#rv-root');
     if(!host){
@@ -43,8 +44,8 @@ export function initialize() {
     const activeTag=$('.rule-menu [data-rule-tag].active')?.dataset.ruleTag;
     const heading=document.createElement('div');heading.className='wb-list-heading';
     /* 卡头提示已带「先保留为草稿」，这里只显示名单本身的用途说明 */
-    const note=(notes[activeTag]||'').split(' · ')[0]||'本地名单';
-    setHTML(heading, `<div><h2>${esc(names[activeTag]||'名单管理')}</h2><p>${esc(note)}</p></div><div class="wb-list-tools"><button type="button" class="workspace-text-button" data-route="devices">客户端 IP 与分流模式已移至「设备」›</button></div>`);
+    const note=ruleDescriptions[activeTag]||'本地名单';
+    setHTML(heading, `<div><h2>${esc(names[activeTag]||'名单管理')}</h2><p>${esc(note)}</p></div>`);
     bar.before(heading);
     const modes=document.createElement('div');modes.className='wb-modes';modes.setAttribute('role','group');modes.setAttribute('aria-label','名单编辑方式');
     setHTML(modes, '<button type="button" data-wb-mode="list" aria-pressed="true">列表</button><button type="button" data-wb-mode="raw" aria-pressed="false">原文</button>');

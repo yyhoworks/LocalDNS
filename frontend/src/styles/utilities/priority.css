@@ -146,10 +146,6 @@ body[data-console-route="rules"] .button.ghost:hover,body[data-console-route="ru
 
 body[data-console-route="rules"] .console-rule-state{display:none!important}
 
-@media(max-width:600px){
-
-  body[data-console-route="rules"] .rule-menu{display:flex!important}
-}
 @media(prefers-reduced-motion:reduce){body[data-console-route="rules"] .rv-sheet,body[data-console-route="rules"] .rv-scrim,body[data-console-route="rules"] .rv-seg button{transition:none!important;animation:none!important}}
 body[data-console-route="rules"] .rule-menu button{
   transition:none!important;transform:none!important}
@@ -178,10 +174,6 @@ body[data-console-route="rules"] .rv-list{height:auto!important}
 @media(max-width:600px){body[data-console-route="rules"] .view-title-row h1{font-size:22px!important}
 }
 @media(max-width:600px){body[data-console-route="rules"] .view-title-row .gc-sub{font-size:11px!important}
-}
-@media(max-width:600px){body[data-console-route="rules"] .rule-menu{display:none!important}
-}
-@media(max-width:600px){body[data-console-route="rules"] .console-rule-select{display:block!important}
 }
 @media(max-width:600px){body[data-console-route="rules"] .rv-stat{margin-left:0!important}
 }

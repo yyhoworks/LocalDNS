@@ -1,8 +1,8 @@
 {
   "product": "LocalDNS",
-  "uiVersion": "2026.10.31.1",
+  "uiVersion": "2026.10.31.2",
   "backendVersion": "FJH7T",
-  "releaseTag": "fjh7t-ui-v2026.10.31.1",
+  "releaseTag": "fjh7t-ui-v2026.10.31.2",
   "channel": "stable",
-  "builtAt": "2026-10-31T10:07:37+08:00"
+  "builtAt": "2026-10-31T10:49:23+08:00"
 }
