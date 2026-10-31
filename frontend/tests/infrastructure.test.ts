@@ -64,6 +64,24 @@ describe('HTTP boundary', () => {
     await expect(client.request('/read')).rejects.toMatchObject({ name: 'AbortError' });
     expect(await client.request('/save', { method: 'POST' })).toBe('saved');
   });
+  it.each([
+    ['/api/v1/adguard/rules', 'POST'], ['/api/v1/adguard/rules/one', 'PUT'],
+    ['/api/v1/rule-groups/custom_cn/one', 'PUT'], ['/api/v1/rule-groups/geoip_non_cn/one/update', 'POST'],
+    ['/plugins/adguard/rules/one', 'PUT'], ['/plugins/geosite_cn/config/one', 'PUT'],
+  ])('waits five minutes for a rule download at %s (%s)', async (path, method) => {
+    vi.useFakeTimers();
+    const fetcher = vi.fn<typeof fetch>().mockImplementation(async (_url, options) => await new Promise<Response>((_resolve, reject) => {
+      options?.signal?.addEventListener('abort', () => reject(new DOMException('cancelled', 'AbortError')));
+    }));
+    const pending = new HttpClient({ timeout: 10000, fetch: fetcher }).request(path, { method });
+    const result = expect(pending).rejects.toMatchObject({ code: 'timeout', message: expect.stringContaining('5 分钟') });
+    await vi.advanceTimersByTimeAsync(299999);
+    expect(fetcher.mock.calls[0][1]?.signal?.aborted).toBe(false);
+    await vi.advanceTimersByTimeAsync(1);
+    await result;
+    expect(fetcher).toHaveBeenCalledOnce();
+    expect(vi.getTimerCount()).toBe(0);
+  });
 });
 
 describe('runtime contracts', () => {

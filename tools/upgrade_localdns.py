@@ -98,7 +98,7 @@ def dns(port, protocol):
     return {'protocol': protocol, 'answers': answers}
 
 
-SUPPORTED_BACKENDS = ('FJGLI', 'FJGOE', 'FJH21', 'FJH50', 'FJH7Q', 'FJH7T')
+SUPPORTED_BACKENDS = ('FJGLI', 'FJGOE', 'FJH21', 'FJH50', 'FJH7Q', 'FJH7T', 'FJHAI')
 
 
 def verify(root, http_port, udp_port, tcp_port):
@@ -176,13 +176,14 @@ def prepare(root, package, expected, stage, arch):
         metadata = installer.extract_verified(package, payload)
         backend = metadata.get('backendVersion')
         if metadata.get('packageType') != 'full' or backend not in SUPPORTED_BACKENDS:
-            raise MigrationError('需要 FJGLI/FJGOE/FJH21/FJH50/FJH7Q/FJH7T 完整发行包')
+            raise MigrationError('需要 ' + '/'.join(SUPPORTED_BACKENDS) + ' 完整发行包')
         installer.require_space(stage.parent, sum(p.stat().st_size for p in payload.rglob('*') if p.is_file()))
         shutil.copytree(payload / 'localdns', stage)
         binary = payload / f'LocalDNS_{backend}_Binaries' / ('localdns-' + installer.choose_arch(arch))
         shutil.copy2(binary, stage / 'bin/localdns')
         (stage / 'bin/localdns').chmod(0o755)
     report = migrate_configuration(root, stage)
+    report['targetBackend'] = backend
     if fingerprint(root) != before:
         raise MigrationError('准备期间原设置发生变化，请重新准备')
     record = {'schema': 1, 'sourceRoot': str(root), 'sourceFingerprint': before,

@@ -150,9 +150,8 @@ const BYTES_PER_MB = 1048576;
  * Memory the kernel reserves for one pool and its share of the total budget.
  *
  * The kernel splits `cache_memory_mb` by each pool's `max_entries` weight, so a
- * bigger cap buys a bigger share. FJH7T changed only the shipped default caps
- * (500k/500k/100k/100k → 400k/100k/50k/50k), which moves a fresh install from
- * 5/5/1/1 to 8/2/1/1; the split is not a constant, and an upgraded install that
+ * bigger cap buys a bigger share. FJHAI ships 300k/200k/50k/50k, giving a new
+ * installation weights of 6/4/1/1. The split is not a constant; an upgrade that
  * keeps its old caps keeps its old split.
  */
 export function cacheBudget(cache: CachePool, totalMb?: number): { size: string; share: number | null } | null {

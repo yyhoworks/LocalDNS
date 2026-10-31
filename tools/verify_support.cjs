@@ -25,7 +25,7 @@ const FJGOE_FEATURES = Object.freeze({
 
 const lists = { direct: 'whitelist', block: 'blocklist', proxy: 'greylist', proxy_realip: 'force_realip',
   ddns: 'ddns_domains', pcdn: 'pcdn_domains', pcdn_v4: 'pcdn_regex_v4', pcdn_v6: 'pcdn_regex_v6',
-  clients: 'client_ip', direct_cidrs: 'direct_ip', rewrite: 'rewrite' };
+  clients: 'client_ip', direct_cidrs: 'direct_ip', foreign_cidrs: 'foreign_ip', rewrite: 'rewrite' };
 const refresh = { status: 'status', start: 'trigger', cancel: 'cancel', reset: 'reset',
   schedule: 'scheduler/config', counts: 'stats/source_file_counts' };
 

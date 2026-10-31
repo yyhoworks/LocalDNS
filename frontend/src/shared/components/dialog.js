@@ -6,7 +6,36 @@ import { setHTML } from '../../core/security/safe-dom.ts';
 import { esc } from '../format/number.js';
 
 import { $ } from '../../core/context.js';
-export function modalOpen(title,subtitle,html,onSave,showActions=true){workspaceService.modalChanging();$('#modal-title').textContent=title;$('#modal-subtitle').textContent=subtitle||'';setHTML($('#modal-content'), html);setHTML($('#modal-actions'), showActions?`<button class="button" id="modal-cancel" type="button" value="cancel">取消</button><button class="button primary" id="modal-save" type="button">保存</button>`:'');const scope=currentScope(), d=$('#modal');shellInterfaceService?.semantics(d);if(!d.open)d.showModal();const firstFocusable=$('#modal-content').querySelector('input:not([disabled]),select:not([disabled]),textarea:not([disabled]),button:not([disabled]),a[href],[tabindex]:not([tabindex="-1"])');firstFocusable?.focus();const cancel=$('#modal-cancel');if(cancel)cancel.onclick=modalClose;if(onSave&&showActions)$('#modal-save').onclick=async()=>{if(!$('#modal-form').reportValidity())return;const b=$('#modal-save');b.disabled=true;$('#modal-error')?.remove();try{const next=await onSave();if(scope.signal.aborted)return;modalClose();if(typeof next==='function')next()}catch(e){if(scope.signal.aborted)return;shellInterfaceService?.formError(e.message);toast('操作失败','error',e.message)}finally{b.disabled=false}};}
+export function modalOpen(title,subtitle,html,onSave,showActions=true,options={}){
+  workspaceService.modalChanging();
+  $('#modal-title').textContent=title;
+  $('#modal-subtitle').textContent=subtitle||'';
+  setHTML($('#modal-content'),html);
+  setHTML($('#modal-actions'),showActions?`<button class="button" id="modal-cancel" type="button" value="cancel">取消</button><button class="button primary" id="modal-save" type="button">保存</button>`:'');
+  const scope=currentScope(),d=$('#modal');
+  shellInterfaceService?.semantics(d);
+  if(!d.open)d.showModal();
+  $('#modal-content').querySelector('input:not([disabled]),select:not([disabled]),textarea:not([disabled]),button:not([disabled]),a[href],[tabindex]:not([tabindex="-1"])')?.focus();
+  const cancel=$('#modal-cancel');if(cancel)cancel.onclick=modalClose;
+  if(onSave&&showActions)$('#modal-save').onclick=async()=>{
+    const b=$('#modal-save');
+    if(b.disabled||!$('#modal-form').reportValidity())return;
+    const label=b.textContent;
+    b.disabled=true;b.textContent=options.pendingLabel||'保存中…';b.setAttribute('aria-busy','true');
+    $('#modal-error')?.remove();
+    try{
+      const next=await onSave();
+      if(scope.signal.aborted)return;
+      // A long-running save must not close a different dialog opened meanwhile.
+      if($('#modal-save')!==b)return;
+      modalClose();if(typeof next==='function')next();
+    }catch(e){
+      if(scope.signal.aborted)return;
+      if($('#modal-save')===b)shellInterfaceService?.formError(e.message);
+      if(options.onError)options.onError(e);else toast('操作失败','error',e.message);
+    }finally{b.disabled=false;b.textContent=label;b.removeAttribute('aria-busy');}
+  };
+}
 export function modalClose(){workspaceService.modalChanging();const d=$('#modal');d.classList.remove('overview-detail-modal');if(d.open)d.close()}
 /* 确认框：替代原生 confirm()，返回 Promise<boolean>；Esc/取消视为 false。
    使用独立的 #confirm-modal，不复用 #modal：调用方可能正打开着 #modal（例如审计控制），

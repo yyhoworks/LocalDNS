@@ -5,5 +5,6 @@ export const assetHttp = new HttpClient();
 export const backendHttp = new HttpClient({
   base: String((globalThis as typeof globalThis & { LOCALDNS_UI_CONFIG?: { apiBase?: string } }).LOCALDNS_UI_CONFIG?.apiBase || '').replace(/\/$/, ''),
   timeout: (globalThis as typeof globalThis & { LOCALDNS_UI_CONFIG?: { requestTimeout?: number } }).LOCALDNS_UI_CONFIG?.requestTimeout || 10000,
+  downloadTimeout: (globalThis as typeof globalThis & { LOCALDNS_UI_CONFIG?: { downloadTimeout?: number } }).LOCALDNS_UI_CONFIG?.downloadTimeout || 300000,
   signal: () => currentScope().signal,
 });

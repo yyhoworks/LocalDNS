@@ -38,6 +38,19 @@ beforeEach(() => {
 });
 
 describe('confirmDialog', () => {
+  it('keeps a rule save visibly busy and preserves a different dialog opened before it finishes', async () => {
+    let finish!: () => void;
+    const saving = vi.fn(() => new Promise<void>(resolve => { finish = resolve; }));
+    modalOpen('编辑规则', '', '<input id="rule-url">', saving, true, { pendingLabel: '更新中…' });
+    button('#modal-save').click();button('#modal-save').click();
+    expect(button('#modal-save').disabled).toBe(true);
+    expect(button('#modal-save').textContent).toBe('更新中…');
+    expect(saving).toHaveBeenCalledOnce();
+    modalOpen('另一窗口', '', '<input id="other-value">', null, false);
+    finish();await Promise.resolve();await Promise.resolve();
+    expect(dialogOf('modal').open).toBe(true);
+    expect(document.querySelector('#modal-title')!.textContent).toBe('另一窗口');
+  });
   it('不覆盖、也不关闭调用方已打开的弹窗', async () => {
     modalOpen('审计控制', '管理 DNS 查询日志', '<input id="audit-dir" value="logs">', null, false);
     const caller = dialogOf('modal');

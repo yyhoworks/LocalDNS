@@ -6,7 +6,7 @@ type Features = Record<string, boolean | string>;
 const lists: Record<string, string> = {
   whitelist: 'direct', blocklist: 'block', greylist: 'proxy', force_realip: 'proxy_realip',
   ddns_domains: 'ddns', pcdn_domains: 'pcdn', pcdn_regex_v4: 'pcdn_v4',
-  pcdn_regex_v6: 'pcdn_v6', client_ip: 'clients', direct_ip: 'direct_cidrs', rewrite: 'rewrite',
+  pcdn_regex_v6: 'pcdn_v6', client_ip: 'clients', direct_ip: 'direct_cidrs', foreign_ip: 'foreign_cidrs', rewrite: 'rewrite',
 };
 const switches: Record<string, { key: string; value?: string }> = {
   switch1: { key: 'request_blocking' }, switch5: { key: 'block_special_qtypes' },

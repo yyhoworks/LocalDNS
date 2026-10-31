@@ -136,6 +136,24 @@ class MigrationTests(unittest.TestCase):
         write_json(self.archive.parent / 'backup.json', {'sourceRoot': str(self.old), 'sha256': self.sha,
                                                         'sourceFingerprint': metadata['sourceFingerprint']})
 
+    def test_fjhai_prepare_preserves_user_settings_and_reports_the_target_core(self):
+        version = {'uiVersion': '2026.10.31.3', 'backendVersion': 'FJHAI', 'builtAt': '2026-10-31T16:00:00+08:00'}
+        package = self.work / 'FJHAI-Full.zip'
+        payload = {'release.json': json.dumps(dict(version, packageType='full')).encode(),
+                   'localdns/config/localdns.json': b'{}', 'localdns/rules/manual/': b'',
+                   'localdns/ui/index.html': b'FJHAI UI', 'localdns/bin/localdns': b'new v3',
+                   'LocalDNS_FJHAI_Binaries/localdns-amd64-v1': b'new v1'}
+        write_archive(package, payload, version, {name: 0o100755 for name in payload if '/bin/' in name or 'Binaries/' in name})
+        before = hashes(self.old)
+        target = self.work / 'fjhai-stage'
+        upgrade.prepare(self.old, package, upgrade.sha(package), target, 'amd64-v1')
+        self.assertEqual(hashes(self.old), before)
+        self.assertEqual(read_json(target / upgrade.MARKER)['report']['targetBackend'], 'FJHAI')
+        self.assertEqual((target / 'bin/localdns').read_bytes(), b'new v1')
+        for relative in ('config/upstreams', 'config/subscriptions', 'rules/manual'):
+            self.assertEqual(hashes(self.old / relative), hashes(target / relative))
+        self.assertEqual(read_json(target / 'config/settings/client_aliases.json'), {'192.0.2.1': '我的电脑'})
+
     def test_rejects_unverified_backup_or_settings_changed_since_backup(self):
         self.ready()
         with self.assertRaisesRegex(MigrationError, '备份摘要'):

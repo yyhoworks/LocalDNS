@@ -1,6 +1,6 @@
 # 安装与更新
 
-当前发行版本：**后端 FJH7T / UI 2026.10.31.2**（发行标签 `fjh7t-ui-v2026.10.31.2`），见 [本次更新说明](docs/releases/fjh7t-ui-v2026.10.31.2.md)。FJH7T 内核提供 amd64-v1 / v2 / v3 / arm64 程序，把缓存内存改为「主缓存 8/12、国内 2/12、国外与国外 ECS 各 1/12」，随包默认记录上限调成 40 万 / 10 万 / 5 万 / 5 万，并把分流刷新定时任务的默认间隔从 7 天改成 1 天；界面「缓存参数」已逐池显示内存预算与占比。发行包附完整配置迁移工具，保留 DNS 趋势、静态共享设置、日志目录与 Mihomo / sing-box 配置编辑器。
+当前版本：**后端 FJHAI / UI 2026.10.31.3**（发行标签 `fjhai-ui-v2026.10.31.3`），见 [本次更新说明](docs/releases/fjhai-ui-v2026.10.31.3.md)。完整包包含 amd64-v1 / v2 / v3 / arm64 内核和配置迁移工具；界面显示中文错误与分流结果，规则下载最多等待 5 分钟，更新期间显示「更新中…」。FJHAI 新装缓存上限为 30 万 / 20 万 / 5 万 / 5 万；升级保留原配置和实际预算。
 
 ## 名称、Logo 与字体共享
 
@@ -26,12 +26,12 @@ curl -fsSL https://raw.githubusercontent.com/yyhoworks/LocalDNS/main/tools/insta
 
 包含此功能的发行包可一次性安装更新执行端，之后在顶部「版本与更新」中直接发起 UI 更新或恢复上一版。只更新 UI，保留配置与核心。安装方法及 HTTPS 接入见 [网页升级指南](docs/WEB_UPDATE.md)。
 
-从 [本版 Releases](https://github.com/yyhoworks/LocalDNS/releases/tag/fjh7t-ui-v2026.10.31.2) 下载；本地构建位于 `dist/fjh7t-ui-v2026.10.31.2/`。
+从 [本版 Releases](https://github.com/yyhoworks/LocalDNS/releases/tag/fjhai-ui-v2026.10.31.3) 下载；本地构建位于 `dist/fjhai-ui-v2026.10.31.3/`。
 
 | 文件 | 用途 |
 |---|---|
-| `LocalDNS_FJH7T_UI_2026.10.31.2_Full.zip` | 新安装或完整迁移：FJH7T 程序（含 v1/v2/v3/arm64）、新配置结构、迁移工具与当前双皮肤 UI |
-| `LocalDNS_UI_2026.10.31.2_Update.zip` | 已安装环境更新界面 |
+| `LocalDNS_FJHAI_UI_2026.10.31.3_Full.zip` | 新安装或完整迁移：FJHAI 程序（含 v1/v2/v3/arm64）、新配置结构、迁移工具与当前双皮肤 UI |
+| `LocalDNS_UI_2026.10.31.3_Update.zip` | 已安装环境更新界面 |
 | `SHA256SUMS.txt` | 发行包的 SHA-256 校验值 |
 
 在同一目录核对：
@@ -60,7 +60,7 @@ sh install-ui.sh /opt/localdns
 
 ## 已安装环境升级后端
 
-**跨版本升级后端核心时，请先备份原配置与规则。** 从完整包解压目录运行 `upgrade-localdns.py`，按 [更新指南](docs/FJGLI_UPGRADE.md#完整更新命令) 完成外置备份（包含 `config/upstreams`、`rules/manual`、`config/settings/client_aliases.json`、`config/subscriptions`）、本机下载校验、新目录准备、隔离验证和整体切换。工具会保留上游、手工规则、客户端别名、订阅和共享 UI 配置；失败恢复完整旧目录。
+**跨版本升级后端核心时，请先备份原配置与规则。** 从完整包解压目录运行 `upgrade-localdns.py`，按 [FJHAI 更新指南](docs/FJHAI_UPGRADE.md#完整更新步骤) 完成外置备份（包含 `config/upstreams`、`rules/manual`、`config/settings/client_aliases.json`、`config/subscriptions`）、本机下载校验、新目录准备、隔离验证和整体切换。工具会保留上游、手工规则、客户端别名、订阅和共享 UI 配置；失败恢复完整旧目录。
 
 普通 UI 更新保留核心；跨核心发行包会在替换前停止并提示迁移。继续使用旧核心时，可用 `--version` 指定该核心对应的正式版 UI，例如 FJH21 用 `fjh21-ui-v2026.10.29.2`。网页升级仍只处理同核心 UI。
 
@@ -68,7 +68,7 @@ sh install-ui.sh /opt/localdns
 
 ## 新安装
 
-完整包中的 `localdns/` 放到 `/opt/localdns`。默认程序为 **amd64-v3**；其他二进制位于 `LocalDNS_FJH7T_Binaries/`，按设备架构与指令集选择。内核支持自适应多核 CPU，日常使用推荐双核即可满足性能需求，四核测试 QPS 更高。
+完整包中的 `localdns/` 放到 `/opt/localdns`。默认程序为 **amd64-v3**；其他二进制位于 `LocalDNS_FJHAI_Binaries/`，按设备架构与指令集选择。内核支持自适应多核 CPU，日常使用推荐双核即可满足性能需求，四核测试 QPS 更高。
 
 | 文件 | 平台与指令集要求 |
 |---|---|

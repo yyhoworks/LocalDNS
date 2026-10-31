@@ -114,6 +114,19 @@ describe('rule selection', () => {
     expect(activeList()).toBe('direct_ip');
   });
 
+  it('edits foreign CIDRs without adding a domain prefix', async () => {
+    listBodies.foreign_cidrs = '192.0.2.0/24\n2001:db8::/32';
+    await enterRules();
+    selectGroup(1);
+    await vi.advanceTimersByTimeAsync(40);
+    selectList('foreign_ip');
+    await vi.advanceTimersByTimeAsync(40);
+    expect(activeList()).toBe('foreign_ip');
+    expect(root.querySelector('h2')!.textContent).toContain('名单管理');
+    expect(root.querySelector('[data-rule-tag="foreign_ip"]')!.textContent).toContain('国外 IP 段');
+    expect(root.querySelector<HTMLTextAreaElement>('#rule-text')!.value).toBe(listBodies.foreign_cidrs);
+  });
+
   it('keeps the latest group selection when a previous group is still loading', async () => {
     await enterRules();
     firstControlDelay = 1000;
