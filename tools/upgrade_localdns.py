@@ -190,6 +190,8 @@ def prepare(root, package, expected, stage, arch, mode='full'):
         if metadata.get('packageType') != 'full' or (backend not in SUPPORTED_BACKENDS and not compatible_release(metadata)):
             raise MigrationError('需要 ' + '/'.join(SUPPORTED_BACKENDS) + ' 完整发行包')
         binary = payload / f'LocalDNS_{backend}_Binaries' / ('localdns-' + installer.choose_arch(arch))
+        if not binary.is_file():
+            raise MigrationError(f'发行包缺少二进制文件 {binary.name}')
         installer.require_space(stage.parent, sum(p.stat().st_size for p in (payload / 'localdns').rglob('*') if p.is_file()) + binary.stat().st_size)
         shutil.copytree(payload / 'localdns', stage)
         shutil.copy2(binary, stage / 'bin/localdns')
