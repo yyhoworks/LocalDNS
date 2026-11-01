@@ -218,6 +218,12 @@ class OnlineTests(unittest.TestCase):
         self.assertEqual(read_json(stage / 'var/lib/localdns-updater/config.json')['protocol'], 'localdns-updater/v2')
         self.assertIn('localdns-updater', (stage / 'etc/init.d/localdns-updater').read_text())
         self.assertIn('http://dns.example:9100', (target / 'ui/config.js').read_text())
+        # 重装升级服务不能把手动指定的 CPU 基线悄悄降级成自动探测结果。
+        config_path = stage / 'var/lib/localdns-updater/config.json'
+        write_json(config_path, dict(read_json(config_path), architecture='amd64-v3'))
+        with contextlib.redirect_stdout(io.StringIO()):
+            setup.main(['--stage-root', str(stage), '--origin', 'http://dns.example:9099'])
+        self.assertEqual(read_json(config_path)['architecture'], 'amd64-v3')
 
     def prepare_upload(self, backend='FJNEW'):
         # Uploaded cores retain the installed layout. Use the current config schema.
