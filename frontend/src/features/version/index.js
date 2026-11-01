@@ -2,6 +2,7 @@ import { setHTML } from '../../core/security/safe-dom.ts';
 import { assetHttp } from '../../core/api/network.ts';
 import { preferences } from '../../core/persistence/preferences.ts';
 import { createUIUpdatePanel } from './ui-update-panel';
+import { releaseRetryAt } from './release-backoff';
 const versionService = (() => {
   'use strict';
   const REPO = 'https://github.com/yyhoworks/LocalDNS';
@@ -52,27 +53,37 @@ const versionService = (() => {
         String(window.LOCALDNS_UI_CONFIG?.apiBase || '');
       let runningBackend = null;
       let installed = null, latest = null, checkedAt = 0, lastAttemptAt = 0, error = '', metadataError = '', checking = false, pending;
+      const cooldownKey = 'localdns-github-release-retry-at';
+      let retryAt = 0, retryTimer;
+      function readCooldown() {
+        try { retryAt = Math.max(retryAt, Number(preferences.getItem(cooldownKey)) || 0); } catch {}
+      }
+      function waitForRetry() {
+        clearTimeout(retryTimer);
+        if (retryAt > Date.now()) retryTimer = setTimeout(() => paint(), Math.min(2147483647, retryAt - Date.now() + 50));
+      }
       const updateSection = document.createElement('section');
       dialog.querySelector('.version-actions').before(updateSection);
       const updater = createUIUpdatePanel(updateSection);
       const escape = value => String(value ?? '').replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
       const date = value => value ? new Date(value).toLocaleString('zh-CN', {hour12: false}) : '尚未检查';
       function paint() {
+        const limited = retryAt > Date.now();
         const status = installed && latest ? assess({ ...installed, backendVersion: runningBackend || installed.backendVersion }, latest) : null;
-        const text = checking ? '检查中' : error ? '检查失败' : !installed ? '版本未读取' :
+        const text = checking ? '检查中' : limited ? '请求受限' : error ? '检查失败' : !installed ? '版本未读取' :
           !latest ? '尚未检查' : status.available ? '有新版本' : status.comparison === null ? '版本待核对' :
           status.local ? '本地测试版' : status.comparison < 0 ? '当前版本较新' : '已是最新';
-        button.dataset.status = error ? 'error' : status?.available ? 'update' : 'normal';
+        button.dataset.status = error || limited ? 'error' : status?.available ? 'update' : 'normal';
         const displayVersion = String(installed?.uiVersion || '').replace(/-local.*$/, '');
         button.querySelector('[data-version-number]').textContent = displayVersion ? 'UI ' + displayVersion : '版本';
         button.querySelector('[data-version-status]').textContent = text;
         button.title = `版本与更新：${installed?.uiVersion || '未读取'}，${text}`;
         button.setAttribute('aria-label', button.title);
-        manual.disabled = checking;
-        manual.textContent = checking ? '正在检查…' : '检查更新';
+        manual.disabled = checking || limited;
+        manual.textContent = checking ? '正在检查…' : limited ? '等待 GitHub 限流恢复' : '检查更新';
         const fact = (name, value) => `<div><dt>${name}</dt><dd>${escape(value)}</dd></div>`;
         const backend = runningBackend || document.querySelector('#brand-version-tag')?.dataset.backendVersion || installed?.backendVersion;
-        setHTML(content, `<dl class="version-facts">${fact('当前 UI', installed?.uiVersion || '未能读取')}${fact('DNS 核心', backend || '尚未读取')}${fact('GitHub 最新正式版', latest ? latest.version + (latest.backend ? ' / ' + latest.backend : '') : '尚未读取')}${fact('上次成功检查', date(checkedAt))}</dl><p class="version-result">${escape(checking ? '正在获取 GitHub 最新正式版…' : error ? '更新检查失败，当前版本信息仍可查看。' : status?.available ? 'GitHub 已发布新版本，可查看更新说明与安装包。' : status?.local ? '当前为本地测试版，基于正式版 ' + status.baseline + '；' + (status.comparison === null ? '请在 GitHub 核对版本。' : '基准之后暂无新正式版。') : status?.comparison === 0 ? '当前 UI 已是最新正式版。' : status?.comparison < 0 ? '当前 UI 版本高于 GitHub 最新正式版。' : '点击“检查更新”获取 GitHub 最新正式版。')}</p>${latest?.packages.length ? `<p class="version-note">发布包：${escape(latest.packages.join('、'))}。UI 升级包仅更新界面；内核单独更新可上传原作者 ZIP，整套升级使用 GitHub 完整包。</p>` : ''}${metadataError ? `<p class="version-error" role="alert">${escape(metadataError)}</p>` : ''}${error ? `<p class="version-error" role="alert">${escape(error)} 可点击“检查更新”重试，或打开 GitHub 发布页。</p>` : ''}<p class="version-note">自动检查间隔为 6 小时；手动检查立即重新请求。</p>`);
+        setHTML(content, `<dl class="version-facts">${fact('当前 UI', installed?.uiVersion || '未能读取')}${fact('DNS 核心', backend || '尚未读取')}${fact('GitHub 最新正式版', latest ? latest.version + (latest.backend ? ' / ' + latest.backend : '') : '尚未读取')}${fact('上次成功检查', date(checkedAt))}${limited ? fact('允许再次检查', date(retryAt)) : ''}</dl><p class="version-result">${escape(checking ? '正在获取 GitHub 最新正式版…' : limited || error ? '更新检查暂不可用，保留上次成功检查的结果。' : status?.available ? 'GitHub 已发布新版本，可查看更新说明与安装包。' : status?.local ? '当前为本地测试版，基于正式版 ' + status.baseline + '；' + (status.comparison === null ? '请在 GitHub 核对版本。' : '基准之后暂无新正式版。') : status?.comparison === 0 ? '当前 UI 已是最新正式版。' : status?.comparison < 0 ? '当前 UI 版本高于 GitHub 最新正式版。' : '点击“检查更新”获取 GitHub 最新正式版。')}</p>${latest?.packages.length ? `<p class="version-note">发布包：${escape(latest.packages.join('、'))}。UI 升级包仅更新界面；内核单独更新可上传原作者 ZIP，整套升级使用 GitHub 完整包。</p>` : ''}${metadataError ? `<p class="version-error" role="alert">${escape(metadataError)}</p>` : ''}${limited ? `<p class="version-error" role="alert">GitHub 请求受限，请在 ${escape(date(retryAt))} 后重新检查，也可直接打开 GitHub 发布页。</p>` : error ? `<p class="version-error" role="alert">${escape(error)} 可点击“检查更新”重试，或打开 GitHub 发布页。</p>` : ''}<p class="version-note">自动检查间隔为 6 小时；手动检查会重新请求，限流期间暂停请求。</p>`);
         dialog.querySelector('#version-release-link').href = latest?.url || REPO + '/releases';
         updater.setRelease(installed, latest);
       }
@@ -80,7 +91,16 @@ const versionService = (() => {
         const controller = new AbortController(), timeout = setTimeout(() => controller.abort(), 10000);
         try {
           const response = await assetHttp.fetch(url, {signal: controller.signal, cache: 'no-store', credentials: 'omit', headers: {Accept: 'application/json'}});
-          if (!response.ok) throw new Error(response.status === 403 || response.status === 429 ? 'GitHub 请求受限，请稍后重试。' : '请求失败（HTTP ' + response.status + '）。');
+          if (!response.ok) {
+            const denied = String(url) === ENDPOINT && response.status === 403 ? await response.clone().json().catch(() => null) : null;
+            if (String(url) === ENDPOINT && (response.status === 429 || response.status === 403 && (response.headers.get('x-ratelimit-remaining') === '0' || response.headers.has('retry-after') || /rate limit|abuse detection/i.test(denied?.message || '')))) {
+              retryAt = releaseRetryAt(response.headers);
+              try { preferences.setItem(cooldownKey, retryAt); } catch {}
+              waitForRetry();
+              throw new Error('GitHub 请求受限，请稍后重试。');
+            }
+            throw new Error('请求失败（HTTP ' + response.status + '）。');
+          }
           return await response.json();
         } finally { clearTimeout(timeout); }
       }
@@ -93,6 +113,8 @@ const versionService = (() => {
       }
       function check(force = false) {
         if (pending) return pending;
+        readCooldown();
+        if (retryAt > Date.now()) { waitForRetry(); paint(); return Promise.resolve(); }
         if (!force && error && Date.now() - lastAttemptAt < 15 * 60 * 1000) return Promise.resolve();
         if (!force && latest && Date.now() - checkedAt >= 0 && Date.now() - checkedAt < TTL) { paint(); return Promise.resolve(); }
         checking = true; error = ''; lastAttemptAt = Date.now(); paint();

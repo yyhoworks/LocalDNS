@@ -295,9 +295,9 @@ class OnlineTests(unittest.TestCase):
         server = http.UpdateServer(('127.0.0.1', 0), config, self.manager)
         thread = threading.Thread(target=server.serve_forever, daemon=True); thread.start()
         data = zipped(bundle())
-        def request(headers):
+        def request(headers, body=data):
             req = Request('http://127.0.0.1:' + str(server.server_port) + '/upgrade/core/upload',
-                          data=data, headers=headers, method='POST')
+                          data=body, headers={'Content-Length': str(len(data)), **headers}, method='POST')
             return build_opener(ProxyHandler({})).open(req, timeout=5)
         headers = {'Origin': config['allowedOrigins'][0], 'Content-Type': 'application/zip',
                    'X-Content-SHA256': installer.digest(data)}
@@ -312,9 +312,13 @@ class OnlineTests(unittest.TestCase):
             for extra, code in [({'Origin': 'http://evil.test'}, 403), ({'Origin': ''}, 403),
                                 ({'Content-Type': 'application/json'}, 415), ({'X-Content-SHA256': ''}, 400),
                                 ({'Content-Length': '0'}, 413), ({'Content-Length': str(online.MAX_UPLOAD_BYTES + 1)}, 413)]:
-                with self.subTest(extra=extra), self.assertRaises(HTTPError) as error:
-                    request(dict(headers, **extra))
-                self.assertEqual(error.exception.code, code)
+                with self.subTest(extra=extra):
+                    # These headers must be rejected before reading the ZIP.
+                    # Sending the full body anyway races the early close and
+                    # causes a TCP reset on Windows instead of an HTTP error.
+                    with self.assertRaises(HTTPError) as error:
+                        request(dict(headers, **extra), body=None)
+                    self.assertEqual(error.exception.code, code)
             with request(headers) as response:
                 self.assertEqual(response.status, 202)
             self.assertEqual(self.finish()['state'], 'awaiting_backup')

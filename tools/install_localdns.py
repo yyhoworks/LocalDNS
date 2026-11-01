@@ -21,7 +21,8 @@ import tarfile
 import tempfile
 import time
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
+from email.utils import parsedate_to_datetime
 from pathlib import Path, PurePosixPath
 from urllib.error import HTTPError, URLError
 from urllib.parse import quote, urlsplit
@@ -36,6 +37,24 @@ ALPINE_RESOLVER_BRIDGE = '#include <resolv.h>\nint __res_init(void) { return res
 
 class InstallError(RuntimeError):
     pass
+
+
+class GitHubRateLimitError(InstallError):
+    pass
+
+
+def github_retry_time(headers):
+    now = time.time()
+    retry = headers.get('Retry-After', '')
+    try:
+        retry_at = now + int(retry) if retry.isdigit() else parsedate_to_datetime(retry).timestamp()
+    except (TypeError, ValueError, OverflowError):
+        retry_at = 0
+    try:
+        reset = float(headers.get('X-RateLimit-Reset', '0'))
+    except ValueError:
+        reset = 0
+    return datetime.fromtimestamp(max(now + 60, retry_at, reset), timezone.utc).strftime('%Y-%m-%d %H:%M:%S UTC')
 
 
 def log(message):
@@ -139,8 +158,12 @@ def fetch(url, destination=None):
             with destination.open('wb') as output:
                 shutil.copyfileobj(response, output)
     except HTTPError as error:
-        detail = 'GitHub 请求受限' if error.code in (403, 429) else 'HTTP ' + str(error.code)
-        raise InstallError('下载失败（' + detail + '）：' + url) from None
+        if error.code in (403, 429) and url.startswith(API):
+            body = error.read(4096).decode('utf-8', errors='replace').lower()
+            if error.code == 429 or error.headers.get('X-RateLimit-Remaining') == '0' or error.headers.get('Retry-After') or 'rate limit' in body or 'abuse detection' in body:
+                raise GitHubRateLimitError('GitHub API 请求受限，可在 ' + github_retry_time(error.headers) +
+                                          ' 后重试；也可指定正式发行标签或使用离线包。') from None
+        raise InstallError('下载失败（HTTP ' + str(error.code) + '）：' + url) from None
     except (OSError, URLError) as error:
         raise InstallError('无法下载，请检查网络及系统 CA 证书：' + url) from error
 
@@ -157,6 +180,7 @@ class Packages:
         self.work = work
         self.directory = Path(directory).resolve() if directory else None
         self.release = None
+        manifest_fallback = False
         if self.directory:
             sums = self.directory / 'SHA256SUMS.txt'
             if not sums.is_file():
@@ -166,15 +190,27 @@ class Packages:
             if version and not re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9._-]{0,100}', version):
                 raise InstallError('--version 必须是正式发行标签')
             endpoint = API + ('tags/' + quote(version, safe='') if version else 'latest')
-            self.release = json.loads(fetch(endpoint))
-            if self.release.get('draft') or self.release.get('prerelease'):
-                raise InstallError('仅安装正式发行版')
-            safe_name(self.release.get('tag_name'))
-            self.assets = {safe_name(a['name']): a for a in self.release.get('assets', [])}
-            if 'SHA256SUMS.txt' not in self.assets:
-                raise InstallError('正式发行版缺少 SHA256SUMS.txt')
             sums = work / 'SHA256SUMS.txt'
-            self.download('SHA256SUMS.txt', sums)
+            try:
+                self.release = json.loads(fetch(endpoint))
+            except GitHubRateLimitError:
+                # Updater jobs already pin a stable tag. Public release downloads
+                # do not use the REST quota. Keep checksum + archive verification;
+                # never infer the latest tag from an unreleased source branch.
+                if not version or not re.fullmatch(r'(?:fj[a-z][a-z0-9]+-)?ui-v\d{4}\.\d+\.\d+\.\d+', version, re.I):
+                    raise
+                self.release = {'tag_name': version}
+                manifest_fallback = True
+                log('GitHub API 限流，改用指定发行版的官方下载地址，继续校验 SHA256SUMS 与文件清单。')
+                fetch(REPO + '/releases/download/' + version + '/SHA256SUMS.txt', sums)
+            if not manifest_fallback:
+                if self.release.get('draft') or self.release.get('prerelease'):
+                    raise InstallError('仅安装正式发行版')
+                safe_name(self.release.get('tag_name'))
+                self.assets = {safe_name(a['name']): a for a in self.release.get('assets', [])}
+                if 'SHA256SUMS.txt' not in self.assets:
+                    raise InstallError('正式发行版缺少 SHA256SUMS.txt')
+                self.download('SHA256SUMS.txt', sums)
             text = sums.read_text(encoding='utf-8')
             log('发行版：' + self.release['tag_name'])
         self.sums = {}
@@ -188,6 +224,9 @@ class Packages:
             if name in self.sums:
                 raise InstallError('校验文件含重复条目')
             self.sums[name] = fields[0].lower()
+        if manifest_fallback:
+            self.assets = {name: {'browser_download_url': REPO + '/releases/download/' + version + '/' + name}
+                           for name in self.sums}
 
     def download(self, name, destination):
         asset = self.assets[name]

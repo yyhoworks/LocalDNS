@@ -28,6 +28,14 @@ describe('UI upgrade eligibility', () => {
 });
 
 describe('UI update requests', () => {
+  it('clears stale capabilities when discovering a replaced legacy service', async () => {
+    const fetcher = vi.fn<typeof fetch>()
+      .mockResolvedValueOnce(json({ protocol: 'localdns-ui-updater/v1', repository: 'https://github.com/yyhoworks/LocalDNS', capabilities: { protocol: 'localdns-updater/v2', modes: ['ui', 'core', 'full'], installed } }))
+      .mockResolvedValueOnce(json({ protocol: 'localdns-ui-updater/v1', repository: 'https://github.com/yyhoworks/LocalDNS' }));
+    const client = new UIUpdateClient('', 'http://dns.example/ui/', fetcher);
+    await client.discover(); expect(client.unified).toBe(true);
+    await client.discover(); expect(client.unified).toBe(false);
+  });
   it('uploads the selected original ZIP independently of GitHub release versions', async () => {
     const file = new File(['abc'], 'LocalDNS_FJNEW.zip', { type: 'application/zip' });
     const fetcher = vi.fn<typeof fetch>().mockImplementation(async () => json({ state: 'awaiting_backup', source: 'upload', targetBackend: 'FJNEW', canRollback: false }));

@@ -69,6 +69,48 @@ export function rankings(data, rows, dimension='devices', top=20) {
   if(output.length>top){const remainder=sumBytes(output.splice(top-1));output.push({...remainder,key:'__remainder__',name:'其他',meta:'其余记录合计',total:byteTotal(remainder)});}
   return output;
 }
+const pad2 = value => String(value).padStart(2,'0');
+export const monthKey = date => String(date).slice(0,7);
+export function shiftMonth(key, delta) {
+  const [year,month]=key.split('-').map(Number);
+  const date=new Date(Date.UTC(year,month-1+delta,1));
+  return `${date.getUTCFullYear()}-${pad2(date.getUTCMonth()+1)}`;
+}
+export const monthLabel = key => `${key.slice(0,4)} 年 ${Number(key.slice(5,7))} 月`;
+export const weekdayName = date => '周'+'日一二三四五六'[new Date(date+'T00:00:00Z').getUTCDay()];
+/** Months worth offering in the calendar: the earliest retained day through today. */
+export function monthBounds(data, today=serverDate(data)) {
+  const dates=[...(data?.days?.keys?.()||[])].filter(validDate).sort();
+  const first=dates.length&&dates[0]<today?dates[0]:today;
+  return { min:monthKey(first), max:monthKey(today) };
+}
+/** Monday-first grid for one month; days without a record stay `missing`, never zero. */
+export function monthDays(data, key, today=serverDate(data)) {
+  const [year,month]=key.split('-').map(Number);
+  const lead=(new Date(Date.UTC(year,month-1,1)).getUTCDay()+6)%7;
+  const count=new Date(Date.UTC(year,month,0)).getUTCDate();
+  // One uniform cell shape keeps the calendar renderer and the tests free of unions.
+  const cell=(date,day,row)=>({date,day,blank:!date,missing:!row,today:Boolean(date)&&date===today,
+    down:row?.down||0,up:row?.up||0,total:byteTotal(row)});
+  const cells=Array.from({length:lead},()=>cell('',0,null));
+  for(let day=1;day<=count;day++){
+    const date=`${year}-${pad2(month)}-${pad2(day)}`;
+    cells.push(cell(date,day,data?.days?.get?.(date)));
+  }
+  return cells;
+}
+/** Rows for the month on screen, stopping at today so future dates are never exported. */
+export function monthRows(data, key, today=serverDate(data)) {
+  return monthDays(data,key,today).filter(cell=>!cell.blank&&cell.date<=today)
+    .map(cell=>data?.days?.get?.(cell.date)||{date:cell.date,missing:true});
+}
+export function hourlySeries(day) {
+  const hours=day?.hourly||{};
+  return Array.from({length:24},(_,index)=>{
+    const hour=pad2(index),value=bytesPair(hours[hour]);
+    return {hour,missing:!value,down:value?.down||0,up:value?.up||0,total:byteTotal(value)};
+  });
+}
 export function trafficCSV(rows, today) {
   const lines=[['日期','下载字节','上传字节','合计字节','采集状态'],...rows.map(row=>[row.date,row.missing?'':row.down,row.missing?'':row.up,row.missing?'':byteTotal(row),row.missing?'未采集':row.date===today?'今日未结束':row.coverage==='unknown'?'覆盖未知':row.coverage==='partial'?'部分采集':'已采集'])];
   return '\uFEFF'+lines.map(line=>line.join(',')).join('\r\n')+'\r\n';

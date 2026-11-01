@@ -81,6 +81,7 @@ export class UIUpdateClient {
     });
   }
   async discover(): Promise<void> {
+    this.capabilities = undefined;
     const result = await this.request('/upgrade/ui') as { protocol?: string; repository?: string; capabilities?: UpdateCapabilities };
     if (result?.protocol !== 'localdns-ui-updater/v1' || result.repository !== 'https://github.com/yyhoworks/LocalDNS') {
       throw new Error('服务器未提供兼容的 LocalDNS UI 升级接口。');
