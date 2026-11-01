@@ -159,3 +159,65 @@ describe('概览内容块自定义显示', () => {
     expect(popover().hidden).toBe(false);
   });
 });
+
+describe('概览内容块排序', () => {
+  it('默认顺序为 OVERVIEW_BLOCKS 定义顺序', () => {
+    expect(blocks.getBlockOrder()).toEqual([
+      'shortcuts','service','kpi','topology','trend','outcomes','rankings','caches','slow'
+    ]);
+  });
+
+  it('setBlockOrder 过滤未知 key 并补齐缺失项', () => {
+    blocks.setBlockOrder(['slow','bogus','kpi']);
+    expect(blocks.getBlockOrder()).toEqual([
+      'slow','kpi','shortcuts','service','topology','trend','outcomes','rankings','caches'
+    ]);
+  });
+
+  it('moveBlock 上下移动并持久化', () => {
+    expect(blocks.moveBlock('kpi', -1)).toBe(true);
+    expect(blocks.getBlockOrder()[1]).toBe('kpi');
+    expect(blocks.getBlockOrder()[2]).toBe('service');
+    // 顶到底：再上移已到顶
+    expect(blocks.moveBlock('shortcuts', -1)).toBe(false);
+    // 底到顶：下移已到底
+    expect(blocks.moveBlock('slow', 1)).toBe(false);
+  });
+
+  it('applyBlockVisibility 给各块设置 order', () => {
+    document.body.innerHTML = '<div id="page-content">' +
+      '<div class="console-kpi-row"></div><div class="console-topology"></div></div>';
+    blocks.setBlockOrder(['topology','kpi','shortcuts','service','trend','outcomes','rankings','caches','slow']);
+    blocks.applyBlockVisibility();
+    const page = document.querySelector('#page-content') as HTMLElement;
+    expect(page.classList.contains('ov-blocks-sortable')).toBe(true);
+    const kpi = page.querySelector('.console-kpi-row') as HTMLElement;
+    const topo = page.querySelector('.console-topology') as HTMLElement;
+    expect(kpi.style.order).toBe('1');
+    expect(topo.style.order).toBe('0');
+  });
+
+  it('弹层按自定义顺序渲染且首尾按钮禁用', () => {
+    blocks.setBlockOrder(['slow','shortcuts','service','kpi','topology','trend','outcomes','rankings','caches']);
+    blocks.bindOverviewBlocks(page());
+    trigger().click();
+    const items = [...popover().querySelectorAll('.ovb-item')];
+    expect(items[0].querySelector('[data-ovb-up]')?.hasAttribute('disabled')).toBe(true);
+    expect(items[0].querySelector('[data-ovb-down]')?.hasAttribute('disabled')).toBe(false);
+    const last = items[items.length - 1];
+    expect(last.querySelector('[data-ovb-down]')?.hasAttribute('disabled')).toBe(true);
+    // 第一个是 slow
+    expect(items[0].querySelector('[data-ovb-key]')?.getAttribute('data-ovb-key')).toBe('slow');
+  });
+
+  it('点下移按钮后顺序变化且弹层重建', () => {
+    blocks.bindOverviewBlocks(page());
+    trigger().click();
+    const firstDown = popover().querySelector('[data-ovb-down="shortcuts"]') as HTMLButtonElement;
+    firstDown.click();
+    expect(blocks.getBlockOrder()[0]).toBe('service');
+    expect(blocks.getBlockOrder()[1]).toBe('shortcuts');
+    // 弹层重建后焦点在被移动项的按钮上
+    expect(document.activeElement?.getAttribute('data-ovb-down')).toBe('shortcuts');
+  });
+});
