@@ -22,14 +22,14 @@ export const OVERVIEW_BLOCKS = [
   ['slow', '慢查询排行', '耗时最高的查询样本列表']
 ];
 
-/** 块 key → 页面内对应元素的选择器（与 overview.css 的隐藏规则保持一致）。 */
+/** 块 key → 能认出该块的选择器：同时覆盖 shell 增强前（模板原样）与增强后的 DOM。 */
 const BLOCK_SELECTORS = {
   shortcuts: ['.console-shortcuts', '.control-bar-card'],
-  service: ['.console-service-row', '.console-health-strip'],
+  service: ['.console-service-row', '.console-health-strip', '.console-service-summary'],
   kpi: ['.console-kpi-row', '.spark-kpi-card'],
-  topology: ['.console-topology'],
-  trend: ['.console-trend'],
-  outcomes: ['.console-donut'],
+  topology: ['.console-topology', '.topology-glass-card'],
+  trend: ['.console-trend', '.traffic-chart-body'],
+  outcomes: ['.console-donut', '.outbound-donut-body'],
   rankings: ['.workspace-rankings'],
   caches: ['.overview-cache-panel'],
   slow: ['.overview-slow-panel'],
@@ -84,8 +84,28 @@ export function moveBlock(key, dir) {
   return true;
 }
 
-/** 把隐藏列表落到 #page-content 的 data-ov-hide 上，由 CSS 控制显隐；
- *  同时按用户自定义顺序给各块设置 CSS order（父容器为 flex column 时生效）。 */
+/**
+ * 按用户顺序给 #page-content 的直接子元素设置 CSS order。
+ * #page-content 是全站共用的 12 栏 grid（.dashboard-12grid），grid 子项本身就支持
+ * order，不需要也不能改动它的 display。每个直接子元素取其中所含块的最小序号：
+ * 服务状态与指标卡在 shell 增强后同处一个 section，因此作为一个整体移动。
+ * 不属于任何块的子元素（标题行）order 为空，保持在最前。
+ */
+function applyBlockOrder(page) {
+  const rank = new Map(getBlockOrder().map((key, idx) => [key, idx]));
+  [...page.children].forEach(child => {
+    let best = null;
+    for (const [key, selectors] of Object.entries(BLOCK_SELECTORS)) {
+      if (selectors.some(sel => child.matches(sel) || child.querySelector(sel))) {
+        const r = rank.get(key) ?? 0;
+        best = best === null ? r : Math.min(best, r);
+      }
+    }
+    /** @type {HTMLElement} */ (child).style.order = best === null ? '' : String(best + 1);
+  });
+}
+
+/** 把隐藏列表落到 #page-content 的 data-ov-hide 上，由 CSS 控制显隐，并应用块顺序。 */
 export function applyBlockVisibility() {
   const page = $('#page-content');
   if (!page) return;
@@ -96,17 +116,11 @@ export function applyBlockVisibility() {
     if (next) page.dataset.ovHide = next;
     else delete page.dataset.ovHide;
   }
-  // 排序：按用户顺序给每个块的元素设置 order。30 秒重渲染会重建 DOM，
-  // 因此每次调用都重新应用（幂等）。父容器需要 flex column 才生效。
-  page.classList.add('ov-blocks-sortable');
-  const order = getBlockOrder();
-  order.forEach((key, idx) => {
-    (BLOCK_SELECTORS[key] || []).forEach(sel => {
-      page.querySelectorAll(sel).forEach(el => {
-        el.style.order = String(idx);
-      });
-    });
-  });
+  // 30 秒重渲染会重建 DOM，因此每次调用都重新应用，重复调用结果不变。shell 增强链由
+  // MutationObserver 在随后的微任务里搬移 DOM（快捷控制条收进 details、指标卡
+  // 并入服务 section），排在其后的微任务里再应用一次，首帧绘制前顺序即正确。
+  applyBlockOrder(page);
+  queueMicrotask(() => { if (page.isConnected) applyBlockOrder(page); });
   // 显隐/排序变化会影响布局；概览页监听 resize 重画拓扑连线（SVG 连线按节点
   // 真实盒模型绘制），这里补发一次让刚显示/移动的拓扑立即有连线。
   // 这次 resize 是自己发出的（同步分发），弹层的“窗口变化即收起”要跳过它，
@@ -153,6 +167,10 @@ function positionPopover(trigger) {
   popover.style.right = `${right}px`;
 }
 
+function isDefaultOrder(order) {
+  return order.every((key, idx) => key === OVERVIEW_BLOCKS[idx][0]);
+}
+
 function popoverHtml() {
   const hidden = new Set(getHiddenBlocks());
   const order = getBlockOrder();
@@ -167,8 +185,10 @@ function popoverHtml() {
         const [k, l, d] = byKey.get(key) || [key, key, ''];
         return `
         <div class="ovb-item" title="${esc(d)}">
-          <input type="checkbox" data-ovb-key="${esc(k)}" ${hidden.has(k) ? '' : 'checked'} aria-label="显示${esc(l)}">
-          <span class="ovb-item-text"><span>${esc(l)}</span><small>${esc(d)}</small></span>
+          <label class="ovb-item-main">
+            <input type="checkbox" data-ovb-key="${esc(k)}" ${hidden.has(k) ? '' : 'checked'}>
+            <span class="ovb-item-text"><span>${esc(l)}</span><small>${esc(d)}</small></span>
+          </label>
           <span class="ovb-move">
             <button type="button" data-ovb-up="${esc(k)}" ${idx === 0 ? 'disabled' : ''} aria-label="上移${esc(l)}">▲</button>
             <button type="button" data-ovb-down="${esc(k)}" ${idx === order.length - 1 ? 'disabled' : ''} aria-label="下移${esc(l)}">▼</button>
@@ -177,7 +197,7 @@ function popoverHtml() {
       }).join('')}
     </div>
     <div class="ovb-foot">
-      <button type="button" class="glass-btn ovb-reset" data-ovb-reset ${hidden.size ? '' : 'disabled'}>恢复全部显示</button>
+      <button type="button" class="glass-btn ovb-reset" data-ovb-reset ${hidden.size || !isDefaultOrder(order) ? '' : 'disabled'}>恢复默认</button>
       <span class="ovb-note">按浏览器保存 · 仅影响概览页</span>
     </div>`;
 }
@@ -208,7 +228,7 @@ function bindPopoverControls(pop) {
       setHiddenBlocks([...hidden]);
       applyBlockVisibility();
       const reset = $('[data-ovb-reset]', pop);
-      if (reset) reset.disabled = hidden.size === 0;
+      if (reset) reset.disabled = hidden.size === 0 && isDefaultOrder(getBlockOrder());
     };
   });
   // 上下移动：调整顺序后重建弹层列表（按钮禁用态会变），焦点留在被移动项的按钮上。
@@ -219,11 +239,13 @@ function bindPopoverControls(pop) {
         const key = btn.getAttribute(attr);
         if (!moveBlock(key, dir)) return;
         applyBlockVisibility();
-        const focusKey = attr;
         setHTML(pop, popoverHtml());
         bindPopoverControls(pop);
-        const next = $(`[${focusKey}="${key}"]`, pop);
-        if (next && !next.disabled) next.focus({ preventScroll: true });
+        // 焦点留在被移动项的同向按钮上；移到首/尾后该按钮被禁用，改落到反向按钮。
+        const other = attr === 'data-ovb-up' ? 'data-ovb-down' : 'data-ovb-up';
+        const same = /** @type {HTMLButtonElement|null} */ ($(`[${attr}="${key}"]`, pop));
+        const fallback = /** @type {HTMLButtonElement|null} */ ($(`[${other}="${key}"]`, pop));
+        (same && !same.disabled ? same : fallback)?.focus({ preventScroll: true });
       };
     });
   };
@@ -232,6 +254,7 @@ function bindPopoverControls(pop) {
   $('[data-ovb-close]', pop).onclick = () => closePopover(true);
   $('[data-ovb-reset]', pop).onclick = () => {
     setHiddenBlocks([]);
+    setBlockOrder(OVERVIEW_BLOCKS.map(([key]) => key));
     applyBlockVisibility();
     setHTML(pop, popoverHtml());
     bindPopoverControls(pop);
