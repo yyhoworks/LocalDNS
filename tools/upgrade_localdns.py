@@ -98,7 +98,9 @@ def dns(port, protocol):
     return {'protocol': protocol, 'answers': answers}
 
 
-SUPPORTED_BACKENDS = ('FJGLI', 'FJGOE', 'FJH21', 'FJH50', 'FJH7Q', 'FJH7T', 'FJHAI')
+# Legacy metadata without updateCompatibility is accepted only for these backends.
+# Add a family here when a kernel ships before its packages declare the contract.
+SUPPORTED_BACKENDS = ('FJGLI', 'FJGOE', 'FJH21', 'FJH50', 'FJH7Q', 'FJH7T', 'FJHAI', 'FJMOS')
 
 
 def compatible_release(metadata):

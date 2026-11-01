@@ -56,10 +56,7 @@ class OnlineUpdateManager:
             if upgrade.journal_path(self.root).exists():
                 upgrade.recover(self.root, self.init or installer.manager())
                 recovered = True
-            if not (self.root / 'core-version.json').exists():
-                original = dict(self.installed_version())
-                original['backendVersion'] = self.current()['backendVersion']
-                installer.atomic_json(self.root / 'core-version.json', original)
+            self.ensure_core_metadata()
         if self.state.get('state') in {'queued', 'running', 'rolling_back'}:
             self.save(state='rolled_back' if recovered else 'failed', step='interrupted', finishedAt=now(),
                       message='上次升级被中断，已恢复原版本。' if recovered else '上次升级被中断；请核对当前版本后重新准备。')
@@ -68,6 +65,29 @@ class OnlineUpdateManager:
         with self.mutex:
             self.state.update(values)
             installer.atomic_json(self.state_file, self.state)
+
+    def ensure_core_metadata(self):
+        """Create the core marker, or backfill a contract a manual kernel swap left out.
+
+        A hand-written marker used to carry only backendVersion, and a backend
+        outside SUPPORTED_BACKENDS then failed the contract gate for every
+        mode. Repair only when the installed UI states the same backend, so a
+        genuinely mismatched install still fails closed.
+        """
+        marker = self.root / 'core-version.json'
+        installer.no_symlinks(marker)
+        if not marker.is_file():
+            original = dict(self.installed_version())
+            original['backendVersion'] = self.current()['backendVersion']
+            installer.atomic_json(marker, original)
+            return
+        metadata = read_json(marker)
+        if contract(metadata) == CONTRACT:
+            return
+        installed = self.installed_version()
+        if contract(installed) != CONTRACT or installed.get('backendVersion') != metadata.get('backendVersion'):
+            return
+        installer.atomic_json(marker, dict(metadata, updateCompatibility=dict(CONTRACT)))
 
     def installed_version(self):
         return read_json(self.root / 'ui/version.json')

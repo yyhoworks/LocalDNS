@@ -321,4 +321,27 @@ class OnlineTests(unittest.TestCase):
             server.shutdown(); server.server_close(); thread.join(5)
 
 
+    def test_legacy_marker_of_a_supported_backend_passes_the_contract_gate(self):
+        # 手动换内核留下过只含 backendVersion 的 core-version.json；白名单兜底
+        # 必须覆盖当前内核家族，否则三个升级入口都会被契约检查 409 拦下。
+        self.assertEqual(online.contract({'backendVersion': 'FJMOS'}), online.CONTRACT)
+        self.assertIsNone(online.contract({'backendVersion': 'FJUNKNOWN'}))
+
+    def test_marker_without_contract_is_repaired_when_the_ui_requires_the_same_core(self):
+        write_json(self.root / 'ui/version.json', dict(self.version, backendVersion='FJNEW'))
+        write_json(self.root / 'core-version.json', {'backendVersion': 'FJNEW'})
+        manager = self.manager_at()
+        self.assertEqual(manager.core_metadata()['updateCompatibility'], online.CONTRACT)
+        online.check_contract(manager.core_metadata())
+
+    def test_marker_contract_is_not_invented_when_the_ui_requires_another_core(self):
+        write_json(self.root / 'ui/version.json', dict(self.version, backendVersion='FJHAI'))
+        write_json(self.root / 'core-version.json', {'backendVersion': 'FJNEW'})
+        manager = self.manager_at()
+        self.assertIsNone(online.contract(manager.core_metadata()))
+        with self.assertRaises(http.UpdateError) as error:
+            manager.start('fjnew-ui-v2026.11.01.5', mode='ui')
+        self.assertEqual(error.exception.status, 409)
+
+
 if __name__ == '__main__': unittest.main()
