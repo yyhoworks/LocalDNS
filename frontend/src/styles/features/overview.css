@@ -180,7 +180,9 @@
   color: var(--text-3);
 }
 .topology-glass-card{background:var(--console-panel)}.t-node{box-shadow:none}
-.console-kpi{order:1}.console-kpi .spark-kpi-card{min-height:108px;padding:15px 16px}
+.console-kpi-row{grid-column:1/-1;order:1;display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:10px;min-width:0}
+.console-kpi-row>*{grid-column:auto;min-width:0}
+.console-kpi{order:1;min-width:0}.console-kpi .spark-kpi-card{min-height:108px;padding:15px 16px}
 .console-kpi .sk-val{font-size:26px}.console-kpi .sk-chart{width:58px;height:26px;opacity:.85}.console-kpi .sk-bottom{gap:6px}
 .console-topology{order:4}
 .console-topology-heading{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:20px}

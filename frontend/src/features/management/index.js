@@ -19,6 +19,71 @@ import { cacheLimitInputSelector, cacheLimitsForm, cacheSettings, readCacheLimit
 
   const cacheName=t=>({cache_main:'全部缓存',cache_domestic:'国内缓存',cache_foreign:'国外缓存',cache_foreign_ecs:'国外 ECS 缓存'})[t]||t;
 
+  const refreshCats = [
+    ['to_proxy', '直连 → 代理', '两次查询都显示应走代理，已改为代理'],
+    ['to_direct', '代理 → 直连', '两次查询都显示应走直连，已改为直连'],
+    ['other', '其他变化', '涉及「无记录」的改变'],
+    ['new', '新学到', '原来没有结论，这次学到了'],
+    ['disputed', '有分歧', '两次结果不一致，保持原结论'],
+    ['unchanged', '没有变化', '结论和原来一样'],
+  ];
+  const refreshClass = code => ({ realip: '直连', fakeip: '代理', nodata: '无记录' })[code] || '没有结果';
+
+  // FJMOS 起内核会记录最近一次分流刷新的变化报告（/api/v1/route-refresh/changes）。
+  // 旧内核没有这个端点，按 404 处理并提示，不影响刷新任务本身。
+  function openRefreshChanges() {
+    api.request('/plugins/requery/changes').then(result => {
+      const summary = result && result.summary;
+      if (!summary) {
+        modalOpen('上次刷新的变化', '分流缓存刷新的结果', empty('还没有运行记录'), null, false);
+        return;
+      }
+      const items = result.items || {};
+      const when = result.start_time ? `${fmtDate(result.start_time)} — ${fmtDate(result.end_time)}` : '—';
+      const stopped = result.stopped ? '<p class="form-note">这次任务中途停止：还没复核的域名保持原来的结论（列在「有分歧」里）。</p>' : '';
+      const noEvidence = +summary.no_evidence ? `<p class="form-note">另有 ${num(summary.no_evidence)} 次查询没有可学的结果（名单已决定或上游没回答）。</p>` : '';
+      const cats = refreshCats.map(([key, label]) => {
+        const count = +summary[key] || 0;
+        return `<button type="button" class="rq-cat" data-rq-cat="${key}" ${count > 0 ? '' : 'disabled'}><span>${label}</span><strong>${num(count)}</strong></button>`;
+      }).join('');
+      const html = `<div class="stack"><p class="form-note">运行时间：${esc(when)}，处理域名 ${num(result.names || 0)} 个。结论要改时约 ${num(result.confirm_wait_seconds || 120)} 秒后复核一次，两次一致才改。</p>${stopped}${noEvidence}<div class="rq-cats">${cats}</div><div id="rq-cat-list"></div></div>`;
+      modalOpen('上次刷新的变化', '点一个分类查看具体域名', html, null, false);
+      const list = $('#rq-cat-list');
+      const paint = key => {
+        $$('.rq-cat').forEach(button => button.classList.toggle('active', button.dataset.rqCat === key));
+        const rows = items[key] || [];
+        if (!rows.length) {
+          setHTML(list, empty('这一类没有域名'));
+          return;
+        }
+        const head = key === 'disputed' ? '<th>域名</th><th>类型</th><th>原来</th><th>第一次</th><th>第二次</th>'
+          : key === 'new' ? '<th>域名</th><th>类型</th><th>学到</th>'
+          : '<th>域名</th><th>类型</th><th>原来</th><th>现在</th>';
+        const body = rows.map(row => {
+          if (key === 'disputed') {
+            const second = row.second === null || row.second === undefined ? (result.stopped ? '未复核' : '没有结果') : refreshClass(row.second);
+            return `<tr><td>${esc(row.name)}</td><td>${esc(row.type)}</td><td>${refreshClass(row.old)}</td><td>${refreshClass(row.first)}</td><td>${second}</td></tr>`;
+          }
+          if (key === 'new') return `<tr><td>${esc(row.name)}</td><td>${esc(row.type)}</td><td>${refreshClass(row.new)}</td></tr>`;
+          return `<tr><td>${esc(row.name)}</td><td>${esc(row.type)}</td><td>${refreshClass(row.old)}</td><td>${refreshClass(row.new)}</td></tr>`;
+        }).join('');
+        const more = (+summary[key] || 0) > rows.length ? `<p class="form-note">共 ${num(summary[key])} 条，只列出前 ${num(rows.length)} 条。</p>` : '';
+        setHTML(list, `<div class="table-wrap"><table class="overview-detail-table"><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table></div>${more}`);
+      };
+      $$('.rq-cat').forEach(button => {
+        button.onclick = () => { if (!button.disabled) paint(button.dataset.rqCat); };
+      });
+      const first = refreshCats.find(([key]) => (+summary[key] || 0) > 0 && key !== 'unchanged');
+      paint(first ? first[0] : 'unchanged');
+    }).catch(error => {
+      if (error && (error.status === 404 || error.status === 405)) {
+        toast('当前内核没有变化报告（需要 FJMOS 及以上）', 'error');
+        return;
+      }
+      toast('读取变化报告失败', 'error', error && error.message);
+    });
+  }
+
   function requeryHtml(s,c){
     if(!s)return {actions:'',body:empty('Requery 插件不可用')};
     const taskState=String(s.task_state||s.status||'idle').toLowerCase();
@@ -31,7 +96,7 @@ import { cacheLimitInputSelector, cacheLimitsForm, cacheSettings, readCacheLimit
     const lastCount=s.last_run_domain_count;
     const tile=(k,v)=>`<div class="mg-tile"><span>${k}</span><strong>${v}</strong></div>`;
     const statusRow=`<div class="rq-status"><span class="mg-chip"><span class="mg-lab">当前状态</span><span class="badge ${stateClass}">${stateText}</span></span><span class="mg-chip"><span class="mg-lab">定时任务</span><span class="badge ${c?.scheduler?.enabled?'success':''}">${c?.scheduler?.enabled?'已启用':'未启用'}</span></span></div>`;
-    const actions=`<button class="button small" id="requery-scheduler" title="定时任务设置"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M4 8h9M18 8h2M4 16h4M13 16h7"/><circle cx="15.5" cy="8" r="2"/><circle cx="10.5" cy="16" r="2"/></svg>定时设置</button>${running?'<button class="button small danger" id="requery-cancel">取消任务</button>':'<button class="button small primary" id="requery-trigger" title="开始全新任务"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M7 4.5 19 12 7 19.5Z"/></svg>全新任务</button>'}`;
+    const actions=`<button class="button small" id="requery-changes" title="查看上次刷新的变化"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M4 6h10M4 12h7M4 18h13"/><circle cx="18" cy="7" r="2"/></svg>变化报告</button><button class="button small" id="requery-scheduler" title="定时任务设置"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M4 8h9M18 8h2M4 16h4M13 16h7"/><circle cx="15.5" cy="8" r="2"/><circle cx="10.5" cy="16" r="2"/></svg>定时设置</button>${running?'<button class="button small danger" id="requery-cancel">取消任务</button>':'<button class="button small primary" id="requery-trigger" title="开始全新任务"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M7 4.5 19 12 7 19.5Z"/></svg>全新任务</button>'}`;
     const body=statusRow+`<div class="mg-tiles">${tile('进度',hasProgress?`${num(pr.processed??0)} / ${num(pr.total??0)}`:'—')}${tile('上次处理域名',lastCount===undefined||lastCount===null?'—':num(lastCount)+' 条')}${tile('上次运行',fmtDate(lastRun))}${tile('下次执行',fmtDate(s.next_run_time))}${tile('间隔',c?.scheduler?.interval_minutes?num(c.scheduler.interval_minutes)+' 分钟':'—')}</div>`;
     return {actions,body};
   }
@@ -204,7 +269,8 @@ import { cacheLimitInputSelector, cacheLimitsForm, cacheSettings, readCacheLimit
       const rq=requeryHtml(reqStatus,reqCfg);setHTML(slot, card('刷新分流缓存',rq.body,{iconName:'refresh',subtitle:'重新扫描域名并更新自动生成的分流列表',actions:rq.actions,className:'data-requery-card'}));
       $('#requery-trigger')?.addEventListener('click',async()=>{try{await api.request('/plugins/requery/trigger',{method:'POST'});toast('刷新任务已开始');renderRoute(true)}catch(e){toast('刷新任务开始失败','error',e.message);renderRoute(true)}});
       $('#requery-cancel')?.addEventListener('click',async()=>{try{await api.request('/plugins/requery/cancel',{method:'POST'});toast('已请求取消');renderRoute(true)}catch(e){toast('取消刷新任务失败','error',e.message);renderRoute(true)}});
-      $('#requery-scheduler')?.addEventListener('click',()=>openRequeryScheduler(reqCfg));
+      $('#requery-changes')?.addEventListener('click',()=>openRefreshChanges());
+  $('#requery-scheduler')?.addEventListener('click',()=>openRequeryScheduler(reqCfg));
     });
 
     countsPromise.then(counts=>{

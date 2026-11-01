@@ -1,0 +1,15 @@
+#!/sbin/openrc-run
+name="localdns-traffic"
+description="LocalDNS proxy traffic collector (Mihomo /connections -> ui/custom/traffic.json)"
+
+command="/usr/bin/python3"
+command_args="/opt/localdns-traffic/traffic_collector.py --interval 5"
+command_background="true"
+pidfile="/run/${RC_SVCNAME}.pid"
+output_log="/var/log/localdns-traffic.log"
+error_log="/var/log/localdns-traffic.log"
+
+depend() {
+    need net
+    after localdns
+}
