@@ -22,8 +22,22 @@ export const OVERVIEW_BLOCKS = [
   ['slow', '慢查询排行', '耗时最高的查询样本列表']
 ];
 
+/** 块 key → 页面内对应元素的选择器（与 overview.css 的隐藏规则保持一致）。 */
+const BLOCK_SELECTORS = {
+  shortcuts: ['.console-shortcuts', '.control-bar-card'],
+  service: ['.console-service-row', '.console-health-strip'],
+  kpi: ['.console-kpi-row', '.spark-kpi-card'],
+  topology: ['.console-topology'],
+  trend: ['.console-trend'],
+  outcomes: ['.console-donut'],
+  rankings: ['.workspace-rankings'],
+  caches: ['.overview-cache-panel'],
+  slow: ['.overview-slow-panel'],
+};
+
 const BLOCK_KEYS = new Set(OVERVIEW_BLOCKS.map(([key]) => key));
 const storageKey = () => 'localdns-overview-hidden-blocks:' + (API_BASE || location.host);
+const orderKey = () => 'localdns-overview-block-order:' + (API_BASE || location.host);
 
 /** 当前隐藏的块；始终按 OVERVIEW_BLOCKS 顺序输出，列表里的未知 key 会被过滤。 */
 export function getHiddenBlocks() {
@@ -39,18 +53,62 @@ export function setHiddenBlocks(keys) {
   storage.set(storageKey(), JSON.stringify(OVERVIEW_BLOCKS.map(([key]) => key).filter(key => unique.has(key))));
 }
 
-/** 把隐藏列表落到 #page-content 的 data-ov-hide 上，由 CSS 控制显隐。 */
+/** 当前块顺序；未自定义过时返回默认顺序，未知 key 被过滤、缺失的 key 按默认顺序补齐。 */
+export function getBlockOrder() {
+  const defaults = OVERVIEW_BLOCKS.map(([key]) => key);
+  try {
+    const raw = JSON.parse(storage.get(orderKey()) || '[]');
+    if (!Array.isArray(raw)) return defaults;
+    const seen = new Set();
+    const ordered = raw.filter(key => BLOCK_KEYS.has(key) && !seen.has(key) && (seen.add(key), true));
+    defaults.forEach(key => { if (!seen.has(key)) ordered.push(key); });
+    return ordered;
+  } catch { return defaults; }
+}
+
+export function setBlockOrder(keys) {
+  const seen = new Set();
+  const ordered = keys.filter(key => BLOCK_KEYS.has(key) && !seen.has(key) && (seen.add(key), true));
+  OVERVIEW_BLOCKS.forEach(([key]) => { if (!seen.has(key)) ordered.push(key); });
+  storage.set(orderKey(), JSON.stringify(ordered));
+}
+
+/** 把 key 指定的块上移/下移一位（dir=-1 上移，+1 下移），返回是否发生移动。 */
+export function moveBlock(key, dir) {
+  const order = getBlockOrder();
+  const idx = order.indexOf(key);
+  const next = idx + dir;
+  if (idx < 0 || next < 0 || next >= order.length) return false;
+  [order[idx], order[next]] = [order[next], order[idx]];
+  setBlockOrder(order);
+  return true;
+}
+
+/** 把隐藏列表落到 #page-content 的 data-ov-hide 上，由 CSS 控制显隐；
+ *  同时按用户自定义顺序给各块设置 CSS order（父容器为 flex column 时生效）。 */
 export function applyBlockVisibility() {
   const page = $('#page-content');
   if (!page) return;
   const hidden = getHiddenBlocks();
   const next = hidden.join(' ');
   const prev = page.dataset.ovHide || '';
-  if (prev === next) return;
-  if (next) page.dataset.ovHide = next;
-  else delete page.dataset.ovHide;
-  // 显隐变化会影响布局；概览页监听 resize 重画拓扑连线（SVG 连线按节点
-  // 真实盒模型绘制），这里补发一次让刚显示出来的拓扑立即有连线。
+  if (prev !== next) {
+    if (next) page.dataset.ovHide = next;
+    else delete page.dataset.ovHide;
+  }
+  // 排序：按用户顺序给每个块的元素设置 order。30 秒重渲染会重建 DOM，
+  // 因此每次调用都重新应用（幂等）。父容器需要 flex column 才生效。
+  page.classList.add('ov-blocks-sortable');
+  const order = getBlockOrder();
+  order.forEach((key, idx) => {
+    (BLOCK_SELECTORS[key] || []).forEach(sel => {
+      page.querySelectorAll(sel).forEach(el => {
+        el.style.order = String(idx);
+      });
+    });
+  });
+  // 显隐/排序变化会影响布局；概览页监听 resize 重画拓扑连线（SVG 连线按节点
+  // 真实盒模型绘制），这里补发一次让刚显示/移动的拓扑立即有连线。
   // 这次 resize 是自己发出的（同步分发），弹层的“窗口变化即收起”要跳过它，
   // 否则每勾选一项弹层都会被关掉。
   selfResize = true;
@@ -97,17 +155,26 @@ function positionPopover(trigger) {
 
 function popoverHtml() {
   const hidden = new Set(getHiddenBlocks());
+  const order = getBlockOrder();
+  const byKey = new Map(OVERVIEW_BLOCKS.map(b => [b[0], b]));
   return `
     <div class="ovb-head">
       <strong>自定义概览显示内容</strong>
       <button type="button" class="ovb-close" data-ovb-close aria-label="关闭">${icon('close')}</button>
     </div>
     <div class="ovb-list">
-      ${OVERVIEW_BLOCKS.map(([key, label, desc]) => `
-        <label class="ovb-item" title="${esc(desc)}">
-          <input type="checkbox" data-ovb-key="${esc(key)}" ${hidden.has(key) ? '' : 'checked'}>
-          <span class="ovb-item-text"><span>${esc(label)}</span><small>${esc(desc)}</small></span>
-        </label>`).join('')}
+      ${order.map((key, idx) => {
+        const [k, l, d] = byKey.get(key) || [key, key, ''];
+        return `
+        <div class="ovb-item" title="${esc(d)}">
+          <input type="checkbox" data-ovb-key="${esc(k)}" ${hidden.has(k) ? '' : 'checked'} aria-label="显示${esc(l)}">
+          <span class="ovb-item-text"><span>${esc(l)}</span><small>${esc(d)}</small></span>
+          <span class="ovb-move">
+            <button type="button" data-ovb-up="${esc(k)}" ${idx === 0 ? 'disabled' : ''} aria-label="上移${esc(l)}">▲</button>
+            <button type="button" data-ovb-down="${esc(k)}" ${idx === order.length - 1 ? 'disabled' : ''} aria-label="下移${esc(l)}">▼</button>
+          </span>
+        </div>`;
+      }).join('')}
     </div>
     <div class="ovb-foot">
       <button type="button" class="glass-btn ovb-reset" data-ovb-reset ${hidden.size ? '' : 'disabled'}>恢复全部显示</button>
@@ -144,6 +211,24 @@ function bindPopoverControls(pop) {
       if (reset) reset.disabled = hidden.size === 0;
     };
   });
+  // 上下移动：调整顺序后重建弹层列表（按钮禁用态会变），焦点留在被移动项的按钮上。
+  const rebindMove = (attr, dir) => {
+    $$(`[${attr}]`, pop).forEach(btn => {
+      btn.onclick = event => {
+        event.stopPropagation();
+        const key = btn.getAttribute(attr);
+        if (!moveBlock(key, dir)) return;
+        applyBlockVisibility();
+        const focusKey = attr;
+        setHTML(pop, popoverHtml());
+        bindPopoverControls(pop);
+        const next = $(`[${focusKey}="${key}"]`, pop);
+        if (next && !next.disabled) next.focus({ preventScroll: true });
+      };
+    });
+  };
+  rebindMove('data-ovb-up', -1);
+  rebindMove('data-ovb-down', 1);
   $('[data-ovb-close]', pop).onclick = () => closePopover(true);
   $('[data-ovb-reset]', pop).onclick = () => {
     setHiddenBlocks([]);

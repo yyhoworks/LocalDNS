@@ -1199,3 +1199,44 @@
 .ovb-reset { font-size: 12px; }
 .ovb-reset:disabled { opacity: 0.45; pointer-events: none; }
 .ovb-note { font-size: 11px; color: var(--text-3); }
+/* 内容块排序：#page-content 改为 flex column，各块用 inline style.order 控制顺序。
+   order 只影响视觉顺序，不改 DOM 结构，30 秒重渲染后由 applyBlockVisibility 重新应用。 */
+#page-content.ov-blocks-sortable {
+  display: flex;
+  flex-direction: column;
+}
+#page-content.ov-blocks-sortable > [style*="order"] {
+  /* 确保 order 生效的兜底：即使父级不是 flex，order 也无副作用 */
+}
+
+/* 弹层内的上下移动按钮 */
+.ovb-item .ovb-move {
+  margin-left: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex-shrink: 0;
+}
+.ovb-move button {
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--text-3);
+  font-size: 10px;
+  line-height: 1;
+  padding: 3px 6px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+.ovb-move button:hover:not(:disabled) {
+  color: var(--text-1);
+  background: rgba(148, 163, 184, 0.12);
+  border-color: var(--border-glass);
+}
+.ovb-move button:disabled {
+  opacity: 0.25;
+  cursor: not-allowed;
+}
+.ovb-move button:focus-visible {
+  outline: 2px solid var(--primary-light);
+  outline-offset: 1px;
+}
