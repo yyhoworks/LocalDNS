@@ -1,4 +1,3 @@
-import { fmtBytesBrief } from '../../shared/format/number.js';
 
 export const DAY = 86400000;
 const validDate = value => typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value) && Number.isFinite(Date.parse(value+'T00:00:00Z')) && new Date(value+'T00:00:00Z').toISOString().slice(0,10) === value;
@@ -115,4 +114,3 @@ export function trafficCSV(rows, today) {
   const lines=[['日期','下载字节','上传字节','合计字节','采集状态'],...rows.map(row=>[row.date,row.missing?'':row.down,row.missing?'':row.up,row.missing?'':byteTotal(row),row.missing?'未采集':row.date===today?'今日未结束':row.coverage==='unknown'?'覆盖未知':row.coverage==='partial'?'部分采集':'已采集'])];
   return '\uFEFF'+lines.map(line=>line.join(',')).join('\r\n')+'\r\n';
 }
-export const formatBytes = value => fmtBytesBrief(value);

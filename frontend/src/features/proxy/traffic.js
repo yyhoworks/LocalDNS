@@ -1,7 +1,7 @@
 import { setHTML } from '../../core/security/safe-dom.ts';
-import { esc } from '../../shared/format/number.js';
+import { esc, fmtBytesBrief } from '../../shared/format/number.js';
 import {
-  parseDetail, byteTotal, sumBytes, formatBytes, serverDate, freshness, rankings, rangeRows, trafficCSV,
+  parseDetail, byteTotal, sumBytes, serverDate, freshness, rankings, rangeRows, trafficCSV,
   monthKey, monthLabel, monthBounds, monthDays, monthRows, shiftMonth, hourlySeries, weekdayName,
 } from './traffic-model.js';
 
@@ -10,8 +10,8 @@ import {
 const view={month:'',selected:'',dimension:'devices'};
 const dimensions={devices:'设备',providers:'订阅',nodes:'节点'};
 const weekdays=['一','二','三','四','五','六','日'];
-const amount = value => {const parts=formatBytes(value).split(' ');return `${esc(parts[0])}<small>${esc(parts[1]||'')}</small>`;};
-const compact = value => {const [number,unit='']=formatBytes(value).split(' ');return `${number}${unit.slice(0,1)}`;};
+const amount = value => {const parts=fmtBytesBrief(value).split(' ');return `${esc(parts[0])}<small>${esc(parts[1]||'')}</small>`;};
+const compact = value => {const [number,unit='']=fmtBytesBrief(value).split(' ');return `${number}${unit.slice(0,1)}`;};
 const dayLabel = date => `${date.slice(5,7)}/${date.slice(8,10)}`;
 const empty = (title,message,action='') => `<div class="pt-empty"><strong>${esc(title)}</strong><p>${esc(message)}</p>${action}</div>`;
 
@@ -27,7 +27,7 @@ export async function mountTraffic(parent, context, onStatus=()=>{}) {
     const week=rangeRows(data,'week'),valid=week.filter(row=>!row.missing),sum=sumBytes(valid);
     const lifetime=data.lifetime;
     return `<div class="pt-kpis">
-      <div class="pt-kpi"><span class="k">今日 · ${esc(dayLabel(today))}</span><strong class="v">${current?amount(byteTotal(current)):'—'}</strong><span class="s">${current?`↓ ${esc(formatBytes(current.down))} · ↑ ${esc(formatBytes(current.up))}`:'今天还没有采集记录'}</span></div>
+      <div class="pt-kpi"><span class="k">今日 · ${esc(dayLabel(today))}</span><strong class="v">${current?amount(byteTotal(current)):'—'}</strong><span class="s">${current?`↓ ${esc(fmtBytesBrief(current.down))} · ↑ ${esc(fmtBytesBrief(current.up))}`:'今天还没有采集记录'}</span></div>
       <div class="pt-kpi"><span class="k">近 7 天 · ${valid.length} 个采集日</span><strong class="v">${valid.length?amount(byteTotal(sum)):'—'}</strong><span class="s">${valid.length?`${esc(dayLabel(valid[0].date))} — ${esc(dayLabel(valid[valid.length-1].date))}`:'尚未满一个采集周期'}</span></div>
       <div class="pt-kpi"><span class="k">累计 · 自 ${esc(data.since?dayLabel(data.since):'—')}</span><strong class="v">${lifetime?amount(byteTotal(lifetime)):'—'}</strong><span class="s">每日保留 400 天 · 分类保留 90 天</span></div>
     </div>`;
@@ -37,7 +37,7 @@ export async function mountTraffic(parent, context, onStatus=()=>{}) {
       if(cell.blank)return '<span class="pt-cal-day blank" aria-hidden="true"></span>';
       if(cell.missing)return `<span class="pt-cal-day na${cell.today?' today':''}" aria-disabled="true"><span class="d">${cell.day}</span></span>`;
       const selected=cell.date===view.selected;
-      return `<button type="button" class="pt-cal-day has${cell.today?' today':''}${selected?' sel':''}" id="pt-day-${cell.date}" data-day="${cell.date}" aria-pressed="${selected}" aria-label="${esc(`${dayLabel(cell.date)} ${weekdayName(cell.date)} · ${formatBytes(cell.total)}`)}"><span class="d">${cell.day}</span><span class="v">${esc(compact(cell.total))}</span></button>`;
+      return `<button type="button" class="pt-cal-day has${cell.today?' today':''}${selected?' sel':''}" id="pt-day-${cell.date}" data-day="${cell.date}" aria-pressed="${selected}" aria-label="${esc(`${dayLabel(cell.date)} ${weekdayName(cell.date)} · ${fmtBytesBrief(cell.total)}`)}"><span class="d">${cell.day}</span><span class="v">${esc(compact(cell.total))}</span></button>`;
     }).join('');
     const used=cells.filter(cell=>!cell.blank&&!cell.missing&&cell.date<=today);
     const sum=sumBytes(used),average=used.length?Math.round(byteTotal(sum)/used.length):0;
@@ -58,13 +58,13 @@ export async function mountTraffic(parent, context, onStatus=()=>{}) {
     const clock=value=>{const match=/(\d{2}:\d{2})/.exec(value||'');return match?match[1]:'—';};
     const coverage=day.coverage==='full'?'完整':day.coverage==='partial'?'部分采集':'未知';
     const bars=hasHours
-      ?`<div class="pt-hour-bars" role="img" aria-label="每小时代理用量合计，包含上传与下载">${hours.map(hour=>`<i class="${hour.missing?'z':''}" style="height:${Math.max(hour.missing?2:3,Math.round(hour.total/Math.max(1,peak)*100))}%" title="${hour.hour}:00${hour.missing?' · 未采集':` · ↓ ${formatBytes(hour.down)} · ↑ ${formatBytes(hour.up)}`}"></i>`).join('')}</div><div class="pt-hour-axis"><span>00</span><span>06</span><span>12</span><span>18</span><span>24</span></div>`
+      ?`<div class="pt-hour-bars" role="img" aria-label="每小时代理用量合计，包含上传与下载">${hours.map(hour=>`<i class="${hour.missing?'z':''}" style="height:${Math.max(hour.missing?2:3,Math.round(hour.total/Math.max(1,peak)*100))}%" title="${hour.hour}:00${hour.missing?' · 未采集':` · ↓ ${fmtBytesBrief(hour.down)} · ↑ ${fmtBytesBrief(hour.up)}`}"></i>`).join('')}</div><div class="pt-hour-axis"><span>00</span><span>06</span><span>12</span><span>18</span><span>24</span></div>`
       :'<p class="pt-note">这一天没有分时记录；用量仍保留在当日合计中。</p>';
     return `<div class="pt-day-date"><b>${esc(dayLabel(day.date))} ${esc(weekdayName(day.date))}</b><span class="pt-day-tag${day.date===today?'':' na'}">${esc(tag)}</span></div>
       <div class="pt-day-total">${amount(total)}</div>
-      <div class="pt-day-split"><span>下载 <b>${esc(formatBytes(day.down))}</b></span><span>上传 <b>${esc(formatBytes(day.up))}</b></span></div>
+      <div class="pt-day-split"><span>下载 <b>${esc(fmtBytesBrief(day.down))}</b></span><span>上传 <b>${esc(fmtBytesBrief(day.up))}</b></span></div>
       ${bars}
-      <div class="pt-day-meta"><span>采集时段 <b>${esc(clock(day.first))} — ${esc(clock(day.last))}</b></span><span>覆盖 <b>${esc(coverage)}</b></span><span>断点 <b>${day.gaps}</b></span>${hasHours?`<span>峰值 <b>${esc(hours.reduce((a,b)=>b.total>a.total?b:a).hour)}:00 · ${esc(formatBytes(peak))}</b></span>`:''}</div>`;
+      <div class="pt-day-meta"><span>采集时段 <b>${esc(clock(day.first))} — ${esc(clock(day.last))}</b></span><span>覆盖 <b>${esc(coverage)}</b></span><span>断点 <b>${day.gaps}</b></span>${hasHours?`<span>峰值 <b>${esc(hours.reduce((a,b)=>b.total>a.total?b:a).hour)}:00 · ${esc(fmtBytesBrief(peak))}</b></span>`:''}</div>`;
   }
   // 排行单独整宽：条目数量只影响它自己的高度，不会再把左边的日历晾在半空。
   function rankPanel() {
@@ -73,7 +73,7 @@ export async function mountTraffic(parent, context, onStatus=()=>{}) {
     if(!day)return `<section class="pt-card pt-rank-panel" aria-labelledby="pt-rank-title">${head}${empty('没有可排行的记录','选择有采集的日期后再看排行。')}</section>`;
     const total=byteTotal(day),entries=rankings(data,[day],view.dimension,50);
     const body=entries.length
-      ?`<div class="pt-mini-list">${entries.map((entry,index)=>{const percent=total?entry.total/total*100:0;return `<div class="pt-mini-row"><span class="pt-mini-index">${String(index+1).padStart(2,'0')}</span><div class="pt-mini-main"><div class="pt-mini-top"><span class="mn">${esc(entry.name)}</span><span class="mv">${esc(formatBytes(entry.total))}</span></div><div class="pt-mini-bar"><i style="width:${Math.max(2,percent).toFixed(1)}%"></i></div></div><span class="mp">${percent.toFixed(1)}%</span></div>`;}).join('')}</div>`
+      ?`<div class="pt-mini-list">${entries.map((entry,index)=>{const percent=total?entry.total/total*100:0;return `<div class="pt-mini-row"><span class="pt-mini-index">${String(index+1).padStart(2,'0')}</span><div class="pt-mini-main"><div class="pt-mini-top"><span class="mn">${esc(entry.name)}</span><span class="mv">${esc(fmtBytesBrief(entry.total))}</span></div><div class="pt-mini-bar"><i style="width:${Math.max(2,percent).toFixed(1)}%"></i></div></div><span class="mp">${percent.toFixed(1)}%</span></div>`;}).join('')}</div>`
       :empty('这一天没有分类记录','旧用量可能尚未按设备、订阅或节点分类。');
     // 「历史未分类」不是坏数据：它是记进了当天合计、但没有设备/订阅/节点归属的那部分。
     const since=String(data.dimensionsSince||'').slice(0,16).replace('T',' ');
@@ -120,7 +120,7 @@ export async function mountTraffic(parent, context, onStatus=()=>{}) {
       </div>
       ${rankPanel()}
       <p class="pt-note">各维度使用同一份用量，不重复相加。未知设备显示 IP，不按 IPv6 网段合并；未采集的日期留空，不记为零流量。</p>
-    </div></section><p class="proxy-traffic-note">${data.since?`自 ${esc(data.since)} 记录`:''}${data.lifetime?` · 累计 ${esc(formatBytes(byteTotal(data.lifetime)))}`:''} · 每日记录保留 400 天，分类记录保留 90 天。</p>`);
+    </div></section><p class="proxy-traffic-note">${data.since?`自 ${esc(data.since)} 记录`:''}${data.lifetime?` · 累计 ${esc(fmtBytesBrief(byteTotal(data.lifetime)))}`:''} · 每日记录保留 400 天，分类记录保留 90 天。</p>`);
     if(focused)parent.querySelector('#'+focused)?.focus({preventScroll:true});
   }
   async function refresh() {

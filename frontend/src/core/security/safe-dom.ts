@@ -25,7 +25,3 @@ export function insertHTML(element: Element, position: InsertPosition, value: st
     default: throw new Error('Invalid insertion position');
   }
 }
-
-export function escapeHTML(value: unknown = ''): string {
-  return String(value).replace(/[&<>"']/g, character => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[character]!);
-}
