@@ -6,7 +6,7 @@
 
 **DNS 核心主要由折腾日记交流群里的 R 大使用 Rust 编写；[yyhoworks](https://github.com/yyhoworks) 负责 UI 设计。**
 
-当前版本：**后端 FJHAI / UI 2026.11.01.2**（发行标签 `fjhai-ui-v2026.11.01.2`），见 [本次更新说明](docs/releases/fjhai-ui-v2026.11.01.2.md)。
+当前版本：**后端 FJMOS / UI 2026.11.01.3**（发行标签 `fjmos-ui-v2026.11.01.3`），见 [本次更新说明](docs/releases/fjmos-ui-v2026.11.01.3.md)。
 
 本版把概览指标区从六格改成七格：KPI 卡从 12 列栅格的直接子项改成独立的 `.console-kpi-row`，>1400px 七列一行、≤1400px 四列、≤600px 两列。新增的「代理流量」卡只统计走代理的连接（`chains[0]` 不是 `DIRECT` / `REJECT`），大数字是今日上传 + 下载合计，副行拆开显示下载与上传；数据由新增的 `services/proxy-traffic` 采集器轮询 Clash API 写入 `ui/custom/traffic.json`，没装采集器时显示「—」而不是 0。同时适配 FJMOS 内核：系统管理 → 分流刷新新增「变化报告」，按六类展示最近一次刷新的结论变化，旧内核没有该端点时给出提示。
 
