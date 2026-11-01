@@ -28,6 +28,7 @@ async function readBuiltFile(name) {
 const metadata = JSON.parse(await readBuiltFile('build-meta.json'));
 const version = JSON.parse(await readFile(path.join(root, 'VERSION.json'), 'utf8'));
 const html = await readBuiltFile('index.html');
+assert.deepEqual(JSON.parse(await readBuiltFile('version.json')), version, 'The shipped UI version must match VERSION.json.');
 assert(html.includes(`data-backend-version="${version.backendVersion}">${version.backendVersion}</span>`), 'The initial core label must match VERSION.json on direct page entry.');
 assert.equal(metadata.sourceDigest, await sourceDigest(), 'Source changed; run npm run --prefix frontend build.');
 const current = await files(output);

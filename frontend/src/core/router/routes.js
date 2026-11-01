@@ -46,8 +46,8 @@ const routeDefs = [
     label: '代理',
     icon: 'system',
     navSvg: '<rect x="3" y="4" width="18" height="6" rx="1.5"/><rect x="3" y="14" width="18" height="6" rx="1.5"/><circle cx="7" cy="7" r="1"/><circle cx="7" cy="17" r="1"/>',
-    subtitle: '管理 Mihomo / sing-box 配置，支持 HTTP 获取与保存应用',
-    keywords: ['代理', '代理配置', 'proxy', 'proxy-config']
+    subtitle: '查看代理用量与排行，管理 Mihomo / sing-box 配置',
+    keywords: ['代理', '代理配置', '代理流量', '流量统计', 'proxy', 'proxy-config']
   },
   {
     id: 'management',

@@ -207,6 +207,8 @@ def main():
         common['ui-updater/' + name] = (ROOT / 'tools' / name).read_bytes()
     common['docs/WEB_UPDATE.md'] = (ROOT / 'docs/WEB_UPDATE.md').read_bytes()
     common['docs/PROXY_CONFIG.md'] = (ROOT / 'docs/PROXY_CONFIG.md').read_bytes()
+    for name in ['traffic_collector.py', 'localdns-traffic.initd', 'localdns-traffic.service', 'install.sh', 'README.md']:
+        common['proxy-traffic/' + name] = (ROOT / 'services/proxy-traffic' / name).read_bytes()
     common['VERSION.txt'] = f"LocalDNS UI {version['uiVersion']}\nBackend {version['backendVersion']}\n".encode()
     for file in (ROOT / 'docs/licenses').rglob('*'):
         if file.is_file():

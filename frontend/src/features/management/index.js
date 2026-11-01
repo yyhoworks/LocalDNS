@@ -15,6 +15,7 @@ import { safe, safeResult } from '../../shared/async.js';
 import { parseProm } from '../../shared/metrics/prometheus.ts';
 import { parseCaches } from '../overview/model.js';
 import { icon } from '../../shared/components/icons.js';
+import { requestProxyPane } from '../proxy/selection.js';
 import { cacheLimitInputSelector, cacheLimitsForm, cacheSettings, readCacheLimits, readCacheSettings } from './cache-settings';
 
   const cacheName=t=>({cache_main:'全部缓存',cache_domestic:'国内缓存',cache_foreign:'国外缓存',cache_foreign_ecs:'国外 ECS 缓存'})[t]||t;
@@ -222,6 +223,7 @@ import { cacheLimitInputSelector, cacheLimitsForm, cacheSettings, readCacheLimit
     </div>`);
 
     $('#management-restart-button')?.addEventListener('click', restartService);
+    page.querySelector('[data-route="proxy-config"]')?.addEventListener('click',()=>requestProxyPane('config'));
     proxyPanelService?.sync();
     // 服务徽标复用本页已有的 /metrics 健康检查：初始为“状态未知”，
     // 只有后端成功响应指标时才翻为“运行中”；失败则保持未知，不写死端口。

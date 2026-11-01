@@ -5,24 +5,13 @@
 // 升级时保留）。采集器不在时返回 null，卡片显示「—」而不是 0——七格布局保持
 // 不变，用户能看出这是「没接入」而不是「今天没流量」。
 import { esc, fmtBytesBrief } from '../../shared/format/number.js';
+import { parseSummary, freshness } from '../proxy/traffic-model.js';
 
 const ENDPOINT = 'custom/traffic.json';
 
-const bytes = value => {
-  const n = Number(value);
-  return Number.isFinite(n) && n >= 0 ? n : 0;
-};
-
 /** 只接受采集器写出的结构；缺 updated 视为无效（避免把半截文件当数据）。 */
 export function parseProxyTraffic(raw) {
-  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null;
-  const today = raw.today;
-  if (!today || typeof today !== 'object' || Array.isArray(today)) return null;
-  const updated = String(raw.updated || '');
-  if (!updated) return null;
-  const down = bytes(today.down);
-  const up = bytes(today.up);
-  return { down, up, total: down + up, updated, since: String(raw.since || ''), source: String(raw.source || '') };
+  return parseSummary(raw);
 }
 
 /** 把 "12.6 GB" 拆成数字和单位，交给现有数字字体排版。 */
@@ -32,18 +21,18 @@ export function splitBytes(value) {
   return match ? { number: match[1], unit: ` ${match[2]}` } : { number: '—', unit: '' };
 }
 
-export function proxyCardView(data) {
+export function proxyCardView(data, now=Date.now()) {
   if (!data) return { value: '—', note: '未接入采集', state: 'empty', title: '未接入代理流量采集' };
+  const status=freshness(data,now);
+  if(status==='expired')return {value:'—',note:'采集已过期',state:status,title:`最后记录日期：${data.date} · 更新于 ${data.updated}`};
   const total = splitBytes(data.total);
   const down = splitBytes(data.down);
   const up = splitBytes(data.up);
-  // 卡宽只有 1/7 行宽，副行只带一个单位（取较大的那个），完整口径放 title。
-  const unit = data.down >= data.up ? down.unit : up.unit;
   return {
     value: `${total.number}${total.unit}`,
-    note: `今日 ↓${down.number} ↑${up.number}${unit}`,
-    state: 'ready',
-    title: `今日走代理：下载 ${down.number}${down.unit}，上传 ${up.number}${up.unit}（不含直连）· 采集于 ${data.updated}`,
+    note: status==='stale'?'采集中断 · 最后记录':`今日 ↓${down.number}${down.unit} ↑${up.number}${up.unit}`,
+    state: status,
+    title: `今日走代理（采样估算）：下载 ${down.number}${down.unit}，上传 ${up.number}${up.unit}（不含直连）· 采集于 ${data.updated} · 点击进入代理页`,
   };
 }
 
@@ -68,7 +57,7 @@ export function hydrateProxyCard(root, data) {
   card.dataset.state = view.state;
   card.title = view.title;
   if (value) {
-    if (data) {
+    if (data&&view.value!=='—') {
       const match = /^([\d.]+)(\s*\S+)?$/.exec(view.value) || ['', view.value, ''];
       const size = Math.min(38, 260 / Math.max(1, match[1].length));
       value.classList.add('has-display-number');

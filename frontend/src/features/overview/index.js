@@ -23,6 +23,7 @@ import { openDrawer } from '../../shared/components/drawer.js';
 import { confirmDialog } from '../../shared/components/dialog.js';
 import { cacheName } from '../management/index.js';
 import * as proxyTrafficService from './proxy-traffic.js';
+import { requestProxyPane } from '../proxy/selection.js';
 
   const cpuSample = {total:null, at:null};
 
@@ -455,7 +456,7 @@ import * as proxyTrafficService from './proxy-traffic.js';
 
       <!-- 第七张：代理流量（走代理的下载 / 上传，数据来自 ui/custom/traffic.json） -->
       <div class="col-2">
-        <div class="glass-card spark-kpi-card" data-proxy-traffic data-state="empty">
+        <div class="glass-card spark-kpi-card" data-proxy-traffic data-state="empty" role="button" tabindex="0" aria-label="查看代理流量统计">
           <div class="sk-top"><span class="sk-title">代理流量</span><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M11 3h2v9l3-3 1.4 1.4L12 15.8l-5.4-5.4L8 9l3 3V3ZM4 18h16v3H4v-3Z"/></svg></div>
           <div class="sk-bottom"><div class="sk-val tabular" data-proxy-value>—</div></div>
           <div class="sk-note" data-proxy-note>未接入采集</div>
@@ -910,6 +911,10 @@ import * as proxyTrafficService from './proxy-traffic.js';
     });
     workspaceService.topology(page,redraw,sets);
     // 代理流量是可选数据源：采集器不在时保持「—」，不阻塞概览渲染。
+    const proxyCard=page.querySelector('[data-proxy-traffic]');
+    const openProxyTraffic=()=>{requestProxyPane('traffic');navigate('proxy-config');};
+    proxyCard.addEventListener('click',openProxyTraffic);
+    proxyCard.addEventListener('keydown',event=>{if(event.key==='Enter'||event.key===' '){event.preventDefault();openProxyTraffic();}});
     proxyTrafficService.loadProxyTraffic().then(data=>{if(page.isConnected)proxyTrafficService.hydrateProxyCard(page,data);});
   }
 export { renderOverview };
