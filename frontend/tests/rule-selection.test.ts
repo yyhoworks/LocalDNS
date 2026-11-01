@@ -16,7 +16,15 @@ const features = {
   block_aaaa: true, full_cache: true, route_cache: true, client_policy: 'normal',
 };
 
+function testStorage(): Storage {
+  const values=new Map<string,string>();
+  return {get length(){return values.size;},clear:()=>values.clear(),getItem:key=>values.get(String(key))??null,
+    key:index=>[...values.keys()][index]??null,removeItem:key=>{values.delete(String(key));},setItem:(key,value)=>{values.set(String(key),String(value));}};
+}
 beforeAll(async () => {
+  // Node 25+ exposes optional native stores; isolate these browser tests.
+  vi.stubGlobal('localStorage', testStorage());
+  vi.stubGlobal('sessionStorage', testStorage());
   vi.stubGlobal('matchMedia', () => ({ matches: true, addEventListener: vi.fn() }));
   document.body.innerHTML = '<main id="page-content"></main>';
   root = document.getElementById('page-content')!;

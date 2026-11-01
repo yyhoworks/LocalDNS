@@ -1,0 +1,14 @@
+[Unit]
+Description=LocalDNS estimated proxy traffic collector
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/python3 /opt/localdns-traffic/traffic_collector.py --interval 5 --flush-interval 30
+Restart=on-failure
+RestartSec=5
+UMask=0022
+
+[Install]
+WantedBy=multi-user.target
