@@ -13,10 +13,10 @@
 .table-empty { padding: 28px !important; }
 .search-input input { padding-left: 32px !important; }
 .view-title-row>div:first-child{gap:6px 14px!important}
-.console-kpi{grid-column:span 2!important}.console-trend{grid-column:span 8!important}.console-donut{grid-column:span 4!important}
+.console-trend{grid-column:span 8!important}.console-donut{grid-column:span 4!important}
 .console-topology{grid-column:span 12!important}.console-lower{grid-column:span 4!important}
 html[data-theme=light-glass] .tn-pill,html[data-theme=light-glass] .tec-badge{color:var(--console-info)!important}html[data-theme=light-glass] .tn-val{color:var(--text-2)!important}html[data-theme=light-glass] .sk-val[style]{color:#92400E!important}.switch input:focus-visible{outline:none!important}
-@media(max-width:1400px){.console-kpi{grid-column:span 4!important}}
+@media(max-width:1400px){.console-kpi-row{grid-template-columns:repeat(4,minmax(0,1fr))!important}}
 @media(max-width:1400px){.console-lower{grid-column:span 4!important}}
 @media(max-width:1120px){.console-trend{grid-column:span 12!important}}
 @media(max-width:1120px){.console-donut{grid-column:span 12!important}}
@@ -26,7 +26,7 @@ html[data-theme=light-glass] .tn-pill,html[data-theme=light-glass] .tec-badge{co
 @media(max-width:600px){.console-search-button{display:flex!important}}
 @media(max-width:600px){.view-title-row>div:first-child{display:block!important}}
 @media(max-width:600px){.view-title-row>div:first-child>.gc-sub,.view-title-row>div:first-child>.mono{font-size:11px!important}}
-@media(max-width:600px){.console-kpi{grid-column:span 6!important}}
+@media(max-width:600px){.console-kpi-row{grid-template-columns:repeat(2,minmax(0,1fr))!important}}
 @media(max-width:600px){.console-trend .glass-card>div:nth-child(2){gap:8px!important;font-size:10px!important}}
 @media(max-width:600px){.mobile-records td{padding:0!important}}
 @media(max-width:600px){.rule-layout{height:auto!important}}
@@ -56,9 +56,9 @@ html[data-theme=light-glass] .tn-pill,html[data-theme=light-glass] .tec-badge{co
 @media(prefers-reduced-transparency:reduce){.modal,.drawer,.toast,.proxy-panel-popover,.bg-customizer-popover,.glass-btn,.glass-action-capsule{background:rgba(18,20,24,.95)!important;backdrop-filter:none!important;-webkit-backdrop-filter:none!important}}
 @media(prefers-reduced-transparency:reduce){html[data-theme=light-glass] .modal,html[data-theme=light-glass] .drawer,html[data-theme=light-glass] .toast,html[data-theme=light-glass] .proxy-panel-popover,html[data-theme=light-glass] .bg-customizer-popover,html[data-theme=light-glass] .glass-btn,html[data-theme=light-glass] .glass-action-capsule{background:rgba(250,252,255,.95)!important}}
 @media(prefers-reduced-transparency:reduce){html[data-skin="claude"] .paper-grain-layer{opacity:0!important}}
-@media(max-width:1400px){.console-service-summary .console-kpi{grid-column:span 4!important}}
-@media(min-width:1401px){.console-service-summary .console-kpi{grid-column:span 2!important}}
-@media(max-width:600px){.console-service-summary .console-kpi{grid-column:span 6!important}}
+@media(max-width:1400px){.console-service-summary .console-kpi-row{grid-template-columns:repeat(4,minmax(0,1fr))!important}}
+@media(min-width:1401px){.console-service-summary .console-kpi-row{grid-template-columns:repeat(7,minmax(0,1fr))!important}}
+@media(max-width:600px){.console-service-summary .console-kpi-row{grid-template-columns:repeat(2,minmax(0,1fr))!important}}
 .topo-stage-wrap .topo-edge.is-flow { stroke-opacity: .98 !important; }
 .topo-stage-wrap.no-particles .topo-cursor { opacity: 0 !important; }
 .topo-stage-wrap .topo-edge.is-active { stroke-opacity: .95 !important; }

@@ -299,3 +299,16 @@ html[data-theme="light-glass"] .console-restart:hover { color:#78350F; backgroun
 @media(max-width:360px) {
   .data-cache-panel[data-collection-layout=cards] { --collection-cache-columns:repeat(2,minmax(0,1fr)); }
 }
+
+/* 分流刷新变化报告（FJMOS 起）：分类按钮 + 域名表 */
+.rq-cats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin:12px 0 4px}
+.rq-cat{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:9px 11px;border:1px solid var(--border-glass);border-radius:10px;background:rgba(255,255,255,.018);color:var(--text-2);font:500 12px/1.3 var(--font-sans);cursor:pointer;transition:background .15s,border-color .15s,color .15s}
+.rq-cat span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.rq-cat strong{font:400 15px/1 var(--font-mono);font-variant-numeric:tabular-nums;color:var(--text-1);flex:none}
+.rq-cat:hover:not(:disabled){background:var(--glass-pill);color:var(--text-1)}
+.rq-cat.active{border-color:var(--border-highlight);background:var(--glass-pill-active);color:var(--text-1)}
+.rq-cat:disabled{opacity:.45;cursor:not-allowed}
+.rq-cat.active strong{color:var(--console-line)}
+#rq-cat-list{margin-top:10px;min-height:60px}
+#rq-cat-list .overview-detail-table{width:100%}
+@media(max-width:600px){.rq-cats{grid-template-columns:repeat(2,minmax(0,1fr))}}

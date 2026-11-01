@@ -136,7 +136,7 @@ export class BackendClient {
       (match[2] === 'show' ? '' : '/' + match[2]) + suffix, { ...options, method: match[2] === 'show' ? 'GET' : 'POST' });
     if (route.startsWith('/plugins/requery/')) {
       const actions: Record<string, string> = { status: 'status', trigger: 'start', cancel: 'cancel', reset: 'reset',
-        'scheduler/config': 'schedule', 'stats/source_file_counts': 'counts' };
+        'scheduler/config': 'schedule', 'stats/source_file_counts': 'counts', changes: 'changes' };
       const action = route.slice('/plugins/requery/'.length), target = actions[action];
       if (!target) throw new Error('内核不支持此刷新任务操作。');
       const method = String(options.method || 'GET').toUpperCase();
