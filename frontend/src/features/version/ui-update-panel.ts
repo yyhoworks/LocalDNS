@@ -36,13 +36,17 @@ export function createUIUpdatePanel(container: HTMLElement) {
     document.dispatchEvent(new CustomEvent('localdns-update-status', { detail: value }));
   }
   function paint() {
+    const sameCore = Boolean(latest?.backend) && latest?.backend === currentUI()?.backendVersion?.toUpperCase();
     for (const mode of modes) {
       const row = get(`[data-mode="${mode}"]`), start = row.querySelector<HTMLButtonElement>('button')!;
       const eligibility = target(mode), supported = mode === 'core' ? Boolean(client?.coreUpload) : mode === 'ui' || client?.unified;
+      const fullReinstall = mode === 'full' && sameCore && Boolean(eligibility.tag);
       start.disabled = !available || !supported || (mode === 'core' ? !selectedCore : !eligibility.tag) || busy || running() || uncertain;
-      start.textContent = mode === 'core' && uploading ? '正在上传…' : running() && task.mode === mode ? '更新中…' : mode === 'core' ? '上传并准备更新' : '升级' + names[mode];
+      start.textContent = mode === 'core' && uploading ? '正在上传…' : running() && task.mode === mode ? '更新中…' : busy && available ? '提交中…' : mode === 'core' ? '上传并准备更新' : mode === 'full' && fullReinstall ? '重装UI + 内核' : '升级' + names[mode];
       row.querySelector('[data-target]')!.textContent = mode === 'ui' ? `${currentUI()?.uiVersion || '—'} → ${latest?.version || '待检查'}` : mode === 'core' ? `当前内核：${currentUI()?.backendVersion || '—'}${running() && task.source === 'upload' && task.targetBackend ? ' → ' + task.targetBackend : ''}` : latest ? `${latest.version} / ${latest.backend}` : '检查更新后显示目标版本';
-      row.querySelector('[data-reason]')!.textContent = !supported ? '请先更新升级服务，以支持' + (mode === 'core' ? '上传内核 ZIP。' : '内核升级。') : mode === 'core' ? `上传原作者的内核 ZIP，自动选择 ${client!.coreUpload!.architecture}；保留当前 UI 和设置。下载并校验备份后才会切换，DNS 会短暂重启。` : eligibility.reason;
+      const reasonText = !supported ? '请先更新升级服务，以支持' + (mode === 'core' ? '上传内核 ZIP。' : '内核升级。') : mode === 'core' ? `上传原作者的内核 ZIP，自动选择 ${client!.coreUpload!.architecture}；保留当前 UI 和设置。下载并校验备份后才会切换，DNS 会短暂重启。` : fullReinstall ? '内核已是最新，重装覆盖相同版本；先下载备份，切换时 DNS 会短暂重启。' : eligibility.reason;
+      row.querySelector('[data-reason]')!.textContent = reasonText;
+      row.querySelector('h4')!.innerHTML = mode === 'full' && fullReinstall ? 'UI + 内核 <span class="version-tag">内核已是最新</span>' : names[mode];
     }
     coreFile.disabled = !available || !client?.coreUpload || busy || running() || uncertain;
     get('[data-core-name]').textContent = selectedCore ? `${selectedCore.name} · ${(selectedCore.size / 1048576).toFixed(1)} MB` : '尚未选择文件';
@@ -52,7 +56,7 @@ export function createUIUpdatePanel(container: HTMLElement) {
     retry.disabled = busy || reading; retry.textContent = available ? '刷新状态' : '重试连接';
     get('[data-help]').hidden = available && Boolean(client?.coreUpload);
     get('[data-connection]').textContent = available ? (client?.coreUpload ? '已连接。UI 使用 GitHub 发行版，内核可上传 ZIP；上传完成后，关闭弹窗任务仍会继续。' : client?.unified ? '已连接。当前服务支持 UI 与整套升级；更新升级服务后可上传内核 ZIP。' : '已连接旧版升级服务，目前支持 UI 单独升级。') : busy ? '正在连接服务器升级入口…' : notEnabled ? '此服务器尚未启用网页升级，请先完成一次安装。' : '升级服务连接失败，请重试。';
-    get('.version-update-progress').hidden = !uploading && (!running() || task.state === 'awaiting_backup');
+    get('.version-update-progress').hidden = !uploading && !running() && !(busy && available) || task.state === 'awaiting_backup';
     get('.version-update-result').hidden = !uploading && !task.message; get('.version-update-result').textContent = uploading ? uploadMessage : task.message || '';
     get('.version-backup').hidden = task.state !== 'awaiting_backup' || !task.backup;
     get('[data-backup-name]').textContent = task.backup ? `${task.backup.name} · ${(task.backup.bytes / 1048576).toFixed(1)} MB` : '';
