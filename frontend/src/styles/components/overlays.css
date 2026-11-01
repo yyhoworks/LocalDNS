@@ -174,3 +174,12 @@ html:has(#drawer.open) { overflow: hidden; padding-right: var(--sbw, 0px); }
   .version-upgrade-row{grid-template-columns:minmax(0,1fr);gap:10px;padding:16px 0}
   .version-upgrade-row button{width:100%}
 }
+/* 升级面板：同一时刻只有一颗主色按钮；执行中保留主色并给出旋转指示。 */
+.version-upgrade-row h4{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.version-pill{display:inline-block;font-size:10px;font-weight:500;padding:1px 8px;border-radius:8px;white-space:nowrap;vertical-align:1px}
+.version-pill[data-tone=update]{color:var(--primary-light);background:rgba(96,165,250,.14)}
+.version-pill[data-tone=live]{color:#34D399;background:rgba(16,185,129,.14)}
+.button.busy:disabled{background:var(--primary-strong);border-color:transparent;color:#fff;font-weight:600;opacity:1;cursor:progress}
+.button.busy:disabled::before{content:"";width:12px;height:12px;flex:none;border-radius:50%;border:2px solid rgba(255,255,255,.35);border-top-color:#fff;animation:version-spin .8s linear infinite}
+@keyframes version-spin{to{transform:rotate(360deg)}}
+@media(prefers-reduced-motion:reduce){.button.busy:disabled::before{animation:none}}

@@ -39,3 +39,58 @@ describe('upgrade panel recovery', () => {
     expect(container.querySelector('[data-mode="core"] [data-reason]')!.textContent).toContain('先选择');
   });
 });
+
+describe('upgrade panel primary action', () => {
+  const next = { tag: 'fjmos-ui-v2026.11.01.8', version: '2026.11.01.8', backend: 'FJMOS', packages: ['UI 升级包'] };
+  const full = { ...next, packages: ['UI 升级包', '含核心完整包'] };
+  const ready = {
+    protocol: 'localdns-updater/v2' as const, modes: ['ui', 'core', 'full'] as const, installed,
+    coreUpload: { format: 'upstream-zip' as const, maxBytes: 256 * 1048576, architecture: 'amd64-v3' },
+  };
+
+  async function mount(releaseValue: typeof next) {
+    vi.spyOn(UIUpdateClient.prototype, 'discover').mockImplementation(async function(this: UIUpdateClient) {
+      this.capabilities = { ...ready, modes: [...ready.modes] };
+    });
+    vi.spyOn(UIUpdateClient.prototype, 'status').mockResolvedValue({ state: 'idle', canRollback: false });
+    const container = document.createElement('section'); document.body.append(container);
+    const instance = createUIUpdatePanel(container); instance.setRelease(installed, releaseValue);
+    await instance.connect();
+    const start = (mode: string) => container.querySelector<HTMLButtonElement>(`[data-start="${mode}"]`)!;
+    return { container, start, picker: container.querySelector<HTMLElement>('[data-core-picker]')! };
+  }
+
+  it('keeps the release version label zero-padded', async () => {
+    const { container } = await mount(next);
+    expect(container.querySelector('[data-mode="ui"] [data-target]')!.textContent).toBe('2026.11.01.6 → 2026.11.01.8');
+  });
+
+  it('highlights the UI upgrade when only the UI has a newer release', async () => {
+    const { start, picker } = await mount(next);
+    expect(start('ui').classList.contains('primary')).toBe(true);
+    expect(start('full').classList.contains('primary')).toBe(false);
+    expect(picker.classList.contains('primary')).toBe(false);
+    expect(start('ui').disabled).toBe(false);
+  });
+
+  it('highlights the combined upgrade when the release ships a full package', async () => {
+    const { start } = await mount(full);
+    expect(start('full').classList.contains('primary')).toBe(true);
+    expect(start('ui').classList.contains('primary')).toBe(false);
+    expect(start('full').disabled).toBe(false);
+  });
+
+  it('moves the highlight to the file picker once a kernel ZIP is selected', async () => {
+    const { container, start, picker } = await mount(full);
+    const input = container.querySelector<HTMLInputElement>('[data-core-file]')!;
+    Object.defineProperty(input, 'files', { value: [new File(['zip'], 'LocalDNS_FJMOS.zip', { type: 'application/zip' })], configurable: true });
+    input.dispatchEvent(new Event('change'));
+    expect(picker.classList.contains('primary')).toBe(true);
+    expect(picker.textContent).toContain('更换内核 ZIP');
+    expect(start('core').disabled).toBe(false);
+    expect(start('core').classList.contains('primary')).toBe(false);
+    expect(start('ui').classList.contains('primary')).toBe(false);
+    expect(start('full').classList.contains('primary')).toBe(false);
+    expect(container.querySelector('[data-mode="core"] [data-pill]')!.textContent).toBe('已选择 ZIP');
+  });
+});

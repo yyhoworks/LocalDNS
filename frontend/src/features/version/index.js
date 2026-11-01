@@ -9,9 +9,14 @@ const versionService = (() => {
   const REPO = 'https://github.com/yyhoworks/LocalDNS';
   const ENDPOINT = 'https://api.github.com/repos/yyhoworks/LocalDNS/releases/latest';
   const TTL = 6 * 60 * 60 * 1000;
-  function versionParts(value) {
+  // 保留发行标签里的原始写法（2026.11.01.8）；用解析后的数字重拼会丢掉前导零。
+  function versionText(value) {
     const match = String(value || '').match(/(?:^|ui-v|^v)(\d{4}\.\d+\.\d+\.\d+)(?=$|[-+])/i);
-    return match ? match[1].split('.').map(Number) : null;
+    return match ? match[1] : '';
+  }
+  function versionParts(value) {
+    const text = versionText(value);
+    return text ? text.split('.').map(Number) : null;
   }
   function compareVersions(a, b) {
     const aa = versionParts(a), bb = versionParts(b);
@@ -24,7 +29,7 @@ const versionService = (() => {
       throw new Error('GitHub 返回的正式版信息无法识别，请稍后重试。');
     const tag = String(value.tag_name);
     const files = (Array.isArray(value.assets) ? value.assets : []).map(item => String(item.name || ''));
-    return {tag, version: versionParts(tag).join('.'),
+    return {tag, version: versionText(tag),
       backend: tag.match(/^([a-z0-9]+)-ui-v/i)?.[1]?.toUpperCase() || '',
       url: REPO + '/releases/tag/' + encodeURIComponent(tag),
       assetNames: files,
