@@ -150,7 +150,7 @@ describe('概览内容块自定义显示', () => {
     expect(document.activeElement).toBe(outside);
   });
 
-  it('恢复全部显示后焦点留在弹层内', () => {
+  it('恢复默认后焦点留在弹层内', () => {
     blocks.setHiddenBlocks(['kpi']);
     blocks.bindOverviewBlocks(page());
     trigger().click();
@@ -184,17 +184,72 @@ describe('概览内容块排序', () => {
     expect(blocks.moveBlock('slow', 1)).toBe(false);
   });
 
-  it('applyBlockVisibility 给各块设置 order', () => {
-    document.body.innerHTML = '<div id="page-content">' +
-      '<div class="console-kpi-row"></div><div class="console-topology"></div></div>';
-    blocks.setBlockOrder(['topology','kpi','shortcuts','service','trend','outcomes','rankings','caches','slow']);
+  it('applyBlockVisibility 给 #page-content 的直接子元素设置 order，不改动 grid', async () => {
+    document.body.innerHTML = '<div id="page-content" class="dashboard-12grid">' +
+      '<div class="view-title-row"></div>' +
+      '<section class="console-service-summary"><div class="console-service-row"></div><div class="console-kpi-row"></div></section>' +
+      '<div class="col-12 console-topology"></div><div class="col-8 console-trend"></div></div>';
+    blocks.setBlockOrder(['topology', 'kpi', 'shortcuts', 'service', 'trend', 'outcomes', 'rankings', 'caches', 'slow']);
     blocks.applyBlockVisibility();
-    const page = document.querySelector('#page-content') as HTMLElement;
-    expect(page.classList.contains('ov-blocks-sortable')).toBe(true);
-    const kpi = page.querySelector('.console-kpi-row') as HTMLElement;
-    const topo = page.querySelector('.console-topology') as HTMLElement;
-    expect(kpi.style.order).toBe('1');
-    expect(topo.style.order).toBe('0');
+    const p = document.querySelector('#page-content') as HTMLElement;
+    expect(p.className).toBe('dashboard-12grid');
+    expect(p.style.display).toBe('');
+    const [title, summary, topo, trend] = [...p.children] as HTMLElement[];
+    expect(title.style.order).toBe('');
+    expect(topo.style.order).toBe('1');
+    // 服务与指标卡同处一个 section，取两者中较前的序号（kpi=1 → order 2）
+    expect(summary.style.order).toBe('2');
+    expect(trend.style.order).toBe('5');
+    // 块内部元素不设 order
+    expect((p.querySelector('.console-kpi-row') as HTMLElement).style.order).toBe('');
+  });
+
+  it('shell 增强前的模板形态也能认出各块，微任务里搬移后的 DOM 会再应用一次', async () => {
+    document.body.innerHTML = '<div id="page-content">' +
+      '<div class="view-title-row"></div><div class="col-4"><div class="control-bar-card"></div></div>' +
+      '<div class="col-12"><section class="topology-glass-card"></section></div></div>';
+    blocks.setBlockOrder(['topology', 'shortcuts']);
+    blocks.applyBlockVisibility();
+    const p = document.querySelector('#page-content') as HTMLElement;
+    expect((p.children[1] as HTMLElement).style.order).toBe('2');
+    expect((p.children[2] as HTMLElement).style.order).toBe('1');
+    // 模拟 shell 增强：快捷控制条收进新建的 details，原 col-4 移除
+    const details = document.createElement('details');
+    details.className = 'console-shortcuts';
+    details.append(p.querySelector('.control-bar-card')!);
+    p.children[1].remove();
+    p.children[0].after(details);
+    await Promise.resolve();
+    expect(details.style.order).toBe('2');
+  });
+
+  it('切换到其他页面后不残留布局改动', () => {
+    blocks.applyBlockVisibility();
+    expect(page().classList.contains('ov-blocks-sortable')).toBe(false);
+    expect(page().style.display).toBe('');
+  });
+
+  it('点击条目文字即可切换显示，恢复默认同时重置显隐与顺序', () => {
+    blocks.moveBlock('slow', -1);
+    blocks.bindOverviewBlocks(page());
+    trigger().click();
+    const box = popover().querySelector<HTMLInputElement>('[data-ovb-key="trend"]')!;
+    (box.closest('label')!.querySelector('.ovb-item-text') as HTMLElement).click();
+    expect(blocks.getHiddenBlocks()).toEqual(['trend']);
+    const reset = popover().querySelector('[data-ovb-reset]') as HTMLButtonElement;
+    expect(reset.disabled).toBe(false);
+    reset.click();
+    expect(blocks.getHiddenBlocks()).toEqual([]);
+    expect(blocks.getBlockOrder()).toEqual(blocks.OVERVIEW_BLOCKS.map(([key]: string[]) => key));
+    expect((popover().querySelector('[data-ovb-reset]') as HTMLButtonElement).disabled).toBe(true);
+  });
+
+  it('移到顶端后同向按钮被禁用，焦点落到反向按钮而不是 body', () => {
+    blocks.bindOverviewBlocks(page());
+    trigger().click();
+    (popover().querySelector('[data-ovb-up="service"]') as HTMLButtonElement).click();
+    expect(blocks.getBlockOrder()[0]).toBe('service');
+    expect(document.activeElement?.getAttribute('data-ovb-down')).toBe('service');
   });
 
   it('弹层按自定义顺序渲染且首尾按钮禁用', () => {

@@ -1199,15 +1199,9 @@
 .ovb-reset { font-size: 12px; }
 .ovb-reset:disabled { opacity: 0.45; pointer-events: none; }
 .ovb-note { font-size: 11px; color: var(--text-3); }
-/* 内容块排序：#page-content 改为 flex column，各块用 inline style.order 控制顺序。
-   order 只影响视觉顺序，不改 DOM 结构，30 秒重渲染后由 applyBlockVisibility 重新应用。 */
-#page-content.ov-blocks-sortable {
-  display: flex;
-  flex-direction: column;
-}
-#page-content.ov-blocks-sortable > [style*="order"] {
-  /* 确保 order 生效的兜底：即使父级不是 flex，order 也无副作用 */
-}
+/* 内容块排序：#page-content 本身是 12 栏 grid，各直接子元素用 inline style.order
+   控制顺序（见 blocks.js 的 applyBlockOrder），不改动 display。 */
+.ovb-item-main { display: flex; align-items: flex-start; gap: 10px; flex: 1; min-width: 0; cursor: pointer; }
 
 /* 弹层内的上下移动按钮 */
 .ovb-item .ovb-move {
@@ -1237,6 +1231,5 @@
   cursor: not-allowed;
 }
 .ovb-move button:focus-visible {
-  outline: 2px solid var(--primary-light);
   outline-offset: 1px;
 }
