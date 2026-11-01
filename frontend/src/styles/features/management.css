@@ -312,3 +312,9 @@ html[data-theme="light-glass"] .console-restart:hover { color:#78350F; backgroun
 #rq-cat-list{margin-top:10px;min-height:60px}
 #rq-cat-list .overview-detail-table{width:100%}
 @media(max-width:600px){.rq-cats{grid-template-columns:repeat(2,minmax(0,1fr))}}
+/* GitHub 访问：令牌只存在本浏览器，用于「检查更新」按账号额度请求。 */
+.github-access-row{align-items:center;flex-wrap:wrap}
+.github-access-row input{flex:1 1 260px;min-width:0;font-family:var(--font-mono)}
+.github-access-status{margin-top:10px;overflow-wrap:anywhere}
+.github-access-status.is-error{color:var(--red)}
+@media(max-width:600px){.github-access-row .button{flex:1 1 auto;justify-content:center}}
