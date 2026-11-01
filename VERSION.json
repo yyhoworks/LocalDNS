@@ -1,10 +1,10 @@
 {
   "product": "LocalDNS",
-  "uiVersion": "2026.11.01.4",
+  "uiVersion": "2026.11.01.5",
   "backendVersion": "FJMOS",
-  "releaseTag": "fjmos-ui-v2026.11.01.4",
+  "releaseTag": "fjmos-ui-v2026.11.01.5",
   "channel": "stable",
-  "builtAt": "2026-11-01T16:22:19+08:00",
+  "builtAt": "2026-11-01T17:20:09+08:00",
   "updateCompatibility": {
     "schema": 1,
     "apiFamily": "localdns-v1",
