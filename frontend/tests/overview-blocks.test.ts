@@ -104,4 +104,58 @@ describe('概览内容块自定义显示', () => {
     expect(trigger().getAttribute('aria-expanded')).toBe('true');
     expect(popover().hidden).toBe(false);
   });
+  it('连续勾选时弹层保持打开（显隐切换自己发出的 resize 不会收起弹层）', () => {
+    blocks.bindOverviewBlocks(page());
+    trigger().click();
+    for (const key of ['topology', 'trend', 'slow']) {
+      const box = popover().querySelector<HTMLInputElement>(`[data-ovb-key="${key}"]`)!;
+      box.checked = false;
+      box.dispatchEvent(new Event('change'));
+      expect(popover().hidden).toBe(false);
+    }
+    expect(blocks.getHiddenBlocks()).toEqual(['topology', 'trend', 'slow']);
+    window.dispatchEvent(new Event('resize'));
+    expect(popover().hidden).toBe(true);
+  });
+
+  it('弹层内部滚动不收起，页面滚动才收起', () => {
+    blocks.bindOverviewBlocks(page());
+    trigger().click();
+    popover().querySelector('.ovb-list')!.dispatchEvent(new Event('scroll'));
+    popover().dispatchEvent(new Event('scroll'));
+    expect(popover().hidden).toBe(false);
+    page().dispatchEvent(new Event('scroll'));
+    expect(popover().hidden).toBe(true);
+  });
+
+  it('打开时焦点进入弹层，Esc 与关闭按钮把焦点还给触发按钮，点击外部不抢焦点', () => {
+    blocks.bindOverviewBlocks(page());
+    trigger().focus();
+    trigger().click();
+    expect(document.activeElement).toBe(popover().querySelector('[data-ovb-key]'));
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
+    expect(document.activeElement).toBe(trigger());
+
+    trigger().click();
+    (popover().querySelector('[data-ovb-close]') as HTMLButtonElement).click();
+    expect(popover().hidden).toBe(true);
+    expect(document.activeElement).toBe(trigger());
+
+    trigger().click();
+    const outside = document.createElement('button');
+    document.body.append(outside);
+    outside.focus();
+    outside.click();
+    expect(popover().hidden).toBe(true);
+    expect(document.activeElement).toBe(outside);
+  });
+
+  it('恢复全部显示后焦点留在弹层内', () => {
+    blocks.setHiddenBlocks(['kpi']);
+    blocks.bindOverviewBlocks(page());
+    trigger().click();
+    (popover().querySelector('[data-ovb-reset]') as HTMLButtonElement).click();
+    expect(popover().contains(document.activeElement)).toBe(true);
+    expect(popover().hidden).toBe(false);
+  });
 });

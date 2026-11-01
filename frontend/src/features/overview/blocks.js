@@ -51,10 +51,14 @@ export function applyBlockVisibility() {
   else delete page.dataset.ovHide;
   // 显隐变化会影响布局；概览页监听 resize 重画拓扑连线（SVG 连线按节点
   // 真实盒模型绘制），这里补发一次让刚显示出来的拓扑立即有连线。
-  window.dispatchEvent(new Event('resize'));
+  // 这次 resize 是自己发出的（同步分发），弹层的“窗口变化即收起”要跳过它，
+  // 否则每勾选一项弹层都会被关掉。
+  selfResize = true;
+  try { window.dispatchEvent(new Event('resize')); } finally { selfResize = false; }
 }
 
 let popover = null;
+let selfResize = false;
 
 function ensurePopover() {
   if (popover?.isConnected) return popover;
@@ -69,10 +73,18 @@ function ensurePopover() {
   return popover;
 }
 
-function closePopover() {
+/** returnFocus：经由键盘或关闭按钮收起时把焦点还给触发按钮；点击外部收起时不抢焦点。 */
+function closePopover(returnFocus = false) {
   if (!popover || popover.hidden) return;
+  const hadFocus = popover.contains(document.activeElement);
   popover.hidden = true;
-  document.querySelector('[data-ovb-trigger]')?.setAttribute('aria-expanded', 'false');
+  const trigger = /** @type {HTMLElement|null} */ (document.querySelector('[data-ovb-trigger]'));
+  trigger?.setAttribute('aria-expanded', 'false');
+  if (returnFocus && hadFocus) trigger?.focus({ preventScroll: true });
+}
+
+function focusFirstControl(pop) {
+  /** @type {HTMLElement|null} */ ($('[data-ovb-key]', pop))?.focus({ preventScroll: true });
 }
 
 function positionPopover(trigger) {
@@ -116,6 +128,8 @@ function openPopover(trigger) {
   }
   pop.hidden = false;
   trigger.setAttribute('aria-expanded', 'true');
+  // 弹层挂在 body 末尾，不移焦点的话键盘要 Tab 穿过整页才能到达。
+  focusFirstControl(pop);
 }
 
 function bindPopoverControls(pop) {
@@ -130,12 +144,14 @@ function bindPopoverControls(pop) {
       if (reset) reset.disabled = hidden.size === 0;
     };
   });
-  $('[data-ovb-close]', pop).onclick = closePopover;
+  $('[data-ovb-close]', pop).onclick = () => closePopover(true);
   $('[data-ovb-reset]', pop).onclick = () => {
     setHiddenBlocks([]);
     applyBlockVisibility();
     setHTML(pop, popoverHtml());
     bindPopoverControls(pop);
+    // 重建后原按钮已移除（且已禁用），焦点落回第一项，避免掉到 body。
+    focusFirstControl(pop);
   };
 }
 
@@ -150,11 +166,15 @@ function bindGlobalListeners() {
     closePopover();
   }, true);
   document.addEventListener('keydown', event => {
-    if (event.key === 'Escape' && popover && !popover.hidden) { event.stopPropagation(); closePopover(); }
+    if (event.key === 'Escape' && popover && !popover.hidden) { event.stopPropagation(); closePopover(true); }
   });
-  // 滚动或调整窗口后触发按钮的定位不再可靠，直接收起。
-  window.addEventListener('scroll', () => closePopover(), true);
-  window.addEventListener('resize', () => closePopover());
+  // 页面滚动或窗口变化后触发按钮的定位不再可靠，直接收起；
+  // 弹层自身列表的滚动（overflow:auto）与显隐切换自己发出的 resize 除外。
+  window.addEventListener('scroll', event => {
+    if (popover && event.target instanceof Node && popover.contains(event.target)) return;
+    closePopover();
+  }, true);
+  window.addEventListener('resize', () => { if (!selfResize) closePopover(); });
 }
 
 /**
