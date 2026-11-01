@@ -17,6 +17,9 @@ import { parseCaches } from '../overview/model.js';
 import { icon } from '../../shared/components/icons.js';
 import { requestProxyPane } from '../proxy/selection.js';
 import { cacheLimitInputSelector, cacheLimitsForm, cacheSettings, readCacheLimits, readCacheSettings } from './cache-settings';
+import { preferences } from '../../core/persistence/preferences';
+import { assetHttp } from '../../core/api/network.ts';
+import { clearGithubToken, maskToken, RATE_LIMIT_ENDPOINT, readGithubToken, RELEASE_RETRY_KEY, saveGithubToken, tokenProblem } from '../version/github-token';
 
   const cacheName=t=>({cache_main:'全部缓存',cache_domestic:'国内缓存',cache_foreign:'国外缓存',cache_foreign_ecs:'国外 ECS 缓存'})[t]||t;
 
@@ -178,6 +181,70 @@ import { cacheLimitInputSelector, cacheLimitsForm, cacheSettings, readCacheLimit
     {tag:'switch2',name:'指定 Client FakeIP',desc:'只允许指定客户端科学'}, {tag:'switch12',name:'指定 Client RealIP',desc:'指定客户端不允许科学'}
   ];
 
+  // GitHub 访问：只影响「检查更新」这一条浏览器请求。匿名按出口 IP 每小时 60 次，
+  // 填入用户自己的令牌后按该账号额度计算。令牌只存本浏览器，不写服务器配置。
+  let githubQuota = null, githubMessage = '';
+
+  function githubAccessHtml() {
+    const token = readGithubToken(), has = Boolean(token);
+    const actions = `${has ? '<span class="badge success">已设置</span>' : '<span class="badge">未设置</span>'}${has ? '<button class="button small danger" id="github-token-clear">清除令牌</button>' : ''}`;
+    const quota = has && githubQuota && githubQuota.limit
+      ? ` 最近一次校验：剩余 ${num(githubQuota.remaining)} / ${num(githubQuota.limit)} 次每小时。` : '';
+    const status = githubMessage || (has
+      ? `已设置令牌 ${maskToken(token)}：检查更新时按你的账号额度请求。${quota}`
+      : '未设置令牌：匿名请求按出口 IP 每小时 60 次，多台设备共用同一出口时更容易触发限流。');
+    const body = `<div class="github-access">
+      <div class="settings-refresh-row github-access-row">
+        <input type="password" id="github-token-input" autocomplete="off" spellcheck="false" placeholder="${has ? '已保存令牌，粘贴新令牌可替换' : '粘贴 GitHub 令牌'}" aria-label="GitHub 访问令牌">
+        <button type="button" class="button primary" id="github-token-save">保存并校验</button>
+        <a class="button" href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noopener noreferrer">创建令牌</a>
+      </div>
+      <p class="form-note github-access-status${githubMessage ? ' is-error' : ''}" id="github-token-status" role="status">${esc(status)}</p>
+      <p class="form-note">令牌只保存在本浏览器，只发送给 api.github.com；不会写入服务器配置，也不随升级包分发。建议创建不授予任何权限的 fine-grained token：公开仓库的发行信息不需要任何权限。</p>
+    </div>`;
+    return card('GitHub 访问', body, {iconName:'system',subtitle:'检查更新时读取 GitHub 正式发行版，可填入自己的令牌避免匿名限流',actions,className:'github-access-card'});
+  }
+
+  function paintGithubSlot() {
+    const slot = $('#management-github-slot');
+    if (!slot) return;
+    setHTML(slot, githubAccessHtml());
+    $('#github-token-save')?.addEventListener('click', saveGithubAccess);
+    $('#github-token-clear')?.addEventListener('click', clearGithubAccess);
+    $('#github-token-input')?.addEventListener('keydown', event => {
+      if (event.key === 'Enter') { event.preventDefault(); saveGithubAccess(); }
+    });
+  }
+
+  async function saveGithubAccess() {
+    const input = $('#github-token-input'), button = $('#github-token-save');
+    if (!input || !button || button.disabled) return;
+    const value = input.value, problem = tokenProblem(value);
+    if (problem) { githubMessage = problem; paintGithubSlot(); return; }
+    button.disabled = true; button.textContent = '校验中…';
+    try {
+      const response = await assetHttp.fetch(RATE_LIMIT_ENDPOINT, {cache:'no-store',credentials:'omit',headers:{Accept:'application/json',Authorization:'Bearer '+value.trim()}});
+      if (response.status === 401) { githubMessage = 'GitHub 判定令牌无效或已过期（401），未保存。'; return; }
+      if (!response.ok) { githubMessage = `校验令牌失败（HTTP ${response.status}），未保存。`; return; }
+      const body = await response.json().catch(() => null);
+      try { saveGithubToken(value.trim()); }
+      catch { githubMessage = '浏览器未能保存令牌，本次修改不会在刷新后保留。'; return; }
+      githubMessage = '';
+      githubQuota = {limit:Number(body?.resources?.core?.limit)||0,remaining:Number(body?.resources?.core?.remaining)||0};
+      // 令牌自带额度：匿名请求留下的等待时间不再适用，清掉让「检查更新」立刻能重试。
+      try { preferences.removeItem(RELEASE_RETRY_KEY); } catch {}
+      toast('GitHub 访问令牌已保存');
+    } catch { githubMessage = '无法连接 GitHub 或校验超时，请检查网络后重试。'; }
+    finally { paintGithubSlot(); }
+  }
+
+  function clearGithubAccess() {
+    clearGithubToken();
+    githubMessage = ''; githubQuota = null;
+    paintGithubSlot();
+    toast('GitHub 访问令牌已清除');
+  }
+
   async function renderManagement(container, context){
  const renderScope = context.scope, page = container;
 
@@ -216,6 +283,7 @@ import { cacheLimitInputSelector, cacheLimitsForm, cacheSettings, readCacheLimit
       </div>
       <div id="management-cache-slot" style="display:contents">${card('缓存管理',skeletonBlock(130),{iconName:'data',className:'data-cache-panel'})}</div>
       <div id="management-feature-slot" style="display:contents">${card('功能开关',skeletonBlock(300),{iconName:'features',subtitle:'常用运行功能集中管理',className:'management-feature-panel'})}</div>
+      <div id="management-github-slot" style="display:contents"></div>
       <div class="management-bottom">
         <div id="management-counts-slot" style="display:contents">${card('域名列表统计',skeletonBlock(150),{iconName:'rules',subtitle:'查看自动分流列表的当前条目数',className:'data-counts-card'})}</div>
         <div id="management-requery-slot" style="display:contents">${card('刷新分流缓存',skeletonBlock(270),{iconName:'refresh',subtitle:'重新扫描域名并更新自动生成的分流列表',className:'data-requery-card'})}</div>
@@ -225,6 +293,7 @@ import { cacheLimitInputSelector, cacheLimitsForm, cacheSettings, readCacheLimit
     $('#management-restart-button')?.addEventListener('click', restartService);
     page.querySelector('[data-route="proxy-config"]')?.addEventListener('click',()=>requestProxyPane('config'));
     proxyPanelService?.sync();
+    paintGithubSlot();
     // 服务徽标复用本页已有的 /metrics 健康检查：初始为“状态未知”，
     // 只有后端成功响应指标时才翻为“运行中”；失败则保持未知，不写死端口。
     const serviceBadge=page.querySelector('.service-card-badge');
@@ -288,4 +357,4 @@ import { cacheLimitInputSelector, cacheLimitsForm, cacheSettings, readCacheLimit
 
   async function restartService(){if(!await confirmDialog({message:`确定重启 ${identityService?.getName()||'LocalDNS'}？短时间内 DNS 服务会中断。`,danger:true}))return;const scope=currentScope();try{await api.json('/api/v1/system/restart','POST',{delay_ms:500});}catch(e){if(scope.signal.aborted)return;toast('重启服务失败','error',e.message);renderRoute(true);return;}if(scope.signal.aborted)return;toast((identityService?.getName()||'LocalDNS')+' 正在重启');scope.timeout(()=>renderRoute(true),4000);}
 
-export { cacheName, requeryHtml, openRequeryScheduler, countsHtml, multiPluginAction, clearShuntData, switchProfiles, renderManagement, restartService };
+export { cacheName, requeryHtml, openRequeryScheduler, countsHtml, multiPluginAction, clearShuntData, switchProfiles, renderManagement, restartService, githubAccessHtml };
