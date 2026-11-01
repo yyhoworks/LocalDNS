@@ -41,6 +41,8 @@ export function createUIUpdatePanel(container: HTMLElement) {
       const row = get(`[data-mode="${mode}"]`), start = row.querySelector<HTMLButtonElement>('button')!;
       const eligibility = target(mode), supported = mode === 'core' ? Boolean(client?.coreUpload) : mode === 'ui' || client?.unified;
       const fullReinstall = mode === 'full' && sameCore && Boolean(eligibility.tag);
+      // 方案A「条件显示」：没有更高版本的 UI 时整行不出现，而不是留一个禁用按钮。
+      row.hidden = mode === 'ui' && available && Boolean(latest) && !eligibility.tag && !running();
       start.disabled = !available || !supported || (mode === 'core' ? !selectedCore : !eligibility.tag) || busy || running() || uncertain;
       start.textContent = mode === 'core' && uploading ? '正在上传…' : running() && task.mode === mode ? '更新中…' : busy && available ? '提交中…' : mode === 'core' ? '上传并准备更新' : mode === 'full' && fullReinstall ? '重装UI + 内核' : '升级' + names[mode];
       row.querySelector('[data-target]')!.textContent = mode === 'ui' ? `${currentUI()?.uiVersion || '—'} → ${latest?.version || '待检查'}` : mode === 'core' ? `当前内核：${currentUI()?.backendVersion || '—'}${running() && task.source === 'upload' && task.targetBackend ? ' → ' + task.targetBackend : ''}` : latest ? `${latest.version} / ${latest.backend}` : '检查更新后显示目标版本';

@@ -85,6 +85,10 @@ def main(argv=None):
         config = dict(protocol='localdns-updater/v2', installDir=args.dir, stateDir='/var/lib/localdns-updater',
                       listenHost=args.listen, port=args.port, allowedOrigins=origins,
                       allowedHosts=[urlsplit(x).hostname for x in origins] + [address.hostname, '127.0.0.1', 'localhost'])
+        # Reinstalling must not silently downgrade an explicitly chosen CPU
+        # baseline (amd64-v3 -> amd64-v1) when the installer auto-detects.
+        if existing.get('architecture'):
+            config['architecture'] = existing['architecture']
         installer.atomic_json(config_path, config)
         for relative, contents in service_files().items():
             file = stage / relative if stage else Path('/') / relative
