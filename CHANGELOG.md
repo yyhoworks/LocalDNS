@@ -1,5 +1,14 @@
 # LocalDNS 更新记录
 
+## 2026.11.01.3 — 内核升级到 FJMOS
+
+- **内核**：`/opt/localdns/bin/localdns` 从 FJHAI 换成 FJMOS（`localdns-amd64-v3`，SHA-256 `b9bf3927…1293`）。只替换可执行文件，`config`、`rules/manual`、订阅与别名原样保留；旧二进制另存为 `bin/localdns.fjhai-<时间戳>`，回滚换回文件即可。
+- **验证**：`/api/v1/status` 返回 `FJMOS`；`www.baidu.com`、`github.com` 解析正常；`/api/v1/features` 与升级前一致（`client_policy: listed_proxy_only`）。
+- **变化报告**：FJMOS 的 `/api/v1/route-refresh/changes` 已可用，内核尚未跑过刷新时返回 `{"summary":null}`，界面显示「还没有运行记录」。
+- **版本元数据**：`VERSION.json` 的 `backendVersion` 改为 FJMOS，`uiVersion` 2026.11.01.3，标签 `fjmos-ui-v2026.11.01.3`。
+- **部署教训**：手动覆盖 `ui/` 会连带覆盖 `ui/config.js`，而升级服务地址（`localdns-ui-updater` 标记块）是安装脚本追加在这个文件里的。本版部署脚本已补回该块并复核，「在线升级」恢复「已连接」。
+- UI 资源内容与 2026.11.01.2 相同，见上一条。
+
 ## 2026.11.01.2 — 概览七格指标 + 代理流量卡，适配 FJMOS
 
 - **概览七格**：KPI 卡从「6 张 × span 2」改成独立的 `.console-kpi-row` 七列栅格，新增第 7 张「代理流量」。行内卡片不再受 12 列栅格的 `span` 约束：>1400px 七列一行，≤1400px 四列，≤600px 两列。
