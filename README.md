@@ -6,7 +6,7 @@
 
 **DNS 核心主要由折腾日记交流群里的 R 大使用 Rust 编写；[yyhoworks](https://github.com/yyhoworks) 负责 UI 设计。**
 
-当前版本：**后端 FJMOS / UI 2026.11.01.4**（发行标签 `fjmos-ui-v2026.11.01.4`），见 [本次更新说明](docs/releases/fjmos-ui-v2026.11.01.4.md)。
+当前版本：**后端 FJMOS / UI 2026.11.01.7**（发行标签 `fjmos-ui-v2026.11.01.7`），见 [本次更新说明](docs/releases/fjmos-ui-v2026.11.01.7.md)。
 
 点击概览的「代理流量」直接进入代理页。代理页分为「流量统计 / 配置管理」：统计包含用量趋势、设备/订阅/节点排行、每日明细及 CSV 导出；配置管理保留现有编辑、检查与应用流程。用量是采样估算，未采集日期留空，旧数据过期时明确提示。采集器升级保留原有用量，安装方式和精度边界见 [采集服务说明](services/proxy-traffic/README.md)。
 
@@ -170,7 +170,7 @@ curl -fsSL https://raw.githubusercontent.com/yyhoworks/LocalDNS/main/tools/insta
 
 ## 手动安装
 
-1. 在 [Releases](https://github.com/yyhoworks/LocalDNS/releases/tag/fjhai-ui-v2026.11.01.1) 下载完整包或 UI 升级包，并核对同页的 `SHA256SUMS.txt`。**从旧核心升级 FJHAI 请使用完整包和迁移工具，先备份并保留原设置；UI 升级包只更新界面。**
+1. 在 [Releases](https://github.com/yyhoworks/LocalDNS/releases/latest) 下载完整包或 UI 升级包，并核对同页的 `SHA256SUMS.txt`。**从旧核心升级请使用完整包和迁移工具，先备份并保留原设置；UI 升级包只更新界面。内核也可在安装新版独立升级服务后，直接上传原作者 ZIP 更新。**
 2. 已有 LocalDNS 服务时，解压 UI 升级包并运行：
 
    ```sh

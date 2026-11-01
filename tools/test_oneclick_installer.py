@@ -10,6 +10,7 @@ import stat
 import struct
 import tempfile
 import unittest
+from urllib.error import HTTPError
 from pathlib import Path
 from unittest.mock import patch
 from zipfile import ZipFile, ZipInfo
@@ -243,6 +244,61 @@ class InstallerTests(unittest.TestCase):
         pinned = re.search(r'^ENGINE_SHA256=([a-f0-9]{64})$', script, re.M)
         self.assertIsNotNone(pinned)
         self.assertEqual(pinned.group(1), hashlib.sha256((ROOT / 'tools/install_localdns.py').read_bytes()).hexdigest())
+
+    def release_fetch(self, corrupt=False):
+        def fetch(url, destination=None):
+            if url.startswith(installer.API):
+                raise installer.GitHubRateLimitError('fixture API rate limit')
+            self.assertTrue(url.startswith(installer.REPO + '/releases/download/fjgac-ui-v2026.10.19.5/'))
+            data = (self.packages / url.rsplit('/', 1)[1]).read_bytes()
+            destination.write_bytes(data + (b'corrupt' if corrupt and url.endswith('.zip') else b''))
+        return fetch
+
+    def test_known_tag_uses_release_downloads_when_api_is_rate_limited(self):
+        work = self.base / 'download'; work.mkdir()
+        with patch.object(installer, 'fetch', side_effect=self.release_fetch()) as fetch:
+            packages = installer.Packages(work, 'fjgac-ui-v2026.10.19.5')
+            extracted, metadata = packages.get('ui')
+        self.assertEqual(metadata['uiVersion'], VERSION['uiVersion'])
+        self.assertEqual((extracted / 'ui/index.html').read_bytes(), self.ui['index.html'])
+        self.assertEqual(fetch.call_count, 3)
+
+    def test_rate_limit_fallback_still_rejects_corrupt_archives_and_unsafe_manifests(self):
+        work = self.base / 'download'; work.mkdir()
+        with patch.object(installer, 'fetch', side_effect=self.release_fetch(corrupt=True)):
+            packages = installer.Packages(work, 'fjgac-ui-v2026.10.19.5')
+            with self.assertRaisesRegex(installer.InstallError, 'SHA-256'):
+                packages.get('ui')
+        (self.packages / 'SHA256SUMS.txt').write_text('a' * 64 + '  ../evil.zip\n')
+        with patch.object(installer, 'fetch', side_effect=self.release_fetch()):
+            with self.assertRaises(installer.InstallError):
+                installer.Packages(work, 'fjgac-ui-v2026.10.19.5')
+
+    def test_latest_and_prerelease_tags_do_not_guess_a_release_during_rate_limit(self):
+        for tag in [None, 'fjgac-ui-v2026.10.19.5-beta', 'main']:
+            with self.subTest(tag=tag), patch.object(installer, 'fetch', side_effect=installer.GitHubRateLimitError('limited')) as fetch:
+                with self.assertRaises(installer.GitHubRateLimitError):
+                    installer.Packages(self.base, tag)
+                self.assertEqual(fetch.call_count, 1)
+
+    def test_permission_failure_does_not_trigger_rate_limit_fallback(self):
+        with patch.object(installer, 'fetch', side_effect=installer.InstallError('HTTP 403')) as fetch:
+            with self.assertRaisesRegex(installer.InstallError, 'HTTP 403'):
+                installer.Packages(self.base, 'fjgac-ui-v2026.10.19.5')
+            self.assertEqual(fetch.call_count, 1)
+
+    def test_fetch_explains_rate_limit_reset_but_not_every_forbidden_response(self):
+        url = installer.API + 'latest'
+        for code, headers, body, expected in [
+                (403, {'X-RateLimit-Remaining': '0', 'X-RateLimit-Reset': '1793538000'}, b'{}', installer.GitHubRateLimitError),
+                (429, {'Retry-After': '120'}, b'{}', installer.GitHubRateLimitError),
+                (403, {}, b'{"message":"API rate limit exceeded"}', installer.GitHubRateLimitError),
+                (403, {}, b'{"message":"Forbidden"}', installer.InstallError)]:
+            with self.subTest(code=code, headers=headers), patch.object(installer, 'build_opener') as build:
+                build.return_value.open.side_effect = HTTPError(url, code, 'fixture', headers, io.BytesIO(body))
+                with self.assertRaises(expected) as caught:
+                    installer.fetch(url)
+                self.assertIs(type(caught.exception), expected)
 
 
 if __name__ == '__main__':
