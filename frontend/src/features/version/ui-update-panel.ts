@@ -6,7 +6,7 @@ import { confirmDialog } from '../../shared/components/dialog.js';
 export function createUIUpdatePanel(container: HTMLElement) {
   const modes: UpdateMode[] = ['ui', 'core', 'full'], names = { ui: 'UI', core: '内核', full: 'UI + 内核' };
   setHTML(container, `<h3>在线升级</h3><p class="version-note" data-connection>正在连接服务器升级入口…</p>
-    <div class="version-upgrade-choices">${modes.map(mode => `<div class="version-upgrade-row" data-mode="${mode}"><div><h4>${names[mode]}</h4><p class="version-note" data-target></p><p class="version-note" data-reason></p>${mode === 'core' ? '<p class="version-note" data-core-name role="status">尚未选择文件</p>' : ''}</div><div class="version-upgrade-controls">${mode === 'core' ? '<label class="button version-file-label">选择内核 ZIP<input type="file" accept=".zip,application/zip" aria-label="选择原作者内核 ZIP" data-core-file disabled></label>' : ''}<button class="button${mode === 'full' ? ' primary' : ''}" type="button" data-start="${mode}" disabled>${mode === 'core' ? '上传并准备更新' : '升级' + names[mode]}</button></div></div>`).join('')}</div>
+    <div class="version-upgrade-choices">${modes.map(mode => `<div class="version-upgrade-row" data-mode="${mode}"><div><h4>${names[mode]}<span class="version-pill" data-pill hidden></span></h4><p class="version-note" data-target></p><p class="version-note" data-reason></p>${mode === 'core' ? '<p class="version-note" data-core-name role="status">尚未选择文件</p>' : ''}</div><div class="version-upgrade-controls">${mode === 'core' ? '<label class="button version-file-label" data-core-picker><span data-core-picker-text>选择内核 ZIP</span><input type="file" accept=".zip,application/zip" aria-label="选择原作者内核 ZIP" data-core-file disabled></label>' : ''}<button class="button" type="button" data-start="${mode}" disabled>${mode === 'core' ? '上传并准备更新' : '升级' + names[mode]}</button></div></div>`).join('')}</div>
     <div class="version-update-progress" hidden><progress aria-label="升级正在进行"></progress></div>
     <p class="version-update-result" role="status" aria-live="polite" hidden></p>
     <section class="version-backup" aria-label="下载并校验本机备份" hidden><h4>先保存完整备份</h4>
@@ -37,21 +37,36 @@ export function createUIUpdatePanel(container: HTMLElement) {
   }
   function paint() {
     const sameCore = Boolean(latest?.backend) && latest?.backend === currentUI()?.backendVersion?.toUpperCase();
+    // 同一时刻只留一颗蓝按钮：已选内核 ZIP > 完整包 > 只有 UI 更新。
+    const idle = available && !busy && !running() && !uncertain;
+    const blue = !idle ? '' : selectedCore && client?.coreUpload ? 'core' : target('full').tag ? 'full' : target('ui').tag ? 'ui' : '';
     for (const mode of modes) {
-      const row = get(`[data-mode="${mode}"]`), start = row.querySelector<HTMLButtonElement>('button')!;
+      const row = get(`[data-mode="${mode}"]`), start = row.querySelector<HTMLButtonElement>('[data-start]')!;
       const eligibility = target(mode), supported = mode === 'core' ? Boolean(client?.coreUpload) : mode === 'ui' || client?.unified;
       const fullReinstall = mode === 'full' && sameCore && Boolean(eligibility.tag);
+      const busyRow = running() && task.mode === mode;
       // 方案A「条件显示」：没有更高版本的 UI 时整行不出现，而不是留一个禁用按钮。
       row.hidden = mode === 'ui' && Boolean(latest) && eligibility.reason === '暂无比当前 UI 更新的正式版。' && !running();
       start.disabled = !available || !supported || (mode === 'core' ? !selectedCore : !eligibility.tag) || busy || running() || uncertain;
-      start.classList.toggle('primary', mode === 'full' && !start.disabled);
-      start.textContent = mode === 'core' && uploading ? '正在上传…' : running() && task.mode === mode ? '更新中…' : busy && available ? '提交中…' : mode === 'core' ? '上传并准备更新' : mode === 'full' && fullReinstall ? '重装UI + 内核' : '升级' + names[mode];
+      start.classList.toggle('primary', mode !== 'core' && blue === mode);
+      // 执行中保留主色并加旋转指示，不再落到 :disabled 的 46% 透明度。
+      start.classList.toggle('busy', busyRow);
+      if (busyRow) start.setAttribute('aria-busy', 'true'); else start.removeAttribute('aria-busy');
+      start.textContent = mode === 'core' && uploading ? '正在上传…' : busyRow ? '更新中…' : busy && available ? '提交中…' : mode === 'core' ? '上传并准备更新' : mode === 'full' && fullReinstall ? '重装UI + 内核' : '升级' + names[mode];
+      const pill = row.querySelector<HTMLElement>('[data-pill]')!;
+      const pillText = busyRow ? '进行中' : mode === 'core' ? (selectedCore ? '已选择 ZIP' : '') : mode === 'full' ? (fullReinstall ? '内核已是最新' : eligibility.tag ? '完整包可用' : '') : eligibility.tag ? '有新版本' : '';
+      pill.textContent = pillText;
+      pill.hidden = !pillText;
+      pill.dataset.tone = busyRow ? 'live' : 'update';
+      if (mode === 'core') {
+        row.querySelector<HTMLElement>('[data-core-picker]')!.classList.toggle('primary', blue === 'core');
+        row.querySelector<HTMLElement>('[data-core-picker-text]')!.textContent = selectedCore ? '更换内核 ZIP' : '选择内核 ZIP';
+      }
       row.querySelector('[data-target]')!.textContent = mode === 'ui' ? `${currentUI()?.uiVersion || '—'} → ${latest?.version || '待检查'}` : mode === 'core' ? `当前内核：${currentUI()?.backendVersion || '—'}${running() && task.source === 'upload' && task.targetBackend ? ' → ' + task.targetBackend : ''}` : latest ? `${latest.version} / ${latest.backend}` : '检查更新后显示目标版本';
       const reasonText = !available ? busy ? '正在确认服务器支持的升级功能…' : notEnabled ? '请先在服务器安装或更新独立升级服务，仅替换 UI 文件不会启用此功能。' : '连接升级服务后才能操作，请重试连接。' : !supported ? '请先更新升级服务，以支持' + (mode === 'core' ? '上传内核 ZIP。' : '内核升级。') : mode === 'core' ? `先选择原作者的内核 ZIP，再上传；自动选择 ${client!.coreUpload!.architecture}，保留当前 UI 和设置。下载并校验备份后才会切换，DNS 会短暂重启。` : fullReinstall ? '内核已是最新，重装覆盖相同版本；先下载备份，切换时 DNS 会短暂重启。' : eligibility.reason;
       const reason = row.querySelector<HTMLElement>('[data-reason]')!;
       reason.id = 'version-reason-' + mode; reason.textContent = reasonText;
       start.setAttribute('aria-describedby', reason.id);
-      row.querySelector('h4')!.innerHTML = mode === 'full' && fullReinstall ? 'UI + 内核 <span class="version-tag">内核已是最新</span>' : names[mode];
     }
     coreFile.disabled = !available || !client?.coreUpload || busy || running() || uncertain;
     coreFile.setAttribute('aria-describedby', 'version-reason-core');
