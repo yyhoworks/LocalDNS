@@ -24,6 +24,7 @@ import { confirmDialog } from '../../shared/components/dialog.js';
 import { cacheName } from '../management/index.js';
 import * as proxyTrafficService from './proxy-traffic.js';
 import { requestProxyPane } from '../proxy/selection.js';
+import { bindOverviewBlocks } from './blocks.js';
 
   const cpuSample = {total:null, at:null};
 
@@ -289,6 +290,7 @@ import { requestProxyPane } from '../proxy/selection.js';
         <div style="display:flex;align-items:baseline;gap:12px">
           <h1>概览</h1>
         </div>
+        <button type="button" class="glass-btn" data-ovb-trigger aria-haspopup="dialog" aria-expanded="false" aria-controls="overview-blocks-popover" title="选择概览页显示的内容块">自定义显示</button>
       </div>
 
       <section class="console-service-summary" aria-labelledby="service-summary-title">
@@ -714,6 +716,9 @@ import { requestProxyPane } from '../proxy/selection.js';
         </div>
       </div>
     `);
+
+    // 概览内容块自定义显示：应用显隐设置并绑定标题行入口（块定义见 blocks.js）。
+    bindOverviewBlocks(page);
 
     // 绘制发布版五阶段拓扑连线，并叠加可停止的流光示意。
     const topologyWrap = $('#topo-stage-wrap');
