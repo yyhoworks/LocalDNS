@@ -4,6 +4,7 @@ import hashlib
 import json
 import re
 import struct
+import sys
 from datetime import datetime
 from pathlib import Path, PurePosixPath
 from zipfile import ZIP_DEFLATED, ZipFile, ZipInfo
@@ -169,6 +170,39 @@ def write_archive(path, payload, version, modes=None):
     return sha(path.read_bytes())
 
 
+SERVICE_PREFIX = 'companion/proxy-config/'
+GUARD_FILES = ('guard.py', 'openrc', 'post-reload-mihomo.sh', 'README.md')
+
+
+def read_proxy_config_service(path, version, expected=None):
+    """Embed a ProxyConfig Service.zip built from this tree, for web upgrades of installed services."""
+    data = path.read_bytes()
+    if expected and sha(data) != expected.lower():
+        raise ValueError('ProxyConfig service archive SHA-256 mismatch')
+    with ZipFile(path) as archive:
+        if archive.testzip() is not None or len(archive.namelist()) != len(set(archive.namelist())):
+            raise ValueError('Invalid ProxyConfig service archive')
+        for info in archive.infolist():
+            name = PurePosixPath(info.filename)
+            if (name.is_absolute() or '..' in name.parts or ':' in info.filename or '\\' in info.filename
+                    or (info.external_attr >> 16) & 0o170000 == 0o120000):
+                raise ValueError('Unsafe ProxyConfig service archive path')
+        payload = {name: archive.read(name) for name in archive.namelist()}
+    verify_manifest(payload)
+    meta = json.loads(payload['release.json'])
+    if meta.get('packageType') != 'proxy-config-service' or meta.get('uiVersion') != version['uiVersion']:
+        raise ValueError('ProxyConfig service archive is not from this release')
+    for platform in ('amd64', 'arm64'):
+        binary = payload.get('bin/localdns-proxy-config-linux-' + platform)
+        if binary is None or sha(binary) != meta.get('binaries', {}).get('linux/' + platform, {}).get('sha256'):
+            raise ValueError('ProxyConfig service binary does not match its release.json: ' + platform)
+    embedded = {SERVICE_PREFIX + name: content for name, content in payload.items()
+                if name != 'MANIFEST.sha256' and not name.endswith('/')}
+    modes = {name: 0o100755 for name in embedded
+             if name.startswith(SERVICE_PREFIX + 'bin/') or name.endswith(('.sh', '.initd'))}
+    return data, embedded, modes
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--ui-dir', type=Path, default=ROOT / 'dist/ui', help='Verified Vite UI build directory')
@@ -178,6 +212,10 @@ def main():
     parser.add_argument('--kernel-archive', type=Path, help='Upstream kernel ZIP; import only the three platform binaries')
     parser.add_argument('--kernel-sha256', help='SHA-256 of the separately verified upstream kernel archive')
     parser.add_argument('--runtime-template', action='store_true', help='Use a sanitized FJGLI runtime layout from the verified kernel ZIP')
+    parser.add_argument('--proxy-config-service', type=Path,
+                        help='LocalDNS_ProxyConfig_UI_<version>_Service.zip from tools/package_proxy_config.py; embedded so '
+                             'web upgrades refresh an installed ProxyConfig service, and attached beside the other packages')
+    parser.add_argument('--proxy-config-service-sha256', help='Optional expected SHA-256 of --proxy-config-service')
     args = parser.parse_args()
     if bool(args.full_base) != bool(args.base_sha256):
         parser.error('--full-base and --base-sha256 must be supplied together')
@@ -203,8 +241,21 @@ def main():
     if (ROOT / validation).is_file():
         common[validation] = (ROOT / validation).read_bytes()
     for name in ['install_ui_updater.py', 'install_online_updater.py', 'ui_updater.py', 'online_updater.py', 'core_upload.py',
-                 'install_localdns.py', 'upgrade_localdns.py', 'fjgli_config.py']:
+                 'install_localdns.py', 'upgrade_localdns.py', 'fjgli_config.py', 'companion_services.py']:
         common['ui-updater/' + name] = (ROOT / 'tools' / name).read_bytes()
+    # Companion services are upgraded by the web updater only where already installed; see docs/WEB_UPDATE.md.
+    common_modes = {}
+    for name in GUARD_FILES:
+        common['companion/mihomo-return-guard/' + name] = (ROOT / 'services/mihomo-return-guard' / name).read_bytes()
+    service_archive = None
+    if args.proxy_config_service:
+        service_archive, embedded, embedded_modes = read_proxy_config_service(
+            args.proxy_config_service, version, args.proxy_config_service_sha256)
+        common.update(embedded)
+        common_modes.update(embedded_modes)
+    else:
+        print('warning: no --proxy-config-service; web upgrades of this release will not refresh an installed '
+              'ProxyConfig service', file=sys.stderr)
     common['docs/WEB_UPDATE.md'] = (ROOT / 'docs/WEB_UPDATE.md').read_bytes()
     common['docs/PROXY_CONFIG.md'] = (ROOT / 'docs/PROXY_CONFIG.md').read_bytes()
     for name in ['traffic_collector.py', 'localdns-traffic.initd', 'localdns-traffic.service', 'install.sh', 'README.md']:
@@ -231,7 +282,7 @@ def main():
     update['install-ui.sh'] = (ROOT / 'tools/install-ui.sh').read_bytes()
     update['configure-ui.py'] = (ROOT / 'tools/configure_ui.py').read_bytes()
     update['release.json'] = json_bytes(dict(version, packageType='ui-update'))
-    packages = [(f"LocalDNS_UI_{version['uiVersion']}_Update.zip", update, {})]
+    packages = [(f"LocalDNS_UI_{version['uiVersion']}_Update.zip", update, dict(common_modes))]
 
     if args.full_base:
         base_digest = sha(args.full_base.read_bytes())
@@ -296,6 +347,7 @@ def main():
                                'kernelArchiveSha256': kernel_digest,
                                'kernelBinaries': {name: sha(data) for name, data in kernels.items()}}
         full.update(common)
+        modes.update(common_modes)
         full['THIRD_PARTY_NOTICES.md'] = common['THIRD_PARTY_NOTICES.md'].replace(b'%5Fsrc/ui/', b'localdns/ui/').replace(b'_src/ui/', b'localdns/ui/')
         full.update({'localdns/ui/' + name: data for name, data in ui.items()})
         full['localdns/bin/configure-ui.py'] = (ROOT / 'tools/configure_ui.py').read_bytes()
@@ -325,6 +377,14 @@ def main():
         digest = write_archive(output / name, payload, version, modes)
         sums.append(f'{digest}  {name}\n')
         print(name, digest)
+    if service_archive is not None:
+        # Attach the standalone Service.zip as well (manual installs), listed in the same SHA256SUMS.txt.
+        name = f"LocalDNS_ProxyConfig_UI_{version['uiVersion']}_Service.zip"
+        target = output / name
+        if not (target.exists() and target.resolve() == args.proxy_config_service.resolve()):
+            target.write_bytes(service_archive)
+        sums.append(f'{sha(service_archive)}  {name}\n')
+        print(name, sha(service_archive))
     (output / 'SHA256SUMS.txt').write_bytes(''.join(sorted(sums)).encode('utf-8'))
 
 

@@ -11,7 +11,7 @@ from urllib.parse import urlsplit
 
 import install_localdns as installer
 from install_ui_updater import configure_script
-from ui_updater import canonical_origin
+from ui_updater import COMPANION_SCRIPT, canonical_origin, companion_summary, run_companions
 
 MODULES = ('ui_updater.py', 'online_updater.py', 'core_upload.py', 'install_localdns.py', 'upgrade_localdns.py', 'fjgli_config.py')
 
@@ -133,6 +133,14 @@ def main(argv=None):
     with installer.locked(root):
         site.write_text(configure_script(before.decode('utf-8'), public), encoding='utf-8')
     print('独立升级服务已' + ('准备' if stage else '启用') + '：' + public)
+    # Run from an extracted release package (.../ui-updater/install_ui_updater.py --unified):
+    # bring already installed companion services to the same release. Devices whose
+    # old updater cannot do this on a web click get it here, during the one-time
+    # updater reinstall. A source checkout has no companion payload and skips.
+    package = source.parent
+    if init != 'staging' and (package / 'companion').is_dir() and (package / COMPANION_SCRIPT).is_file():
+        summary = companion_summary(run_companions(package))
+        print('配套服务：' + (summary.strip() or '已安装的服务均与本发行版一致，或未安装，无需处理。'))
     return 0
 
 

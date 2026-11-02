@@ -104,7 +104,7 @@ location /_updater/ {
 
 ## 权限与维护
 
-服务以 root 运行，接受固定 JSON 操作和固定内核 ZIP 上传接口，不接受客户端路径、URL 或命令，也不执行包里的安装脚本。内核 ZIP 通过 `POST /upgrade/core/upload` 上传，正文为 `application/zip`，`X-Content-SHA256` 请求头携带文件摘要；服务自行生成存放路径。写操作和备份下载限制已配置的 Host / Origin。无需额外升级口令；明文入口用于可信管理网络，跨不可信网络使用 HTTPS。摘要用于完整性验证，不等同于独立发行签名。
+服务以 root 运行，接受固定 JSON 操作和固定内核 ZIP 上传接口，不接受客户端路径、URL 或命令，也不执行包里的安装脚本。唯一例外是下节的配套服务升级器 `ui-updater/companion_services.py`：它与界面、内核程序来自同一个已通过 `SHA256SUMS.txt` 与包内 `MANIFEST.sha256` 校验的发行包，固定文件名、固定参数，不接受网页输入；信任边界与本来就会以 root 运行的新版内核 / 配置服务程序相同。内核 ZIP 通过 `POST /upgrade/core/upload` 上传，正文为 `application/zip`，`X-Content-SHA256` 请求头携带文件摘要；服务自行生成存放路径。写操作和备份下载限制已配置的 Host / Origin。无需额外升级口令；明文入口用于可信管理网络，跨不可信网络使用 HTTPS。摘要用于完整性验证，不等同于独立发行签名。
 
 ```sh
 # systemd
@@ -117,10 +117,40 @@ rc-service localdns-updater status
 
 升级服务代码本身通过上述安装命令更新，常规 UI 或内核升级不会替换正在运行的服务。变更接口或配置格式的发行版须先发布对应适配，不会自动尝试不兼容迁移。
 
+## 配套服务随网页升级
+
+代理配置服务（`localdns-proxy-config`，见 [PROXY_CONFIG.md](PROXY_CONFIG.md)）和可选的 Mihomo 回程守护（`mihomo-return-guard`）不在 `/opt/localdns` 内，过去只能手动用 Service.zip 重装，网页升级不会带上它们的修复。现在 UI 升级包与完整包都附带：
+
+- `ui-updater/companion_services.py`：配套服务升级器（仅标准库）；
+- `companion/proxy-config/`：与发行版同时构建的 ProxyConfig Service 内容（Linux amd64 / arm64 程序、服务文件、`release.json` 中的程序摘要）；
+- `companion/mihomo-return-guard/`：守护脚本及 OpenRC 文件。
+
+新版升级服务在「升级 UI」切换并验收界面后、「升级 UI + 内核」切换并验收后（「只换内核」不处理），用同一个已校验的发行包运行这个升级器：
+
+1. 只处理已安装的服务：`/opt/localdns-proxy-config/bin/localdns-proxy-config` 与 `/etc/localdns-proxy-config.json` 都存在才处理配置服务；`/usr/local/sbin/mihomo-return-guard.py` 存在才处理守护脚本。**从不新装**，也不改 `/etc` 中的配置。
+2. 按本机架构选择程序，核对 `release.json` 摘要与 ELF 架构；与已装程序 SHA-256 相同时跳过。
+3. 先备份原程序（配置服务在 `/opt/localdns-proxy-config/backups/upgrade-*`，守护脚本在 `/var/backups/localdns-companions/mihomo-return-guard/upgrade-*`，各保留最近 3 份），原子替换。主机上已有的 OpenRC / systemd 服务文件随之更新，不新增另一种。
+4. 服务原本在运行时重启并检查：配置服务请求其监听地址的 `/healthz`（使用配置中的第一个 `hosts` 作为 Host）；守护脚本检查服务保持运行且 `--check` 输出约定 JSON。检查失败即恢复原程序并再次重启。服务原本未运行时只替换文件、不启动。
+5. 任何配套服务的失败都**不会**让本次 UI / 完整升级失败：任务仍为成功，提示中追加「注意：……已恢复原程序（不影响本次更新）」，`GET /upgrade/status` 的 `companions` 字段给出每个服务的结果，升级服务日志记录完整 JSON。
+
+### 旧版设备需要一次性更新升级服务
+
+已部署的升级服务（v1 `localdns-ui-updater` 自 2026.10.19.9、v2 `localdns-updater` 自 2026.10.31.4，直到 2026.11.01.12）在网页点击「升级 UI」时，只调用设备上已安装的 `install_localdns.update_ui` 复制 `ui/` 目录，完整升级也只替换 `/opt/localdns`；它们从不执行发行包中的任何新代码，也不会替换 `/opt/localdns-updater` 中的自身程序。因此**仅靠网页点击无法让旧设备第一次就升级配套服务**，点多少次都一样：新包会被正常校验并升级界面，`companion/` 内容被忽略。
+
+在旧设备上按「首次安装或从旧版服务迁移」的命令，从解压后的本版（或更新的）UI 升级包 / 完整包重新运行一次：
+
+```sh
+python3 ui-updater/install_ui_updater.py --unified \
+  --dir /opt/localdns --origin http://服务器IP:9099
+```
+
+这一步安装新版升级服务，并在同一次运行中用该包升级已安装的配套服务（输出「配套服务：……」）。此后每次在网页点击升级都会自动带上配套服务。用一键脚本 `install.sh --with-ui-updater` 更新升级服务时，安装器从内部暂存目录运行、找不到配套载荷，配套服务会在下一次网页升级时处理；需要立即处理可在解压后的升级包目录运行 `python3 ui-updater/companion_services.py --package .`（root）。
+
 ## 验证
 
 ```sh
 python3 tools/test_online_updater.py
+python3 tools/test_companion_services.py
 python3 tools/test_core_upload.py
 python3 tools/test_ui_updater.py
 python3 tools/test_fjgli_upgrade.py
