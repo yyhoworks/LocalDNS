@@ -1,10 +1,12 @@
 import copy
 import datetime as dt
+import http.client
 import importlib.util
 import json
 from pathlib import Path
 import tempfile
 import unittest
+from unittest import mock
 
 spec = importlib.util.spec_from_file_location("collector", Path(__file__).with_name("traffic_collector.py"))
 collector = importlib.util.module_from_spec(spec)
@@ -114,6 +116,18 @@ class CollectorTests(unittest.TestCase):
         path = self.path.with_name("config.yaml")
         path.write_text('external-controller: "0.0.0.0:9090" # local\nsecret: "fixture#value"\n')
         self.assertEqual(collector.read_controller_from_config(path), ("http://127.0.0.1:9090", "fixture#value"))
+
+
+    def test_truncated_controller_response_is_retained_not_fatal(self):
+        out = self.path.with_name("traffic.json")
+        for i, error in enumerate((http.client.IncompleteRead(b"{"), http.client.BadStatusLine(""))):
+            argv = ["traffic_collector.py", "--once", "--state", str(self.path.with_name("state%d.json" % i)),
+                    "--out", str(out), "--mihomo-config", str(self.path.with_name("missing.yaml"))]
+            with mock.patch.object(collector, "http_json", side_effect=error), \
+                 mock.patch.object(collector, "log") as log, mock.patch("sys.argv", argv):
+                self.assertEqual(collector.main(), 1)
+            log.assert_called_with("sample or publication failed; retaining the last successful data")
+        self.assertFalse(out.exists())
 
 
 if __name__ == "__main__":

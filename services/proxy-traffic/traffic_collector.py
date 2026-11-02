@@ -6,6 +6,7 @@ lifetime totals independent of retention. Public files never contain secrets.
 """
 import argparse
 import datetime as dt
+import http.client
 import json
 import os
 import shlex
@@ -113,6 +114,8 @@ def atomic_write(path, payload, public=False):
         with os.fdopen(handle, "w", encoding="utf-8") as stream:
             json.dump(payload, stream, ensure_ascii=False, separators=(",", ":"), allow_nan=False)
             stream.write("\n")
+            stream.flush()
+            os.fsync(stream.fileno())
         os.chmod(temp, 0o644 if public else 0o600)
         os.replace(temp, path)
     except Exception:
@@ -275,7 +278,8 @@ def main():
             if monotonic - last_log >= 300:
                 log("sampling active; proxied connections=%d" % state["connections"]["proxied"])
                 last_log = monotonic
-        except (OSError, ValueError, TypeError, KeyError, OverflowError):
+        # IncompleteRead/BadStatusLine/RemoteDisconnected-style errors are HTTPException, not OSError.
+        except (OSError, ValueError, TypeError, KeyError, OverflowError, http.client.HTTPException):
             log("sample or publication failed; retaining the last successful data")
             if args.once:
                 return 1
