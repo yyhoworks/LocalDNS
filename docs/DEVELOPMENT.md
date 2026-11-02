@@ -170,6 +170,15 @@ python tools/package_ui.py
 
 新 UI 版本需要先更新 `VERSION.json`，再更新发布说明和资源查询版本，验证后发布。
 
+发行版还需要 ProxyConfig Service 包：**先**构建它，再把它交给 UI 打包，使 UI 升级包 / 完整包内嵌同一份程序（`companion/proxy-config/`，供网页升级已安装的配置服务），并把 Service.zip 一并写入同一 `SHA256SUMS.txt`：
+
+```sh
+python tools/package_proxy_config.py --go /path/to/go
+python tools/package_ui.py --proxy-config-service dist/<releaseTag>/LocalDNS_ProxyConfig_UI_<uiVersion>_Service.zip [--full-base ... --base-sha256 ...]
+```
+
+发布时附件为 Update.zip、Full.zip（如有）、`LocalDNS_ProxyConfig_UI_<uiVersion>_Service.zip` 和 `SHA256SUMS.txt`。未传 `--proxy-config-service` 时打包会警告，该发行版的网页升级不会更新已安装的配置服务。Mihomo 回程守护脚本总是从 `services/mihomo-return-guard/` 打入 `companion/mihomo-return-guard/`。行为见 [WEB_UPDATE.md](WEB_UPDATE.md#配套服务随网页升级)。
+
 完整包使用已发布的完整 ZIP 作为默认配置与规则来源，并要求提供从 GitHub Release 核对过的 SHA-256；不从运行中的设备读取配置：
 
 ```sh

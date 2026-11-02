@@ -12,6 +12,10 @@ sh install-proxy-config.sh http://服务器IP:9099
 
 程序安装到 `/opt/localdns-proxy-config/bin/localdns-proxy-config`，配置在 `/etc/localdns-proxy-config.json`。支持 Linux amd64 / arm64、systemd / OpenRC。安装器备份旧程序并保留已有核心路径、允许目录和重载钩子；不会替换或重启 DNS 核心。
 
+### 升级
+
+已安装本服务的设备，在网页「版本与更新」中升级 UI（或 UI + 内核）时会自动把程序升级到该发行版附带的版本：保留 `/etc/localdns-proxy-config.json`，备份原程序到 `/opt/localdns-proxy-config/backups/upgrade-*`，重启后检查 `/healthz`，失败则恢复原程序；配置服务的问题不会让 UI 升级失败，只在完成提示中给出警告。未安装的设备不会被安装。需要新版独立升级服务；2026.11.01.12 及更早的升级服务需先按 [WEB_UPDATE.md](WEB_UPDATE.md#旧版设备需要一次性更新升级服务) 重新安装一次。也可以照旧解压 Service.zip 重新运行 `install-proxy-config.sh`。
+
 首次安装后，核对配置中的 `binary`、`config`、`directory`、`roots` 和 `pidFile`。默认查找 `/usr/local/bin/mihomo`、`/etc/mihomo/config.yaml`、`/usr/local/bin/sing-box`、`/etc/sing-box/config.json`；实际路径不同应修改后重启本配置服务。
 
 可用第二个参数设置新安装的端口：`sh install-proxy-config.sh http://服务器IP:9099 9198`。已有配置原样保留，改端口时需要相应修改 `listen`、`hosts`。UI 默认使用 DNS API 所在主机的 9098；自定义入口在 `ui/config.js` 设置 `proxyConfigBase: "http://服务器IP:9198"`。
