@@ -53,6 +53,14 @@ Install `guard.py` as `/usr/local/sbin/mihomo-return-guard.py`, `openrc` as
 enable the guard with `rc-update add mihomo-return-guard default`, then start
 it with `rc-service mihomo-return-guard start`.
 
+Once installed at `/usr/local/sbin/mihomo-return-guard.py`, LocalDNS web
+upgrades (with the current persistent updater) replace this script with the
+release's copy: the old script is backed up under
+`/var/backups/localdns-companions/mihomo-return-guard/`, a running guard is
+restarted and must stay running with a valid `--check` JSON, otherwise the old
+script is restored. The OpenRC file and the reload hook are not changed, and a
+host without the guard is never touched.
+
 Verify each domestic DNS resolver, explicit foreign SOCKS5/DoH/ECS paths,
 LAN proxy traffic, IPv6 and a controlled configuration reload. Service status
 alone is not a firewall health check. Stop the guard before intentionally

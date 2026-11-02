@@ -9,6 +9,7 @@ import re
 import secrets
 import shutil
 import socket
+import subprocess
 import sys
 import tempfile
 import threading
@@ -56,6 +57,69 @@ def canonical_origin(value):
         return url.scheme + '://' + host + (':' + str(port) if port and port != default else '')
     except ValueError:
         raise UpdateError('网页来源必须是无路径的 HTTP(S) 地址') from None
+
+
+COMPANION_SCRIPT = 'ui-updater/companion_services.py'
+COMPANION_TIMEOUT = 300
+COMPANION_NAMES = {'proxy-config': '代理配置服务', 'mihomo-return-guard': 'Mihomo 回程守护'}
+
+
+def run_companions(package_dir):
+    """Upgrade already installed companion services from a verified release package.
+
+    The package's own companion_services.py does the work, so the logic always
+    matches the release being installed. Never raises: a companion problem is
+    reported as a warning and never fails the UI or full upgrade that called it.
+    """
+    script = Path(package_dir) / COMPANION_SCRIPT
+    if not script.is_file() or script.is_symlink():
+        return {'schema': 1, 'results': [], 'note': 'package has no companion upgrader'}
+    try:
+        process = subprocess.run([sys.executable, str(script), '--package', str(package_dir), '--json'],
+                                 capture_output=True, text=True, errors='replace', timeout=COMPANION_TIMEOUT,
+                                 cwd=str(package_dir))
+        lines = [line for line in (process.stdout or '').splitlines() if line.strip()]
+        report = json.loads(lines[-1]) if lines else None
+        if not isinstance(report, dict) or not isinstance(report.get('results'), list):
+            detail = (process.stderr or '').strip()[-400:]
+            raise ValueError('配套服务升级脚本没有返回结果' + ('：' + detail if detail else ''))
+    except Exception as error:
+        report = {'schema': 1, 'results': [], 'error': str(error) or type(error).__name__}
+    with contextlib.suppress(Exception):
+        print('localdns-updater: 配套服务：' + json.dumps(report, ensure_ascii=False), file=sys.stderr, flush=True)
+    return report
+
+
+def companion_summary(report):
+    """One sentence appended to the job message; empty when nothing changed."""
+    if not isinstance(report, dict):
+        return ''
+    if report.get('error'):
+        return ' 配套服务检查未完成（不影响本次更新）：' + str(report['error'])[:300] + '。'
+    parts = []
+    for item in report.get('results', []):
+        if not isinstance(item, dict):
+            continue
+        name = COMPANION_NAMES.get(item.get('service'), str(item.get('service')))
+        status = item.get('status')
+        if status == 'upgraded':
+            parts.append(name + '已同步升级')
+        elif status == 'rolled_back':
+            parts.append('注意：' + name + '升级未通过检查，已恢复原程序（不影响本次更新）：' + str(item.get('message', ''))[:300])
+        elif status == 'failed':
+            parts.append('注意：' + name + '升级失败（不影响本次更新）：' + str(item.get('message', ''))[:300])
+    return (' ' + '；'.join(parts) + '。') if parts else ''
+
+
+def companion_brief(report):
+    """Compact per-service outcome kept in the job status."""
+    if not isinstance(report, dict):
+        return []
+    brief = [{key: item.get(key) for key in ('service', 'status', 'message', 'version') if item.get(key) is not None}
+             for item in report.get('results', []) if isinstance(item, dict)]
+    if report.get('error'):
+        brief.append({'service': 'companions', 'status': 'failed', 'message': str(report['error'])[:300]})
+    return brief
 
 
 class UpdateManager:
@@ -167,10 +231,15 @@ class UpdateManager:
                         if version_parts(metadata['uiVersion']) <= version_parts(installed.get('uiVersion')):
                             raise UpdateError('当前 UI 已改变，请重新检查版本')
                     result = installer.update_ui(self.root, payload, metadata, on_step=self.step)
+                    summary = ''
+                    if not rollback:
+                        self.save(previous=result['previous'], step='companions',
+                                  message='界面已更新，正在检查已安装的配套服务…')
+                        summary = companion_summary(run_companions(payload))
                     self.save(state='succeeded', step='done', finishedAt=now(), previous=result['previous'],
                               message=('已恢复 UI ' if rollback else 'UI 已升级至 ') + metadata['uiVersion'] +
                               ('。管理接口检查通过，可刷新使用。' if result['serviceChecked']
-                               else '。文件已更新，DNS 管理接口当前离线，请检查服务后刷新。'))
+                               else '。文件已更新，DNS 管理接口当前离线，请检查服务后刷新。') + summary)
         except Exception as error:
             self.save(state='failed', step='failed', finishedAt=now(), message=str(error))
 
