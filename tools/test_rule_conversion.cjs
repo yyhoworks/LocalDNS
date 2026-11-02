@@ -28,6 +28,9 @@ assert.equal(withMetadata({...edit,type:'custom_non_cn',...raw},original).rule_c
   assert.equal(calls,1);
   const error=Object.assign(new Error('choose dataset'),{body:{code:'dataset_required',datasets:['apple','google']}});
   await assert.rejects(context.window.LocalDNSRuleConversion.finishSave({name:'pending'},async()=>{throw error;}),e=>e===error);
-  await assert.rejects(context.window.LocalDNSRuleConversion.finishSave({name:'pending'},async()=>({name:'pending'})),/尚未识别/);
+  // 未识别不再抛错（抛错会让调用方按失败呈现、不刷新列表），改为返回标记走警告通道。
+  // 返回值来自 vm 上下文，跨 realm 用 deepStrictEqual 会挂在原型上，这里只查字段。
+  const pending = await context.window.LocalDNSRuleConversion.finishSave({name:'pending'},async()=>({name:'pending'}));
+  assert.equal(pending.savedButUnrecognized,true);
   console.log('PASS FJGAC responses, format metadata preservation and pending DAT dataset handoff');
 })().catch(e=>{console.error(e);process.exitCode=1;});

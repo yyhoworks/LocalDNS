@@ -104,11 +104,11 @@ async function main() {
           await page.goto(origin + '/ui/');
           await page.locator('.console-service-summary').waitFor();
           await page.waitForFunction(() => document.querySelectorAll('.console-kpi .display-number').length === 6);
-          assert.equal(await page.title(), '运行概览 · LocalDNS');
+          assert.equal(await page.title(), '概览 · LocalDNS');
           assert.equal(await page.locator('vite-error-overlay,.error-panel').count(), 0);
           assert(await page.locator('#page-content').innerText());
           const nav = page.locator(width === 390 ? '#mobile-nav' : '#side-nav');
-          await nav.getByRole('button', {name: width === 390 ? '日志' : '查询日志', exact: true}).click();
+          await nav.getByRole('button', {name: '日志', exact: true}).click();
           await page.locator('.log-detail').waitFor();
           await page.locator('[data-collection-control="logs"]').waitFor();
           assert(page.url().endsWith('#/logs'));
@@ -116,7 +116,7 @@ async function main() {
           const logs = await page.locator('#page-content').innerText();
           assert(logs.includes('example.com'));
           assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1));
-          await nav.getByRole('button', {name: width === 390 ? '概览' : '运行概览', exact: true}).click();
+          await nav.getByRole('button', {name: '概览', exact: true}).click();
           await page.locator('.console-service-summary').waitFor();
           await page.evaluate(() => document.fonts.ready);
           // Allow existing layout/entrance animations to finish before comparing geometry.
