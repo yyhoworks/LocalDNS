@@ -15,8 +15,10 @@ the reload hook and background recovery. Healthy rules are not rewritten.
 Missing/incomplete Mihomo core chains are treated as not ready; the guard does
 not create them or restart the core.
 
-`openrc` runs the guard every two seconds under `supervise-daemon`. Only health
-transitions, repairs and rate-limited errors are logged. The existing proxy
+`openrc` runs the guard every two seconds under `supervise-daemon`. When a
+repair does not restore health (or an error repeats), retries back off
+exponentially up to 300 seconds and reset once healthy. Only changes in health,
+the remaining issue list or the error are logged, plus successful repairs. The existing proxy
 configuration service uses `post-reload-mihomo.sh` for synchronous validation.
 Direct API reloads that bypass that hook are covered by the periodic guard;
 there can be a brief recovery interval after such a reload.
