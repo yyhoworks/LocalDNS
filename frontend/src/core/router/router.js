@@ -160,7 +160,7 @@ import { setPageLabel, focusPageHeading, markPageHeading } from './page-title.js
     if(['logs','overview'].includes(state.route)){scope.interval(()=>{if(document.visibilityState==='visible'&&!busyViewing()&&!(state.route==='logs'&&state.logsPaused))renderRoute(true,true)},CONFIG.refreshInterval*1000)}
   }
 
-  // 正在输入、键盘焦点停在页面控件上、悬停拓扑、弹窗或抽屉打开时不自动刷新
+  // 正在输入、键盘焦点停在页面控件上、悬停拓扑、弹窗/抽屉/概览自定义弹层打开时不自动刷新
   function busyViewing(){
     const a=/** @type {HTMLElement | null} */ (document.activeElement);
     const main=a?.closest?.('main');
@@ -168,7 +168,8 @@ import { setPageLabel, focusPageHeading, markPageHeading } from './page-title.js
     // 路由切换后程序聚焦的 main / 页面标题（tabindex=-1）不算“正在操作”，否则自动刷新会一直暂停。
     if(a&&main&&a!==document.body&&a!==main&&!(a.tagName==='H1'&&a.tabIndex===-1)&&keyboardFocus(a))return true;
     if(document.querySelector('#topo-stage-wrap:hover'))return true;
-    return !!document.querySelector('dialog[open], .drawer.open');
+    // 概览「自定义显示」弹层挂在 body 上（不在 main 内），打开时视为正在操作，暂停静默刷新。
+    return !!document.querySelector('dialog[open], .drawer.open, #overview-blocks-popover:not([hidden])');
   }
   // 鼠标点击按钮后焦点也会停留在按钮上；只把键盘焦点（:focus-visible）视为正在浏览，
   // 避免点一次按钮后自动刷新就一直暂停。浏览器不支持该伪类时按保守处理（视为键盘焦点）。
