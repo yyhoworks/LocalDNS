@@ -43,16 +43,51 @@ if [ "$SAME_CORE" = 1 ] && [ -f "$INSTALL_DIR/ui/version.json" ]; then
   }
 fi
 LOCK_FILE="$(dirname -- "$INSTALL_DIR")/.$(basename -- "$INSTALL_DIR")-installer.lock"
-(set -C; umask 077; printf '%s\n' "$$" > "$LOCK_FILE") 2>/dev/null || { echo '已有安装任务或遗留安装锁'; exit 1; }
+# Same protocol as install_localdns.py locked(): hold an flock on the .guard file for
+# the whole run and write {"lockProtocol":1} into the lock file, so a killed run never
+# blocks the Python installer or the online updater. Without flock (minimal images),
+# fall back to a plain PID lock, which they remove only once that PID is gone.
+GUARD_FILE="$(dirname -- "$INSTALL_DIR")/.$(basename -- "$INSTALL_DIR")-installer.guard"
+LOCK_HELD=0
 ROLLBACK=0
+PREVIOUS=
 restore_ui() {
-  if [ "$ROLLBACK" = 1 ] && [ ! -e "$INSTALL_DIR/ui" ] && [ -d "$PREVIOUS" ]; then
+  if [ "$ROLLBACK" = 1 ] && [ ! -e "$INSTALL_DIR/ui" ] && [ -n "$PREVIOUS" ] && [ -d "$PREVIOUS" ]; then
     mv "$PREVIOUS" "$INSTALL_DIR/ui"
   fi
-  rm -f "$LOCK_FILE"
+  if [ "$LOCK_HELD" = 1 ]; then rm -f "$LOCK_FILE"; fi
 }
 trap restore_ui 0
 trap 'exit 1' HUP INT TERM
+pid_alive() {
+  case "$1" in ''|*[!0-9]*) return 0 ;; esac
+  if [ -d /proc/self ]; then [ -d "/proc/$1" ]; else kill -0 "$1" 2>/dev/null; fi
+}
+for LINK in "$GUARD_FILE" "$LOCK_FILE"; do
+  [ ! -L "$LINK" ] || { echo "拒绝符号链接安装锁：$LINK" >&2; exit 1; }
+done
+if command -v flock >/dev/null 2>&1; then
+  (umask 077; : >> "$GUARD_FILE") || { echo '无法创建安装锁' >&2; exit 1; }
+  exec 9>>"$GUARD_FILE"
+  flock -n 9 || { echo "已有安装任务：$LOCK_FILE" >&2; exit 1; }
+  if [ -e "$LOCK_FILE" ]; then
+    OLD_LOCK=$(head -c 256 "$LOCK_FILE" 2>/dev/null || true)
+    if printf '%s' "$OLD_LOCK" | grep -Eq '"lockProtocol"[[:space:]]*:[[:space:]]*1([^0-9]|$)'; then
+      rm -f "$LOCK_FILE"   # Its guard is ours now, so its owner has exited.
+    else
+      OLD_PID=$(printf '%s' "$OLD_LOCK" | tr -d ' \t\r\n')
+      if [ -n "$OLD_PID" ] && ! pid_alive "$OLD_PID"; then
+        rm -f "$LOCK_FILE"   # A plain PID lock whose process is gone.
+      fi
+    fi
+  fi
+  (set -C; umask 077; printf '{"lockProtocol": 1, "pid": %s}\n' "$$" > "$LOCK_FILE") 2>/dev/null \
+    || { echo "已有安装任务或旧版遗留锁：$LOCK_FILE" >&2; exit 1; }
+else
+  (set -C; umask 077; printf '%s\n' "$$" > "$LOCK_FILE") 2>/dev/null \
+    || { echo "已有安装任务或遗留安装锁：$LOCK_FILE（确认没有安装任务后可删除）" >&2; exit 1; }
+fi
+LOCK_HELD=1
 STAMP=$(date +%Y%m%d-%H%M%S)
 BACKUP="$INSTALL_DIR/ui-backup-$UI_VERSION-$STAMP-$$.tar.gz"
 STAGE="$INSTALL_DIR/.ui-stage-$UI_VERSION-$STAMP-$$"

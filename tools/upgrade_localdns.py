@@ -159,9 +159,11 @@ def backup(root, output):
     output.mkdir(parents=True, mode=0o700)
     archive = output / 'localdns-original.tar.gz'
     before = fingerprint(root)
-    installer.require_space(output, sum(p.stat().st_size for p in root.rglob('*') if p.is_file()))
+    installer.require_space(output, sum(p.stat().st_size for p in installer.live_files(root)))
     with tarfile.open(archive, 'w:gz') as tar:
-        tar.add(root, arcname=root.name)
+        # Earlier UI snapshots, UI backups and failed directories are not part of the
+        # installation; archiving them would grow every backup with every update.
+        tar.add(root, arcname=root.name, filter=installer.snapshot_filter(root.name))
         for path in ('/etc/init.d/localdns', '/etc/conf.d/localdns', '/etc/init.d/localdns-ui-updater',
                      '/etc/conf.d/localdns-ui-updater', '/etc/systemd/system/localdns.service',
                      '/etc/systemd/system/localdns-ui-updater.service'):
@@ -354,7 +356,10 @@ def recover(root, init):
         with contextlib.suppress(Exception):
             core_service('stop', init, service_name)
         if root.exists():
-            root.rename(root.parent / (root.name + '.failed-fjgli-' + uuid.uuid4().hex))
+            failed = root.parent / (root.name + '.failed-fjgli-' + uuid.uuid4().hex)
+            root.rename(failed)
+            with contextlib.suppress(OSError):
+                os.utime(failed)  # Retention orders these directories by modification time.
         previous.rename(root)
         installer.sync_directory(root.parent)
     if value['wasRunning']:
@@ -400,6 +405,8 @@ def apply(root, stage, backup_file, downloaded_sha, init, service_name='localdns
         if fingerprint(root) != record['sourceFingerprint']:
             raise MigrationError('停服前设置发生变化，已取消切换')
         root.rename(previous)
+        with contextlib.suppress(OSError):
+            os.utime(previous)  # Retention orders these directories by modification time.
         installer.sync_directory(root.parent)
         stage.rename(root)
         installer.sync_directory(root.parent)

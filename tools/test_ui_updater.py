@@ -1,9 +1,13 @@
 """Exercise real update transactions and password-free HTTP against isolated files."""
 import contextlib
+import hashlib
 import io
 import json
+import os
+import shutil
 import subprocess
 import sys
+import tempfile
 import threading
 import unittest
 from pathlib import Path
@@ -279,6 +283,114 @@ class UIUpdaterHTTPTests(_UpdateFixture):
         self.assertEqual(self.request('/upgrade/ui', {}, content_type='text/plain')[0], 415)
         for path, body in [('/upgrade/ui', {'releaseTag': 123}), ('/upgrade/ui/rollback', {'path': '/tmp'}), ('/execute', {})]:
             self.assertIn(self.request(path, body)[0], (400, 404))
+
+
+@unittest.skipIf(os.name == 'nt' or not shutil.which('sh') or not shutil.which('sha256sum'), 'install-ui.sh needs a POSIX shell')
+class InstallUiScriptLockTests(unittest.TestCase):
+    """install-ui.sh shares the installer lock protocol with install_localdns.locked()."""
+    TOOLS = Path(__file__).resolve().parent
+    PROBE = ('import sys;from pathlib import Path;import install_localdns as i\n'
+             'try:\n  with i.locked(Path(sys.argv[1])): print("acquired")\n'
+             'except i.InstallError: print("refused")\n')
+
+    def setUp(self):
+        temporary = tempfile.TemporaryDirectory()
+        self.addCleanup(temporary.cleanup)
+        self.base = Path(temporary.name)
+        self.root = self.base / 'opt/localdns'
+        (self.root / 'ui').mkdir(parents=True)
+        (self.root / 'ui/index.html').write_bytes(b'old')
+        self.package = self.base / 'package'
+        (self.package / 'ui').mkdir(parents=True)
+        (self.package / 'ui/index.html').write_bytes(b'new')
+        shutil.copy2(self.TOOLS / 'install-ui.sh', self.package / 'install-ui.sh')
+        (self.package / 'VERSION.txt').write_text('LocalDNS UI 2026.11.03.1\nBackend FJTEST\n')
+        digest = hashlib.sha256(b'new').hexdigest()
+        (self.package / 'MANIFEST.sha256').write_text(digest + '  ui/index.html\n')
+        self.lock = self.base / 'opt/.localdns-installer.lock'
+        self.bin = self.base / 'bin'
+        self.bin.mkdir()
+        # A tar wrapper observes the lock while the script is mid-install.
+        (self.bin / 'tar').write_text('#!/bin/sh\ncat "$LOCK_PATH" > "$CAPTURE" 2>/dev/null\n'
+                                      '"$PYTHON" -c "$PROBE" "$ROOT_PATH" >> "$CAPTURE.probe"\n'
+                                      'exec "$REAL_TAR" "$@"\n')
+        (self.bin / 'tar').chmod(0o755)
+
+    def run_script(self, path=None):
+        env = dict(os.environ, LOCK_PATH=str(self.lock), CAPTURE=str(self.base / 'capture'), PYTHON=sys.executable,
+                   PROBE=self.PROBE, ROOT_PATH=str(self.root), REAL_TAR=shutil.which('tar'),
+                   PYTHONPATH=str(self.TOOLS), PATH=str(self.bin) + os.pathsep + (path or os.environ['PATH']))
+        return subprocess.run([shutil.which('sh'), str(self.package / 'install-ui.sh'), str(self.root)], env=env,
+                              capture_output=True, text=True, timeout=60)
+
+    def captured(self):
+        return ((self.base / 'capture').read_text().strip(), (self.base / 'capture.probe').read_text().strip())
+
+    def dead_pid(self):
+        process = subprocess.Popen([sys.executable, '-c', 'pass'])
+        process.wait()
+        return process.pid
+
+    @unittest.skipUnless(shutil.which('flock'), 'flock is not installed')
+    def test_script_takes_guard_writes_protocol_lock_and_removes_it(self):
+        result = self.run_script()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        content, probe = self.captured()
+        self.assertEqual(json.loads(content)['lockProtocol'], 1)
+        self.assertEqual(probe, 'refused')  # The Python side cannot steal a live script's lock.
+        self.assertFalse(self.lock.exists())
+        self.assertEqual((self.root / 'ui/index.html').read_bytes(), b'new')
+        with installer.locked(self.root):
+            pass
+
+    @unittest.skipUnless(shutil.which('flock'), 'flock is not installed')
+    def test_script_refuses_while_python_holds_the_lock_and_leaves_it(self):
+        with installer.locked(self.root):
+            result = self.run_script()
+            self.assertEqual(result.returncode, 1)
+            self.assertIn('已有安装任务', result.stderr)
+            self.assertTrue(self.lock.exists())
+        self.assertEqual((self.root / 'ui/index.html').read_bytes(), b'old')
+
+    @unittest.skipUnless(shutil.which('flock'), 'flock is not installed')
+    def test_script_recovers_stale_locks_but_not_a_live_one(self):
+        for stale in ('{"lockProtocol": 1, "pid": 4}\n', str(self.dead_pid()) + '\n'):
+            with self.subTest(stale=stale):
+                self.lock.write_text(stale)
+                result = self.run_script()
+                self.assertEqual(result.returncode, 0, result.stderr)
+                self.assertFalse(self.lock.exists())
+        self.lock.write_text(str(os.getpid()) + '\n')
+        self.assertEqual(self.run_script().returncode, 1)
+        self.assertTrue(self.lock.exists())
+
+    def test_without_flock_script_falls_back_to_a_pid_lock_python_can_judge(self):
+        tools = self.base / 'no-flock'
+        tools.mkdir()
+        for name in ('dirname', 'sha256sum', 'mktemp', 'rm', 'sed', 'grep', 'sort', 'find', 'comm', 'date',
+                     'cp', 'mv', 'gzip', 'cat', 'head', 'tr', 'basename', 'env', 'mkdir', 'chmod'):
+            if shutil.which(name):
+                (tools / name).symlink_to(shutil.which(name))
+        result = self.run_script(path=str(tools))
+        self.assertEqual(result.returncode, 0, result.stderr)
+        content, probe = self.captured()
+        self.assertTrue(content.isdigit(), content)
+        self.assertEqual(probe, 'refused')  # Its PID was alive.
+        self.assertFalse(self.lock.exists())
+
+    def test_python_lock_tolerates_only_dead_plain_pid_locks(self):
+        for stale in (str(self.dead_pid()), json.dumps({'pid': self.dead_pid()})):
+            with self.subTest(stale=stale):
+                self.lock.write_text(stale + '\n')
+                with installer.locked(self.root):
+                    self.assertEqual(json.loads(self.lock.read_text())['lockProtocol'], 1)
+                self.assertFalse(self.lock.exists())
+        for live in (str(os.getpid()), str(os.getppid()), 'garbage', '1', '{"pid": true}'):
+            with self.subTest(live=live):
+                self.lock.write_text(live + '\n')
+                with self.assertRaises(installer.InstallError), installer.locked(self.root):
+                    self.fail('took a lock that may still be in use')
+                self.assertEqual(self.lock.read_text(), live + '\n')
 
 
 def load_tests(loader, standard_tests, _pattern):

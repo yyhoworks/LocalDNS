@@ -2,12 +2,13 @@
 import json
 import contextlib
 import io
+import os
 import shutil
 import subprocess
 import threading
 import time
 import unittest
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from unittest.mock import patch
 from urllib.error import HTTPError
 from urllib.request import Request, ProxyHandler, build_opener
@@ -329,6 +330,188 @@ class OnlineTests(unittest.TestCase):
             self.assertTrue(self.manager.backup_file(status['jobId'])[0].is_file())
         finally:
             server.shutdown(); server.server_close(); thread.join(5)
+
+
+    # ---- Snapshot retention -------------------------------------------------
+
+    def aged(self, path, age):
+        stamp = time.time() - age
+        os.utime(path, (stamp, stamp))
+        return path
+
+    def old_snapshots(self):
+        """Leftovers of earlier updates, oldest last: in the root, beside it and in the state dir."""
+        for index in range(4):
+            stamp = '2026010%d-000000' % (index + 1)
+            previous = self.root / ('ui.previous-2026.01.0%d-%s-abcd' % (index + 1, stamp))
+            previous.mkdir()
+            (previous / 'index.html').write_bytes(b'old snapshot %d' % index)
+            (self.root / ('ui-backup-2026.01.0%d-%s-abcd.tar.gz' % (index + 1, stamp))).write_bytes(b'tar')
+            failed = self.root / ('ui.failed-%032x' % index); failed.mkdir()
+            self.aged(failed, 4000 - index * 100)
+        full = []
+        for index in range(3):
+            path = self.work / ('localdns.previous-fjgli-%032x' % index)
+            (path / 'ui.previous-nested').mkdir(parents=True)
+            full.append(self.aged(path, 3000 - index * 100))
+        jobs = []
+        for index in range(3):
+            path = self.work / 'state' / ('job-%024x' % index)
+            (path / 'backup').mkdir(parents=True)
+            (path / 'backup/localdns-original.tar.gz').write_bytes(b'old backup')
+            jobs.append(self.aged(path, 3000 - index * 100))
+        return full, jobs
+
+    def test_core_update_stages_without_snapshots_and_keeps_only_recent_ones(self):
+        full, jobs = self.old_snapshots()
+        status = self.prepare_upload()
+        stage_names = {p.name for p in self.manager.stage_path().iterdir()}
+        self.assertFalse([n for n in stage_names if installer.is_snapshot_name(n)], stage_names)
+        archive = self.manager.backup_file(status['jobId'])[0]
+        import tarfile
+        with tarfile.open(archive) as tar:
+            top = {PurePosixPath(n).parts[1] for n in tar.getnames() if len(PurePosixPath(n).parts) > 1}
+        self.assertFalse([n for n in top if installer.is_snapshot_name(n)], top)
+        self.assertIn('config', top)
+        result = self.continue_update()
+        self.assertEqual(result['state'], 'succeeded', result)
+        previous = self.manager.state['previous']['name']
+        kept = sorted(p.name for p in self.work.glob('localdns.previous-fjgli-*'))
+        self.assertEqual(len(kept), online.RETENTION)
+        self.assertIn(previous, kept)
+        self.assertIn(full[-1].name, kept)
+        kept_jobs = sorted(p.name for p in (self.work / 'state').glob('job-*'))
+        self.assertEqual(len(kept_jobs), online.RETENTION)
+        self.assertIn('job-' + status['jobId'], kept_jobs)
+        self.assertTrue(self.manager.backup_file(status['jobId'])[0].is_file())
+        self.assertFalse([p.name for p in self.root.iterdir() if installer.is_snapshot_name(p.name)])
+        # The rollback snapshot still holds the earlier UI snapshots, but restoring it never copies them back.
+        self.assertTrue(list((self.work / previous).glob('ui.previous-*')))
+        self.manager.start(rollback=True)
+        self.assertEqual(self.finish()['state'], 'awaiting_backup')
+        self.assertFalse([p.name for p in self.manager.stage_path().iterdir() if installer.is_snapshot_name(p.name)])
+        self.assertEqual(self.continue_update()['state'], 'succeeded')
+        self.assertEqual((self.root / 'bin/localdns').read_bytes(), b'original')
+        self.assertEqual(len(list(self.work.glob('localdns.previous-fjgli-*'))), online.RETENTION)
+
+    def test_prune_never_removes_what_status_or_rollback_references(self):
+        full, jobs = self.old_snapshots()
+        for index in range(3, 6):
+            path = self.work / 'state' / ('job-%024x' % index)
+            path.mkdir()
+            self.aged(path, 100 - index)
+        self.manager.save(state='awaiting_backup', jobId='%024x' % 0, backup={'sha256': '0' * 64, 'bytes': 1},
+                          previous={'kind': 'full', 'name': full[0].name, 'hashes': {}})
+        self.manager.prune()
+        jobs_left = {p.name for p in (self.work / 'state').glob('job-*')}
+        self.assertEqual(jobs_left, {'job-%024x' % 0, 'job-%024x' % 4, 'job-%024x' % 5})
+        self.assertEqual({p.name for p in self.work.glob('localdns.previous-fjgli-*')}, {f.name for f in full})
+        # The oldest job stays while the UI rollback points at it; the old full snapshot no longer does.
+        self.manager.save(jobId='%024x' % 5, previous={'kind': 'ui', 'name': 'job-%024x' % 0, 'hashes': {}})
+        self.manager.prune()
+        self.assertEqual({p.name for p in (self.work / 'state').glob('job-*')}, jobs_left)
+        self.assertEqual({p.name for p in self.work.glob('localdns.previous-fjgli-*')}, {full[1].name, full[2].name})
+
+    def test_ui_update_keeps_recent_root_snapshots_and_the_legacy_rollback_target(self):
+        self.old_snapshots()
+        (self.root / '.ui-updater').mkdir()
+        legacy = 'ui.previous-2026.01.01-20260101-000000-abcd'
+        write_json(self.root / '.ui-updater/state.json', {'state': 'succeeded', 'previous': legacy})
+        self.manager.start(self.version['releaseTag'], mode='ui')
+        status = self.finish()
+        self.assertEqual(status['state'], 'succeeded', status)
+        self.assertTrue(status['canRollback'])
+        previous = sorted(p.name for p in self.root.glob('ui.previous-*'))
+        self.assertEqual(len(previous), online.RETENTION + 1, previous)
+        self.assertIn(legacy, previous)
+        self.assertIn('ui.previous-2026.01.04-20260104-000000-abcd', previous)
+        self.assertEqual(len(list(self.root.glob('ui-backup-*.tar.gz'))), online.RETENTION)
+        self.assertEqual(len(list(self.root.glob('ui.failed-*'))), online.RETENTION)
+        self.manager.start(rollback=True)
+        self.assertEqual(self.finish()['state'], 'succeeded')
+        self.assertEqual((self.root / 'ui/index.html').read_bytes(), b'old UI')
+
+    # ---- Startup recovery failure ----------------------------------------------
+
+    def test_failed_startup_recovery_keeps_serving_status_and_refuses_changes(self):
+        self.manager.save(state='running', step='switch', jobId='%024x' % 7, mode='full')
+        with patch.object(installer, 'recover_ui_update', side_effect=installer.InstallError('UI 更新事务路径无效，需要手动检查')), \
+             contextlib.redirect_stderr(io.StringIO()) as log:
+            manager = self.manager_at()
+        self.assertIn('UI 更新事务路径无效', log.getvalue())
+        status = manager.status()
+        self.assertEqual(status['state'], 'failed')
+        self.assertEqual(status['step'], online.NEEDS_ATTENTION)
+        self.assertTrue(status['needsAttention'])
+        self.assertFalse(status['canRollback'])
+        self.assertIn('UI 更新事务路径无效', status['message'])
+        self.assertEqual(read_json(self.work / 'state/state.json')['step'], online.NEEDS_ATTENTION)
+        self.assertTrue(manager.capabilities()['needsAttention'])
+        for call in (lambda: manager.start(self.version['releaseTag'], mode='ui'), lambda: manager.start(rollback=True),
+                     lambda: manager.receive_core(io.BytesIO(b'abc'), 3, installer.digest(b'abc')),
+                     lambda: manager.continue_job('%024x' % 7, '0' * 64), lambda: manager.cancel('%024x' % 7)):
+            with self.assertRaises(http.UpdateError) as error:
+                call()
+            self.assertEqual(error.exception.status, 409)
+        config = {'allowedOrigins': ['http://127.0.0.1:9099']}
+        server = http.UpdateServer(('127.0.0.1', 0), config, manager)
+        thread = threading.Thread(target=server.serve_forever, daemon=True); thread.start()
+        def request(path, body=None):
+            req = Request('http://127.0.0.1:' + str(server.server_port) + path,
+                          headers={'Origin': config['allowedOrigins'][0], 'Content-Type': 'application/json'},
+                          data=json.dumps(body).encode() if body is not None else None)
+            return build_opener(ProxyHandler({})).open(req, timeout=5)
+        try:
+            with request('/upgrade/status') as response:
+                self.assertEqual(json.load(response)['step'], online.NEEDS_ATTENTION)
+            with request('/upgrade/ui') as response:
+                self.assertEqual(json.load(response)['capabilities']['protocol'], 'localdns-updater/v2')
+            with self.assertRaises(HTTPError) as error:
+                request('/upgrade', {'releaseTag': self.version['releaseTag'], 'mode': 'ui'})
+            self.assertEqual(error.exception.code, 409)
+        finally:
+            server.shutdown(); server.server_close(); thread.join(5)
+        # A second failed start keeps the original job state for later.
+        with patch.object(installer, 'recover_ui_update', side_effect=installer.InstallError('still broken')), \
+             contextlib.redirect_stderr(io.StringIO()):
+            self.assertTrue(self.manager_at().status()['needsAttention'])
+        # Once the cause is gone, the next start recovers normally.
+        manager = self.manager_at()
+        status = manager.status()
+        self.assertFalse(status['needsAttention'])
+        self.assertEqual(status['step'], 'interrupted')
+        self.assertEqual(status['state'], 'failed')
+        self.assertNotIn('attentionPrevious', read_json(self.work / 'state/state.json'))
+        manager.start(self.version['releaseTag'], mode='ui')
+        manager.thread.join(10)
+        self.assertEqual(manager.status()['state'], 'succeeded')
+
+    def test_waiting_job_survives_a_failed_start_once_recovery_works(self):
+        status = self.prepare('core')
+        with patch.object(installer, 'recover_ui_update', side_effect=installer.InstallError('broken')), \
+             contextlib.redirect_stderr(io.StringIO()):
+            self.manager = self.manager_at()
+        self.assertTrue(self.manager.status()['needsAttention'])
+        self.manager = self.manager_at()
+        restored = self.manager.status()
+        self.assertEqual((restored['state'], restored['jobId']), ('awaiting_backup', status['jobId']))
+        self.assertEqual(self.continue_update()['state'], 'succeeded')
+
+    def test_startup_with_unreadable_install_or_state_still_serves_status(self):
+        (self.root / 'ui/version.json').unlink()
+        (self.root / 'core-version.json').unlink()
+        with contextlib.redirect_stderr(io.StringIO()):
+            manager = self.manager_at()
+        status = manager.status()
+        self.assertTrue(status['needsAttention'])
+        self.assertIsNone(status['installedVersion'])
+        self.assertIsNone(manager.capabilities()['installed']['uiVersion'])
+        (self.work / 'state/state.json').write_text('{not json', encoding='utf-8')
+        with contextlib.redirect_stderr(io.StringIO()):
+            manager = self.manager_at()
+        self.assertEqual(manager.status()['step'], online.NEEDS_ATTENTION)
+        # A corrupt state file is kept for inspection, not overwritten.
+        self.assertEqual((self.work / 'state/state.json').read_text(encoding='utf-8'), '{not json')
 
 
     def test_legacy_marker_of_a_supported_backend_passes_the_contract_gate(self):
