@@ -7,12 +7,16 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"strings"
+	"syscall"
 	"testing"
+	"time"
 )
 
 func testServer(t *testing.T) (*Server, string) {
@@ -313,5 +317,78 @@ func TestSingBoxRejectsForeignPID(t *testing.T) {
 	}
 	if _, err := singBoxPID(Core{Binary: "/bin/sh", PIDFile: file}); err == nil {
 		t.Fatal("accepted PID of another executable")
+	}
+}
+
+func TestTrimBackupsOnlyMatchesOwnBackups(t *testing.T) {
+	dir := t.TempDir()
+	write := func(name string) {
+		if err := os.WriteFile(filepath.Join(dir, name), nil, 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	// Backups of a sibling file sharing the prefix sort after config.yaml.2026* and must be ignored.
+	others := []string{"config.yaml.example.20260101-000000.000000000.bak", "config.yaml.bak", "config.yaml.20260101-000000.bak"}
+	for _, name := range others {
+		write(name)
+	}
+	var own []string
+	for i := 0; i < 12; i++ {
+		name := fmt.Sprintf("config.yaml.20261103-0000%02d.000000000.bak", i)
+		own = append(own, name)
+		write(name)
+	}
+	trimBackups(dir, "config.yaml", 10)
+	for i, name := range own {
+		_, err := os.Stat(filepath.Join(dir, name))
+		if kept := err == nil; kept != (i >= 2) {
+			t.Fatalf("%s kept=%v", name, kept)
+		}
+	}
+	for _, name := range others {
+		if _, err := os.Stat(filepath.Join(dir, name)); err != nil {
+			t.Fatalf("unrelated %s removed: %v", name, err)
+		}
+	}
+}
+
+func TestServeUntilSignalWaitsForInFlightRequest(t *testing.T) {
+	started, release := make(chan struct{}), make(chan struct{})
+	srv := &http.Server{Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		close(started)
+		<-release
+		w.Write([]byte("saved"))
+	})}
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	stop := make(chan os.Signal, 1)
+	served := make(chan error, 1)
+	go func() { served <- serveUntilSignal(srv, ln, stop, 5*time.Second) }()
+	body := make(chan string, 1)
+	go func() {
+		res, err := http.Get("http://" + ln.Addr().String())
+		if err != nil {
+			body <- err.Error()
+			return
+		}
+		defer res.Body.Close()
+		b, _ := io.ReadAll(res.Body)
+		body <- string(b)
+	}()
+	<-started
+	stop <- syscall.SIGTERM
+	select {
+	case err := <-served:
+		t.Fatalf("returned before in-flight request finished: %v", err)
+	case <-time.After(200 * time.Millisecond):
+	}
+	close(release)
+	if got := <-body; got != "saved" {
+		t.Fatalf("response %q", got)
+	}
+	if err := <-served; err != nil {
+		t.Fatal(err)
 	}
 }

@@ -2,10 +2,13 @@
 name="localdns-traffic"
 description="LocalDNS proxy traffic collector (Mihomo /connections -> ui/custom/traffic.json)"
 
+supervisor=supervise-daemon
 command="/usr/bin/python3"
 command_args="/opt/localdns-traffic/traffic_collector.py --interval 5"
-command_background="true"
 pidfile="/run/${RC_SVCNAME}.pid"
+respawn_delay=5
+respawn_period=60
+respawn_max=5
 output_log="/var/log/localdns-traffic.log"
 error_log="/var/log/localdns-traffic.log"
 

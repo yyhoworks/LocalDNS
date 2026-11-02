@@ -12,6 +12,11 @@ import shlex
 import subprocess
 import time
 
+# Watch-mode retry delay grows from --interval up to this cap while repairs keep failing.
+MAX_BACKOFF = 300
+# shlex raises ValueError on malformed tool output (e.g. "No closing quotation").
+ERRORS = (RuntimeError, OSError, ValueError, subprocess.TimeoutExpired)
+
 if os.name == "posix":
     import fcntl
 else:
@@ -19,7 +24,7 @@ else:
 
 
 def command(args):
-    result = subprocess.run(args, capture_output=True, text=True, timeout=12)
+    result = subprocess.run(args, capture_output=True, text=True, errors="replace", timeout=12)
     if result.returncode:
         raise RuntimeError("Command failed: " + " ".join(args))
     return result.stdout
@@ -62,7 +67,7 @@ def core_running():
 
 def routing_table(family, table):
     result = subprocess.run(["/sbin/ip", family, "route", "show", "table", str(table)],
-                            capture_output=True, text=True, timeout=12)
+                            capture_output=True, text=True, errors="replace", timeout=12)
     if result.returncode == 2 and "FIB table does not exist" in result.stderr:
         return ""
     if result.returncode:
@@ -219,30 +224,35 @@ def main():
         try:
             config = configuration()
             result = assess(snapshot(), config)
-        except (RuntimeError, OSError, subprocess.TimeoutExpired) as error:
+        except ERRORS as error:
             print(json.dumps({"ok": False, "error": str(error)}))
             return 1
         print(json.dumps({"ok": healthy(result), **result}))
         return 0 if healthy(result) else 1
-    deadline, previous, last_error = time.monotonic() + args.wait, None, 0.0
+    interval = max(args.interval, 0.5)
+    deadline, previous, failures = time.monotonic() + args.wait, None, 0
     while True:
         try:
             result = ensure()
             if args.watch:
-                if result["repaired"] or result["ok"] != previous:
+                current = (result["ok"], result["after"])
+                if (result["repaired"] and result["ok"]) or current != previous:
                     log("repaired" if result["repaired"] else "healthy" if result["ok"] else "waiting", **result)
-                previous = result["ok"]
+                previous = current
+                # Back off while repairs do not restore health; reset once healthy.
+                failures = min(failures + 1, 16) if result["repaired"] and not result["ok"] else 0
             elif result["ok"] or time.monotonic() >= deadline:
                 print(json.dumps(result))
                 return 0 if result["ok"] else 1
-        except (RuntimeError, OSError, subprocess.TimeoutExpired) as error:
+        except ERRORS as error:
             if not args.watch and time.monotonic() >= deadline:
                 log("error", detail=str(error))
                 return 1
-            if time.monotonic() - last_error >= 60:
+            if ("error", str(error)) != previous:
                 log("error", detail=str(error))
-                last_error = time.monotonic()
-        time.sleep(max(args.interval, 0.5) if args.watch else 0.5)
+            previous = ("error", str(error))
+            failures = min(failures + 1, 16)
+        time.sleep(min(interval * 2 ** max(failures - 1, 0), MAX_BACKOFF) if args.watch else 0.5)
 
 
 if __name__ == "__main__":

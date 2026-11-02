@@ -9,6 +9,7 @@ output_log="/var/log/localdns-proxy-config.log"
 error_log="/var/log/localdns-proxy-config.log"
 respawn_delay=5
 respawn_max=5
+retry="TERM/120/KILL/5"
 export GOMEMLIMIT=24MiB
 export GOGC=50
 depend() {

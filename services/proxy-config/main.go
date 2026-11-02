@@ -476,7 +476,7 @@ func (s *Server) check(w http.ResponseWriter, r *http.Request, save bool) error 
 	if err := os.MkdirAll(backupDir, 0o700); err != nil {
 		return err
 	}
-	backup := filepath.Join(backupDir, filepath.Base(path)+"."+time.Now().Format("20060102-150405.000000000")+".bak")
+	backup := filepath.Join(backupDir, filepath.Base(path)+"."+time.Now().Format(backupStamp)+".bak")
 	if err := writeExclusive(backup, before, 0o600); err != nil {
 		return err
 	}
@@ -520,7 +520,7 @@ func (s *Server) check(w http.ResponseWriter, r *http.Request, save bool) error 
 		}
 		return &apiError{Status: 502, Message: "重载失败，已恢复原文件并重新加载原配置。修改仍保留在编辑器。", Backup: backup, RolledBack: true}
 	}
-	trimBackups(backupDir, filepath.Base(path)+".", 10)
+	trimBackups(backupDir, filepath.Base(path), 10)
 	confirmation := "saved-only"
 	if active {
 		confirmation = "api"
@@ -582,14 +582,40 @@ func syncDir(dir string) {
 		f.Close()
 	}
 }
-func trimBackups(dir, prefix string, keep int) {
+
+// backupStamp is the timestamp layout embedded in backup names: <base>.<stamp>.bak.
+const backupStamp = "20060102-150405.000000000"
+
+// isBackupOf reports whether name is exactly <base>.<backupStamp>.bak, so that
+// backups of other files sharing the prefix (config.yaml.example.*.bak) are ignored.
+func isBackupOf(name, base string) bool {
+	if len(name) != len(base)+len(".")+len(backupStamp)+len(".bak") || !strings.HasPrefix(name, base+".") || !strings.HasSuffix(name, ".bak") {
+		return false
+	}
+	stamp := name[len(base)+1 : len(name)-len(".bak")]
+	for i := 0; i < len(stamp); i++ {
+		switch backupStamp[i] {
+		case '-', '.':
+			if stamp[i] != backupStamp[i] {
+				return false
+			}
+		default:
+			if stamp[i] < '0' || stamp[i] > '9' {
+				return false
+			}
+		}
+	}
+	return true
+}
+
+func trimBackups(dir, base string, keep int) {
 	entries, err := os.ReadDir(dir)
 	if err != nil {
 		return
 	}
 	var names []string
 	for _, entry := range entries {
-		if !entry.IsDir() && strings.HasPrefix(entry.Name(), prefix) && strings.HasSuffix(entry.Name(), ".bak") {
+		if !entry.IsDir() && isBackupOf(entry.Name(), base) {
 			names = append(names, entry.Name())
 		}
 	}
@@ -933,14 +959,34 @@ func main() {
 	httpServer := &http.Server{Addr: config.Listen, Handler: s, ReadHeaderTimeout: 5 * time.Second, ReadTimeout: 15 * time.Second, WriteTimeout: 110 * time.Second, IdleTimeout: 30 * time.Second, MaxHeaderBytes: 16 << 10}
 	stop := make(chan os.Signal, 1)
 	signal.Notify(stop, syscall.SIGINT, syscall.SIGTERM)
-	go func() {
-		<-stop
-		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-		defer cancel()
-		httpServer.Shutdown(ctx)
-	}()
+	listener, err := net.Listen("tcp", config.Listen)
+	if err != nil {
+		log.Fatal(err)
+	}
 	log.Printf("listening on %s", config.Listen)
-	if err := httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+	if err := serveUntilSignal(httpServer, listener, stop, shutdownTimeout); err != nil {
 		log.Fatal(err)
 	}
 }
+
+// serveUntilSignal serves until stop fires, then waits for Shutdown so an
+// in-flight save/reload (bounded by WriteTimeout) can finish before exiting.
+func serveUntilSignal(srv *http.Server, ln net.Listener, stop <-chan os.Signal, timeout time.Duration) error {
+	done := make(chan error, 1)
+	go func() {
+		<-stop
+		ctx, cancel := context.WithTimeout(context.Background(), timeout)
+		defer cancel()
+		done <- srv.Shutdown(ctx)
+	}()
+	if err := srv.Serve(ln); err != http.ErrServerClosed {
+		return err
+	}
+	if err := <-done; err != nil {
+		log.Printf("shutdown: %v", err)
+	}
+	return nil
+}
+
+// shutdownTimeout covers the longest request (WriteTimeout 110s) holding the operation lock.
+const shutdownTimeout = 115 * time.Second

@@ -129,5 +129,56 @@ class GuardTests(unittest.TestCase):
         snapshot.assert_not_called()
 
 
+    def watch(self, results):
+        """Run --watch over the given ensure() results; return (sleeps, logged events)."""
+        sleeps, events = [], []
+        with mock.patch.object(guard, "ensure", side_effect=list(results) + [KeyboardInterrupt]), \
+             mock.patch.object(guard.time, "sleep", side_effect=sleeps.append), \
+             mock.patch.object(guard, "log", side_effect=lambda event, **fields: events.append((event, fields))), \
+             mock.patch("sys.argv", ["guard.py", "--watch", "--interval", "2"]):
+            with self.assertRaises(KeyboardInterrupt):
+                guard.main()
+        return sleeps, events
+
+    def test_watch_backs_off_and_logs_once_while_repair_keeps_failing(self):
+        broken = {"ready": True, "ipv4": ["IPv4 return policy missing"], "ipv6": []}
+        failed = {"ok": False, "repaired": ["ipv4"], "before": broken, "after": broken}
+        good = {"ready": True, "ipv4": [], "ipv6": []}
+        fixed = {"ok": True, "repaired": [], "before": good, "after": good}
+        sleeps, events = self.watch([failed] * 10 + [fixed, fixed])
+        self.assertEqual(sleeps, [2, 4, 8, 16, 32, 64, 128, 256, 300, 300, 2, 2])
+        self.assertEqual([event for event, _ in events], ["repaired", "healthy"])
+
+    def test_watch_logs_again_when_issues_change(self):
+        first = {"ready": True, "ipv4": ["IPv4 return policy missing"], "ipv6": []}
+        second = {"ready": True, "ipv4": [], "ipv6": ["IPv6 return route missing"]}
+        results = [{"ok": False, "repaired": ["ipv4"], "before": first, "after": first}] * 2 + \
+                  [{"ok": False, "repaired": ["ipv6"], "before": second, "after": second}] * 2
+        _, events = self.watch(results)
+        self.assertEqual([fields["after"] for _, fields in events], [first, second])
+
+    def test_watch_survives_malformed_output_and_backs_off(self):
+        error = ValueError("No closing quotation")
+        sleeps, events = self.watch([error, error, error])
+        self.assertEqual(sleeps, [2, 4, 8])
+        self.assertEqual(events, [("error", {"detail": "No closing quotation"})])
+
+    def test_check_reports_malformed_rules_as_json(self):
+        with mock.patch.object(guard, "configuration", return_value=self.config), \
+             mock.patch.object(guard, "command", return_value='*mangle\n-A OUTPUT -m comment --comment "open\n'), \
+             mock.patch.object(guard, "routing_table", return_value=""), \
+             mock.patch("sys.argv", ["guard.py", "--check"]), \
+             mock.patch("sys.stdout", new_callable=io.StringIO) as out:
+            code = guard.main()
+        self.assertEqual(code, 1)
+        self.assertIn("No closing quotation", json.loads(out.getvalue())["error"])
+
+    def test_command_output_tolerates_invalid_utf8(self):
+        done = mock.Mock(returncode=0, stdout="ok\ufffd")
+        with mock.patch.object(guard.subprocess, "run", return_value=done) as run:
+            self.assertEqual(guard.command(["/bin/true"]), "ok\ufffd")
+        self.assertEqual(run.call_args.kwargs["errors"], "replace")
+
+
 if __name__ == "__main__":
     unittest.main()
