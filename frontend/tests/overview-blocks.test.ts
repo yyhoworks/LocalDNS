@@ -104,9 +104,15 @@ describe('概览内容块自定义显示', () => {
     expect(trigger().getAttribute('aria-expanded')).toBe('true');
     expect(popover().hidden).toBe(false);
   });
-  it('连续勾选时弹层保持打开（显隐切换自己发出的 resize 不会收起弹层）', () => {
+  it('连续勾选时弹层保持打开（显隐切换只广播 localdns:layoutchange，不派发 window resize）', () => {
+    const resize = vi.fn();
+    const layout = vi.fn();
+    window.addEventListener('resize', resize);
+    window.addEventListener('localdns:layoutchange', layout);
     blocks.bindOverviewBlocks(page());
     trigger().click();
+    // bindOverviewBlocks 自身应用一次；只统计之后每次勾选
+    layout.mockClear();
     for (const key of ['topology', 'trend', 'slow']) {
       const box = popover().querySelector<HTMLInputElement>(`[data-ovb-key="${key}"]`)!;
       box.checked = false;
@@ -114,18 +120,96 @@ describe('概览内容块自定义显示', () => {
       expect(popover().hidden).toBe(false);
     }
     expect(blocks.getHiddenBlocks()).toEqual(['trend', 'topology', 'slow']);
-    window.dispatchEvent(new Event('resize'));
-    expect(popover().hidden).toBe(true);
+    expect(resize).not.toHaveBeenCalled();
+    expect(layout).toHaveBeenCalledTimes(3);
+    window.removeEventListener('resize', resize);
+    window.removeEventListener('localdns:layoutchange', layout);
   });
 
-  it('弹层内部滚动不收起，页面滚动才收起', () => {
+  it('尺寸不变的合成 resize（shell 增强链每次都会派发）不收起弹层，真实视口变化时重新定位', () => {
+    const width = window.innerWidth;
+    blocks.bindOverviewBlocks(page());
+    trigger().getBoundingClientRect = () => ({ top: 10, bottom: 40, left: 900, right: 940, width: 40, height: 30, x: 900, y: 10, toJSON: () => ({}) });
+    trigger().click();
+    const before = popover().style.right;
+    window.dispatchEvent(new Event('resize'));
+    expect(popover().hidden).toBe(false);
+    expect(popover().style.right).toBe(before);
+    try {
+      Object.defineProperty(window, 'innerWidth', { configurable: true, value: width + 200 });
+      window.dispatchEvent(new Event('resize'));
+      expect(popover().hidden).toBe(false);
+      expect(popover().style.right).not.toBe(before);
+    } finally {
+      Object.defineProperty(window, 'innerWidth', { configurable: true, value: width });
+    }
+  });
+
+  it('页面滚动（含静默刷新后的滚动还原）不收起弹层；触发按钮滚出视口才收起', () => {
     blocks.bindOverviewBlocks(page());
     trigger().click();
     popover().querySelector('.ovb-list')!.dispatchEvent(new Event('scroll'));
     popover().dispatchEvent(new Event('scroll'));
     expect(popover().hidden).toBe(false);
     page().dispatchEvent(new Event('scroll'));
+    window.dispatchEvent(new Event('scroll'));
+    expect(popover().hidden).toBe(false);
+    trigger().getBoundingClientRect = () => ({ top: -80, bottom: -50, left: 0, right: 40, width: 40, height: 30, x: 0, y: -80, toJSON: () => ({}) });
+    window.dispatchEvent(new Event('scroll'));
     expect(popover().hidden).toBe(true);
+  });
+
+  it('静默刷新重建页面后弹层仍保持打开（滚动还原 + 合成 resize）', () => {
+    blocks.bindOverviewBlocks(page());
+    trigger().click();
+    page().innerHTML = '<button type="button" data-ovb-trigger>自定义显示</button>';
+    blocks.bindOverviewBlocks(page());
+    window.dispatchEvent(new Event('scroll'));
+    window.dispatchEvent(new Event('resize'));
+    expect(popover().hidden).toBe(false);
+    expect(trigger().getAttribute('aria-expanded')).toBe('true');
+  });
+
+  it('宽屏弹层按起点计算 max-height，底边留在视口内；按钮太靠下时翻到上方', () => {
+    const height = window.innerHeight;
+    Object.defineProperty(window, 'innerHeight', { configurable: true, value: 700 });
+    try {
+      blocks.bindOverviewBlocks(page());
+      trigger().getBoundingClientRect = () => ({ top: 20, bottom: 52, left: 900, right: 940, width: 40, height: 32, x: 900, y: 20, toJSON: () => ({}) });
+      trigger().click();
+      expect(popover().style.top).toBe('60px');
+      expect(popover().style.bottom).toBe('');
+      // 700 - 60 - 12
+      expect(popover().style.maxHeight).toBe('628px');
+      trigger().click();
+      expect(popover().hidden).toBe(true);
+
+      trigger().getBoundingClientRect = () => ({ top: 600, bottom: 632, left: 900, right: 940, width: 40, height: 32, x: 900, y: 600, toJSON: () => ({}) });
+      trigger().click();
+      expect(popover().style.top).toBe('');
+      // 700 - 600 + 8
+      expect(popover().style.bottom).toBe('108px');
+      // 600 - 8 - 12
+      expect(popover().style.maxHeight).toBe('580px');
+    } finally {
+      Object.defineProperty(window, 'innerHeight', { configurable: true, value: height });
+    }
+  });
+
+  it('窄屏停靠时清掉宽屏写入的 inline 定位，尺寸交给 CSS', () => {
+    blocks.bindOverviewBlocks(page());
+    trigger().click();
+    trigger().click();
+    vi.stubGlobal('matchMedia', () => ({ matches: true, media: '', addEventListener: () => {}, removeEventListener: () => {} }));
+    try {
+      trigger().click();
+      expect(popover().classList.contains('is-docked')).toBe(true);
+      expect(popover().style.top).toBe('');
+      expect(popover().style.bottom).toBe('');
+      expect(popover().style.maxHeight).toBe('');
+    } finally {
+      vi.stubGlobal('matchMedia', () => ({ matches: false, media: '', addEventListener: () => {}, removeEventListener: () => {} }));
+    }
   });
 
   it('打开时焦点进入弹层，Esc 与关闭按钮把焦点还给触发按钮，点击外部不抢焦点', () => {
@@ -183,16 +267,17 @@ describe('概览内容块排序', () => {
 
   it('setBlockOrder 过滤未知 key 并补齐缺失项', () => {
     blocks.setBlockOrder(['slow','bogus','kpi']);
+    // 服务运行状态与指标卡整组相邻，组内顺序固定
     expect(blocks.getBlockOrder()).toEqual([
-      'slow','kpi','service','shortcuts','trend','outcomes','topology','rankings','caches'
+      'slow','service','kpi','shortcuts','trend','outcomes','topology','rankings','caches'
     ]);
   });
 
   it('moveBlock 上下移动并持久化', () => {
-    expect(blocks.moveBlock('kpi', -1)).toBe(true);
-    expect(blocks.getBlockOrder().slice(0, 2)).toEqual(['kpi','service']);
+    expect(blocks.moveBlock('shortcuts', -1)).toBe(true);
+    expect(blocks.getBlockOrder().slice(0, 3)).toEqual(['shortcuts','service','kpi']);
     // 顶到底：再上移已到顶
-    expect(blocks.moveBlock('kpi', -1)).toBe(false);
+    expect(blocks.moveBlock('shortcuts', -1)).toBe(false);
     // 底到顶：下移已到底
     expect(blocks.moveBlock('slow', 1)).toBe(false);
   });
@@ -260,9 +345,9 @@ describe('概览内容块排序', () => {
   it('移到顶端后同向按钮被禁用，焦点落到反向按钮而不是 body', () => {
     blocks.bindOverviewBlocks(page());
     trigger().click();
-    (popover().querySelector('[data-ovb-up="kpi"]') as HTMLButtonElement).click();
-    expect(blocks.getBlockOrder()[0]).toBe('kpi');
-    expect(document.activeElement?.getAttribute('data-ovb-down')).toBe('kpi');
+    (popover().querySelector('[data-ovb-up="shortcuts"]') as HTMLButtonElement).click();
+    expect(blocks.getBlockOrder()[0]).toBe('shortcuts');
+    expect(document.activeElement?.getAttribute('data-ovb-down')).toBe('shortcuts');
   });
 
   it('弹层按自定义顺序渲染且首尾按钮禁用', () => {
@@ -283,9 +368,62 @@ describe('概览内容块排序', () => {
     trigger().click();
     const firstDown = popover().querySelector('[data-ovb-down="service"]') as HTMLButtonElement;
     firstDown.click();
-    expect(blocks.getBlockOrder()[0]).toBe('kpi');
-    expect(blocks.getBlockOrder()[1]).toBe('service');
+    expect(blocks.getBlockOrder().slice(0, 3)).toEqual(['shortcuts', 'service', 'kpi']);
     // 弹层重建后焦点在被移动项的按钮上
     expect(document.activeElement?.getAttribute('data-ovb-down')).toBe('service');
+  });
+});
+
+describe('服务运行状态与指标卡作为整体排序', () => {
+  it('旧版分开存储的顺序读取时整组归位到组内最靠前成员的位置', () => {
+    mem.set('localdns-overview-block-order:' + location.host, JSON.stringify(['shortcuts','service','trend','outcomes','topology','rankings','caches','slow','kpi']));
+    expect(blocks.getBlockOrder()).toEqual(['shortcuts','service','kpi','trend','outcomes','topology','rankings','caches','slow']);
+    mem.set('localdns-overview-block-order:' + location.host, JSON.stringify(['kpi','shortcuts','trend','service']));
+    expect(blocks.getBlockOrder().slice(0, 3)).toEqual(['service','kpi','shortcuts']);
+  });
+
+  it('移动组内任一成员都整体移动，不会出现页面无变化的空操作', () => {
+    expect(blocks.moveBlock('kpi', 1)).toBe(true);
+    expect(blocks.getBlockOrder().slice(0, 3)).toEqual(['shortcuts','service','kpi']);
+    expect(blocks.moveBlock('service', 1)).toBe(true);
+    expect(blocks.getBlockOrder().slice(0, 4)).toEqual(['shortcuts','trend','service','kpi']);
+    // 移到末尾后再下移：已到底
+    for (let i = 0; i < 10; i++) blocks.moveBlock('kpi', 1);
+    expect(blocks.getBlockOrder().slice(-2)).toEqual(['service','kpi']);
+    expect(blocks.moveBlock('service', 1)).toBe(false);
+  });
+
+  it('弹层把两者合成一项：两个勾选框各自控制显隐，共用一组上移/下移按钮', () => {
+    blocks.bindOverviewBlocks(page());
+    trigger().click();
+    const items = [...popover().querySelectorAll('.ovb-item')];
+    expect(items).toHaveLength(blocks.OVERVIEW_BLOCKS.length - 1);
+    const group = items[0];
+    expect(group.classList.contains('ovb-group')).toBe(true);
+    expect([...group.querySelectorAll('[data-ovb-key]')].map(box => box.getAttribute('data-ovb-key'))).toEqual(['service','kpi']);
+    expect(group.querySelectorAll('[data-ovb-up],[data-ovb-down]')).toHaveLength(2);
+    expect(popover().querySelector('[data-ovb-up="kpi"],[data-ovb-down="kpi"]')).toBeNull();
+    const kpi = group.querySelector<HTMLInputElement>('[data-ovb-key="kpi"]')!;
+    kpi.checked = false;
+    kpi.dispatchEvent(new Event('change'));
+    expect(blocks.getHiddenBlocks()).toEqual(['kpi']);
+    (group.querySelector('[data-ovb-down]') as HTMLButtonElement).click();
+    expect(blocks.getBlockOrder().slice(0, 3)).toEqual(['shortcuts','service','kpi']);
+    expect(popover().querySelectorAll('.ovb-item')[1].classList.contains('ovb-group')).toBe(true);
+  });
+
+  it('整组移动后页面上该 section 的 order 随之变化', () => {
+    document.body.innerHTML = '<div id="page-content">' +
+      '<div class="view-title-row"></div>' +
+      '<section class="console-service-summary"><div class="console-service-row"></div><div class="console-kpi-row"></div></section>' +
+      '<details class="console-shortcuts"></details></div>';
+    blocks.applyBlockVisibility();
+    const [, summary, shortcuts] = [...page().children] as HTMLElement[];
+    expect(summary.style.order).toBe('1');
+    expect(shortcuts.style.order).toBe('3');
+    blocks.moveBlock('kpi', 1);
+    blocks.applyBlockVisibility();
+    expect(shortcuts.style.order).toBe('1');
+    expect(summary.style.order).toBe('2');
   });
 });
