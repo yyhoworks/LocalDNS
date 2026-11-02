@@ -930,7 +930,10 @@
   .overview-cache-panel,.overview-slow-panel { align-self:stretch; display:flex; min-height:0; }
 }
 @media(min-width:1251px) {
-  .overview-slow-panel { contain:size; }
+  /* 缓存池与慢查询是 5+7 的等高对：contain:size 让慢查询的高度只由同行邻居决定。
+     顺序调整或隐藏缓存池后它会独占一行，没有邻居时高度会变成 0（整块看不见），
+     因此这里补一个下限；和缓存池同行时仍由 align-self:stretch 决定。 */
+  .overview-slow-panel { contain:size; min-height:420px; }
 }
 @media(min-width:1251px) {
   .overview-cache-panel>.glass-card,.overview-slow-panel>.glass-card { flex:1; width:100%; min-width:0; }
@@ -1136,4 +1139,104 @@
   .dev-thead { display: none; }
   .dev-row { grid-template-columns: minmax(0,1fr) !important; gap: 6px; padding: 14px 16px; }
   .dev-row > * { min-width: 0; }
+}
+
+/* ===== 内容块自定义显示（见 features/overview/blocks.js） ===== */
+/* data-ov-hide 记录被隐藏块的 key 列表。选择器以 shell 增强链之后的最终
+   DOM 形态为准（增强在渲染后同步执行，中间形态不会被绘制出来）。 */
+#page-content[data-ov-hide~="shortcuts"] .console-shortcuts,
+#page-content[data-ov-hide~="shortcuts"] .control-bar-card { display: none; }
+#page-content[data-ov-hide~="service"] .console-service-row,
+#page-content[data-ov-hide~="service"] .console-health-strip { display: none; }
+/* 服务状态与指标卡都隐藏时，一并收起该容器 */
+#page-content[data-ov-hide~="service"][data-ov-hide~="kpi"] .console-service-summary { display: none; }
+#page-content[data-ov-hide~="kpi"] .console-kpi-row,
+#page-content[data-ov-hide~="kpi"] .spark-kpi-card { display: none; }
+#page-content[data-ov-hide~="topology"] .console-topology { display: none; }
+#page-content[data-ov-hide~="trend"] .console-trend { display: none; }
+#page-content[data-ov-hide~="outcomes"] .console-donut { display: none; }
+#page-content[data-ov-hide~="rankings"] .workspace-rankings { display: none; }
+#page-content[data-ov-hide~="caches"] .overview-cache-panel { display: none; }
+#page-content[data-ov-hide~="slow"] .overview-slow-panel { display: none; }
+
+/* 入口在顶部工具栏（见 blocks.js 的 ensureTrigger），只在概览路由出现：
+   概览页的标题行在成品里是隐藏的，入口不能放回 .view-title-row。 */
+body:not([data-console-route="overview"]) [data-ovb-trigger] { display: none; }
+
+/* 设置弹层：挂在 body 上，避免被概览页静默重渲染销毁 */
+.overview-blocks-popover {
+  position: fixed;
+  width: 300px;
+  max-height: calc(100dvh - 32px);
+  overflow: auto;
+  border-radius: var(--radius-card);
+  background: var(--glass-bg-strong);
+  backdrop-filter: blur(28px) saturate(160%);
+  -webkit-backdrop-filter: blur(28px) saturate(160%);
+  border: 1px solid var(--border-highlight);
+  box-shadow: var(--inner-specular), 0 20px 50px rgba(0, 0, 0, 0.65);
+  padding: 14px;
+  z-index: 210;
+}
+.overview-blocks-popover.is-docked { left: 12px; right: 12px; top: 72px; width: auto; }
+.ovb-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 10px; }
+.ovb-head strong { font-size: 13.5px; font-weight: 700; color: var(--text-1); }
+.ovb-close {
+  display: flex; align-items: center; justify-content: center;
+  width: 26px; height: 26px; flex: none;
+  border-radius: 8px; border: 1px solid var(--border-glass);
+  background: transparent; color: var(--text-2); cursor: pointer;
+}
+.ovb-close:hover { color: var(--text-1); background: rgba(148, 163, 184, 0.1); }
+.ovb-close svg { width: 14px; height: 14px; }
+.ovb-list { display: flex; flex-direction: column; gap: 2px; }
+.ovb-item {
+  display: flex; align-items: flex-start; gap: 10px;
+  padding: 7px 8px; border-radius: 8px; cursor: pointer;
+}
+.ovb-item:hover { background: rgba(148, 163, 184, 0.08); }
+.ovb-item input { margin: 2px 0 0; accent-color: var(--primary); cursor: pointer; }
+.ovb-item-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.ovb-item-text span { font-size: 13px; color: var(--text-1); }
+.ovb-item-text small { font-size: 11px; color: var(--text-3); line-height: 1.5; }
+.ovb-foot {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--border-glass);
+}
+.ovb-reset { font-size: 12px; }
+.ovb-reset:disabled { opacity: 0.45; pointer-events: none; }
+.ovb-note { font-size: 11px; color: var(--text-3); }
+/* 内容块排序：#page-content 本身是 12 栏 grid，各直接子元素用 inline style.order
+   控制顺序（见 blocks.js 的 applyBlockOrder），不改动 display。 */
+.ovb-item-main { display: flex; align-items: flex-start; gap: 10px; flex: 1; min-width: 0; cursor: pointer; }
+
+/* 弹层内的上下移动按钮 */
+.ovb-item .ovb-move {
+  margin-left: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex-shrink: 0;
+}
+.ovb-move button {
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--text-3);
+  font-size: 10px;
+  line-height: 1;
+  padding: 3px 6px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+.ovb-move button:hover:not(:disabled) {
+  color: var(--text-1);
+  background: rgba(148, 163, 184, 0.12);
+  border-color: var(--border-glass);
+}
+.ovb-move button:disabled {
+  opacity: 0.25;
+  cursor: not-allowed;
+}
+.ovb-move button:focus-visible {
+  outline-offset: 1px;
 }
