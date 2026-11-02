@@ -930,10 +930,9 @@
   .overview-cache-panel,.overview-slow-panel { align-self:stretch; display:flex; min-height:0; }
 }
 @media(min-width:1251px) {
-  /* 缓存池与慢查询是 5+7 的等高对：contain:size 让慢查询的高度只由同行邻居决定。
-     顺序调整或隐藏缓存池后它会独占一行，没有邻居时高度会变成 0（整块看不见），
-     因此这里补一个下限；和缓存池同行时仍由 align-self:stretch 决定。 */
-  .overview-slow-panel { contain:size; min-height:420px; }
+  /* 缓存池与慢查询是 5+7 的等高对。高度由内容决定、超过上限后表格内部滚动，
+     同行时再用 align-self:stretch 拉齐；不再用 contain:size，避免独占一行时高度归零。 */
+  .overview-slow-panel { max-height:560px; }
 }
 @media(min-width:1251px) {
   .overview-cache-panel>.glass-card,.overview-slow-panel>.glass-card { flex:1; width:100%; min-width:0; }
@@ -1240,3 +1239,41 @@ body:not([data-console-route="overview"]) [data-ovb-trigger] { display: none; }
 .ovb-move button:focus-visible {
   outline-offset: 1px;
 }
+
+/* ===== 概览块布局：flex 换行自适应（只在概览路由生效，其他页仍是 12 栏 grid） =====
+   每块带一个基准宽度，行内 flex-grow 填满剩余空间；单独成行时自动拉满整行，
+   所以调换顺序或隐藏块都不会留下空洞。比例沿用原 12 栏设计：
+   趋势 8 / 占比 4、缓存 5 / 慢查询 7，其余整行。 */
+body[data-console-route="overview"] #page-content {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: stretch;
+  gap: 14px;
+}
+body[data-console-route="overview"] #page-content > * {
+  flex: 1 1 calc((100% - 14px) * var(--ov-basis, 1));
+  min-width: 0;
+  /* 顺序改由 DOM 决定；这里压掉旧 12 栏规则里的 order（.console-trend / .console-donut 等）。 */
+  order: 0;
+}
+body[data-console-route="overview"] #page-content > [data-ov-block="trend"] { --ov-basis: 0.665; }
+body[data-console-route="overview"] #page-content > [data-ov-block="outcomes"] { --ov-basis: 0.330; }
+body[data-console-route="overview"] #page-content > [data-ov-block="caches"] { --ov-basis: 0.415; }
+body[data-console-route="overview"] #page-content > [data-ov-block="slow"] { --ov-basis: 0.578; }
+@media (max-width:1250px) {
+  body[data-console-route="overview"] #page-content > [data-ov-block] { --ov-basis: 1; }
+}
+
+/* 拖动排序：块本身可拖，按钮、表格、表单控件保持原有交互。 */
+body[data-console-route="overview"] #page-content > [data-ov-block] { cursor: grab; }
+body[data-console-route="overview"] #page-content > [data-ov-block] table,
+body[data-console-route="overview"] #page-content > [data-ov-block] .table-wrap,
+body[data-console-route="overview"] #page-content > [data-ov-block] .overview-slow-table-wrap { cursor: default; }
+body[data-console-route="overview"] #page-content > [data-ov-block].is-dragging {
+  cursor: grabbing;
+  opacity: 0.85;
+  outline: 2px dashed var(--focus-ring);
+  outline-offset: 4px;
+}
+body.ovb-dragging { user-select: none; }
+body.ovb-dragging * { cursor: grabbing !important; }

@@ -90,25 +90,40 @@ export function moveBlock(key, dir) {
   return true;
 }
 
+/** 这个直接子元素里包含哪些块（服务状态与指标卡增强后同处一个 section）。 */
+function blockKeysOf(child) {
+  const keys = [];
+  for (const [key, selectors] of Object.entries(BLOCK_SELECTORS)) {
+    if (selectors.some(sel => child.matches(sel) || child.querySelector(sel))) keys.push(key);
+  }
+  return keys;
+}
+
 /**
- * 按用户顺序给 #page-content 的直接子元素设置 CSS order。
- * #page-content 是全站共用的 12 栏 grid（.dashboard-12grid），grid 子项本身就支持
- * order，不需要也不能改动它的 display。每个直接子元素取其中所含块的最小序号：
- * 服务状态与指标卡在 shell 增强后同处一个 section，因此作为一个整体移动。
- * 不属于任何块的子元素（标题行）order 为空，保持在最前。
+ * 按用户顺序重排 #page-content 的直接子元素。
+ * 顺序直接落到 DOM 上而不是 CSS order：拖动时节点跟着指针走，视觉顺序就是 DOM 顺序，
+ * Tab 顺序也跟着对。只在顺序真的不同时才搬动节点，避免多余重排和观察器回调。
+ * 每个子元素取其中所含块的最小序号；不属于任何块的子元素（标题行）排在最前。
  */
 function applyBlockOrder(page) {
   const rank = new Map(getBlockOrder().map((key, idx) => [key, idx]));
-  [...page.children].forEach(child => {
-    let best = null;
-    for (const [key, selectors] of Object.entries(BLOCK_SELECTORS)) {
-      if (selectors.some(sel => child.matches(sel) || child.querySelector(sel))) {
-        const r = rank.get(key) ?? 0;
-        best = best === null ? r : Math.min(best, r);
-      }
+  const children = [...page.children];
+  const entries = children.map((el, index) => {
+    const keys = blockKeysOf(el).sort((a, b) => (rank.get(a) ?? 0) - (rank.get(b) ?? 0));
+    if (keys.length) {
+      el.dataset.ovBlock = keys[0];
+      el.dataset.ovBlockKeys = keys.join(' ');
+    } else {
+      delete el.dataset.ovBlock;
+      delete el.dataset.ovBlockKeys;
     }
-    /** @type {HTMLElement} */ (child).style.order = best === null ? '' : String(best + 1);
+    return { el, index, rank: keys.length ? (rank.get(keys[0]) ?? 0) : -1 };
   });
+  const sorted = [...entries].sort((a, b) => (a.rank - b.rank) || (a.index - b.index));
+  if (sorted.every((entry, i) => entry.el === children[i])) return;
+  const fragment = document.createDocumentFragment();
+  sorted.forEach(entry => fragment.append(entry.el));
+  page.append(fragment);
 }
 
 /** 把隐藏列表落到 #page-content 的 data-ov-hide 上，由 CSS 控制显隐，并应用块顺序。 */
@@ -136,6 +151,87 @@ export function applyBlockVisibility() {
 
 let popover = null;
 let selfResize = false;
+
+/* ===== 拖动排序 =====
+   在块上按下并移动一段距离才开始拖，避免误触按钮、表格和文字选择。拖动时直接搬 DOM 节点，
+   flex 布局实时重排；放开后把 DOM 顺序写回存储。弹层里的 ▲▼ 仍可精确调序，也是键盘路径。 */
+const DRAG_EXCLUDE = 'button,a,input,select,textarea,summary,label,table,[role="button"],[tabindex],.table-wrap,.overview-slow-table-wrap';
+let dragState = null;
+let dragging = false;
+let dragBound = false;
+
+function hitBlock(page, dragged, x, y) {
+  for (const el of page.children) {
+    if (el === dragged) continue;
+    const rect = el.getBoundingClientRect();
+    if (rect.width && rect.height && x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom) return el;
+  }
+  return null;
+}
+
+function stopDrag() {
+  window.removeEventListener('pointermove', onDragMove);
+  window.removeEventListener('pointerup', onDragEnd);
+  window.removeEventListener('pointercancel', onDragEnd);
+  document.body.classList.remove('ovb-dragging');
+  dragState?.block.classList.remove('is-dragging');
+  dragState = null;
+  dragging = false;
+}
+
+function onDragMove(event) {
+  const state = dragState;
+  if (!state || event.pointerId !== state.id) return;
+  if (!state.active) {
+    if (Math.hypot(event.clientX - state.x, event.clientY - state.y) < 10) return;
+    state.active = true;
+    dragging = true;
+    state.block.classList.add('is-dragging');
+    document.body.classList.add('ovb-dragging');
+  }
+  event.preventDefault();
+  const over = hitBlock(state.page, state.block, event.clientX, event.clientY);
+  if (!over) return;
+  const rect = over.getBoundingClientRect();
+  const before = event.clientY < rect.top + rect.height / 2 ||
+    (event.clientY < rect.bottom && event.clientX < rect.left + rect.width / 2);
+  state.page.insertBefore(state.block, before ? over : over.nextElementSibling);
+}
+
+function onDragEnd(event) {
+  const state = dragState;
+  if (!state || (event && event.pointerId !== state.id)) return;
+  const { active, page } = state;
+  stopDrag();
+  if (!active) return;
+  const keys = [];
+  for (const el of page.children) {
+    if (el.dataset.ovBlockKeys) keys.push(...el.dataset.ovBlockKeys.split(' '));
+  }
+  setBlockOrder(keys);
+  // 顺序变了要重画拓扑连线；applyBlockVisibility 末尾会补发一次 resize。
+  applyBlockVisibility();
+}
+
+function onDragStart(event) {
+  if (event.button !== 0 || dragState) return;
+  const page = $('#page-content');
+  const block = event.target.closest?.('[data-ov-block]');
+  if (!page || !block || block.parentElement !== page) return;
+  // 只排除块内部的交互元素；页面容器自己也可能带 tabindex，不能把它算进来。
+  const interactive = event.target.closest(DRAG_EXCLUDE);
+  if (interactive && block.contains(interactive)) return;
+  dragState = { block, page, id: event.pointerId, x: event.clientX, y: event.clientY, active: false };
+  window.addEventListener('pointermove', onDragMove, { passive: false });
+  window.addEventListener('pointerup', onDragEnd);
+  window.addEventListener('pointercancel', onDragEnd);
+}
+
+function bindBlockDrag() {
+  if (dragBound) return;
+  dragBound = true;
+  document.addEventListener('pointerdown', onDragStart);
+}
 
 function ensurePopover() {
   if (popover?.isConnected) return popover;
@@ -203,7 +299,7 @@ function popoverHtml() {
     </div>
     <div class="ovb-foot">
       <button type="button" class="glass-btn ovb-reset" data-ovb-reset ${hidden.size || !isDefaultOrder(order) ? '' : 'disabled'}>恢复默认</button>
-      <span class="ovb-note">按浏览器保存 · 仅影响概览页</span>
+      <span class="ovb-note">拖动页面上的块也能调序 · 按浏览器保存</span>
     </div>`;
 }
 
@@ -300,6 +396,8 @@ let orderObserver = null;
 function watchBlockOrder(page) {
   orderObserver?.disconnect();
   orderObserver = new MutationObserver(() => {
+    // 拖动过程中节点跟着指针走，这时不能按存储里的旧顺序把它排回去。
+    if (dragging) return;
     // 概览页之外没有这些块元素，断开观察，避免在其他页面的每次渲染里空跑。
     if (!page.isConnected || !page.querySelector(BLOCK_PROBE)) {
       orderObserver?.disconnect();
@@ -342,6 +440,7 @@ export function bindOverviewBlocks(page) {
   ensurePopover();
   applyBlockVisibility();
   watchBlockOrder(page);
+  bindBlockDrag();
   const trigger = ensureTrigger();
   if (!trigger) return;
   trigger.onclick = event => {

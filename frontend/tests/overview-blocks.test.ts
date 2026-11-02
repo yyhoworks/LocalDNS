@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 // 概览内容块自定义显示（features/overview/blocks.js）的单元测试：
 // 存储/恢复、data-ov-hide 应用、弹层开关与勾选联动、静默重渲染后的重绑定。
-import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mem = new Map<string, string>();
 vi.mock('../src/core/persistence/preferences.ts', () => ({
@@ -21,6 +21,19 @@ let blocks: typeof import('../src/features/overview/blocks.js');
 const page = () => document.querySelector('#page-content') as HTMLElement;
 const popover = () => document.querySelector('#overview-blocks-popover') as HTMLElement;
 const trigger = () => page().querySelector('[data-ovb-trigger]') as HTMLButtonElement;
+
+// jsdom 没有布局，拖动测试给每个块按顺序造一列矩形。
+const originalRect = Element.prototype.getBoundingClientRect;
+function stubRects(elements: Element[]) {
+  const rects = new Map<Element, DOMRect>();
+  elements.forEach((el, index) => {
+    const top = index * 100;
+    rects.set(el, { left: 0, right: 800, top, bottom: top + 90, width: 800, height: 90, x: 0, y: top, toJSON: () => ({}) } as DOMRect);
+  });
+  const empty = { left: 0, right: 0, top: 0, bottom: 0, width: 0, height: 0, x: 0, y: 0, toJSON: () => ({}) } as DOMRect;
+  Element.prototype.getBoundingClientRect = function () { return rects.get(this) ?? empty; };
+}
+afterEach(() => { Element.prototype.getBoundingClientRect = originalRect; });
 
 beforeAll(async () => {
   // context.js 在模块导入期读取 matchMedia，先补全局再动态导入被测模块。
@@ -197,7 +210,7 @@ describe('概览内容块排序', () => {
     expect(blocks.moveBlock('slow', 1)).toBe(false);
   });
 
-  it('applyBlockVisibility 给 #page-content 的直接子元素设置 order，不改动 grid', async () => {
+  it('applyBlockVisibility 按用户顺序重排 #page-content 的直接子元素', async () => {
     document.body.innerHTML = '<div id="page-content" class="dashboard-12grid">' +
       '<div class="view-title-row"></div>' +
       '<section class="console-service-summary"><div class="console-service-row"></div><div class="console-kpi-row"></div></section>' +
@@ -205,38 +218,63 @@ describe('概览内容块排序', () => {
     blocks.setBlockOrder(['topology', 'kpi', 'shortcuts', 'service', 'trend', 'outcomes', 'rankings', 'caches', 'slow']);
     blocks.applyBlockVisibility();
     const p = document.querySelector('#page-content') as HTMLElement;
+    // 顺序落到 DOM 上：标题行永远最前，其余按用户顺序；不再写 CSS order
+    expect([...p.children].map(el => el.className || el.tagName)).toEqual([
+      'view-title-row', 'col-12 console-topology', 'console-service-summary', 'col-8 console-trend'
+    ]);
     expect(p.className).toBe('dashboard-12grid');
-    expect(p.style.display).toBe('');
-    const [title, summary, topo, trend] = [...p.children] as HTMLElement[];
-    expect(title.style.order).toBe('');
-    expect(topo.style.order).toBe('1');
-    // 服务与指标卡同处一个 section，取两者中较前的序号（kpi=1 → order 2）
-    expect(summary.style.order).toBe('2');
-    expect(trend.style.order).toBe('5');
-    // 块内部元素不设 order
+    expect((p.children[1] as HTMLElement).getAttribute('data-ov-block')).toBe('topology');
+    // 服务与指标卡同处一个 section，两个 key 都记下来，拖动时一起搬
+    expect((p.querySelector('.console-service-summary') as HTMLElement).dataset.ovBlockKeys).toBe('kpi service');
     expect((p.querySelector('.console-kpi-row') as HTMLElement).style.order).toBe('');
   });
 
-  it('shell 增强前的模板形态也能认出各块，增强搬移后会再应用一次', async () => {
+  it('shell 增强前的模板形态也能认出各块，增强搬移后会再排一次', async () => {
     document.body.innerHTML = '<div id="page-content">' +
       '<div class="view-title-row"></div><div class="col-4"><div class="control-bar-card"></div></div>' +
       '<div class="col-12"><section class="topology-glass-card"></section></div></div>';
     blocks.setBlockOrder(['topology', 'shortcuts']);
     blocks.bindOverviewBlocks(page());
     const p = document.querySelector('#page-content') as HTMLElement;
-    expect((p.children[1] as HTMLElement).style.order).toBe('2');
-    expect((p.children[2] as HTMLElement).style.order).toBe('1');
+    expect([...p.children].map(el => el.className || el.tagName)).toEqual([
+      'view-title-row', 'col-12', 'col-4'
+    ]);
     // 模拟 shell 增强：快捷控制条收进新建的 details，原 col-4 移除
     const details = document.createElement('details');
     details.className = 'console-shortcuts';
+    const shortcutColumn = p.querySelector('.col-4')!;
     details.append(p.querySelector('.control-bar-card')!);
-    p.children[1].remove();
+    shortcutColumn.remove();
     p.children[0].after(details);
     await Promise.resolve();
-    expect(details.style.order).toBe('2');
+    // 增强后新建的 details 没有 data-ov-block，观察器补排后应该排到拓扑后面
+    expect([...p.children].map(el => el.className || el.tagName)).toEqual([
+      'view-title-row', 'col-12', 'console-shortcuts'
+    ]);
+    expect(details.getAttribute('data-ov-block')).toBe('shortcuts');
   });
 
-  it('切换到其他页面后不残留布局改动', () => {
+  it('拖动块可以改变顺序并写回存储', () => {
+    document.body.innerHTML = '<div id="page-content">' +
+      '<div class="col-12 console-topology"></div>' +
+      '<div class="col-8 console-trend"></div>' +
+      '<div class="col-4 console-donut"></div></div>';
+    blocks.bindOverviewBlocks(page());
+    const p = page();
+    // 默认顺序是 trend(3) / outcomes(4) / topology(5)
+    expect([...p.children].map(el => el.className)).toEqual(['col-8 console-trend', 'col-4 console-donut', 'col-12 console-topology']);
+    stubRects([...p.children]);
+    const donut = p.querySelector('.console-donut') as HTMLElement;
+    donut.dispatchEvent(new MouseEvent('pointerdown', { bubbles: true, clientX: 20, clientY: 250 }));
+    window.dispatchEvent(new MouseEvent('pointermove', { clientX: 20, clientY: 40 }));
+    expect(donut.classList.contains('is-dragging')).toBe(true);
+    window.dispatchEvent(new MouseEvent('pointerup', { clientX: 20, clientY: 40 }));
+    expect([...p.children].map(el => el.className)).toEqual(['col-4 console-donut', 'col-8 console-trend', 'col-12 console-topology']);
+    expect(blocks.getBlockOrder().slice(0, 3)).toEqual(['outcomes', 'trend', 'topology']);
+    expect(donut.classList.contains('is-dragging')).toBe(false);
+  });
+
+  it('切换块位置后不残留布局改动', () => {
     blocks.applyBlockVisibility();
     expect(page().classList.contains('ov-blocks-sortable')).toBe(false);
     expect(page().style.display).toBe('');
