@@ -5,7 +5,9 @@ import json
 import re
 import secrets
 import shutil
+import sys
 import threading
+import traceback
 from pathlib import Path
 
 import install_localdns as installer
@@ -17,6 +19,11 @@ from core_upload import MAX_UPLOAD_BYTES, read_kernel
 CONTRACT = {'schema': 1, 'apiFamily': 'localdns-v1', 'configSchema': 1}
 ACTIVE = {'queued', 'running', 'awaiting_backup', 'rolling_back'}
 MODES = {'ui', 'core', 'full'}
+# A job left in one of these states by a crash or a failed startup recovery.
+INTERRUPTED = {'queued', 'running', 'rolling_back'}
+NEEDS_ATTENTION = 'needs_attention'
+# How many finished jobs (each holding a full backup) and full-install snapshots to keep.
+RETENTION = installer.SNAPSHOT_RETENTION
 
 
 def contract(metadata):
@@ -50,16 +57,64 @@ class OnlineUpdateManager:
         if not re.fullmatch(r'localdns(?:-[a-zA-Z0-9-]+)?', service_name):
             raise UpdateError('核心服务名称无效')
         self.test_ports = test_ports
-        self.state = read_json(self.state_file) if self.state_file.exists() else {}
-        with installer.locked(self.root):
-            recovered = installer.recover_ui_update(self.root)
-            if upgrade.journal_path(self.root).exists():
-                upgrade.recover(self.root, self.init or installer.manager())
-                recovered = True
-            self.ensure_core_metadata()
-        if self.state.get('state') in {'queued', 'running', 'rolling_back'}:
+        self.state = {}
+        self.startup_error = None
+        state_readable = False
+        try:
+            self.state = read_json(self.state_file) if self.state_file.exists() else {}
+            if not isinstance(self.state, dict):
+                self.state = {}
+                raise UpdateError('升级状态文件格式无效')
+            state_readable = True
+            with installer.locked(self.root):
+                recovered = installer.recover_ui_update(self.root)
+                if upgrade.journal_path(self.root).exists():
+                    upgrade.recover(self.root, self.init or installer.manager())
+                    recovered = True
+                self.ensure_core_metadata()
+        except Exception as error:
+            # Exiting here makes the service manager respawn into the same error until it
+            # gives up, and the page then cannot even read why. Keep serving status and
+            # refuse changes until an operator has checked the installation.
+            self.enter_needs_attention(error, persist=state_readable)
+            return
+        if self.state.get('step') == NEEDS_ATTENTION:
+            # An earlier start could not recover; this one did. Put back the job state
+            # that was replaced, unless that job had been interrupted mid-way.
+            before = self.state.pop('attentionPrevious', None) or {}
+            self.state.pop('needsAttention', None)
+            for key in ('state', 'step', 'message', 'finishedAt'):
+                self.state.pop(key, None)
+                if before.get(key) is not None:
+                    self.state[key] = before[key]
+            self.save()
+        if self.state.get('state') in INTERRUPTED:
             self.save(state='rolled_back' if recovered else 'failed', step='interrupted', finishedAt=now(),
                       message='上次升级被中断，已恢复原版本。' if recovered else '上次升级被中断；请核对当前版本后重新准备。')
+
+    def enter_needs_attention(self, error, persist=True):
+        detail = str(error) or type(error).__name__
+        self.startup_error = detail
+        print('localdns-updater: 启动恢复失败，升级操作已暂停：' + detail, file=sys.stderr, flush=True)
+        traceback.print_exc(file=sys.stderr)
+        values = dict(state='failed', step=NEEDS_ATTENTION, needsAttention=True, finishedAt=now(),
+                      message='升级服务启动时未能完成恢复，已暂停升级操作：' + detail +
+                              '。请检查安装目录与服务状态，处理后重启升级服务。')
+        if self.state.get('step') != NEEDS_ATTENTION:
+            values['attentionPrevious'] = {key: self.state.get(key) for key in ('state', 'step', 'message', 'finishedAt')}
+        if persist:
+            try:
+                self.save(**values)
+                return
+            except Exception as save_error:  # Still serve the in-memory status.
+                print('localdns-updater: 无法写入升级状态：' + str(save_error), file=sys.stderr, flush=True)
+        # An unreadable state file is left untouched for inspection.
+        self.state.update(values)
+
+    def require_ready(self):
+        if self.startup_error is not None:
+            raise UpdateError('升级服务启动恢复未完成，已暂停升级操作：' + self.startup_error +
+                              '。请检查安装目录后重启升级服务。', 409)
 
     def save(self, **values):
         with self.mutex:
@@ -137,12 +192,25 @@ class OnlineUpdateManager:
 
     def status(self):
         with self.mutex:
-            previous = self.previous_path()
+            attention = self.startup_error is not None
+            try:
+                previous = self.previous_path()
+            except Exception:
+                if not attention:
+                    raise
+                previous = None
             result = {k: self.state[k] for k in ('state', 'jobId', 'action', 'mode', 'step', 'message',
                       'targetTag', 'targetVersion', 'targetBackend', 'source', 'startedAt', 'finishedAt', 'backupDownloaded') if k in self.state}
-            result.update(state=self.state.get('state', 'idle'), canRollback=previous is not None,
-                          rollbackKind=(self.state.get('previous') or {}).get('kind'), protocol='localdns-updater/v2')
-            current = self.current()
+            reference = self.state.get('previous')
+            result.update(state=self.state.get('state', 'idle'), canRollback=previous is not None and not attention,
+                          rollbackKind=reference.get('kind') if isinstance(reference, dict) else None,
+                          protocol='localdns-updater/v2', needsAttention=attention)
+            try:
+                current = self.current()
+            except Exception:
+                if not attention:
+                    raise
+                current = {'uiVersion': None, 'backendVersion': None}
             result.update(installedVersion=current['uiVersion'], installedBackend=current['backendVersion'])
             backup = self.state.get('backup')
             if backup:
@@ -150,10 +218,19 @@ class OnlineUpdateManager:
             return result
 
     def capabilities(self):
-        return {'protocol': 'localdns-updater/v2', 'repository': installer.REPO,
-                'modes': sorted(MODES), 'architecture': self.arch, 'compatibility': CONTRACT,
-                'backupRequired': ['core', 'full', 'rollback'], 'installed': self.current(),
-                'coreUpload': {'format': 'upstream-zip', 'maxBytes': MAX_UPLOAD_BYTES, 'architecture': self.arch}}
+        try:
+            installed = self.current()
+        except Exception:
+            if self.startup_error is None:
+                raise
+            installed = {'uiVersion': None, 'backendVersion': None}
+        result = {'protocol': 'localdns-updater/v2', 'repository': installer.REPO,
+                  'modes': sorted(MODES), 'architecture': self.arch, 'compatibility': CONTRACT,
+                  'backupRequired': ['core', 'full', 'rollback'], 'installed': installed,
+                  'coreUpload': {'format': 'upstream-zip', 'maxBytes': MAX_UPLOAD_BYTES, 'architecture': self.arch}}
+        if self.startup_error is not None:
+            result['needsAttention'] = True
+        return result
 
     def _launch(self, function):
         self.thread = threading.Thread(target=function, daemon=True)
@@ -161,6 +238,7 @@ class OnlineUpdateManager:
 
     def start(self, tag=None, rollback=False, mode='ui'):
         with self.mutex:
+            self.require_ready()
             if self.state.get('state') in ACTIVE:
                 if not rollback and self.state.get('targetTag') == tag and self.state.get('mode') == mode:
                     return self.status()
@@ -211,6 +289,7 @@ class OnlineUpdateManager:
         if not re.fullmatch(r'[a-f0-9]{64}', expected or ''):
             raise UpdateError('内核 ZIP 的 SHA-256 格式无效')
         with self.mutex:
+            self.require_ready()
             if self.state.get('state') in ACTIVE:
                 raise UpdateError('已有升级任务，请先完成或取消备份准备。', 409)
             check_contract(self.core_metadata())
@@ -282,6 +361,7 @@ class OnlineUpdateManager:
                               previous={'kind': 'ui', 'name': self.job_directory().name, 'hashes': hashes(previous)},
                               message='UI 更新完成，DNS 核心与设置已保留，可以刷新使用。')
                     shutil.rmtree(work)
+                    self.prune()
                     return
                 self.step('backup', '正在生成完整备份并准备新目录，现网仍在运行…')
                 archive = self.make_backup()
@@ -309,9 +389,11 @@ class OnlineUpdateManager:
         self.step('backup', '正在备份现有版本并准备上传的内核，现网仍在运行…')
         archive = self.make_backup()
         safe_tree(self.root)
-        installer.require_space(self.root.parent, sum(p.stat().st_size for p in self.root.rglob('*') if p.is_file()) + len(binary))
+        installer.require_space(self.root.parent, sum(p.stat().st_size for p in installer.live_files(self.root)) + len(binary))
         stage = self.stage_path()
-        shutil.copytree(self.root, stage)
+        # Earlier snapshots and backups inside the install directory stay behind; copying
+        # them into every stage would nest one more generation with each update.
+        shutil.copytree(self.root, stage, ignore=installer.snapshot_ignore(self.root))
         saved = read_json(self.job_directory() / 'backup/backup.json')
         if upgrade.fingerprint(stage) != saved['sourceFingerprint']:
             raise UpdateError('准备期间设置发生变化，请重新上传并准备')
@@ -357,6 +439,7 @@ class OnlineUpdateManager:
 
     def continue_job(self, job_id, sha256):
         with self.mutex:
+            self.require_ready()
             if job_id != self.state.get('jobId') or self.state.get('state') != 'awaiting_backup':
                 raise UpdateError('没有等待继续的此项任务', 409)
             if not isinstance(sha256, str) or not re.fullmatch('[a-f0-9]{64}', sha256):
@@ -392,6 +475,7 @@ class OnlineUpdateManager:
                           previous={'kind': 'full', 'name': previous.name, 'hashes': upgrade.stage_fingerprint(previous)},
                           message='内核已升级，当前 UI 保持原样；DNS 与原设置检查通过。' if self.state['mode'] == 'core'
                           else 'UI、内核与设置验收通过，升级完成，可以刷新使用。')
+                self.prune()
         except Exception as error:
             restored = False
             if switching and not upgrade.journal_path(self.root).exists():
@@ -420,12 +504,13 @@ class OnlineUpdateManager:
             self.save(state='succeeded', step='done', finishedAt=now(), previous=None,
                       message='上一版 UI 已恢复，当前 Logo、字体和 DNS 设置保持不变。')
             shutil.rmtree(work)
+            self.prune()
             return
         self.step('backup', '正在备份当前状态，再准备上一整套版本…')
         archive = self.make_backup()
         stage = self.stage_path()
-        installer.require_space(stage.parent, sum(p.stat().st_size for p in previous.rglob('*') if p.is_file()))
-        shutil.copytree(previous, stage)
+        installer.require_space(stage.parent, sum(p.stat().st_size for p in installer.live_files(previous)))
+        shutil.copytree(previous, stage, ignore=installer.snapshot_ignore(previous))
         record = {'schema': 1, 'sourceRoot': str(self.root), 'sourceFingerprint': upgrade.fingerprint(self.root),
                   'targetFingerprint': upgrade.fingerprint(stage), 'preflight': None,
                   'report': {'missingSubscriptionFiles': [], 'preserved': {name: hashes(stage / name)
@@ -434,8 +519,42 @@ class OnlineUpdateManager:
         self.wait_for_backup(archive)
         shutil.rmtree(work)
 
+    def prune(self):
+        """After a successful switch keep only the newest RETENTION snapshots of each kind.
+
+        Never removes what the state still points at: the current job (its backup can
+        still be downloaded) and the snapshot the rollback button restores.
+        """
+        try:
+            with self.mutex:
+                reference = self.state.get('previous') if isinstance(self.state.get('previous'), dict) else {}
+                job_id = self.state.get('jobId')
+            protect = []
+            if isinstance(job_id, str) and re.fullmatch(r'[a-f0-9]{24}', job_id):
+                protect.append(self.directory / ('job-' + job_id))
+            name = reference.get('name')
+            if isinstance(name, str) and reference.get('kind') == 'ui' and re.fullmatch(r'job-[a-f0-9]{24}', name):
+                protect.append(self.directory / name)
+            if isinstance(name, str) and reference.get('kind') == 'full':
+                protect.append(self.root.parent / name)
+            removed = []
+            jobs = [p for p in self.directory.iterdir()
+                    if re.fullmatch(r'job-[a-f0-9]{24}', p.name) and p.is_dir() and not p.is_symlink()]
+            removed += installer.prune_snapshots(jobs, RETENTION, protect)
+            for suffix in ('previous', 'failed'):
+                pattern = re.escape(self.root.name) + r'\.' + suffix + r'-fjgli-[a-f0-9]{32}'
+                full = [p for p in self.root.parent.iterdir()
+                        if re.fullmatch(pattern, p.name) and p.is_dir() and not p.is_symlink()]
+                removed += installer.prune_snapshots(full, RETENTION, protect)
+            removed += installer.prune_root_snapshots(self.root, RETENTION)
+            return removed
+        except Exception as error:  # A finished update stays finished.
+            print('localdns-updater: 清理较早的快照失败：' + str(error), file=sys.stderr, flush=True)
+            return []
+
     def cancel(self, job_id):
         with self.mutex:
+            self.require_ready()
             if job_id != self.state.get('jobId') or self.state.get('state') != 'awaiting_backup':
                 raise UpdateError('仅可取消等待备份确认的准备任务', 409)
             self.cleanup()
