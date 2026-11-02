@@ -930,16 +930,18 @@
   .overview-cache-panel,.overview-slow-panel { align-self:stretch; display:flex; min-height:0; }
 }
 @media(min-width:1251px) {
-  /* 缓存池与慢查询是 5+7 的等高对：contain:size 让慢查询的高度只由同行邻居决定。
-     顺序调整或隐藏缓存池后它会独占一行，没有邻居时高度会变成 0（整块看不见），
-     因此这里补一个下限；和缓存池同行时仍由 align-self:stretch 决定。 */
-  .overview-slow-panel { contain:size; min-height:420px; }
+  /* 缓存池与慢查询是 5+7 的等高对。高度改由内容决定、超过上限后表格内部滚动，
+     与缓存池同行时再由 align-self:stretch 拉齐；不再用 contain:size，
+     避免它单独成行（调整顺序或隐藏缓存池）时没有邻居可对齐、高度归零。 */
+  .overview-slow-panel { max-height:560px; }
 }
 @media(min-width:1251px) {
   .overview-cache-panel>.glass-card,.overview-slow-panel>.glass-card { flex:1; width:100%; min-width:0; }
 }
 @media(min-width:1251px) {
-  .overview-slow-panel .overview-slow-table-wrap { flex:1 1 0; min-height:0; max-height:none; overflow:auto; }
+  /* basis 用 auto 而不是 0：慢查询单独成行时高度由表格内容决定（上限是面板的 560px），
+     与缓存池同行时再被 flex-grow 拉齐到整行高度。 */
+  .overview-slow-panel .overview-slow-table-wrap { flex:1 1 auto; min-height:0; max-height:none; overflow:auto; }
 }
 @media(min-width:1251px) and (max-width:1649px) {
   .overview-cache-facts>div { padding-inline:4px; }
@@ -1106,6 +1108,13 @@
 .console-health-strip .chs-items span { display:inline-flex; align-items:center; gap:5px; }
 .console-health-strip .chs-actions { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
 .console-health-strip .chs-actions .glass-btn[aria-pressed="true"] { color:var(--primary-light); background:var(--selection-fill,var(--glass-pill-active)); border-color:var(--border-highlight); }
+@media(max-width:600px) {
+  /* 窄屏改分行：.chs-items span 是 inline-flex，文本会被拆成多个 flex 项各自换行，
+     出现「最近 38,752 次 / 查询」这种从词组中间断开的样子。 */
+  .console-health-strip { align-items:flex-start; }
+  .console-health-strip .chs-items { flex-direction:column; align-items:flex-start; gap:4px; }
+  .console-health-strip .chs-items span { display:inline; }
+}
 .topo-stage-wrap.only-active-flow .t-node[data-zero-flow="true"] { opacity:0.28; filter:saturate(0.25); }
 
 .traffic-storage-note { color:var(--text-2); }
@@ -1239,4 +1248,26 @@ body:not([data-console-route="overview"]) [data-ovb-trigger] { display: none; }
 }
 .ovb-move button:focus-visible {
   outline-offset: 1px;
+}
+
+/* ===== 概览块布局：flex 换行自适应（只在概览路由生效，其他页仍是 12 栏 grid） =====
+   每块带一个基准宽度，行内 flex-grow 填满剩余空间；单独成行的块自动拉满整行，
+   所以调整顺序或隐藏块都不会在右边留下空白。比例沿用原 12 栏设计：
+   趋势 8 / 占比 4、缓存 5 / 慢查询 7，其余整行。顺序仍由 blocks.js 写的 inline order 决定。 */
+body[data-console-route="overview"] #page-content {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: stretch;
+  gap: 14px;
+}
+body[data-console-route="overview"] #page-content > * {
+  flex: 1 1 calc((100% - 14px) * var(--ov-basis, 1));
+  min-width: 0;
+}
+body[data-console-route="overview"] #page-content > .console-trend { --ov-basis: 0.665; }
+body[data-console-route="overview"] #page-content > .console-donut { --ov-basis: 0.330; }
+body[data-console-route="overview"] #page-content > .overview-cache-panel { --ov-basis: 0.415; }
+body[data-console-route="overview"] #page-content > .overview-slow-panel { --ov-basis: 0.578; }
+@media (max-width:1250px) {
+  body[data-console-route="overview"] #page-content > * { --ov-basis: 1; }
 }
