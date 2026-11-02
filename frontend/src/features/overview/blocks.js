@@ -40,6 +40,38 @@ const BLOCK_SELECTORS = {
 };
 
 const BLOCK_KEYS = new Set(OVERVIEW_BLOCKS.map(([key]) => key));
+
+/**
+ * 必须相邻、作为一个整体排序的块组。shell 增强会把指标卡并进服务 section
+ * （features/shell/interface.js 的 overview()），两者在页面上是同一个 grid 子项，
+ * 单独移动其中一个不会带来任何变化；因此排序以组为单位，显隐仍各自独立。
+ * 组内顺序固定为这里的顺序。
+ */
+const BLOCK_GROUPS = [['service', 'kpi']];
+const groupOf = key => BLOCK_GROUPS.find(group => group.includes(key)) || null;
+
+/** 把顺序规整为组内成员相邻：整组放在组内最靠前成员原来的位置（兼容旧版分开存储的顺序）。 */
+function normalizeOrder(order) {
+  const out = [];
+  const placed = new Set();
+  order.forEach(key => {
+    if (placed.has(key)) return;
+    const members = groupOf(key) || [key];
+    members.forEach(member => { if (!placed.has(member)) { placed.add(member); out.push(member); } });
+  });
+  return out;
+}
+
+/** 排序单元：其余块各成一组，块组整体一个单元。 */
+export function orderUnits(order = getBlockOrder()) {
+  const units = [];
+  order.forEach(key => {
+    const group = groupOf(key);
+    if (group && group[0] !== key) return;
+    units.push(group ? [...group] : [key]);
+  });
+  return units;
+}
 /** 一条能认出“当前页有概览块”的选择器，用于判断观察器是否还该留在页面上。 */
 const BLOCK_PROBE = Object.values(BLOCK_SELECTORS).flat().join(',');
 const storageKey = () => 'localdns-overview-hidden-blocks:' + (API_BASE || location.host);
@@ -68,7 +100,7 @@ export function getBlockOrder() {
     const seen = new Set();
     const ordered = raw.filter(key => BLOCK_KEYS.has(key) && !seen.has(key) && (seen.add(key), true));
     defaults.forEach(key => { if (!seen.has(key)) ordered.push(key); });
-    return ordered;
+    return normalizeOrder(ordered);
   } catch { return defaults; }
 }
 
@@ -76,17 +108,20 @@ export function setBlockOrder(keys) {
   const seen = new Set();
   const ordered = keys.filter(key => BLOCK_KEYS.has(key) && !seen.has(key) && (seen.add(key), true));
   OVERVIEW_BLOCKS.forEach(([key]) => { if (!seen.has(key)) ordered.push(key); });
-  storage.set(orderKey(), JSON.stringify(ordered));
+  storage.set(orderKey(), JSON.stringify(normalizeOrder(ordered)));
 }
 
-/** 把 key 指定的块上移/下移一位（dir=-1 上移，+1 下移），返回是否发生移动。 */
+/**
+ * 把 key 所在的排序单元上移/下移一位（dir=-1 上移，+1 下移），返回是否发生移动。
+ * 块组（服务状态 + 指标卡）整体移动，不会出现组内互换这种页面上无变化的空操作。
+ */
 export function moveBlock(key, dir) {
-  const order = getBlockOrder();
-  const idx = order.indexOf(key);
+  const units = orderUnits();
+  const idx = units.findIndex(unit => unit.includes(key));
   const next = idx + dir;
-  if (idx < 0 || next < 0 || next >= order.length) return false;
-  [order[idx], order[next]] = [order[next], order[idx]];
-  setBlockOrder(order);
+  if (idx < 0 || next < 0 || next >= units.length) return false;
+  [units[idx], units[next]] = [units[next], units[idx]];
+  setBlockOrder(units.flat());
   return true;
 }
 
@@ -126,16 +161,19 @@ export function applyBlockVisibility() {
   // shell 增强会在渲染之后搬移 DOM（快捷控制条收进 details、指标卡并入服务 section），
   // 那时新建的节点还没有 inline order；搬移完成后的补应用见 watchBlockOrder。
   applyBlockOrder(page);
-  // 显隐/排序变化会影响布局；概览页监听 resize 重画拓扑连线（SVG 连线按节点
-  // 真实盒模型绘制），这里补发一次让刚显示/移动的拓扑立即有连线。
-  // 这次 resize 是自己发出的（同步分发），弹层的“窗口变化即收起”要跳过它，
-  // 否则每勾选一项弹层都会被关掉。
-  selfResize = true;
-  try { window.dispatchEvent(new Event('resize')); } finally { selfResize = false; }
+  // 显隐/排序变化会影响布局；概览页监听 localdns:layoutchange 重画拓扑连线（SVG 连线
+  // 按节点真实盒模型绘制），shell 也据此重算分段滑块。这里不再发出合成的 window
+  // resize：那会让背景画布、导航栏等所有 resize 监听者整体重绘一次。
+  window.dispatchEvent(new CustomEvent('localdns:layoutchange'));
 }
 
 let popover = null;
-let selfResize = false;
+/** 弹层打开时的视口尺寸；只有真实的视口变化才重新定位（见 bindGlobalListeners）。 */
+let viewport = { width: 0, height: 0 };
+const readViewport = () => ({ width: window.innerWidth, height: window.innerHeight });
+/** 触发按钮下方/上方至少要有这么多空间才贴着按钮展开，否则改为翻转或整体贴边。 */
+const MIN_POPOVER_SPACE = 200;
+const VIEWPORT_GAP = 12;
 
 function ensurePopover() {
   if (popover?.isConnected) return popover;
@@ -166,10 +204,39 @@ function focusFirstControl(pop) {
 
 function positionPopover(trigger) {
   const rect = trigger.getBoundingClientRect();
+  const vh = window.innerHeight;
   // 右对齐触发按钮，同时兜底保证弹层整体留在视口内。
-  const right = Math.min(Math.max(12, window.innerWidth - rect.right), Math.max(12, window.innerWidth - 324));
-  popover.style.top = `${Math.max(12, rect.bottom + 8)}px`;
+  const right = Math.min(Math.max(VIEWPORT_GAP, window.innerWidth - rect.right), Math.max(VIEWPORT_GAP, window.innerWidth - 324));
   popover.style.right = `${right}px`;
+  // 上下方向：默认贴在按钮下方，max-height 按实际起点计算，底边始终留在视口内；
+  // 按钮过于靠下时翻到上方；上下都放不下（极矮视口）就贴视口上下边。
+  const top = Math.max(VIEWPORT_GAP, rect.bottom + 8);
+  const below = vh - top - VIEWPORT_GAP;
+  const above = rect.top - 8 - VIEWPORT_GAP;
+  if (below >= MIN_POPOVER_SPACE || (below >= above && below > 0)) {
+    popover.style.top = `${top}px`;
+    popover.style.bottom = '';
+    popover.style.maxHeight = `${below}px`;
+  } else if (above >= MIN_POPOVER_SPACE) {
+    popover.style.top = '';
+    popover.style.bottom = `${vh - rect.top + 8}px`;
+    popover.style.maxHeight = `${above}px`;
+  } else {
+    popover.style.top = `${VIEWPORT_GAP}px`;
+    popover.style.bottom = '';
+    popover.style.maxHeight = `${Math.max(0, vh - VIEWPORT_GAP * 2)}px`;
+  }
+}
+
+/** 按当前视口放置弹层：窄屏停靠在顶部工具栏下方（尺寸交给 CSS），宽屏贴着触发按钮。 */
+function placePopover(trigger) {
+  if (matchMedia('(max-width:600px)').matches) {
+    popover.classList.add('is-docked');
+    popover.style.top = ''; popover.style.right = ''; popover.style.bottom = ''; popover.style.maxHeight = '';
+  } else {
+    popover.classList.remove('is-docked');
+    positionPopover(trigger);
+  }
 }
 
 function isDefaultOrder(order) {
@@ -179,24 +246,34 @@ function isDefaultOrder(order) {
 function popoverHtml() {
   const hidden = new Set(getHiddenBlocks());
   const order = getBlockOrder();
+  const units = orderUnits(order);
   const byKey = new Map(OVERVIEW_BLOCKS.map(b => [b[0], b]));
+  const label = key => (byKey.get(key) || [key, key, ''])[1];
+  // 块组渲染成一项：各自一个勾选框（显隐独立），共用一组上移/下移按钮（整体排序）。
   return `
     <div class="ovb-head">
       <strong>自定义概览显示内容</strong>
       <button type="button" class="ovb-close" data-ovb-close aria-label="关闭">${icon('close')}</button>
     </div>
     <div class="ovb-list">
-      ${order.map((key, idx) => {
-        const [k, l, d] = byKey.get(key) || [key, key, ''];
-        return `
-        <div class="ovb-item" title="${esc(d)}">
-          <label class="ovb-item-main">
+      ${units.map((unit, idx) => {
+        const lead = unit[0];
+        const name = unit.map(label).join('与');
+        const boxes = unit.map(key => {
+          const [k, l, d] = byKey.get(key) || [key, key, ''];
+          return `
+          <label class="ovb-item-main" title="${esc(d)}">
             <input type="checkbox" data-ovb-key="${esc(k)}" aria-label="显示${esc(l)}" ${hidden.has(k) ? '' : 'checked'}>
             <span class="ovb-item-text"><span>${esc(l)}</span><small>${esc(d)}</small></span>
-          </label>
+          </label>`;
+        }).join('');
+        const grouped = unit.length > 1;
+        return `
+        <div class="ovb-item${grouped ? ' ovb-group' : ''}"${grouped ? ` role="group" aria-label="${esc(name)}（作为整体排序）"` : ''}>
+          ${grouped ? `<div class="ovb-group-main">${boxes}</div>` : boxes}
           <span class="ovb-move">
-            <button type="button" data-ovb-up="${esc(k)}" ${idx === 0 ? 'disabled' : ''} aria-label="上移${esc(l)}">▲</button>
-            <button type="button" data-ovb-down="${esc(k)}" ${idx === order.length - 1 ? 'disabled' : ''} aria-label="下移${esc(l)}">▼</button>
+            <button type="button" data-ovb-up="${esc(lead)}" ${idx === 0 ? 'disabled' : ''} aria-label="上移${esc(name)}">▲</button>
+            <button type="button" data-ovb-down="${esc(lead)}" ${idx === units.length - 1 ? 'disabled' : ''} aria-label="下移${esc(name)}">▼</button>
           </span>
         </div>`;
       }).join('')}
@@ -211,13 +288,8 @@ function openPopover(trigger) {
   const pop = ensurePopover();
   setHTML(pop, popoverHtml());
   bindPopoverControls(pop);
-  if (matchMedia('(max-width:600px)').matches) {
-    pop.classList.add('is-docked');
-    pop.style.top = ''; pop.style.right = '';
-  } else {
-    pop.classList.remove('is-docked');
-    positionPopover(trigger);
-  }
+  viewport = readViewport();
+  placePopover(trigger);
   pop.hidden = false;
   trigger.setAttribute('aria-expanded', 'true');
   // 弹层挂在 body 末尾，不移焦点的话键盘要 Tab 穿过整页才能到达。
@@ -281,13 +353,31 @@ function bindGlobalListeners() {
   document.addEventListener('keydown', event => {
     if (event.key === 'Escape' && popover && !popover.hidden) { event.stopPropagation(); closePopover(true); }
   });
-  // 页面滚动或窗口变化后触发按钮的定位不再可靠，直接收起；
-  // 弹层自身列表的滚动（overflow:auto）与显隐切换自己发出的 resize 除外。
+  // 页面滚动后跟随触发按钮重新定位，而不是直接收起：概览每 30 秒静默刷新后，
+  // 路由会用 window.scrollTo 还原滚动位置，这类程序滚动不应关掉用户正在用的弹层。
+  // 触发按钮已离开视口（或已被移除）时才收起。弹层自身列表的滚动不处理。
   window.addEventListener('scroll', event => {
-    if (popover && event.target instanceof Node && popover.contains(event.target)) return;
-    closePopover();
+    if (!popover || popover.hidden) return;
+    if (event.target instanceof Node && popover.contains(event.target)) return;
+    followTrigger();
   }, true);
-  window.addEventListener('resize', () => { if (!selfResize) closePopover(); });
+  // 只有视口尺寸真的变化才重新定位：shell 增强链每次都会在 rAF 里发出一次合成的
+  // window resize（尺寸不变），按“有 resize 就收起”处理会让静默刷新关掉弹层。
+  window.addEventListener('resize', () => {
+    if (!popover || popover.hidden) return;
+    const next = readViewport();
+    if (next.width === viewport.width && next.height === viewport.height) return;
+    viewport = next;
+    followTrigger();
+  });
+}
+
+function followTrigger() {
+  const trigger = /** @type {HTMLElement|null} */ (document.querySelector('[data-ovb-trigger]'));
+  if (!trigger?.isConnected) { closePopover(); return; }
+  const rect = trigger.getBoundingClientRect();
+  if (rect.bottom < 0 || rect.top > window.innerHeight) { closePopover(); return; }
+  placePopover(trigger);
 }
 
 let orderObserver = null;

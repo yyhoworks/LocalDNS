@@ -1176,8 +1176,11 @@ body:not([data-console-route="overview"]) [data-ovb-trigger] { display: none; }
 .overview-blocks-popover {
   position: fixed;
   width: 300px;
-  max-height: calc(100dvh - 32px);
+  /* 兜底值；宽屏下 blocks.js 的 positionPopover 会按弹层实际起点写 inline max-height，
+     保证底边留在视口内（按钮过于靠下时翻到上方）。 */
+  max-height: calc(100dvh - 24px);
   overflow: auto;
+  overscroll-behavior: contain;
   border-radius: var(--radius-card);
   background: var(--glass-bg-strong);
   backdrop-filter: blur(28px) saturate(160%);
@@ -1187,7 +1190,12 @@ body:not([data-console-route="overview"]) [data-ovb-trigger] { display: none; }
   padding: 14px;
   z-index: 210;
 }
-.overview-blocks-popover.is-docked { left: 12px; right: 12px; top: 72px; width: auto; }
+/* 窄屏停靠在顶部工具栏下方：高度从 top 起算，底边距视口 12px（含安全区），
+   内容超出时在弹层内部滚动，"恢复默认"与最后一项不会被切到视口外。 */
+.overview-blocks-popover.is-docked {
+  left: 12px; right: 12px; top: 72px; bottom: auto; width: auto;
+  max-height: calc(100dvh - 72px - 12px - env(safe-area-inset-bottom, 0px));
+}
 .ovb-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 10px; }
 .ovb-head strong { font-size: 13.5px; font-weight: 700; color: var(--text-1); }
 .ovb-close {
@@ -1218,6 +1226,9 @@ body:not([data-console-route="overview"]) [data-ovb-trigger] { display: none; }
 /* 内容块排序：#page-content 本身是 12 栏 grid，各直接子元素用 inline style.order
    控制顺序（见 blocks.js 的 applyBlockOrder），不改动 display。 */
 .ovb-item-main { display: flex; align-items: flex-start; gap: 10px; flex: 1; min-width: 0; cursor: pointer; }
+/* 服务运行状态与指标卡在页面上同处一个容器，弹层里合成一项：各自勾选显隐，共用一组排序按钮 */
+.ovb-group-main { display: flex; flex-direction: column; gap: 8px; flex: 1; min-width: 0; }
+.ovb-group .ovb-move { align-self: center; }
 
 /* 弹层内的上下移动按钮 */
 .ovb-item .ovb-move {

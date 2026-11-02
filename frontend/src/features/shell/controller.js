@@ -220,6 +220,8 @@ import { routeDefs } from '../../core/router/routes.js';
     });
     syncAllSegThumbs();
     window.addEventListener('resize',()=>requestAnimationFrame(syncAllSegThumbs));
+    // 内容块显隐/排序等布局变化（不改视口尺寸）也要重算分段滑块：隐藏期间算出的滑块宽度为 0。
+    window.addEventListener('localdns:layoutchange',()=>requestAnimationFrame(syncAllSegThumbs));
     window.addEventListener('hashchange',()=>navigate((location.hash.replace(/^#\/?/,'')||'overview'),false));
     window.addEventListener('resize',()=>{if(state.route==='rules')requestAnimationFrame(fitRuleLayoutHeight)});
     window.addEventListener('localdns:layoutchange',()=>{if(state.route==='rules')requestAnimationFrame(fitRuleLayoutHeight)});
