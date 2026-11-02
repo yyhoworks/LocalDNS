@@ -1268,6 +1268,9 @@ body[data-console-route="overview"] #page-content > .console-trend { --ov-basis:
 body[data-console-route="overview"] #page-content > .console-donut { --ov-basis: 0.330; }
 body[data-console-route="overview"] #page-content > .overview-cache-panel { --ov-basis: 0.415; }
 body[data-console-route="overview"] #page-content > .overview-slow-panel { --ov-basis: 0.578; }
+/* 窄屏每块单独成行。不能只改 --ov-basis：上面按块设变量的选择器多一个类，
+   优先级更高，会让手机上趋势/占比、缓存/慢查询仍然并排挤成两窄列。
+   这里直接覆盖 flex-basis（与 > * 同优先级、位置在后）。 */
 @media (max-width:1250px) {
-  body[data-console-route="overview"] #page-content > * { --ov-basis: 1; }
+  body[data-console-route="overview"] #page-content > * { flex-basis: 100%; }
 }
