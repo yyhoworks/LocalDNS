@@ -930,7 +930,10 @@
   .overview-cache-panel,.overview-slow-panel { align-self:stretch; display:flex; min-height:0; }
 }
 @media(min-width:1251px) {
-  .overview-slow-panel { contain:size; }
+  /* 缓存池与慢查询是 5+7 的等高对：contain:size 让慢查询的高度只由同行邻居决定。
+     顺序调整或隐藏缓存池后它会独占一行，没有邻居时高度会变成 0（整块看不见），
+     因此这里补一个下限；和缓存池同行时仍由 align-self:stretch 决定。 */
+  .overview-slow-panel { contain:size; min-height:420px; }
 }
 @media(min-width:1251px) {
   .overview-cache-panel>.glass-card,.overview-slow-panel>.glass-card { flex:1; width:100%; min-width:0; }
