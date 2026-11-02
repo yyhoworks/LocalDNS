@@ -290,7 +290,6 @@ import { bindOverviewBlocks } from './blocks.js';
         <div style="display:flex;align-items:baseline;gap:12px">
           <h1>概览</h1>
         </div>
-        <button type="button" class="glass-btn" data-ovb-trigger aria-haspopup="dialog" aria-expanded="false" aria-controls="overview-blocks-popover" title="选择概览页显示的内容块">自定义显示</button>
       </div>
 
       <section class="console-service-summary" aria-labelledby="service-summary-title">
