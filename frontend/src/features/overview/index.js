@@ -24,6 +24,7 @@ import { confirmDialog } from '../../shared/components/dialog.js';
 import { cacheName } from '../management/index.js';
 import * as proxyTrafficService from './proxy-traffic.js';
 import { requestProxyPane } from '../proxy/selection.js';
+import { bindOverviewBlocks } from './blocks.js';
 
   const cpuSample = {total:null, at:null};
 
@@ -714,6 +715,9 @@ import { requestProxyPane } from '../proxy/selection.js';
         </div>
       </div>
     `);
+
+    // 概览内容块自定义显示：应用显隐设置并绑定标题行入口（块定义见 blocks.js）。
+    bindOverviewBlocks(page);
 
     // 绘制发布版五阶段拓扑连线，并叠加可停止的流光示意。
     const topologyWrap = $('#topo-stage-wrap');
