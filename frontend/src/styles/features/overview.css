@@ -1108,6 +1108,13 @@
 .console-health-strip .chs-items span { display:inline-flex; align-items:center; gap:5px; }
 .console-health-strip .chs-actions { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
 .console-health-strip .chs-actions .glass-btn[aria-pressed="true"] { color:var(--primary-light); background:var(--selection-fill,var(--glass-pill-active)); border-color:var(--border-highlight); }
+@media(max-width:600px) {
+  /* 窄屏改分行：.chs-items span 是 inline-flex，文本会被拆成多个 flex 项各自换行，
+     出现「最近 38,752 次 / 查询」这种从词组中间断开的样子。 */
+  .console-health-strip { align-items:flex-start; }
+  .console-health-strip .chs-items { flex-direction:column; align-items:flex-start; gap:4px; }
+  .console-health-strip .chs-items span { display:inline; }
+}
 .topo-stage-wrap.only-active-flow .t-node[data-zero-flow="true"] { opacity:0.28; filter:saturate(0.25); }
 
 .traffic-storage-note { color:var(--text-2); }
