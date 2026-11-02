@@ -114,6 +114,17 @@
       min-height: 28px;
       margin-bottom: 12px;
     }
+    /* 标题区可以收缩、占满按钮以外的宽度。
+       小字说明保持完整换行（不截断）：.workspace-subline 全局是 overflow-wrap:anywhere，
+       它会把最小内容宽度压到约一个字，标题区一窄就逐字竖排；这里改为 break-word，
+       只在一行放不下时才断开长词，不影响最小宽度计算。 */
+    .gc-head > div:first-child {
+      min-width: 0;
+      flex: 1 1 auto;
+    }
+    .gc-head .workspace-subline {
+      overflow-wrap: break-word;
+    }
     .gc-title {
       font-size: 14px;
       font-weight: 600;
