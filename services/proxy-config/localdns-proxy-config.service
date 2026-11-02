@@ -10,6 +10,7 @@ Environment=GOMEMLIMIT=24MiB
 Environment=GOGC=50
 Restart=on-failure
 RestartSec=5
+TimeoutStopSec=120
 UMask=0077
 
 [Install]
