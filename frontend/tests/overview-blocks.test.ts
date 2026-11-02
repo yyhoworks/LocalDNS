@@ -113,7 +113,7 @@ describe('概览内容块自定义显示', () => {
       box.dispatchEvent(new Event('change'));
       expect(popover().hidden).toBe(false);
     }
-    expect(blocks.getHiddenBlocks()).toEqual(['topology', 'trend', 'slow']);
+    expect(blocks.getHiddenBlocks()).toEqual(['trend', 'topology', 'slow']);
     window.dispatchEvent(new Event('resize'));
     expect(popover().hidden).toBe(true);
   });
@@ -158,28 +158,41 @@ describe('概览内容块自定义显示', () => {
     expect(popover().contains(document.activeElement)).toBe(true);
     expect(popover().hidden).toBe(false);
   });
+
+  it('页面里没有入口时，在顶部工具栏创建「自定义显示」按钮', () => {
+    // 概览页的标题行在成品里是隐藏的，入口必须落在可见的工具栏上。
+    document.body.innerHTML = '<div class="glass-action-capsule"></div><div id="page-content"></div>';
+    blocks.bindOverviewBlocks(page());
+    const created = document.querySelector('.glass-action-capsule [data-ovb-trigger]') as HTMLButtonElement;
+    expect(created).toBeTruthy();
+    expect(created.getAttribute('aria-label')).toBe('自定义概览显示内容');
+    created.click();
+    expect(popover().hidden).toBe(false);
+    // 重复调用不会重复插入
+    blocks.bindOverviewBlocks(page());
+    expect(document.querySelectorAll('[data-ovb-trigger]').length).toBe(1);
+  });
 });
 
 describe('概览内容块排序', () => {
-  it('默认顺序为 OVERVIEW_BLOCKS 定义顺序', () => {
+  it('默认顺序为 OVERVIEW_BLOCKS 定义顺序，与样式表既有的 order 设计一致', () => {
     expect(blocks.getBlockOrder()).toEqual([
-      'shortcuts','service','kpi','topology','trend','outcomes','rankings','caches','slow'
+      'service','kpi','shortcuts','trend','outcomes','topology','rankings','caches','slow'
     ]);
   });
 
   it('setBlockOrder 过滤未知 key 并补齐缺失项', () => {
     blocks.setBlockOrder(['slow','bogus','kpi']);
     expect(blocks.getBlockOrder()).toEqual([
-      'slow','kpi','shortcuts','service','topology','trend','outcomes','rankings','caches'
+      'slow','kpi','service','shortcuts','trend','outcomes','topology','rankings','caches'
     ]);
   });
 
   it('moveBlock 上下移动并持久化', () => {
     expect(blocks.moveBlock('kpi', -1)).toBe(true);
-    expect(blocks.getBlockOrder()[1]).toBe('kpi');
-    expect(blocks.getBlockOrder()[2]).toBe('service');
+    expect(blocks.getBlockOrder().slice(0, 2)).toEqual(['kpi','service']);
     // 顶到底：再上移已到顶
-    expect(blocks.moveBlock('shortcuts', -1)).toBe(false);
+    expect(blocks.moveBlock('kpi', -1)).toBe(false);
     // 底到顶：下移已到底
     expect(blocks.moveBlock('slow', 1)).toBe(false);
   });
@@ -204,12 +217,12 @@ describe('概览内容块排序', () => {
     expect((p.querySelector('.console-kpi-row') as HTMLElement).style.order).toBe('');
   });
 
-  it('shell 增强前的模板形态也能认出各块，微任务里搬移后的 DOM 会再应用一次', async () => {
+  it('shell 增强前的模板形态也能认出各块，增强搬移后会再应用一次', async () => {
     document.body.innerHTML = '<div id="page-content">' +
       '<div class="view-title-row"></div><div class="col-4"><div class="control-bar-card"></div></div>' +
       '<div class="col-12"><section class="topology-glass-card"></section></div></div>';
     blocks.setBlockOrder(['topology', 'shortcuts']);
-    blocks.applyBlockVisibility();
+    blocks.bindOverviewBlocks(page());
     const p = document.querySelector('#page-content') as HTMLElement;
     expect((p.children[1] as HTMLElement).style.order).toBe('2');
     expect((p.children[2] as HTMLElement).style.order).toBe('1');
@@ -247,9 +260,9 @@ describe('概览内容块排序', () => {
   it('移到顶端后同向按钮被禁用，焦点落到反向按钮而不是 body', () => {
     blocks.bindOverviewBlocks(page());
     trigger().click();
-    (popover().querySelector('[data-ovb-up="service"]') as HTMLButtonElement).click();
-    expect(blocks.getBlockOrder()[0]).toBe('service');
-    expect(document.activeElement?.getAttribute('data-ovb-down')).toBe('service');
+    (popover().querySelector('[data-ovb-up="kpi"]') as HTMLButtonElement).click();
+    expect(blocks.getBlockOrder()[0]).toBe('kpi');
+    expect(document.activeElement?.getAttribute('data-ovb-down')).toBe('kpi');
   });
 
   it('弹层按自定义顺序渲染且首尾按钮禁用', () => {
@@ -268,11 +281,11 @@ describe('概览内容块排序', () => {
   it('点下移按钮后顺序变化且弹层重建', () => {
     blocks.bindOverviewBlocks(page());
     trigger().click();
-    const firstDown = popover().querySelector('[data-ovb-down="shortcuts"]') as HTMLButtonElement;
+    const firstDown = popover().querySelector('[data-ovb-down="service"]') as HTMLButtonElement;
     firstDown.click();
-    expect(blocks.getBlockOrder()[0]).toBe('service');
-    expect(blocks.getBlockOrder()[1]).toBe('shortcuts');
+    expect(blocks.getBlockOrder()[0]).toBe('kpi');
+    expect(blocks.getBlockOrder()[1]).toBe('service');
     // 弹层重建后焦点在被移动项的按钮上
-    expect(document.activeElement?.getAttribute('data-ovb-down')).toBe('shortcuts');
+    expect(document.activeElement?.getAttribute('data-ovb-down')).toBe('service');
   });
 });

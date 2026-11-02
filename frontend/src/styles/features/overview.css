@@ -1156,6 +1156,10 @@
 #page-content[data-ov-hide~="caches"] .overview-cache-panel { display: none; }
 #page-content[data-ov-hide~="slow"] .overview-slow-panel { display: none; }
 
+/* 入口在顶部工具栏（见 blocks.js 的 ensureTrigger），只在概览路由出现：
+   概览页的标题行在成品里是隐藏的，入口不能放回 .view-title-row。 */
+body:not([data-console-route="overview"]) [data-ovb-trigger] { display: none; }
+
 /* 设置弹层：挂在 body 上，避免被概览页静默重渲染销毁 */
 .overview-blocks-popover {
   position: fixed;
