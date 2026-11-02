@@ -43,6 +43,7 @@ jobs:
             tools/test_fjgli_upgrade.py \
             tools/test_core_upload.py \
             tools/test_online_updater.py \
+            tools/test_companion_services.py \
             tools/test_oneclick_installer.py \
             tools/test_package_ui.py \
             tools/test_shared_ui.py \

@@ -13,7 +13,7 @@ from pathlib import Path
 import install_localdns as installer
 import upgrade_localdns as upgrade
 from fjgli_config import hashes, read_json, safe_tree, write_json
-from ui_updater import UpdateError, TAG, now, version_parts
+from ui_updater import UpdateError, TAG, now, version_parts, run_companions, companion_summary, companion_brief
 from core_upload import MAX_UPLOAD_BYTES, read_kernel
 
 CONTRACT = {'schema': 1, 'apiFamily': 'localdns-v1', 'configSchema': 1}
@@ -200,7 +200,8 @@ class OnlineUpdateManager:
                     raise
                 previous = None
             result = {k: self.state[k] for k in ('state', 'jobId', 'action', 'mode', 'step', 'message',
-                      'targetTag', 'targetVersion', 'targetBackend', 'source', 'startedAt', 'finishedAt', 'backupDownloaded') if k in self.state}
+                      'targetTag', 'targetVersion', 'targetBackend', 'source', 'startedAt', 'finishedAt', 'backupDownloaded',
+                      'companions') if k in self.state}
             reference = self.state.get('previous')
             result.update(state=self.state.get('state', 'idle'), canRollback=previous is not None and not attention,
                           rollbackKind=reference.get('kind') if isinstance(reference, dict) else None,
@@ -357,9 +358,14 @@ class OnlineUpdateManager:
                             'install': '正在切换界面，DNS 继续运行…', 'verify': '正在检查新版界面与管理接口…'}[step]))
                     previous = self.job_directory() / 'previous-ui'
                     shutil.copytree(self.root / result['previous'], previous)
-                    self.save(state='succeeded', step='done', finishedAt=now(),
-                              previous={'kind': 'ui', 'name': self.job_directory().name, 'hashes': hashes(previous)},
-                              message='UI 更新完成，DNS 核心与设置已保留，可以刷新使用。')
+                    reference = {'kind': 'ui', 'name': self.job_directory().name, 'hashes': hashes(previous)}
+                    # The UI is switched and verified; companion services follow from the same
+                    # verified package and can only add a warning, never fail this job.
+                    self.save(previous=reference, step='companions', message='界面已更新，正在检查已安装的配套服务…')
+                    report = run_companions(payload)
+                    self.save(state='succeeded', step='done', finishedAt=now(), previous=reference,
+                              companions=companion_brief(report),
+                              message='UI 更新完成，DNS 核心与设置已保留，可以刷新使用。' + companion_summary(report))
                     shutil.rmtree(work)
                     self.prune()
                     return
@@ -367,6 +373,8 @@ class OnlineUpdateManager:
                 archive = self.make_backup()
                 names = [name for name in packages.sums if name.endswith('_Full.zip')]
                 package = work / names[0]
+                if mode == 'full':
+                    self.stash_companions(payload)
                 shutil.rmtree(payload)
                 upgrade.prepare(self.root, package, packages.sums[names[0]], self.stage_path(), self.arch, mode=mode)
                 marker = read_json(self.stage_path() / upgrade.MARKER)
@@ -410,6 +418,33 @@ class OnlineUpdateManager:
         installer.atomic_json(stage / upgrade.MARKER, record)
         shutil.rmtree(work)
         self.wait_for_backup(archive)
+
+    def stash_companions(self, payload):
+        """Keep the verified package's companion upgrader for after the full switch."""
+        try:
+            target = self.job_directory() / 'companion-package'
+            script = payload / 'ui-updater/companion_services.py'
+            if target.exists() or not script.is_file():
+                return
+            (target / 'ui-updater').mkdir(parents=True)
+            shutil.copyfile(script, target / 'ui-updater/companion_services.py')
+            if (payload / 'companion').is_dir():
+                shutil.copytree(payload / 'companion', target / 'companion', symlinks=False)
+        except Exception as error:  # Companions never block the main upgrade.
+            print('localdns-updater: 无法暂存配套服务载荷：' + str(error), file=sys.stderr, flush=True)
+
+    def run_stashed_companions(self):
+        try:
+            target = self.job_directory() / 'companion-package'
+        except Exception:
+            return None
+        if not target.is_dir():
+            return None
+        try:
+            return run_companions(target)
+        finally:
+            with contextlib.suppress(Exception):
+                shutil.rmtree(target)
 
     def make_backup(self):
         result = upgrade.backup(self.root, self.job_directory() / 'backup')
@@ -471,10 +506,15 @@ class OnlineUpdateManager:
                 result = upgrade.apply(self.root, self.stage_path(), backup,
                     self.state['confirmedBackupSha256'], self.init or installer.manager(), self.service_name)
                 previous = Path(result['previousDirectory'])
-                self.save(state='succeeded', step='done', finishedAt=now(),
-                          previous={'kind': 'full', 'name': previous.name, 'hashes': upgrade.stage_fingerprint(previous)},
+                reference = {'kind': 'full', 'name': previous.name, 'hashes': upgrade.stage_fingerprint(previous)}
+                report = None
+                if self.state['mode'] == 'full':
+                    self.save(previous=reference, step='companions', message='升级已验收，正在检查已安装的配套服务…')
+                    report = self.run_stashed_companions()
+                self.save(state='succeeded', step='done', finishedAt=now(), previous=reference,
+                          **({'companions': companion_brief(report)} if report is not None else {}),
                           message='内核已升级，当前 UI 保持原样；DNS 与原设置检查通过。' if self.state['mode'] == 'core'
-                          else 'UI、内核与设置验收通过，升级完成，可以刷新使用。')
+                          else 'UI、内核与设置验收通过，升级完成，可以刷新使用。' + companion_summary(report))
                 self.prune()
         except Exception as error:
             restored = False
