@@ -340,6 +340,130 @@ def install_path(value, stage=None):
     return target
 
 
+# Snapshots and backups an update leaves behind. Only the newest few of each kind
+# are worth keeping: each one is a full copy of the UI or of the whole install.
+SNAPSHOT_RETENTION = 2
+ROOT_SNAPSHOT_KINDS = (
+    ('ui-previous', re.compile(r'ui\.previous-[A-Za-z0-9._-]+')),
+    ('ui-backup', re.compile(r'ui-backup-[A-Za-z0-9._-]+\.tar\.gz')),
+    ('ui-failed', re.compile(r'ui\.failed-[A-Za-z0-9._-]+')),
+)
+# Top-level names inside an install directory that are never part of the live
+# installation: snapshots, backups, failed directories and leftover stages. They are
+# excluded from staged copies and backup archives so snapshots never nest.
+SNAPSHOT_NAME = re.compile(r'(?:ui\.previous-|ui\.failed-|\.ui-stage-)[A-Za-z0-9._-]+|ui-backup-[A-Za-z0-9._-]+\.tar\.gz'
+                           r'|[A-Za-z0-9._-]+\.(?:previous|failed)-fjgli-[A-Za-z0-9]+|localdns-original[A-Za-z0-9._-]*\.tar\.gz')
+_STAMP = re.compile(r'(?<![0-9])(\d{8}-\d{6})(?![0-9])')
+
+
+def is_snapshot_name(name):
+    return SNAPSHOT_NAME.fullmatch(name) is not None
+
+
+def snapshot_ignore(source):
+    """copytree ignore callable that drops snapshot entries at the top of source only."""
+    top = os.path.normcase(os.path.abspath(str(source)))
+    def ignore(directory, names):
+        if os.path.normcase(os.path.abspath(str(directory))) != top:
+            return []
+        return [name for name in names if is_snapshot_name(name)]
+    return ignore
+
+
+def snapshot_filter(arcname):
+    """tarfile filter that drops snapshot entries directly below arcname."""
+    def keep(info):
+        parts = PurePosixPath(info.name).parts
+        if len(parts) >= 2 and parts[0] == arcname and is_snapshot_name(parts[1]):
+            return None
+        return info
+    return keep
+
+
+def live_files(root):
+    """Regular files of an installation, without snapshot and backup leftovers."""
+    for entry in Path(root).iterdir():
+        if is_snapshot_name(entry.name) or entry.is_symlink():
+            continue
+        if entry.is_file():
+            yield entry
+        elif entry.is_dir():
+            yield from (p for p in entry.rglob('*') if p.is_file())
+
+
+def snapshot_recency(path):
+    """Newest first sort key: the timestamp in the name, else the modification time."""
+    try:
+        mtime = path.lstat().st_mtime
+    except OSError:
+        mtime = 0
+    match = _STAMP.search(path.name)
+    stamp = match.group(1) if match else datetime.fromtimestamp(mtime).strftime('%Y%m%d-%H%M%S')
+    return stamp, mtime
+
+
+def prune_snapshots(paths, keep=SNAPSHOT_RETENTION, protect=()):
+    """Delete all but the newest `keep` paths; protected paths are never deleted."""
+    protected = {os.path.normcase(os.path.abspath(str(p))) for p in protect if p}
+    removed = []
+    for index, path in enumerate(sorted(paths, key=snapshot_recency, reverse=True)):
+        if index < keep or os.path.normcase(os.path.abspath(str(path))) in protected or path.is_symlink():
+            continue
+        if path.is_dir():
+            shutil.rmtree(path)
+        elif path.is_file():
+            path.unlink()
+        else:
+            continue
+        removed.append(path.name)
+    return removed
+
+
+def prune_root_snapshots(root, keep=SNAPSHOT_RETENTION, protect=()):
+    """Retain the newest UI snapshots, UI backups and failed UI directories in root.
+
+    The previous UI the legacy updater can still roll back to stays protected.
+    """
+    protect = list(protect)
+    legacy = root / '.ui-updater/state.json'
+    with contextlib.suppress(OSError, ValueError, AttributeError, TypeError):
+        if not legacy.is_symlink() and legacy.is_file():
+            name = json.loads(legacy.read_text(encoding='utf-8')).get('previous')
+            if isinstance(name, str) and ROOT_SNAPSHOT_KINDS[0][1].fullmatch(name):
+                protect.append(root / name)
+    removed = []
+    entries = [entry for entry in root.iterdir() if not entry.is_symlink()]
+    for _kind, pattern in ROOT_SNAPSHOT_KINDS:
+        removed += prune_snapshots([e for e in entries if pattern.fullmatch(e.name)], keep, protect)
+    return removed
+
+
+def legacy_lock_dead(text):
+    """True only when a guard-less lock names one PID that certainly no longer exists."""
+    if os.name == 'nt':
+        return False
+    value = text.strip()
+    try:
+        parsed = json.loads(value)
+    except ValueError:
+        parsed = None
+    if isinstance(parsed, dict):
+        value = parsed.get('pid')
+    if isinstance(value, bool):
+        return False
+    if isinstance(value, str) and re.fullmatch(r'[0-9]{1,10}', value):
+        value = int(value)
+    if not isinstance(value, int) or value <= 1 or value == os.getpid():
+        return False
+    try:
+        os.kill(value, 0)
+    except ProcessLookupError:
+        return True
+    except OSError:
+        return False
+    return False
+
+
 @contextlib.contextmanager
 def locked(root):
     root.parent.mkdir(parents=True, exist_ok=True)
@@ -367,13 +491,25 @@ def locked(root):
         no_symlinks(path)
         if path.exists():
             try:
-                stale = json.loads(path.read_text(encoding='utf-8'))
+                text = path.read_text(encoding='utf-8')
             except (ValueError, OSError):
+                text = ''
+            try:
+                stale = json.loads(text)
+            except ValueError:
                 stale = None
-            if not isinstance(stale, dict) or stale.get('lockProtocol') != 1:
+            if isinstance(stale, dict) and stale.get('lockProtocol') == 1:
+                path.unlink()  # Its OS guard has been acquired, so its owner has exited.
+            elif legacy_lock_dead(text):
+                # A plain PID lock from an installer that does not take the guard
+                # (older install-ui.sh, or one without flock). Its process is gone.
+                path.unlink()
+            else:
                 raise InstallError('已有安装任务或旧版遗留锁：' + str(path))
-            path.unlink()  # Its OS guard has been acquired, so its owner has exited.
-        lock_handle = os.open(str(path), os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600)
+        try:
+            lock_handle = os.open(str(path), os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600)
+        except FileExistsError:
+            raise InstallError('已有安装任务：' + str(path)) from None
         try:
             with os.fdopen(lock_handle, 'w') as output:
                 json.dump({'lockProtocol': 1, 'pid': os.getpid()}, output)
@@ -581,6 +717,12 @@ def update_ui(root, payload, metadata, stage=None, on_step=None, backend_compati
         journal.unlink()
         raise
     journal.unlink()
+    try:
+        removed = prune_root_snapshots(root, protect=(previous, backup))
+        if removed:
+            log('已清理较早的界面快照与备份：' + '、'.join(removed))
+    except Exception as error:  # Cleanup never fails a verified update.
+        log('清理较早的界面快照失败（不影响本次更新）：' + str(error))
     log('UI 已更新至 ' + version + '；DNS 核心、配置与规则已保留。')
     log('备份：' + str(backup))
     log('上一版 UI：' + str(previous))
