@@ -1,6 +1,24 @@
 const assert = require('node:assert/strict');
-const overview = require('./frontend_test_module.cjs').loadFeature('features/overview/insights.js','overviewInsightsService',false);
-const version = require('./frontend_test_module.cjs').loadFeature('features/version/index.js','versionService',false);
+const vm = require('node:vm');
+const { JSDOM } = require('../frontend/node_modules/jsdom');
+const { bundleFeature } = require('./frontend_test_module.cjs');
+
+// 这两个模块在顶层读 window.LOCALDNS_UI_CONFIG、还会 new AbortController，
+// 必须在带浏览器全局的 VM 上下文里跑；loadFeature（Node CJS 直载）会报 window is not defined。
+function load(file, name) {
+  const dom = new JSDOM('<!doctype html><html><body></body></html>', {
+    url: 'http://localhost/ui/',
+    runScripts: 'outside-only',
+  });
+  // jsdom 不实现 matchMedia，模块顶层会读它。
+  dom.window.matchMedia = () => ({ matches: false, media: '', addEventListener() {}, removeEventListener() {}, addListener() {}, removeListener() {} });
+  const context = dom.getInternalVMContext();
+  vm.runInContext(bundleFeature(file, name, `window.${name}`, false), context);
+  return context[name];
+}
+
+const overview = load('features/overview/insights.js', 'overviewInsightsService');
+const version = load('features/version/index.js', 'versionService');
 
 const data = Array.from({length:19}, (_, i) => ({key: 'result_' + i, count: 19 - i}));
 const summary = overview.distribution(data.reverse());
