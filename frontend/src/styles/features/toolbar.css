@@ -1,0 +1,217 @@
+/*
+ * 顶栏工具区：搜索 · 版本徽标 │ 代理 │ 概览 外观 流光 │ 刷新 主题。
+ * 放在 overrides 层最后，统一覆盖 controls / shell / themes 里历次叠加的按钮尺寸与状态；
+ * 垂直导航与水平导航共用，只在各自的断点里调整间距。
+ */
+
+/* ---------- 分组分隔线（水平导航里也显示，窄屏隐藏） ---------- */
+.top-actions-dock { align-items: center; }
+.top-actions-dock .dock-divider {
+  display: block;
+  flex: none;
+  width: 1px;
+  height: 18px;
+  margin: 0 4px;
+  background: rgba(127, 127, 127, .22);
+  background: color-mix(in srgb, var(--text-2) 24%, transparent);
+}
+.navbar-content .glass-action-capsule { align-items: center; }
+
+/* ---------- 版本徽标：单行等宽，~26px 高 ---------- */
+.top-actions-dock .version-button {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  width: auto;
+  min-width: 0;
+  max-width: none;
+  height: 26px;
+  min-height: 26px;
+  padding: 0 9px;
+  border: 1px solid rgba(127, 127, 127, .18);
+  border-color: color-mix(in srgb, var(--text-2) 20%, transparent);
+  border-radius: 999px;
+  background: var(--glass-pill);
+  color: var(--text-2);
+  font: 500 11.5px/1 var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0;
+  white-space: nowrap;
+}
+.top-actions-dock .version-button:hover { color: var(--text-1); background: var(--glass-bg-hover); }
+.top-actions-dock .version-button .version-indicator {
+  position: static;
+  display: none;
+  flex: none;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--primary-light);
+}
+.top-actions-dock .version-button[data-status=update] {
+  color: var(--text-1);
+  border-color: var(--primary-light);
+  border-color: color-mix(in srgb, var(--primary-light) 55%, transparent);
+  background: color-mix(in srgb, var(--primary-light) 14%, var(--glass-pill));
+}
+.top-actions-dock .version-button[data-status=update] .version-indicator {
+  display: block;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary-light) 22%, transparent);
+}
+.top-actions-dock .version-button[data-status=error] .version-indicator { display: block; background: var(--text-3); }
+
+/* ---------- 统一工具按钮：图标 17px，1.8 描边 ---------- */
+.navbar-content .top-actions-dock .icon-action-btn > svg,
+.navbar-content .top-actions-dock .particle-inline-btn > svg,
+.navbar-content .cmd-search-left > svg { width: 17px; height: 17px; flex: none; }
+.navbar-content .particle-inline-btn {
+  position: relative;
+  border: 0;
+  border-radius: 99px;
+  background: transparent;
+  box-shadow: none;
+  color: var(--text-2);
+  font-weight: 500;
+}
+.navbar-content .particle-inline-btn:hover { background: rgba(255, 255, 255, .08); color: var(--text-1); }
+html[data-theme=light-glass] .navbar-content .particle-inline-btn:hover { background: rgba(15, 23, 42, .06); }
+
+/* 流光开启：图标下方 4px 强调色圆点，不再整块实底；状态仍由 aria-pressed 表达。 */
+.navbar-content .particle-inline-btn.active,
+.navbar-content .particle-inline-btn[aria-pressed=true] {
+  background: transparent;
+  box-shadow: none;
+  color: var(--text-1);
+  font-weight: 500;
+}
+.navbar-content .particle-inline-btn[aria-pressed=true]::after {
+  content: "";
+  position: absolute;
+  bottom: 3px;
+  left: 50%;
+  width: 4px;
+  height: 4px;
+  margin-left: -2px;
+  border-radius: 50%;
+  background: var(--primary-light);
+  pointer-events: none;
+}
+/* 带文字的垂直导航版本：圆点对齐在图标下方。 */
+@media (min-width: 901px) {
+  html:not([data-nav=top]) .navbar-content .particle-inline-btn[aria-pressed=true]::after { left: calc(10px + 8.5px); }
+}
+
+/* 外观：只在面板打开时高亮（不再常驻 active / 常驻底色）；概览自定义同理。 */
+.navbar-content #btn-open-bg-customizer { background: transparent; border-color: transparent; font-weight: 500; }
+.navbar-content #btn-open-bg-customizer:hover { background: rgba(255, 255, 255, .08); }
+html[data-theme=light-glass] .navbar-content #btn-open-bg-customizer:hover { background: rgba(15, 23, 42, .06); }
+.navbar-content #btn-open-bg-customizer[aria-expanded=true],
+.navbar-content [data-ovb-trigger][aria-expanded=true] {
+  background: var(--glass-pill-active);
+  color: var(--text-1);
+}
+
+/* 代理入口在顶栏里去掉外框与内部竖线，靠分组分隔线区分。 */
+.navbar-content .proxy-launcher { margin-right: 0; border-color: transparent; background: transparent; }
+.navbar-content .proxy-launcher button { border-left: 0; }
+
+/* 水平导航：按钮更紧凑，分组之间靠分隔线 */
+@media (min-width: 901px) {
+  html[data-nav="top"] .top-actions-dock { gap: 2px; }
+  html[data-nav="top"] .top-actions-dock .version-button { margin-left: 2px; }
+}
+
+/* 平板宽度（601–900px）空间紧：工具按钮只留图标，徽标只显示当前版本（更新靠圆点与描边提示）。 */
+@media (max-width: 900px) {
+  .navbar-content .top-actions-dock .icon-action-btn > span,
+  .navbar-content .top-actions-dock .particle-inline-btn > span,
+  .top-actions-dock .version-button .version-badge-next { display: none; }
+  .navbar-content .particle-inline-btn[aria-pressed=true]::after { left: 50%; }
+}
+
+/* ---------- 外观面板里的「快捷入口」：只在窄屏显示 ---------- */
+.bcp-toolbar-shortcuts { display: none; }
+.bcp-shortcut {
+  appearance: none;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  min-height: 44px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: calc(10px * var(--radius-scale));
+  background: transparent;
+  color: var(--text-1);
+  font: inherit;
+  font-size: 14px;
+  text-align: left;
+  cursor: pointer;
+}
+.bcp-shortcut:hover { background: var(--glass-pill); }
+.bcp-shortcut > svg { width: 17px; height: 17px; flex: none; color: var(--text-2); }
+.bcp-shortcut > small {
+  margin-left: auto;
+  color: var(--text-2);
+  font-size: 12px;
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+.bcp-switch {
+  position: relative;
+  flex: none;
+  width: 34px;
+  height: 20px;
+  margin-left: auto;
+  border-radius: 99px;
+  background: var(--glass-pill-active);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--text-2) 25%, transparent);
+  transition: background-color .15s ease;
+}
+.bcp-switch::after {
+  content: "";
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, .3);
+  transition: transform .15s ease;
+}
+.bcp-shortcut[aria-pressed=true] .bcp-switch { background: var(--primary); box-shadow: none; }
+.bcp-shortcut[aria-pressed=true] .bcp-switch::after { transform: translateX(14px); }
+html[data-ui-update=available] .bcp-shortcut[data-toolbar-proxy="#version-button"] > small { color: var(--primary-light); }
+body:not([data-console-route="overview"]) .bcp-shortcut[data-overview-only] { display: none; }
+@media (prefers-reduced-motion: reduce) {
+  .bcp-switch, .bcp-switch::after { transition: none; }
+}
+
+/* ---------- 窄屏（≤600px）：只留 搜索、代理、外观、刷新、主题 ---------- */
+@media (max-width: 600px) {
+  .top-actions-dock .dock-divider,
+  .top-actions-dock .version-button,
+  .navbar-content [data-ovb-trigger],
+  .navbar-content #btn-toggle-particles { display: none; }
+  .bcp-toolbar-shortcuts { display: flex; }
+  /* 品牌区与工具区都不收缩，避免搜索按钮叠到 Logo 上 */
+  .navbar-content { justify-content: space-between; }
+  .navbar-content .brand-box { flex: none; }
+  .navbar-content .top-main-bar { flex: 0 1 auto; min-width: 0; margin-left: auto; }
+  .navbar-content .top-actions-dock { flex: none; }
+  /* 有新版本时，在 Logo 右上角提示（版本入口移到了外观面板） */
+  html[data-ui-update=available] .navbar-content .brand-logo::before {
+    content: "";
+    position: absolute;
+    top: -2px;
+    right: -3px;
+    z-index: 1;
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--primary-light);
+    box-shadow: 0 0 0 1.5px var(--glass-bg-strong, #121418);
+  }
+}
