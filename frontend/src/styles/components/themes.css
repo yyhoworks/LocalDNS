@@ -509,7 +509,6 @@ html[data-skin="claude"] .toast {
 
 @media (min-width: 901px) {
   html[data-nav="top"] .console-status,
-  html[data-nav="top"] .dock-divider,
   html[data-nav="top"] .icon-action-btn > span,
   html[data-nav="top"] .particle-inline-btn > span { display: none; }
 }
