@@ -1,12 +1,18 @@
 import { preferences } from '../../core/persistence/preferences.ts';
 
+import { ALPHA_FLOOR, DIMMER_FLOOR, alphaFloor } from './readability.js';
+
 /* 对比度下限：遮盖度与背景暗化过低时玻璃上的文字会看不清（WCAG 对比度不足）。
-   旧版本可能存了更低的值（alpha 25%、dimmer 0%），读取时按新下限钳制并回写。 */
-export const MATERIAL_FLOORS=Object.freeze({alpha:55,dimmer:15});
-export const MATERIAL_DEFAULTS=Object.freeze({blur:14,alpha:55,dimmer:22,radius:100});
-/** @param {string} name @param {unknown} raw @param {number} min @param {number} max */
-export function clampMaterial(name,raw,min,max){
-  const floor=Math.max(min,MATERIAL_FLOORS[name]??min);
+   下限由 readability.js 的合成模型推出（纯白壁纸配深色玻璃这一最差情形），并由
+   tests/appearance-readability.test.ts 锁定。模糊半径越小，壁纸细节越明显，遮盖度下限越高。
+   旧版本可能存了更低的值（alpha 25% / 55%、dimmer 0% / 15%），读取时按新下限钳制并回写。 */
+export const MATERIAL_FLOORS=Object.freeze({alpha:ALPHA_FLOOR,dimmer:DIMMER_FLOOR});
+export const MATERIAL_DEFAULTS=Object.freeze({blur:14,alpha:ALPHA_FLOOR,dimmer:22,radius:100});
+export { alphaFloor };
+/** @param {string} name @param {unknown} raw @param {number} min @param {number} max @param {number} [blur] 当前模糊半径，用于遮盖度的动态下限 */
+export function clampMaterial(name,raw,min,max,blur){
+  const dynamic=name==='alpha'&&Number.isFinite(blur)?alphaFloor(Number(blur)):MATERIAL_FLOORS[name];
+  const floor=Math.max(min,dynamic??min);
   const value=Number.isFinite(Number(raw))&&raw!==null&&raw!==''?Number(raw):MATERIAL_DEFAULTS[name];
   return Math.min(max,Math.max(floor,value));
 }
@@ -106,13 +112,29 @@ export function initialize() {
       else root.setProperty('--glass-'+name,name==='blur'?value+'px':(value/100).toFixed(2));
     }
     const units={blur:'px',alpha:'%',dimmer:'%',radius:'%'};
+    let blur=MATERIAL_DEFAULTS.blur;
+    /* 模糊半径变化时同步遮盖度滑块的下限；当前值低于新下限就抬到下限并保存。 */
+    function syncAlphaFloor(){
+      const input=document.querySelector('#slider-alpha');if(!input)return;
+      // 先读当前值：设置 min 后浏览器会自动把 value 抬上去，再比较就漏掉了保存。
+      const current=Number(saved.alpha??input.value);
+      const floor=alphaFloor(blur);input.min=String(floor);
+      const note=document.querySelector('#alpha-floor-note');if(note)note.hidden=floor===ALPHA_FLOOR;
+      if(current<floor){
+        input.value=String(floor);applyMaterial('alpha',floor);store({alpha:floor});
+        const label=document.querySelector('#val-alpha');if(label)label.textContent=floor+units.alpha;
+      }
+    }
     for(const name of ['blur','alpha','dimmer','radius']){
       const input=document.querySelector('#slider-'+name),label=document.querySelector('#val-'+name);if(!input)continue;
-      const value=clampMaterial(name,saved[name],+input.min,+input.max);input.value=value;
+      if(name==='alpha')input.min=String(alphaFloor(blur));
+      const value=clampMaterial(name,saved[name],+input.min,+input.max,name==='alpha'?blur:undefined);input.value=value;
       if(name in saved&&+saved[name]!==value)store({[name]:value});
       applyMaterial(name,value);if(label)label.textContent=value+units[name];
-      input.addEventListener('input',()=>{const v=+input.value;applyMaterial(name,v);if(label)label.textContent=v+units[name];store({[name]:v});});
+      if(name==='blur')blur=value;
+      input.addEventListener('input',()=>{const v=+input.value;applyMaterial(name,v);if(label)label.textContent=v+units[name];store({[name]:v});if(name==='blur'){blur=v;syncAlphaFloor();}});
     }
+    syncAlphaFloor();
 
   };
   // initBrand 需在 app.js 初始化之后再落地一次（app.js 会在 init 里写 document.title 与侧栏状态行）
