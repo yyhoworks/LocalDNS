@@ -7,7 +7,7 @@
 import { $, $$, storage, API_BASE } from '../../core/context.js';
 import { esc } from '../../shared/format/number.js';
 import { setHTML } from '../../core/security/safe-dom.ts';
-import { icon } from '../../shared/components/icons.js';
+import { icon, strokeIcon } from '../../shared/components/icons.js';
 
 // 顺序即默认展示顺序与弹层顺序；key 与 styles/features/overview.css 的隐藏规则一一对应。
 // 默认顺序必须与样式表里既有的 order 设计一致（overview.css 的 .console-service-summary
@@ -419,7 +419,7 @@ function ensureTrigger() {
   trigger.setAttribute('aria-controls', 'overview-blocks-popover');
   trigger.setAttribute('aria-label', '自定义概览显示内容');
   trigger.title = '自定义概览显示内容';
-  setHTML(trigger, icon('overview'));
+  setHTML(trigger, strokeIcon('overview'));
   dock.prepend(trigger);
   return trigger;
 }

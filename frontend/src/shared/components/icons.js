@@ -41,4 +41,17 @@ const icons = {
   };
 
   const icon = (name, cls='') => `<svg class="${cls}" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">${icons[name] || icons.info}</svg>`;
-export { icons, icon };
+
+/*
+ * 顶栏工具按钮专用的线性图标（1.8 描边），与 index.html 里搜索、外观、流光、代理入口等
+ * 内联 SVG 同一套笔画。填充版 icons.overview / refresh / theme 仍被导航、卡片标题和
+ * 错误面板的重试按钮使用，这里另立一组，避免改动那些位置。
+ */
+const strokeIcons = {
+    overview:'<rect x="4" y="4" width="6.5" height="9" rx="1.6"/><rect x="13.5" y="4" width="6.5" height="5" rx="1.6"/><rect x="4" y="16" width="6.5" height="4" rx="1.6"/><rect x="13.5" y="12" width="6.5" height="8" rx="1.6"/>',
+    refresh:'<path d="M20 11a8 8 0 1 0-2.3 5.7"/><path d="M20 4v7h-7"/>',
+    theme:'<path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5Z"/>',
+    power:'<path d="M12 3v8"/><path d="M6.8 5.8a8 8 0 1 0 10.4 0"/>'
+  };
+const strokeIcon = (name, cls='') => `<svg class="${cls}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${strokeIcons[name] || strokeIcons.overview}</svg>`;
+export { icons, icon, strokeIcons, strokeIcon };
