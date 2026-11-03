@@ -1,0 +1,65 @@
+/*
+ * 流光毛玻璃的可访问性兜底（来自 YoLink glass-skin.css）。只作用于流光毛玻璃；
+ * 人文羊皮纸本身是不透明纸面，不在这里改动。
+ * 用户的遮盖度、暗化写在 <html style> 上，这里直接替换表面变量（--glass-bg 等），不与之冲突。
+ */
+
+/* 浏览器不支持 backdrop-filter：玻璃无法模糊壁纸，改用强实底，避免壁纸细节透到文字后面。 */
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  html:not([data-skin="claude"]) {
+    --glass-bg: var(--glass-bg-strong);
+    --glass-bg-hover: var(--glass-bg-strong);
+    --topo-canvas: var(--glass-bg-strong);
+    --topo-node: var(--glass-bg-strong);
+  }
+}
+
+/* 减少透明度 / 提高对比度：去掉所有模糊，表面接近实底，最浅一级文字提升一级。 */
+@media (prefers-reduced-transparency: reduce), (prefers-contrast: more) {
+  html:not([data-skin="claude"]) {
+    --glass-bg: var(--glass-bg-strong);
+    --glass-bg-hover: var(--glass-bg-strong);
+    --topo-canvas: var(--glass-bg-strong);
+    --topo-node: var(--glass-bg-strong);
+    --text-3: var(--text-2);
+    --muted: var(--text-2);
+  }
+  html:not([data-skin="claude"]) *,
+  html:not([data-skin="claude"]) *::before,
+  html:not([data-skin="claude"]) *::after {
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+  }
+}
+
+/* 提高对比度：次要文字与正文同色，边框加深。 */
+@media (prefers-contrast: more) {
+  html:not([data-skin="claude"]) {
+    --text-2: var(--text-1);
+    --text-3: var(--text-1);
+    --muted: var(--text-1);
+    --border-glass: rgba(255, 255, 255, .28);
+    --topo-border: rgba(255, 255, 255, .28);
+  }
+  html:not([data-skin="claude"])[data-theme="light-glass"] {
+    --border-glass: rgba(15, 23, 42, .38);
+    --topo-border: rgba(15, 23, 42, .38);
+  }
+}
+
+/* 强制配色（Windows 高对比度）：系统接管配色，去掉模糊与壁纸层，避免图片透出影响文字。 */
+@media (forced-colors: active) {
+  html:not([data-skin="claude"]) *,
+  html:not([data-skin="claude"]) *::before,
+  html:not([data-skin="claude"]) *::after {
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+  }
+  html:not([data-skin="claude"]) .wallpaper-layer,
+  html:not([data-skin="claude"]) .wallpaper-dimmer { display: none; }
+  html:not([data-skin="claude"]) .glass-card,
+  html:not([data-skin="claude"]) .card { border: 1px solid CanvasText; }
+}
+
+/* 遮盖度下限说明（模糊较低时出现）。 */
+.bcp-floor-note { margin: -2px 0 0; color: var(--text-2); font-size: 12px; line-height: 1.6; }
