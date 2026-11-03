@@ -22,3 +22,4 @@
 @import './utilities/touch-targets.css' layer(utilities);
 @import './utilities/priority.css' layer(overrides);
 @import './features/toolbar.css' layer(overrides);
+@import './utilities/readability.css' layer(overrides);
