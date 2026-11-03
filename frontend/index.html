@@ -31,32 +31,32 @@
       <div class="top-main-bar">
         <div class="cmd-search-bar" role="search">
           <div class="cmd-search-left">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
             <input type="text" id="global-search-input" aria-label="全局搜索" placeholder="搜索域名、客户端 IP 或页面…" />
           </div>
           <span class="kbd-tag">Enter</span>
         </div>
 
         <div class="top-actions-dock">
-          <button type="button" class="version-button" id="version-button" aria-haspopup="dialog" aria-controls="version-dialog" aria-label="版本与更新">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M12 3 4 7v10l8 4 8-4V7l-8-4Zm-8 4 8 4 8-4M12 11v10"/></svg>
-            <span class="version-button-copy"><span data-version-number>版本</span><small data-version-status>正在读取</small></span>
+          <button type="button" class="version-button" id="version-button" data-status="normal" aria-haspopup="dialog" aria-controls="version-dialog" aria-label="版本与更新" title="版本与更新">
             <i class="version-indicator" aria-hidden="true"></i>
+            <span class="version-badge-label" data-version-label>版本</span><span class="version-badge-next" data-version-next hidden></span>
           </button>
+          <span class="dock-divider" aria-hidden="true"></span>
 
           <div class="proxy-launcher" id="proxy-launcher" role="group" aria-label="代理面板快捷入口">
             <a data-proxy-panel-link href="http://192.168.8.7:9090/ui" target="_blank" rel="noopener noreferrer" title="打开代理面板" aria-label="打开代理面板（新标签页）"><img src="assets/img/proxy-panel.svg" alt="" width="22" height="22" /></a>
-            <button type="button" aria-label="设置代理名称、Logo 与地址" title="代理面板设置" aria-expanded="false" aria-controls="proxy-panel-popover"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button>
+            <button type="button" aria-label="设置代理名称、Logo 与地址" title="代理面板设置" aria-expanded="false" aria-controls="proxy-panel-popover"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button>
           </div>
+          <span class="dock-divider" aria-hidden="true"></span>
 
           <div class="glass-action-capsule" role="group" aria-label="视图与主题工具">
-            <button type="button" class="icon-action-btn active" id="btn-open-bg-customizer" aria-label="外观设置" title="外观设置" aria-expanded="false" aria-controls="bg-customizer-popover">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-5-5L5 21"/></svg>
+            <button type="button" class="icon-action-btn" id="btn-open-bg-customizer" aria-label="外观设置" title="外观设置" aria-expanded="false" aria-controls="bg-customizer-popover">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-5-5L5 21"/></svg>
               <span>外观</span>
             </button>
-            <span class="dock-divider" aria-hidden="true"></span>
             <button type="button" class="particle-inline-btn" id="btn-toggle-particles" aria-pressed="true" aria-label="拓扑粒子开关" title="拓扑粒子开关">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M3 7h5l3 5-3 5H3M14 7h7M14 17h7"/></svg>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 7h5l3 5-3 5H3M14 7h7M14 17h7"/></svg>
               <span>流光</span>
             </button>
             <span class="dock-divider" aria-hidden="true"></span>
@@ -70,6 +70,22 @@
             <div class="bcp-title">
               <span>外观与皮肤 · 人文羊皮纸</span>
               <button type="button" class="glass-btn" id="btn-close-bg-popover">关闭</button>
+            </div>
+
+            <div class="bcp-group bcp-toolbar-shortcuts" id="bcp-group-toolbar" role="group" aria-label="顶栏收起的入口">
+              <div class="bcp-group-title">快捷入口</div>
+              <button type="button" class="bcp-shortcut" data-toolbar-proxy="#btn-toggle-particles" data-keep-open aria-pressed="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 7h5l3 5-3 5H3M14 7h7M14 17h7"/></svg>
+                <span>拓扑流光</span><i class="bcp-switch" aria-hidden="true"></i>
+              </button>
+              <button type="button" class="bcp-shortcut" data-toolbar-proxy="[data-ovb-trigger]" data-overview-only>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="4" width="6.5" height="9" rx="1.6"/><rect x="13.5" y="4" width="6.5" height="5" rx="1.6"/><rect x="4" y="16" width="6.5" height="4" rx="1.6"/><rect x="13.5" y="12" width="6.5" height="8" rx="1.6"/></svg>
+                <span>自定义概览卡片</span><small aria-hidden="true">›</small>
+              </button>
+              <button type="button" class="bcp-shortcut" data-toolbar-proxy="#version-button">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3 4 7v10l8 4 8-4V7l-8-4Zm-8 4 8 4 8-4M12 11v10"/></svg>
+                <span>版本与更新</span><small data-version-mirror>正在读取</small>
+              </button>
             </div>
 
             <div class="bcp-group" id="bcp-group-navigation">

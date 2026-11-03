@@ -10,7 +10,7 @@ import { collectionsService } from '../../shared/components/collection-layouts.j
 import { proxyPanelService } from '../proxy-panel/index.js';
 import { setHTML } from '../../core/security/safe-dom.ts';
 import { $, CONFIG, $$, state, storage, API_BASE, reduceMotion } from '../../core/context.js';
-import { icon } from '../../shared/components/icons.js';
+import { icon, strokeIcon } from '../../shared/components/icons.js';
 import { toast } from '../../shared/components/toast.js';
 import { closeDrawer } from '../../shared/components/drawer.js';
 import { modalClose } from '../../shared/components/dialog.js';
@@ -52,7 +52,7 @@ import { routeDefs } from '../../core/router/routes.js';
   function initShell(){
     document.title=CONFIG.title; setHTML($('#side-nav'), navHtml());
     setHTML($('#mobile-nav'), routeDefs.map(r=>`<button data-route="${r.id}">${icon(r.icon)}<span>${r.label}</span></button>`).join(''));
-    setHTML($('#theme-toggle'), icon('theme')); setHTML($('#refresh-button'), icon('refresh')); setHTML($('#restart-button'), icon('power')); setHTML($('#drawer-close'), icon('close')); $$('#modal .icon-button').forEach(x=>setHTML(x, icon('close')));
+    setHTML($('#theme-toggle'), strokeIcon('theme')); setHTML($('#refresh-button'), strokeIcon('refresh')); setHTML($('#restart-button'), strokeIcon('power')); setHTML($('#drawer-close'), icon('close')); $$('#modal .icon-button').forEach(x=>setHTML(x, icon('close')));
 
     // 主题对应的 LocalDNS 品牌图形。
     shellInterfaceService?.updateBrand();
@@ -75,7 +75,24 @@ import { routeDefs } from '../../core/router/routes.js';
           openBtn.setAttribute('aria-expanded', 'false');
         };
       }
+      // 窄屏顶栏收起了「自定义概览」「流光」与版本徽标，外观面板里的「快捷入口」转发到原按钮，
+      // 行为（含状态、弹层与对话框）仍由原按钮负责。流光就地切换，其余入口先收起外观面板。
+      let forwarding = false;
+      pop.addEventListener('click', e => {
+        const shortcut = e.target.closest('[data-toolbar-proxy]');
+        if (!shortcut) return;
+        const target = document.querySelector(shortcut.dataset.toolbarProxy);
+        if (!target) return;
+        e.stopPropagation();
+        if (!shortcut.hasAttribute('data-keep-open')) {
+          pop.classList.remove('open');
+          openBtn.setAttribute('aria-expanded', 'false');
+        }
+        forwarding = true;
+        try { target.click(); } finally { forwarding = false; }
+      });
       document.addEventListener('click', e => {
+        if (forwarding) return;
         if (!pop.contains(e.target) && !e.target.closest('#btn-open-bg-customizer')) {
           pop.classList.remove('open');
           openBtn.setAttribute('aria-expanded', 'false');
@@ -115,6 +132,7 @@ import { routeDefs } from '../../core/router/routes.js';
       const syncParticles = () => {
         partBtn.classList.toggle('active', enabled());
         partBtn.setAttribute('aria-pressed', String(enabled()));
+        $$('[data-toolbar-proxy="#btn-toggle-particles"]').forEach(mirror => mirror.setAttribute('aria-pressed', String(enabled())));
         const label = reduceMotion.matches && !state.particleMotionOverride
           ? '拓扑动画已跟随系统减少动态暂停，点击可单独启用'
           : enabled() ? '关闭拓扑动画' : '开启拓扑动画';
