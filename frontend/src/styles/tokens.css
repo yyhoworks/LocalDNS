@@ -7,7 +7,7 @@
   --font-mono: 'IBM Plex Mono', ui-monospace, SFMono-Regular, monospace;
   --bg-base: #08090B;
   --bg-dimmer: .22;
-  --glass-alpha: .55;
+  --glass-alpha: .62;
   --glass-blur: 14px;
 
   --glass-bg: rgba(21,22,26,var(--glass-alpha));
@@ -24,13 +24,15 @@
   --border-glass: rgba(255,255,255,.035);
   --border-highlight: rgba(255,255,255,0.18);
   --inner-specular: inset 0 1px 0 0 rgba(255,255,255,0.07);
+  /* 深色玻璃文字：在纯白壁纸、遮盖度 62% / 暗化 20% 的最差情形下，text-2 ≥ 4.5:1、text-3 ≥ 4:1；
+     与 features/appearance/readability.js 保持一致。 */
   --text-1: #F4F6FB;
-  --text-2: #B0B9C9;
-  --text-3: #8C96A8;
+  --text-2: #DCE2EC;
+  --text-3: #C3CCDA;
 
   --primary: #2563EB;
   --primary-strong: #1D4ED8;
-  --primary-light: #60A5FA;
+  --primary-light: #BCD6FE;
   --slate-blue: #3B82F6;
   --teal: #14B8A6;
   --green: #10B981;
@@ -49,9 +51,9 @@
   --pink: var(--coral);
   --cyan: var(--teal);
   --console-panel: var(--glass-bg);
-  --console-success: #6EE7B7;
-  --console-danger: #FCA5A5;
-  --console-info: #93C5FD;
+  --console-success: #8DE8C4;
+  --console-danger: #FDC9C9;
+  --console-info: #BCD6FE;
   --console-line: #60A5FA;
   --console-shadow: 0 10px 26px -20px rgba(0,0,0,.3);
 }
@@ -70,13 +72,15 @@ html[data-theme="light-glass"] {
   --border-glass: rgba(15,23,42,.045);
   --border-highlight: rgba(37, 99, 235, 0.35);
   --inner-specular: inset 0 1px 0 0 rgba(255, 255, 255, 0.9);
+  /* 浅色玻璃：纯黑壁纸是最差情形；强调色在浅底上改用深蓝，否则只有约 2:1。 */
   --text-1: #0F172A;
   --text-2: #334155;
-  --text-3: #475569;
+  --text-3: #3E4A5C;
+  --primary-light: #1D40AA;
   --console-panel: var(--glass-bg);
-  --console-success: #065F46;
-  --console-danger: #B91C1C;
-  --console-info: #1D4ED8;
+  --console-success: #05503B;
+  --console-danger: #921B1B;
+  --console-info: #1D40AA;
   --console-line: #2563EB;
   --console-shadow: 0 10px 24px -20px rgba(15,23,42,.18);
 }
