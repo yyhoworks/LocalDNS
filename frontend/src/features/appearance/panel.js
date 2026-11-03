@@ -27,6 +27,8 @@ export function initialize() {
       panes.set(key, pane); content.append(pane);
     }
     title.after(tabs, content);
+    // 窄屏顶栏收起的入口（流光、概览自定义、版本）放在分栏之前，打开面板即可看到；宽屏由 CSS 隐藏。
+    const shortcuts = panel.querySelector('#bcp-group-toolbar'); if (shortcuts) tabs.before(shortcuts);
     const move = (selector, key) => { const element = panel.querySelector(selector); if (element) panes.get(key).append(element); };
     const group = (id, name, key) => {
       const element = document.createElement('div'); element.className = 'bcp-group'; element.id = id;

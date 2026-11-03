@@ -45,6 +45,21 @@ const versionService = (() => {
     return {available: comparison > 0 || sameVersionNewCore, comparison,
       local: installed.channel === 'local', baseline};
   }
+  // 顶栏徽标只显示去掉年份的短版本（2026.11.03.1 → 11.03.1），完整版本与状态放在 title / aria-label。
+  function shortVersion(value) {
+    const text = versionText(String(value || '').replace(/-local.*$/i, ''));
+    return text ? text.replace(/^\d{4}\./, '') : '';
+  }
+  function badgeParts(installedVersion, latestVersion, available) {
+    const current = shortVersion(installedVersion);
+    if (!current) return {current: '版本', next: ''};
+    const next = available ? shortVersion(latestVersion) : '';
+    return {current: 'v' + current, next: next && next !== current ? next : ''};
+  }
+  function badgeLabel(installedVersion, latestVersion, available) {
+    const parts = badgeParts(installedVersion, latestVersion, available);
+    return parts.next ? `${parts.current} → ${parts.next}` : parts.current;
+  }
   function setup() {
     const start = async () => {
       const button = document.querySelector('#version-button');
@@ -87,11 +102,16 @@ const versionService = (() => {
           !latest ? '尚未检查' : status.available ? '有新版本' : status.comparison === null ? '版本待核对' :
           status.local ? '本地测试版' : status.comparison < 0 ? '当前版本较新' : '已是最新';
         button.dataset.status = error || limited ? 'error' : status?.available ? 'update' : 'normal';
-        const displayVersion = String(installed?.uiVersion || '').replace(/-local.*$/, '');
-        button.querySelector('[data-version-number]').textContent = displayVersion ? 'UI ' + displayVersion : '版本';
-        button.querySelector('[data-version-status]').textContent = text;
-        button.title = `版本与更新：${installed?.uiVersion || '未读取'}，${text}`;
+        const parts = badgeParts(installed?.uiVersion, latest?.version, Boolean(status?.available));
+        const label = badgeLabel(installed?.uiVersion, latest?.version, Boolean(status?.available));
+        const labelNode = button.querySelector('[data-version-label]'), nextNode = button.querySelector('[data-version-next]');
+        if (labelNode) labelNode.textContent = parts.current;
+        if (nextNode) { nextNode.textContent = parts.next ? ' → ' + parts.next : ''; nextNode.hidden = !parts.next; }
+        const latestNote = status?.available && latest ? `，可更新到 ${latest.version}` : '';
+        button.title = `版本与更新：UI ${installed?.uiVersion || '未读取'}，${text}${latestNote}`;
         button.setAttribute('aria-label', button.title);
+        document.documentElement.dataset.uiUpdate = status?.available ? 'available' : 'none';
+        document.querySelectorAll('[data-version-mirror]').forEach(node => { node.textContent = status?.available ? label : text; });
         manual.disabled = checking || limited;
         manual.textContent = checking ? '正在检查…' : limited ? '等待 GitHub 限流恢复' : '检查更新';
         const fact = (name, value) => `<div><dt>${name}</dt><dd>${escape(value)}</dd></div>`;
@@ -168,7 +188,7 @@ const versionService = (() => {
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start, {once:true});
     else start();
   }
-  return {versionParts, compareVersions, releaseInfo, assess, setup};
+  return {versionParts, compareVersions, releaseInfo, assess, shortVersion, badgeParts, badgeLabel, setup};
 
 })();
 export { versionService };
