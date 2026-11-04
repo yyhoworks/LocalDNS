@@ -160,7 +160,7 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Vary", "Origin")
 	}
 	if r.URL.Path == "/healthz" && r.Method == "GET" && origin == "" {
-		writeJSON(w, 200, map[string]any{"service": "localdns-proxy-config", "version": "1.6.0"})
+		writeJSON(w, 200, map[string]any{"service": "localdns-proxy-config", "version": "1.7.0"})
 		return
 	}
 	if !contains(s.config.Origins, origin) {
@@ -1004,7 +1004,7 @@ func reloadCore(ctx context.Context, name string, c Core, path string, previous 
 // validatePostReload rejects hooks that cannot run. postReload is an argv
 // array, not a shell command line: element 0 is exec'd directly and is never
 // split on spaces. A hook that cannot run would make every save roll back, so
-// it is rejected at startup instead of on the first reload.
+// it is reported at startup as well as on the first reload.
 func validatePostReload(config Config) error {
 	for _, name := range []string{"mihomo", "sing-box"} {
 		core, ok := config.Cores[name]
@@ -1074,8 +1074,10 @@ func main() {
 	if config.Listen == "" || len(config.Origins) == 0 || len(config.Hosts) == 0 {
 		log.Fatal("incomplete configuration")
 	}
+	// A hook that cannot run must not take this editor offline: the operator
+	// repairs it from here, so report it loudly and let the save path explain it.
 	if err := validatePostReload(config); err != nil {
-		log.Fatal(err)
+		log.Printf("warning: %v", err)
 	}
 	s := newServer(config)
 	httpServer := &http.Server{Addr: config.Listen, Handler: s, ReadHeaderTimeout: 5 * time.Second, ReadTimeout: 15 * time.Second, WriteTimeout: 110 * time.Second, IdleTimeout: 30 * time.Second, MaxHeaderBytes: 16 << 10}
