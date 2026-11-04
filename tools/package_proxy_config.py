@@ -54,7 +54,7 @@ def main():
     payload['licenses/Go-LICENSE.txt'] = (goroot / 'LICENSE').read_bytes()
     payload['licenses/yaml-v3-LICENSE.txt'] = (yaml / 'LICENSE').read_bytes()
     payload['release.json'] = json_bytes(dict(version, packageType='proxy-config-service',
-                                             serviceVersion='1.6.0', binaries=binaries))
+                                             serviceVersion='1.7.0', binaries=binaries))
     name = 'LocalDNS_ProxyConfig_UI_' + version['uiVersion'] + '_Service.zip'
     digest = write_archive(output / name, payload, version, modes)
     sums = output / 'SHA256SUMS.txt'
