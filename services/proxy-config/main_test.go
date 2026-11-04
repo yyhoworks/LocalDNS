@@ -392,3 +392,101 @@ func TestServeUntilSignalWaitsForInFlightRequest(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+func TestPostReloadRejectsShellCommandLine(t *testing.T) {
+	config := Config{Cores: map[string]Core{"mihomo": {PostReload: []string{"rc-service mihomo-gateway restart"}}}}
+	err := validatePostReload(config)
+	if err == nil {
+		t.Fatal("space-joined command line accepted as a hook")
+	}
+	for _, want := range []string{"postReload[0]", "argv 数组", `["rc-service", "mihomo-gateway", "restart"]`} {
+		if !strings.Contains(err.Error(), want) {
+			t.Fatalf("hook error %q does not mention %q", err.Error(), want)
+		}
+	}
+}
+
+func TestPostReloadValidationAcceptsExecutableAndRejectsBadPaths(t *testing.T) {
+	dir := t.TempDir()
+	script := filepath.Join(dir, "post-reload.sh")
+	if err := os.WriteFile(script, []byte("#!/bin/sh\nexit 0\n"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	plain := filepath.Join(dir, "plain.txt")
+	if err := os.WriteFile(plain, []byte("x"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := validatePostReload(Config{Cores: map[string]Core{"mihomo": {PostReload: []string{script, "--force"}}}}); err != nil {
+		t.Fatalf("executable hook rejected: %v", err)
+	}
+	rejected := map[string][]string{
+		"relative":  {"post-reload.sh"},
+		"missing":   {filepath.Join(dir, "absent.sh")},
+		"notexec":   {plain},
+		"directory": {dir},
+		"newline":   {"/bin/sh\nrm -rf /"},
+		"empty":     {""},
+	}
+	for name, hook := range rejected {
+		if err := validatePostReload(Config{Cores: map[string]Core{"mihomo": {PostReload: hook}}}); err == nil {
+			t.Fatalf("%s hook accepted", name)
+		}
+	}
+}
+
+func TestHookFailureRollsBackWithoutClaimingCoreIsLost(t *testing.T) {
+	s, path := importTestServer(t)
+	puts := 0
+	controller := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == "PUT" && r.URL.Path == "/configs" {
+			puts++
+		}
+		w.WriteHeader(204)
+	}))
+	defer controller.Close()
+
+	dir := t.TempDir()
+	runs := filepath.Join(dir, "runs")
+	hook := filepath.Join(dir, "hook.sh")
+	script := "#!/bin/sh\necho run >> '" + runs + "'\necho 'hook exploded' >&2\nexit 1\n"
+	if err := os.WriteFile(hook, []byte(script), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	before := []byte("external-controller: " + strings.TrimPrefix(controller.URL, "http://") + "\nsecret: test\nmode: rule\n")
+	if err := os.WriteFile(path, before, 0600); err != nil {
+		t.Fatal(err)
+	}
+	core := s.config.Cores["mihomo"]
+	core.PostReload = []string{hook}
+	s.config.Cores["mihomo"] = core
+	s.reloadReady = reloadReady
+	s.reload = reloadCore
+
+	rr := importCall(s, "save", request{Core: "mihomo", Path: path, Revision: digest(before), Content: string(before) + "rules:\n - MATCH,DIRECT\n"})
+	if rr.Code != http.StatusBadGateway {
+		t.Fatalf("status %d: %s", rr.Code, rr.Body.String())
+	}
+	var result struct {
+		Error, Detail string
+		RolledBack    bool
+	}
+	json.Unmarshal(rr.Body.Bytes(), &result)
+	if !result.RolledBack || !strings.Contains(result.Error, "重载后钩子执行失败") {
+		t.Fatalf("hook failure misreported: %s", rr.Body.String())
+	}
+	if strings.Contains(result.Error, "核心恢复尚未确认") {
+		t.Fatalf("hook failure claimed the core was lost: %s", result.Error)
+	}
+	if !strings.Contains(result.Detail, "post reload hook failed") || !strings.Contains(result.Detail, "hook exploded") {
+		t.Fatalf("detail dropped the hook error: %q", result.Detail)
+	}
+	if puts != 2 {
+		t.Fatalf("expected the core to reload twice (apply and rollback), got %d", puts)
+	}
+	if restored, _ := os.ReadFile(path); string(restored) != string(before) {
+		t.Fatal("original not restored")
+	}
+	if count, _ := os.ReadFile(runs); strings.Count(string(count), "run") != 2 {
+		t.Fatalf("hook ran an unexpected number of times: %q", count)
+	}
+}
