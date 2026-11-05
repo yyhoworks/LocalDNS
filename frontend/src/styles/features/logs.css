@@ -37,7 +37,7 @@ html[data-theme="dark-glass"] .audit-persist-switch .switch-track { background: 
 .lf-search { position: relative; flex: 1 1 260px; min-width: 220px; display: flex; align-items: center; }
 .lf-search .search-icon { position: absolute; left: 11px; display: flex; color: var(--text-3); pointer-events: none; }
 .lf-more, .lf-reset {
-  padding: 9px 12px; font: inherit; font-size: 12.5px; cursor: pointer;
+  padding: 9px 12px; font: inherit; font-size: 13px; cursor: pointer;
   border-radius: calc(9px * var(--radius-scale)); border: 1px solid var(--border-glass);
   background: rgba(255,255,255,.03); color: var(--text-2);
 }

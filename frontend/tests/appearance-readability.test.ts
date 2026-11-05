@@ -72,6 +72,24 @@ describe('text tokens match the readability model', () => {
   });
 });
 
+describe('Claude light skin status colours', () => {
+  // Claude 浅色皮肤是不透明纸面；状态色作 11px 徽章文字使用，需 ≥ 4.5:1。
+  const skin = block('html[data-skin="claude"][data-theme="light-glass"]');
+  const over = (rgba: [number, number, number, number], base: number[]) => base.map((c, i) => Math.round(rgba[i] * rgba[3] + c * (1 - rgba[3])));
+  const surfaces = {
+    panel: hexRgb(skin['--glass-bg']), pill: hexRgb(skin['--glass-pill']), page: hexRgb(skin['--bg-base']),
+    badge: over([201, 100, 66, 0.09], hexRgb(skin['--glass-bg'])),
+  };
+  it.each(['--console-info', '--console-success', '--console-danger', '--text-2'])('%s ≥ 4.5:1 on every surface', name => {
+    for (const [surface, bg] of Object.entries(surfaces)) {
+      expect(floor(contrast(hexRgb(skin[name]), bg)), surface).toBeGreaterThanOrEqual(4.5);
+    }
+  });
+  it('tints primary badges with the skin accent, not the glass blue', () => {
+    expect(read('src/styles/components/themes.css')).toMatch(/html\[data-skin=claude\]\[data-theme=light-glass\] \.badge\.primary\{background:rgba\(201,100,66,\.09\)/);
+  });
+});
+
 describe('contrast at the floors on the worst wallpaper', () => {
   // 深色玻璃最怕纯白壁纸，浅色玻璃最怕纯黑壁纸；同时覆盖卡片填充、卡片内 pill、弹层强实底。
   const cases: [Mode, string, string, number][] = [];

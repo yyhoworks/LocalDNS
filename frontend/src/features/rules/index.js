@@ -46,7 +46,7 @@ import { runRuleUpdate, syncRuleUpdateState, ruleUpdatePending } from './update-
 
     setHTML(page, `
     <div class="view-title-row">
-      <div style="display:flex;align-items:baseline;gap:12px"><h1>规则管理</h1><span class="gc-sub">统一维护本地名单、AdGuard 广告拦截与 SRS 在线分流规则</span></div>
+      <div style="display:flex;align-items:baseline;gap:12px"><h1>分流</h1><span class="gc-sub">统一维护本地名单、AdGuard 广告拦截与 SRS 在线分流规则</span></div>
       <div class="seg-group" id="rule-top-tabs">
         <button type="button" class="seg-item active" data-rule-tab="lists">名单管理</button>
         <button type="button" class="seg-item" data-rule-tab="adguard">广告拦截 (AdGuard)</button>

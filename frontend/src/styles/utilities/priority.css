@@ -27,7 +27,7 @@ html[data-theme=light-glass] .tn-pill,html[data-theme=light-glass] .tec-badge{co
 @media(max-width:600px){.view-title-row>div:first-child{display:block!important}}
 @media(max-width:600px){.view-title-row>div:first-child>.gc-sub,.view-title-row>div:first-child>.mono{font-size:11px!important}}
 @media(max-width:600px){.console-kpi-row{grid-template-columns:repeat(2,minmax(0,1fr))!important}}
-@media(max-width:600px){.console-trend .glass-card>div:nth-child(2){gap:8px!important;font-size:10px!important}}
+@media(max-width:600px){.console-trend .glass-card>div:nth-child(2){gap:8px!important;font-size:11px!important}}
 @media(max-width:600px){.mobile-records td{padding:0!important}}
 @media(max-width:600px){.rule-layout{height:auto!important}}
 @media(max-width:600px){.cache-card-head{flex-wrap:wrap!important;gap:6px!important}}

@@ -133,7 +133,8 @@ html[data-skin="claude"][data-theme="light-glass"] {
   --console-panel: #FCFBF8;
   --console-success: #2D6A4F;
   --console-danger: #B91C1C;
-  --console-info: #C96442;
+  /* Used as text: #C96442 is only ~3.7:1 on the paper surface; #A44B2D is >= 5:1. Lines keep the accent. */
+  --console-info: #A44B2D;
   --console-line: #C96442;
   --console-shadow: 0 1px 2px rgba(25, 24, 22, 0.04), 0 8px 24px -14px rgba(25, 24, 22, 0.07);
 
