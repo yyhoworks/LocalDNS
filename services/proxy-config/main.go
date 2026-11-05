@@ -78,34 +78,7 @@ type apiError struct {
 func (e *apiError) Error() string              { return e.Message }
 func failure(status int, message string) error { return &apiError{Status: status, Message: message} }
 
-// hookError marks a postReload hook failure. The core has already accepted the
-// new configuration by the time the hook runs, so this must not be reported as
-// a core reload failure.
-type hookError struct {
-	err    error
-	output string
-}
-
-func (e *hookError) Error() string {
-	message := "post reload hook failed: " + e.err.Error()
-	if e.output != "" {
-		message += "：" + e.output
-	}
-	return message
-}
-func (e *hookError) Unwrap() error { return e.err }
-
-// hookFailure reports whether err came from the postReload hook instead of the
-// core itself.
-func hookFailure(err error) bool {
-	var target *hookError
-	return errors.As(err, &target)
-}
-
-// coreRestored reports whether a reload error still left the core running the
-// configuration that was written. A hook failure does: the reload runs first.
-func coreRestored(err error) bool { return err == nil || hookFailure(err) }
-func digest(b []byte) string      { h := sha256.Sum256(b); return hex.EncodeToString(h[:]) }
+func digest(b []byte) string { h := sha256.Sum256(b); return hex.EncodeToString(h[:]) }
 
 func newServer(config Config) *Server {
 	return &Server{config: config, validate: validateCore, reload: reloadCore, reloadReady: reloadReady}
@@ -119,7 +92,7 @@ func writeJSON(w http.ResponseWriter, status int, value any) {
 func writeError(w http.ResponseWriter, err error) {
 	e := &apiError{Status: 500, Message: "操作未完成，请检查服务日志。"}
 	if !errors.As(err, &e) {
-		log.Printf("operation failed: %v", err)
+		log.Printf("operation failed: %s", safeOperationError(err))
 	}
 	writeJSON(w, e.Status, map[string]any{"error": e.Message, "detail": e.Detail, "rolledBack": e.RolledBack, "backup": e.Backup})
 }
@@ -160,7 +133,7 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Vary", "Origin")
 	}
 	if r.URL.Path == "/healthz" && r.Method == "GET" && origin == "" {
-		writeJSON(w, 200, map[string]any{"service": "localdns-proxy-config", "version": "1.7.0"})
+		writeJSON(w, 200, map[string]any{"service": "localdns-proxy-config", "version": "1.7.1"})
 		return
 	}
 	if !contains(s.config.Origins, origin) {
@@ -489,6 +462,11 @@ func (s *Server) check(w http.ResponseWriter, r *http.Request, save bool) error 
 		writeJSON(w, 200, map[string]any{"saved": false, "unchanged": true, "revision": input.Revision})
 		return nil
 	}
+	if active && input.Core == "mihomo" {
+		if err := validateHook(input.Core, c.PostReload); err != nil {
+			return &apiError{Status: 422, Message: "重载钩子配置无效，原配置未修改。请修正配置服务的 postReload 后重试。", Detail: err.Error()}
+		}
+	}
 	if active && s.reloadReady != nil {
 		if err := s.reloadReady(ctx, input.Core, c, before, []byte(input.Content)); err != nil {
 			return failure(422, "无法重载。请保持当前控制接口地址和密钥，检查核心进程及 PID 文件。原配置未修改。")
@@ -536,22 +514,22 @@ func (s *Server) check(w http.ResponseWriter, r *http.Request, save bool) error 
 			os.Remove(restore)
 		}
 		if restoreErr != nil {
-			return &apiError{Status: 500, Message: "重载失败，自动恢复文件也未完成，请立即检查备份。", Detail: "重载：" + reloadErr.Error() + "；恢复：" + restoreErr.Error(), Backup: backup}
+			return &apiError{Status: 500, Message: "重载失败，自动恢复文件也未完成，请立即检查备份。", Detail: "重载：" + safeOperationError(reloadErr) + "；恢复：" + safeOperationError(restoreErr), Backup: backup}
 		}
 		rollbackCtx, stop := context.WithTimeout(context.Background(), 45*time.Second)
 		defer stop()
 		rollbackCore := c
 		rollbackCore.groupBefore, rollbackCore.groupAfter = c.groupAfter, c.groupBefore
 		rollbackErr := s.reload(rollbackCtx, input.Core, rollbackCore, path, []byte(input.Content))
-		detail := reloadErr.Error()
+		detail := safeOperationError(reloadErr)
 		if rollbackErr != nil {
-			detail += "；回滚：" + rollbackErr.Error()
+			detail += "；回滚：" + safeOperationError(rollbackErr)
 		}
 		if !coreRestored(rollbackErr) {
 			return &apiError{Status: 502, Message: "重载失败，原文件已恢复；核心恢复尚未确认，请检查服务。", Detail: detail, Backup: backup, RolledBack: true}
 		}
-		if hookFailure(reloadErr) {
-			return &apiError{Status: 502, Message: "重载后钩子执行失败，已恢复原文件并重新加载原配置；核心仍在运行。修改保留在编辑器。", Detail: detail, Backup: backup, RolledBack: true}
+		if hookFailure(reloadErr) || hookFailure(rollbackErr) {
+			return &apiError{Status: 502, Message: "重载后钩子执行失败，已恢复原文件并重新加载原配置；核心在线检查通过。修改保留在编辑器。", Detail: detail, Backup: backup, RolledBack: true}
 		}
 		return &apiError{Status: 502, Message: "重载失败，已恢复原文件并重新加载原配置。修改仍保留在编辑器。", Detail: detail, Backup: backup, RolledBack: true}
 	}
@@ -719,30 +697,6 @@ func scrubOutput(output, path string) string {
 	return strings.Join(result, "\n")
 }
 
-// scrubHookOutput keeps a short, credential-free excerpt of a hook's output so
-// the operator can see why it failed without exposing configuration values.
-func scrubHookOutput(output string) string {
-	var kept []string
-	for _, line := range strings.Split(output, "\n") {
-		line = strings.TrimSpace(line)
-		if line == "" {
-			continue
-		}
-		lower := strings.ToLower(line)
-		if strings.Contains(lower, "secret") || strings.Contains(lower, "password") || strings.Contains(lower, "token") || strings.Contains(lower, "http://") || strings.Contains(lower, "https://") {
-			line = "钩子输出含敏感值（已隐藏）"
-		}
-		if len(line) > 200 {
-			line = line[:200] + "…"
-		}
-		kept = append(kept, line)
-		if len(kept) == 3 {
-			break
-		}
-	}
-	return strings.Join(kept, "；")
-}
-
 type mihomoControl struct {
 	Address string `yaml:"external-controller"`
 	Secret  string `yaml:"secret"`
@@ -798,7 +752,7 @@ func apiCall(ctx context.Context, address, secret, method, path string, body io.
 	defer resp.Body.Close()
 	io.Copy(io.Discard, io.LimitReader(resp.Body, 32768))
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return fmt.Errorf("controller returned %d", resp.StatusCode)
+		return controllerStatusError(resp.StatusCode)
 	}
 	return nil
 }
@@ -925,10 +879,7 @@ func reloadCore(ctx context.Context, name string, c Core, path string, previous 
 			return err
 		}
 		if len(c.PostReload) > 0 {
-			output, err := command(ctx, c.PostReload[0], c.PostReload[1:]...)
-			if err != nil {
-				return &hookError{err: err, output: scrubHookOutput(output)}
-			}
+			return runPostReload(ctx, c.PostReload, newAddress, newSecret)
 		}
 		return apiCall(ctx, newAddress, newSecret, "GET", "/version", nil)
 	}
@@ -1001,65 +952,6 @@ func reloadCore(ctx context.Context, name string, c Core, path string, previous 
 	return errors.New("sing-box reload requires a reachable Clash API for confirmation")
 }
 
-// validatePostReload rejects hooks that cannot run. postReload is an argv
-// array, not a shell command line: element 0 is exec'd directly and is never
-// split on spaces. A hook that cannot run would make every save roll back, so
-// it is reported at startup as well as on the first reload.
-func validatePostReload(config Config) error {
-	for _, name := range []string{"mihomo", "sing-box"} {
-		core, ok := config.Cores[name]
-		if !ok || len(core.PostReload) == 0 {
-			continue
-		}
-		if err := validateHook(name, core.PostReload); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func validateHook(core string, hook []string) error {
-	for _, part := range hook {
-		if strings.ContainsAny(part, "\x00\r\n") {
-			return fmt.Errorf("%s 的 postReload 含换行或空字符；postReload 是 JSON 数组，每个元素是一个参数", core)
-		}
-	}
-	program := hook[0]
-	if program == "" {
-		return fmt.Errorf("%s 的 postReload[0] 不能为空", core)
-	}
-	if !filepath.IsAbs(program) {
-		return fmt.Errorf("%s 的 postReload[0] 必须是绝对路径，当前为 %q%s。postReload 是 argv 数组而不是 shell 命令行：元素会被直接执行，不按空格拆分，也不解释引号和管道。", core, program, hookSuggestion(hook))
-	}
-	info, err := os.Stat(program)
-	if err != nil {
-		return fmt.Errorf("%s 的 postReload[0] 不存在或无法访问：%s", core, program)
-	}
-	if info.IsDir() || info.Mode()&0o111 == 0 {
-		return fmt.Errorf("%s 的 postReload[0] 不是可执行文件：%s", core, program)
-	}
-	return nil
-}
-
-// hookSuggestion renders a space-joined command line as the argv array the hook
-// needs, so a pasted shell command is one edit away from working.
-func hookSuggestion(hook []string) string {
-	var fields []string
-	for _, field := range strings.Split(hook[0], " ") {
-		if field != "" {
-			fields = append(fields, field)
-		}
-	}
-	if len(fields) < 2 {
-		return ""
-	}
-	quoted := make([]string, len(fields))
-	for i, field := range fields {
-		quoted[i] = strconv.Quote(field)
-	}
-	return "；看起来像一条命令行，应改为 [" + strings.Join(quoted, ", ") + "]"
-}
-
 func main() {
 	file := flag.String("config", "/etc/localdns-proxy-config.json", "service configuration")
 	flag.Parse()
@@ -1074,8 +966,8 @@ func main() {
 	if config.Listen == "" || len(config.Origins) == 0 || len(config.Hosts) == 0 {
 		log.Fatal("incomplete configuration")
 	}
-	// A hook that cannot run must not take this editor offline: the operator
-	// repairs it from here, so report it loudly and let the save path explain it.
+	// Keep the editor available for reads and checks; invalid hooks block active saves.
+	// Operators repair postReload in the service configuration and restart this service.
 	if err := validatePostReload(config); err != nil {
 		log.Printf("warning: %v", err)
 	}
