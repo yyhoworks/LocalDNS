@@ -399,7 +399,7 @@ func TestPostReloadRejectsShellCommandLine(t *testing.T) {
 	if err == nil {
 		t.Fatal("space-joined command line accepted as a hook")
 	}
-	for _, want := range []string{"postReload[0]", "argv 数组", `["rc-service", "mihomo-gateway", "restart"]`} {
+	for _, want := range []string{"postReload[0]", "argv 数组", `["/sbin/rc-service", "mihomo-gateway", "restart"]`} {
 		if !strings.Contains(err.Error(), want) {
 			t.Fatalf("hook error %q does not mention %q", err.Error(), want)
 		}
@@ -477,7 +477,7 @@ func TestHookFailureRollsBackWithoutClaimingCoreIsLost(t *testing.T) {
 	if strings.Contains(result.Error, "核心恢复尚未确认") {
 		t.Fatalf("hook failure claimed the core was lost: %s", result.Error)
 	}
-	if !strings.Contains(result.Detail, "post reload hook failed") || !strings.Contains(result.Detail, "hook exploded") {
+	if !strings.Contains(result.Detail, "post reload hook failed") || !strings.Contains(result.Detail, "exit status 1") || strings.Contains(result.Detail, "hook exploded") {
 		t.Fatalf("detail dropped the hook error: %q", result.Detail)
 	}
 	if puts != 2 {
