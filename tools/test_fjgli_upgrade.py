@@ -189,5 +189,70 @@ class MigrationTests(unittest.TestCase):
         self.assertGreaterEqual(service.call_count, 4)
 
 
+class VerifyVersionTests(unittest.TestCase):
+    def setUp(self):
+        self.temporary = tempfile.TemporaryDirectory()
+        self.addCleanup(self.temporary.cleanup)
+        self.root = Path(self.temporary.name)
+        write_json(self.root / 'config/localdns.json', {'cache_memory_mb': 150})
+        write_json(self.root / 'config/upstreams/domestic.json', {'upstreams': ['192.0.2.53']})
+        write_json(self.root / 'config/settings/client_aliases.json', {})
+        write_json(self.root / 'config/settings/switches.json', {'full_cache': True})
+        self.contract = {'schema': 1, 'apiFamily': 'localdns-v1', 'configSchema': 1}
+
+    def check(self, running):
+        responses = {
+            '/api/v1/status': {'version': running},
+            '/api/v1/upstream/config': {'domestic': ['192.0.2.53']},
+            '/api/v1/client-aliases': {},
+            '/api/v1/features': {'full_cache': True},
+            '/api/v1/cache/settings': {'cache_memory_mb': 150},
+        }
+        with patch.object(upgrade, 'api', side_effect=lambda port, path: responses.get(path, {})), \
+             patch.object(upgrade.time, 'sleep'), \
+             patch.object(upgrade, 'dns', side_effect=lambda port, protocol: {'protocol': protocol, 'answers': 1}) as dns:
+            result = upgrade.verify(self.root, 19000, 1053, 1053)
+        self.assertEqual(result['version'], running)
+        self.assertEqual(result['cacheMemoryMb'], 150)
+        self.assertEqual([call.args for call in dns.call_args_list], [(1053, 'udp'), (1053, 'tcp')])
+        return result
+
+    def test_fjn01_without_marker_accepts_ui_version_with_or_without_contract(self):
+        for metadata in ({'backendVersion': 'FJN01'},
+                         {'backendVersion': 'FJN01', 'updateCompatibility': self.contract}):
+            with self.subTest(metadata=metadata):
+                write_json(self.root / 'ui/version.json', metadata)
+                self.assertFalse((self.root / 'core-version.json').exists())
+                self.check('FJN01')
+
+    def test_future_compatible_ui_without_marker_uses_its_exact_version(self):
+        write_json(self.root / 'ui/version.json', {'backendVersion': 'FJNEW', 'updateCompatibility': self.contract})
+        self.check('FJNEW')
+        with self.assertRaisesRegex(MigrationError, 'FJNEW 管理接口未就绪'):
+            self.check('FJMOS')
+
+    def test_unknown_ui_without_valid_contract_does_not_accept_unknown_core(self):
+        for contract in (None, dict(self.contract, configSchema=2)):
+            with self.subTest(contract=contract):
+                metadata = {'backendVersion': 'FJNEW'}
+                if contract is not None:
+                    metadata['updateCompatibility'] = contract
+                write_json(self.root / 'ui/version.json', metadata)
+                with self.assertRaisesRegex(MigrationError, '管理接口未就绪'):
+                    self.check('FJNEW')
+
+    def test_core_marker_takes_precedence_after_ui_only_upgrade(self):
+        write_json(self.root / 'core-version.json', {'backendVersion': 'FJMOS'})
+        write_json(self.root / 'ui/version.json', {'backendVersion': 'FJN01', 'updateCompatibility': self.contract})
+        self.check('FJMOS')
+        with self.assertRaisesRegex(MigrationError, 'FJMOS 管理接口未就绪'):
+            self.check('FJN01')
+
+    def test_fjn01_ui_fallback_rejects_a_different_running_core(self):
+        write_json(self.root / 'ui/version.json', {'backendVersion': 'FJN01', 'updateCompatibility': self.contract})
+        with self.assertRaisesRegex(MigrationError, 'FJN01 管理接口未就绪'):
+            self.check('FJMOS')
+
+
 if __name__ == '__main__':
     unittest.main()
