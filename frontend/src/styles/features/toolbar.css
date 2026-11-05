@@ -34,7 +34,7 @@
   border-radius: 999px;
   background: var(--glass-pill);
   color: var(--text-2);
-  font: 500 11.5px/1 var(--font-mono);
+  font: 500 12px/1 var(--font-mono);
   font-variant-numeric: tabular-nums;
   letter-spacing: 0;
   white-space: nowrap;

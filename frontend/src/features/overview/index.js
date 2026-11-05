@@ -430,7 +430,7 @@ import { bindOverviewBlocks } from './blocks.js';
           </div>
           <div class="sk-note">${blockedPct != null ? `已拦截 ${blockedPctText} 请求` : 'AdGuard 拦截已启用'}</div>` : `
           <div class="sk-bottom">
-            <div class="sk-val tabular" style="font-size:15px;color:var(--text-3)">未启用</div>
+            <div class="sk-val tabular" style="font-size:16px;color:var(--text-3)">未启用</div>
           </div>
           <div class="sk-note">黑名单 ${num(rRules.block || 0)} 条 · 点击去开启 ›</div>`}
         </div>

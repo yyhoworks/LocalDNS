@@ -256,7 +256,7 @@ import { clearGithubToken, maskToken, RATE_LIMIT_ENDPOINT, readGithubToken, RELE
 
     setHTML(page, `
     <div class="view-title-row">
-      <div style="display:flex;align-items:baseline;gap:12px"><h1>系统管理</h1><span class="gc-sub">服务、缓存与自动分流维护</span></div>
+      <div style="display:flex;align-items:baseline;gap:12px"><h1>系统</h1><span class="gc-sub">服务、缓存与自动分流维护</span></div>
     </div>
     <div class="management-stack management-balanced">
       <div class="management-top-pair">

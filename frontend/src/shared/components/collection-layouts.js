@@ -44,7 +44,8 @@ export function initialize() {
       controls.setAttribute('role', 'group');
       controls.setAttribute('aria-label', definition.name + '排列');
       setHTML(controls, ['cards','list'].map(layout => '<button type="button" data-layout="' + layout + '"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + paths[layout] + '</svg><span>' + (definition.key === 'diversion' ? (layout === 'cards' ? '分组卡片' : '表格列表') : (layout === 'cards' ? '卡片' : '列表')) + '</span></button>').join(''));
-      let actions = header.querySelector('.card-actions,.cache-header-actions');
+      // Upstreams: join the page actions on the right so the title stays left-aligned.
+      let actions = header.querySelector(definition.key === 'upstreams' ? '.workspace-actions' : '.card-actions,.cache-header-actions');
       if (!actions && definition.key !== 'upstreams') {
         actions = document.createElement('div');
         actions.className = 'card-actions';

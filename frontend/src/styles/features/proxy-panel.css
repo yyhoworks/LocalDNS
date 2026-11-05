@@ -2,7 +2,7 @@
 .proxy-panel-popover[hidden] { display: none; }
 .proxy-panel-popover { position: fixed; z-index: 110; width: min(390px, calc(100vw - 24px)); padding: 22px; overflow-y: auto; border: 1px solid var(--border-glass); border-radius: calc(16px * var(--radius-scale)); background: var(--glass-bg-strong); backdrop-filter: var(--blur-filter); -webkit-backdrop-filter: var(--blur-filter); box-shadow: 0 16px 48px color-mix(in srgb, var(--text-1) 12%, transparent); color: var(--text-1); text-wrap: pretty; }
 .proxy-panel-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
-.proxy-panel-heading h2 { font-size: 19px; font-weight: 600; }
+.proxy-panel-heading h2 { font-size: 20px; font-weight: 600; }
 .proxy-panel-heading .icon-button { min-width: 32px; width: 32px; height: 32px; min-height: 32px; }
 .proxy-panel-heading svg { width: 17px; height: 17px; }
 .proxy-panel-description, .proxy-panel-note { margin: 8px 0 20px; color: var(--text-2); font-size: 12px; line-height: 1.7; }

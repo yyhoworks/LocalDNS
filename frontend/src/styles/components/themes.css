@@ -20,6 +20,8 @@ html[data-theme="light-glass"] textarea {
   background: rgba(255, 255, 255, 0.9);
 }html[data-theme=light-glass]{color-scheme:light}
 html[data-theme=light-glass] .badge.primary{background:rgba(37,99,235,.08)}html[data-theme=light-glass] .badge.success{background:rgba(16,185,129,.09)}html[data-theme=light-glass] .badge.danger,html[data-theme=light-glass] .button.danger{background:rgba(239,68,68,.07)}
+/* Claude skin: tint primary badges with the terracotta accent instead of the glass blue. */
+html[data-skin=claude][data-theme=light-glass] .badge.primary{background:rgba(201,100,66,.09);border-color:rgba(201,100,66,.24)}
 html[data-theme=light-glass] .badge.pink,html[data-theme=light-glass] .latency-chip.bad{color:#92400E}html[data-theme=light-glass] .badge.cyan{color:#0F766E}
 html[data-theme=light-glass] .cache-stat{background:rgba(229,235,244,.38);border-color:var(--border-glass)}
 html[data-theme=light-glass] .glass-sidebar{box-shadow:var(--console-shadow)}html[data-theme=light-glass] .nav-item.active{box-shadow:0 3px 9px rgba(15,23,42,.1)}

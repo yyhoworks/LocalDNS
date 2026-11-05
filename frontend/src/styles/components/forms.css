@@ -1,7 +1,7 @@
 
     .cmd-search-left input {
       width: 100%; border: none; background: transparent;
-      color: var(--text-1); font-family: inherit; font-size: 12.5px; outline: none;
+      color: var(--text-1); font-family: inherit; font-size: 13px; outline: none;
     }
     .cmd-search-left input::placeholder {
       color: var(--text-3);
@@ -33,7 +33,7 @@ textarea {
   padding: 8px 12px;
   color: var(--text-1);
   font-family: inherit;
-  font-size: 12.5px;
+  font-size: 13px;
   outline: none;
 }
 input:focus, select:focus, textarea:focus { border-color: var(--primary-light); }
@@ -54,7 +54,7 @@ input:focus, select:focus, textarea:focus { border-color: var(--primary-light); 
   width: 100%;
   min-height: 360px;
   font-family: var(--font-mono);
-  font-size: 12.5px;
+  font-size: 13px;
   line-height: 1.6;
   resize: vertical;
 }
@@ -72,12 +72,12 @@ button,input,textarea,select{font-family:var(--font-sans)}.cmd-search-left input
 @media(max-width:600px){.navbar-content #global-search-input{font-size:16px}}
 .bcp-inline .bcp-input { flex: 1 1 auto; min-width: 0; }
 .lf-search input {
-  width: 100%; padding: 9px 12px 9px 34px; font: inherit; font-size: 12.5px;
+  width: 100%; padding: 9px 12px 9px 34px; font: inherit; font-size: 13px;
   border-radius: calc(9px * var(--radius-scale)); border: 1px solid var(--border-glass);
   background: rgba(10,12,16,.4); color: var(--text-1);
 }
 .log-filter-bar select {
-  padding: 9px 10px; font: inherit; font-size: 12.5px; max-width: 190px;
+  padding: 9px 10px; font: inherit; font-size: 13px; max-width: 190px;
   border-radius: calc(9px * var(--radius-scale)); border: 1px solid var(--border-glass);
   background: rgba(10,12,16,.4); color: var(--text-1);
 }
@@ -162,14 +162,14 @@ body[data-console-route="rules"] .rv-search input::placeholder{color:var(--text-
 body[data-console-route="rules"] #rv-root .rv-search input{width:100%;height:100%;min-height:0;padding:0;margin:0;
   border:0;border-radius:0;background:transparent;box-shadow:none;line-height:1.2}
 
-body[data-console-route="rules"] select.rv-inp{appearance:none;-webkit-appearance:none;cursor:pointer;font-family:inherit;font-size:13.5px;padding-right:36px;
+body[data-console-route="rules"] select.rv-inp{appearance:none;-webkit-appearance:none;cursor:pointer;font-family:inherit;font-size:14px;padding-right:36px;
   background-image:linear-gradient(45deg,transparent 50%,currentColor 50%),linear-gradient(135deg,currentColor 50%,transparent 50%);
   background-position:calc(100% - 19px) 21px,calc(100% - 14px) 21px;background-size:5px 5px,5px 5px;background-repeat:no-repeat}
 body[data-console-route="rules"] select.rv-inp:disabled{cursor:default;opacity:.6}
 body[data-console-route="rules"] select.rv-inp option{background:#14161c;color:var(--text-1)}
 body[data-console-route="rules"] .rp-panel textarea{width:100%;min-height:190px;padding:12px 14px;border-radius:calc(10px * var(--radius-scale));
   background:rgba(6,8,12,.42);border:1px solid var(--border-glass);color:var(--text-1);
-  font-family:var(--font-mono);font-size:12.5px;line-height:1.6;outline:none;resize:vertical}
+  font-family:var(--font-mono);font-size:13px;line-height:1.6;outline:none;resize:vertical}
 body[data-console-route="rules"] .rp-panel textarea:focus{border-color:rgba(96,165,250,.5);box-shadow:0 0 0 3px rgba(37,99,235,.16)}
 body[data-console-route="rules"] #rv-root .rv-search input{font:12px/1.5 var(--font-sans)}
 body[data-console-route="rules"] .rv-inp,body[data-console-route="rules"] .rp-panel textarea{background:var(--glass-pill);color:var(--text-1);border-color:var(--border-glass)}

@@ -84,7 +84,7 @@
   background: var(--glass-pill);
   color: var(--text-1);
   font-family: inherit;
-  font-size: 12.5px;
+  font-size: 13px;
   font-weight: 500;
   padding: 7px 14px;
   border-radius: calc(9px * var(--radius-scale));
@@ -169,7 +169,7 @@
   background: #FFFFFF;
   transition: transform 0.18s ease;
 }
-.switch-label { font-size: 12.5px; color: var(--text-2); }
+.switch-label { font-size: 13px; color: var(--text-2); }
 
 /* 概览「缓存与过期」：两个互相独立的开关，名称在左、开关在右，右侧补开/关文字。
    分段控件是单选语义，两个独立项放在同一组里会被读成二选一，这里改用开关。 */
@@ -217,7 +217,7 @@ button:active{transform:translateY(1px)}button:disabled{opacity:.45;cursor:not-a
 @media(max-width:600px){.mobile-records .table-row-actions{display:flex;gap:8px}}
 @media(max-width:600px){.mobile-records .table-row-actions button{flex:1}}
 @media(max-width:600px){.switch{min-height:44px}}
-@media(max-width:600px){.badge{font-size:10px;padding:3px 5px}}.console-search-button{display:none}.console-range button{white-space:nowrap}
+@media(max-width:600px){.badge{font-size:11px;padding:3px 5px}}.console-search-button{display:none}.console-range button{white-space:nowrap}
 #bcp-group-glass-bg button{min-height:44px}
 #bcp-group-glass-bg .preset-btn{min-width:44px}
 #btn-apply-bg-url{white-space:nowrap}
@@ -235,7 +235,7 @@ button:active{transform:translateY(1px)}button:disabled{opacity:.45;cursor:not-a
 .seg-group .seg-item.active { background: transparent; }
 .button:active, .glass-btn:active, .icon-button:active { transform: scale(.97); }
 .badge { display: inline-flex; align-items: center; gap: 4px; }
-.badge::before { font-size: 9px; line-height: 1; font-weight: 700; opacity: .95; }
+.badge::before { font-size: 11px; line-height: 1; font-weight: 700; opacity: .95; }
 .badge.primary::before { content: "\25CF"; }
 .badge.success::before { content: "\2713"; }
 .badge.danger::before { content: "\2715"; }

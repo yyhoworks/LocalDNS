@@ -14,7 +14,7 @@ import { groupName } from './groups.js';
 
     const {config, ecs, groups, rows, degraded} = await readUpstreams(renderScope);
     const model = {config, ecs, groups};
-    setHTML(page, `<div class="view-title-row"><div><h1>DNS 管理</h1></div><button type="button" class="glass-btn primary" id="up-add">添加上游节点</button></div><div class="col-12">${workspaceService.upstreams(rows,groups)}</div>`);
+    setHTML(page, `<div class="view-title-row"><div><h1>解析</h1></div><div class="workspace-actions"><button type="button" class="glass-btn primary" id="up-add">添加上游节点</button></div></div><div class="col-12">${workspaceService.upstreams(rows,groups)}</div>`);
     if(degraded?.metrics||degraded?.ecs){const note=document.createElement('p');note.className='form-note';note.textContent=`部分数据暂不可用：${[degraded.metrics?'上游指标':null,degraded.ecs?'ECS 设置':null].filter(Boolean).join('、')}读取失败，已按空数据展示。`;const titleRow=page.querySelector('.view-title-row');if(titleRow)titleRow.after(note);else page.append(note);}
     $$('.up-toggle',page).forEach(x=>x.onchange=()=>toggleUpstream(x.closest('tr'),x.checked));
     $$('.up-edit',page).forEach(x=>x.onclick=()=>openUpstreamModal(x.closest('tr')));
