@@ -33,9 +33,39 @@ def safe_tree(root):
             raise MigrationError('迁移来源含链接或特殊文件：' + str(item))
 
 
+# The core republishes these traffic statistics every few seconds.  They are
+# runtime counters rather than user settings, so they must not take part in the
+# settings fingerprint: an operator who needs a few minutes to download and
+# verify the backup would otherwise always abort the upgrade.
+TRAFFIC_FILES = ('traffic.json', 'traffic-detail.json')
+TRAFFIC_VOLATILE_KEYS = (
+    'updated', 'published_at', 'generated_at', 'timestamp',
+    'today', 'yesterday', 'week', 'month', 'total', 'days',
+    'connections', 'daily', 'hourly', 'dimensions', 'dimensions_since',
+)
+
+
+def is_runtime_traffic(path):
+    path = Path(path)
+    return path.name in TRAFFIC_FILES and path.parent.name == 'custom'
+
+
+def stable_bytes(path):
+    """Return a comparable representation of a runtime traffic file."""
+    try:
+        value = json.loads(Path(path).read_bytes())
+    except (ValueError, OSError):
+        return b''
+    if not isinstance(value, dict):
+        return b''
+    for key in TRAFFIC_VOLATILE_KEYS:
+        value.pop(key, None)
+    return json.dumps(value, sort_keys=True, separators=(',', ':')).encode()
+
+
 def hashes(root):
     safe_tree(root)
-    return {p.relative_to(root).as_posix(): hashlib.sha256(p.read_bytes()).hexdigest()
+    return {p.relative_to(root).as_posix(): hashlib.sha256(stable_bytes(p) if is_runtime_traffic(p) else p.read_bytes()).hexdigest()
             for p in sorted(Path(root).rglob('*')) if p.is_file()}
 
 
