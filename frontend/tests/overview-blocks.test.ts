@@ -22,6 +22,12 @@ const page = () => document.querySelector('#page-content') as HTMLElement;
 const popover = () => document.querySelector('#overview-blocks-popover') as HTMLElement;
 const trigger = () => page().querySelector('[data-ovb-trigger]') as HTMLButtonElement;
 
+const moveInPopover = (key: string, direction: 'ArrowUp' | 'ArrowDown') => {
+  const handle = popover().querySelector<HTMLButtonElement>(`[data-ovb-drag="${key}"]`)!;
+  handle.focus();
+  handle.dispatchEvent(new KeyboardEvent('keydown', { key:direction, bubbles:true }));
+};
+
 beforeAll(async () => {
   // context.js 在模块导入期读取 matchMedia，先补全局再动态导入被测模块。
   vi.stubGlobal('matchMedia', () => ({ matches: false, media: '', addEventListener: () => {}, removeEventListener: () => {} }));
@@ -30,6 +36,7 @@ beforeAll(async () => {
 });
 
 beforeEach(() => {
+  blocks.prepareOverviewRender('management');
   mem.clear();
   document.body.innerHTML = '<div id="page-content"><button type="button" data-ovb-trigger>自定义显示</button></div>';
 });
@@ -259,6 +266,37 @@ describe('概览内容块自定义显示', () => {
 });
 
 describe('概览内容块排序', () => {
+  it('默认锁定：弹层禁用排序，解锁后可移动，离开概览重新上锁', () => {
+    blocks.bindOverviewBlocks(page());
+    trigger().click();
+    expect(blocks.isOverviewLayoutLocked()).toBe(true);
+    expect(document.querySelector('[data-ov-layout-lock]')).toBeNull();
+    expect(trigger().dataset.layoutLocked).toBe('true');
+    const lockedIcon = trigger().innerHTML;
+    expect([...popover().querySelectorAll<HTMLButtonElement>('[data-ovb-drag]')].every(button => button.disabled)).toBe(true);
+    (popover().querySelector('[data-ovb-lock]') as HTMLButtonElement).click();
+    expect(blocks.isOverviewLayoutLocked()).toBe(false);
+    expect(trigger().dataset.layoutLocked).toBe('false');
+    expect(trigger().innerHTML).not.toBe(lockedIcon);
+    moveInPopover('service', 'ArrowDown');
+    expect(blocks.getBlockOrder()[0]).toBe('shortcuts');
+    blocks.prepareOverviewRender('management');
+    expect(blocks.isOverviewLayoutLocked()).toBe(true);
+    expect(document.querySelector('.ov-layout-notice')).toBeNull();
+    expect(blocks.getBlockOrder()[0]).toBe('shortcuts');
+  });
+
+  it('撤销恢复完整分组顺序，不覆盖显隐选择', () => {
+    blocks.bindOverviewBlocks(page());
+    blocks.setOverviewLayoutLocked(false);
+    blocks.setHiddenBlocks(['kpi']);
+    trigger().click();
+    moveInPopover('service', 'ArrowDown');
+    const undo = [...document.querySelectorAll<HTMLButtonElement>('.ov-layout-notice button')].find(button => button.textContent === '撤销')!;
+    undo.click();
+    expect(blocks.getBlockOrder()).toEqual(blocks.OVERVIEW_BLOCKS.map(([key]: string[]) => key));
+    expect(blocks.getHiddenBlocks()).toEqual(['kpi']);
+  });
   it('默认顺序为 OVERVIEW_BLOCKS 定义顺序，与样式表既有的 order 设计一致', () => {
     expect(blocks.getBlockOrder()).toEqual([
       'service','kpi','shortcuts','trend','outcomes','topology','rankings','caches','slow'
@@ -342,35 +380,37 @@ describe('概览内容块排序', () => {
     expect((popover().querySelector('[data-ovb-reset]') as HTMLButtonElement).disabled).toBe(true);
   });
 
-  it('移到顶端后同向按钮被禁用，焦点落到反向按钮而不是 body', () => {
+  it('键盘移到顶端后继续上移无变化，焦点留在手柄', () => {
     blocks.bindOverviewBlocks(page());
+    blocks.setOverviewLayoutLocked(false);
     trigger().click();
-    (popover().querySelector('[data-ovb-up="shortcuts"]') as HTMLButtonElement).click();
+    moveInPopover('shortcuts', 'ArrowUp');
+    moveInPopover('shortcuts', 'ArrowUp');
     expect(blocks.getBlockOrder()[0]).toBe('shortcuts');
-    expect(document.activeElement?.getAttribute('data-ovb-down')).toBe('shortcuts');
+    expect(document.activeElement?.getAttribute('data-ovb-drag')).toBe('shortcuts');
   });
 
-  it('弹层按自定义顺序渲染且首尾按钮禁用', () => {
+  it('弹层按自定义顺序渲染，只有拖拽手柄，没有上下按钮', () => {
     blocks.setBlockOrder(['slow','shortcuts','service','kpi','topology','trend','outcomes','rankings','caches']);
     blocks.bindOverviewBlocks(page());
+    blocks.setOverviewLayoutLocked(false);
     trigger().click();
     const items = [...popover().querySelectorAll('.ovb-item')];
-    expect(items[0].querySelector('[data-ovb-up]')?.hasAttribute('disabled')).toBe(true);
-    expect(items[0].querySelector('[data-ovb-down]')?.hasAttribute('disabled')).toBe(false);
-    const last = items[items.length - 1];
-    expect(last.querySelector('[data-ovb-down]')?.hasAttribute('disabled')).toBe(true);
+    expect(popover().querySelector('[data-ovb-up],[data-ovb-down]')).toBeNull();
+    expect(popover().querySelectorAll('[data-ovb-drag]')).toHaveLength(8);
+    expect([...popover().querySelectorAll<HTMLButtonElement>('[data-ovb-drag]')].every(button => !button.disabled)).toBe(true);
     // 第一个是 slow
     expect(items[0].querySelector('[data-ovb-key]')?.getAttribute('data-ovb-key')).toBe('slow');
   });
 
-  it('点下移按钮后顺序变化且弹层重建', () => {
+  it('手柄向下方向键移动后顺序变化且焦点恢复', () => {
     blocks.bindOverviewBlocks(page());
+    blocks.setOverviewLayoutLocked(false);
     trigger().click();
-    const firstDown = popover().querySelector('[data-ovb-down="service"]') as HTMLButtonElement;
-    firstDown.click();
+    moveInPopover('service', 'ArrowDown');
     expect(blocks.getBlockOrder().slice(0, 3)).toEqual(['shortcuts', 'service', 'kpi']);
     // 弹层重建后焦点在被移动项的按钮上
-    expect(document.activeElement?.getAttribute('data-ovb-down')).toBe('service');
+    expect(document.activeElement?.getAttribute('data-ovb-drag')).toBe('service');
   });
 });
 
@@ -393,21 +433,22 @@ describe('服务运行状态与指标卡作为整体排序', () => {
     expect(blocks.moveBlock('service', 1)).toBe(false);
   });
 
-  it('弹层把两者合成一项：两个勾选框各自控制显隐，共用一组上移/下移按钮', () => {
+  it('弹层把两者合成一项：两个勾选框各自控制显隐，共用一个拖拽手柄', () => {
     blocks.bindOverviewBlocks(page());
+    blocks.setOverviewLayoutLocked(false);
     trigger().click();
     const items = [...popover().querySelectorAll('.ovb-item')];
     expect(items).toHaveLength(blocks.OVERVIEW_BLOCKS.length - 1);
     const group = items[0];
     expect(group.classList.contains('ovb-group')).toBe(true);
     expect([...group.querySelectorAll('[data-ovb-key]')].map(box => box.getAttribute('data-ovb-key'))).toEqual(['service','kpi']);
-    expect(group.querySelectorAll('[data-ovb-up],[data-ovb-down]')).toHaveLength(2);
-    expect(popover().querySelector('[data-ovb-up="kpi"],[data-ovb-down="kpi"]')).toBeNull();
+    expect(group.querySelectorAll('[data-ovb-drag]')).toHaveLength(1);
+    expect(popover().querySelector('[data-ovb-drag="kpi"]')).toBeNull();
     const kpi = group.querySelector<HTMLInputElement>('[data-ovb-key="kpi"]')!;
     kpi.checked = false;
     kpi.dispatchEvent(new Event('change'));
     expect(blocks.getHiddenBlocks()).toEqual(['kpi']);
-    (group.querySelector('[data-ovb-down]') as HTMLButtonElement).click();
+    moveInPopover('service', 'ArrowDown');
     expect(blocks.getBlockOrder().slice(0, 3)).toEqual(['shortcuts','service','kpi']);
     expect(popover().querySelectorAll('.ovb-item')[1].classList.contains('ovb-group')).toBe(true);
   });

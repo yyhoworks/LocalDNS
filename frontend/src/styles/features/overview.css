@@ -1226,41 +1226,8 @@ body:not([data-console-route="overview"]) [data-ovb-trigger] { display: none; }
 /* 内容块排序：#page-content 本身是 12 栏 grid，各直接子元素用 inline style.order
    控制顺序（见 blocks.js 的 applyBlockOrder），不改动 display。 */
 .ovb-item-main { display: flex; align-items: flex-start; gap: 10px; flex: 1; min-width: 0; cursor: pointer; }
-/* 服务运行状态与指标卡在页面上同处一个容器，弹层里合成一项：各自勾选显隐，共用一组排序按钮 */
+/* 服务运行状态与指标卡在页面上同处一个容器，弹层里合成一项：各自勾选显隐，共用一个拖动手柄 */
 .ovb-group-main { display: flex; flex-direction: column; gap: 8px; flex: 1; min-width: 0; }
-.ovb-group .ovb-move { align-self: center; }
-
-/* 弹层内的上下移动按钮 */
-.ovb-item .ovb-move {
-  margin-left: auto;
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  flex-shrink: 0;
-}
-.ovb-move button {
-  background: transparent;
-  border: 1px solid transparent;
-  color: var(--text-3);
-  font-size: 10px;
-  line-height: 1;
-  padding: 3px 6px;
-  border-radius: 6px;
-  cursor: pointer;
-}
-.ovb-move button:hover:not(:disabled) {
-  color: var(--text-1);
-  background: rgba(148, 163, 184, 0.12);
-  border-color: var(--border-glass);
-}
-.ovb-move button:disabled {
-  opacity: 0.25;
-  cursor: not-allowed;
-}
-.ovb-move button:focus-visible {
-  outline-offset: 1px;
-}
-
 /* ===== 概览块布局：flex 换行自适应（只在概览路由生效，其他页仍是 12 栏 grid） =====
    每块带一个基准宽度，行内 flex-grow 填满剩余空间；单独成行的块自动拉满整行，
    所以调整顺序或隐藏块都不会在右边留下空白。比例沿用原 12 栏设计：

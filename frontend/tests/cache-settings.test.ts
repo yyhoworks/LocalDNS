@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { ApiError } from '../src/core/api/api-error';
 import {
   CACHE_FIELDS, buildCacheLimits, cacheBudget, cacheLimitInputSelector, cacheLimitsForm, cacheSettings, displayBounds,
-  fromDisplay, poolPending, readCacheLimits, readCacheSettings, toDisplay,
+  fromDisplay, poolPending, readCacheLimits, readCacheSettings, toDisplay, readCacheMemory, saveCacheSettings,
 } from '../src/features/management/cache-settings';
 
 const helpers = { cacheName: (tag: string) => tag, esc: (value: unknown) => String(value), num: (value: number) => String(value) };
@@ -27,6 +27,48 @@ const values = () => ({
   domestic: { max_entries: 100000, stale_ttl: 604800, save_interval: 1800 },
   foreign: { max_entries: 50000, stale_ttl: 604800, save_interval: 1800 },
   foreign_ecs: { max_entries: 50000, stale_ttl: 604800, save_interval: 1800 },
+});
+
+describe('cache budget save transaction', () => {
+  it('supports unlimited memory and rejects invalid inputs before writing', () => {
+    expect(readCacheMemory('0')).toBe(0);
+    expect(readCacheMemory('150')).toBe(150);
+    for (const input of ['', '-1','1.5','Infinity','1e3','9007199254740991']) expect(()=>readCacheMemory(input)).toThrow();
+    const source=payload();source.cache_memory_mb=0;
+    expect(cacheSettings(source)!.cache_memory_mb).toBe(0);
+    expect(cacheLimitsForm(cacheSettings(source)!,helpers)).toContain('value="0"');
+  });
+  it('makes no writes for unchanged values', async () => {
+    let writes=0;
+    const result=await saveCacheSettings({read:async()=>cacheSettings(payload()),write:async()=>{writes++;}},values(),128);
+    expect(writes).toBe(0);expect(result.changed).toBe(false);
+  });
+  it('retains partial success and retries only the still-pending limits', async () => {
+    const source=payload(), calls:string[]=[];let fail=true;
+    const proposed=values();proposed.main.max_entries=600000;
+    const client={read:async()=>cacheSettings(source),write:async(path:string,body:unknown)=>{
+      calls.push(path);
+      if(path.endsWith('/settings'))source.cache_memory_mb=(body as {cache_memory_mb:number}).cache_memory_mb;
+      else if(fail)throw new Error('HTTP 500');
+      else {source.caches[0].max_entries=600000;source.restart_needed=true;}
+    }};
+    await expect(saveCacheSettings(client,proposed,150)).rejects.toThrow('已保存总内存预算；各池参数保存未确认');
+    fail=false;
+    const result=await saveCacheSettings(client,proposed,150);
+    expect(calls).toEqual(['/api/v1/cache/settings','/api/v1/cache/limits','/api/v1/cache/limits']);
+    expect(result.settings.restart_needed).toBe(true);
+  });
+  it('does not submit any changes when a field is invalid', async () => {
+    let writes=0;const proposed=values();proposed.main.max_entries=-1;
+    await expect(saveCacheSettings({read:async()=>cacheSettings(payload()),write:async()=>{writes++;}},proposed,150)).rejects.toThrow();
+    expect(writes).toBe(0);
+  });
+  it('reports failed verification and ambiguous network responses honestly', async () => {
+    const source=payload();let reads=0;
+    await expect(saveCacheSettings({read:async()=>{if(reads++)throw new Error('offline');return cacheSettings(source);},write:async()=>{}},values(),150)).rejects.toThrow('回读失败');
+    await expect(saveCacheSettings({read:async()=>cacheSettings(source),write:async()=>{}},values(),150)).rejects.toThrow('回读值与提交值不一致');
+    await expect(saveCacheSettings({read:async()=>cacheSettings(source),write:async()=>{throw new Error('timeout');}},values(),150)).rejects.toThrow('保存未确认');
+  });
 });
 
 describe('cache settings contract', () => {

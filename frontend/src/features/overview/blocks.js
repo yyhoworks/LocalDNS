@@ -8,6 +8,75 @@ import { $, $$, storage, API_BASE } from '../../core/context.js';
 import { esc } from '../../shared/format/number.js';
 import { setHTML } from '../../core/security/safe-dom.ts';
 import { icon, strokeIcon } from '../../shared/components/icons.js';
+import { createOverviewDrag, overviewGrip } from './drag.js';
+import { createOverviewListDrag } from './list-drag.js';
+
+let layoutLocked = true, dragController = null, listDragController = null, undoOrder = null;
+export const isOverviewLayoutLocked = () => layoutLocked;
+const unitKeys = () => orderUnits().map(unit => unit[0]);
+const expandUnits = keys => keys.flatMap(key => groupOf(key) || [key]);
+const lockIcon = locked => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="5" y="10" width="14" height="11" rx="3"/><path d="${locked ? 'M8 10V6a4 4 0 0 1 8 0v4' : 'M8 10V6a4 4 0 0 1 7.6-1.7'}"/></svg>`;
+
+function announceLayout(message, previous = null) {
+  let notice = document.querySelector('.ov-layout-notice');
+  if (!notice) { notice = document.createElement('div'); notice.className = 'ov-layout-notice'; notice.setAttribute('role', 'status'); document.body.append(notice); }
+  notice.replaceChildren(document.createTextNode(message));
+  if (previous) {
+    undoOrder = [...previous];
+    const button = document.createElement('button'); button.type = 'button'; button.textContent = '撤销';
+    button.onclick = () => { if (!undoOrder) return; setBlockOrder(expandUnits(undoOrder)); undoOrder = null; applyBlockVisibility(); announceLayout('已撤销本次排列'); refreshPopover(); };
+    notice.append(button);
+  }
+  const close = document.createElement('button'); close.type = 'button'; close.textContent = '关闭'; close.setAttribute('aria-label', '关闭布局提示'); close.onclick = () => notice.remove(); notice.append(close);
+}
+
+function commitLayout(next, before) {
+  setBlockOrder(expandUnits(next)); applyBlockVisibility();
+  const saved = unitKeys().join('|') === next.join('|');
+  announceLayout(saved ? '布局已保存' : '浏览器未能保存布局，已恢复原顺序', saved ? before : null);
+  refreshPopover();
+}
+
+function blockNodes(page) {
+  return orderUnits().flatMap(unit => {
+    const selectors = unit.flatMap(key => BLOCK_SELECTORS[key] || []);
+    const element = [...page.children].find(child => selectors.some(selector => child.matches(selector) || child.querySelector(selector)));
+    return element ? [{ key: unit[0], label: unit.map(key => OVERVIEW_BLOCKS.find(b => b[0] === key)[1]).join('与'), element }] : [];
+  });
+}
+
+function refreshPopover() {
+  if (!popover || popover.hidden) return;
+  const scrollTop = popover.scrollTop;
+  listDragController?.dispose();
+  setHTML(popover, popoverHtml()); bindPopoverControls(popover);
+  popover.scrollTop = scrollTop;
+}
+
+export function setOverviewLayoutLocked(value) {
+  layoutLocked = Boolean(value);
+  dragController?.setLocked(layoutLocked);
+  document.querySelectorAll('[data-ovb-trigger]').forEach(button => {
+    setHTML(button, strokeIcon('overview') + lockIcon(layoutLocked).replace('<svg ', '<svg class="ovb-lock-mark" '));
+    button.dataset.layoutLocked = String(layoutLocked);
+    button.setAttribute('aria-label', '自定义概览显示内容');
+    const label = layoutLocked ? '自定义概览 · 布局已锁定' : '自定义概览 · 布局已解锁';
+    button.setAttribute('aria-description', label);
+    button.title = label;
+  });
+  refreshPopover();
+}
+
+/** Run before a route render, so a replaced DOM can never leave a captured pointer behind. */
+export function prepareOverviewRender(route) {
+  dragController?.dispose(); dragController = null;
+  orderObserver?.disconnect();
+  if (route !== 'overview') {
+    layoutLocked = true; undoOrder = null; closePopover();
+    document.querySelector('.ov-layout-notice')?.remove();
+    setOverviewLayoutLocked(true);
+  }
+}
 
 // 顺序即默认展示顺序与弹层顺序；key 与 styles/features/overview.css 的隐藏规则一一对应。
 // 默认顺序必须与样式表里既有的 order 设计一致（overview.css 的 .console-service-summary
@@ -132,8 +201,8 @@ export function moveBlock(key, dir) {
  * 服务状态与指标卡在 shell 增强后同处一个 section，因此作为一个整体移动。
  * 不属于任何块的子元素（标题行）order 为空，保持在最前。
  */
-function applyBlockOrder(page) {
-  const rank = new Map(getBlockOrder().map((key, idx) => [key, idx]));
+function applyBlockOrder(page, order = getBlockOrder()) {
+  const rank = new Map(order.map((key, idx) => [key, idx]));
   [...page.children].forEach(child => {
     let best = null;
     for (const [key, selectors] of Object.entries(BLOCK_SELECTORS)) {
@@ -192,6 +261,7 @@ function ensurePopover() {
 function closePopover(returnFocus = false) {
   if (!popover || popover.hidden) return;
   const hadFocus = popover.contains(document.activeElement);
+  listDragController?.dispose(); listDragController = null;
   popover.hidden = true;
   const trigger = /** @type {HTMLElement|null} */ (document.querySelector('[data-ovb-trigger]'));
   trigger?.setAttribute('aria-expanded', 'false');
@@ -249,14 +319,15 @@ function popoverHtml() {
   const units = orderUnits(order);
   const byKey = new Map(OVERVIEW_BLOCKS.map(b => [b[0], b]));
   const label = key => (byKey.get(key) || [key, key, ''])[1];
-  // 块组渲染成一项：各自一个勾选框（显隐独立），共用一组上移/下移按钮（整体排序）。
+  // 块组渲染成一项：各自一个勾选框（显隐独立），共用一个拖动手柄（整体排序）。
   return `
     <div class="ovb-head">
       <strong>自定义概览显示内容</strong>
       <button type="button" class="ovb-close" data-ovb-close aria-label="关闭">${icon('close')}</button>
     </div>
+    <div class="ovb-edit-state"><span>${layoutLocked ? '布局已锁定 · 显隐可调整' : '拖动右侧手柄调整顺序'}</span><button type="button" class="button small" data-ovb-lock aria-pressed="${!layoutLocked}">${layoutLocked ? '解锁排序' : '锁定排序'}</button></div>
     <div class="ovb-list">
-      ${units.map((unit, idx) => {
+      ${units.map(unit => {
         const lead = unit[0];
         const name = unit.map(label).join('与');
         const boxes = unit.map(key => {
@@ -269,12 +340,9 @@ function popoverHtml() {
         }).join('');
         const grouped = unit.length > 1;
         return `
-        <div class="ovb-item${grouped ? ' ovb-group' : ''}"${grouped ? ` role="group" aria-label="${esc(name)}（作为整体排序）"` : ''}>
+        <div class="ovb-item${grouped ? ' ovb-group' : ''}" data-ovb-unit="${esc(lead)}"${grouped ? ` role="group" aria-label="${esc(name)}（作为整体排序）"` : ''}>
           ${grouped ? `<div class="ovb-group-main">${boxes}</div>` : boxes}
-          <span class="ovb-move">
-            <button type="button" data-ovb-up="${esc(lead)}" ${idx === 0 ? 'disabled' : ''} aria-label="上移${esc(name)}">▲</button>
-            <button type="button" data-ovb-down="${esc(lead)}" ${idx === units.length - 1 ? 'disabled' : ''} aria-label="下移${esc(name)}">▼</button>
-          </span>
+          <button type="button" class="ovb-drag-handle" data-ovb-drag="${esc(lead)}" data-ovb-label="${esc(name)}" ${layoutLocked ? 'disabled' : ''} aria-label="拖动${esc(name)}，上下方向键排序" aria-grabbed="false" title="${layoutLocked ? '解锁后拖动排序' : '拖动排序，也可用上下方向键'}">${overviewGrip}</button>
         </div>`;
       }).join('')}
     </div>
@@ -286,6 +354,7 @@ function popoverHtml() {
 
 function openPopover(trigger) {
   const pop = ensurePopover();
+  listDragController?.dispose();
   setHTML(pop, popoverHtml());
   bindPopoverControls(pop);
   viewport = readViewport();
@@ -297,6 +366,11 @@ function openPopover(trigger) {
 }
 
 function bindPopoverControls(pop) {
+  listDragController = createOverviewListDrag(pop, {
+    locked: () => layoutLocked, order: unitKeys, commit: commitLayout,
+    preview: keys => { const page = $('#page-content'); if (page) { applyBlockOrder(page, expandUnits(keys)); window.dispatchEvent(new CustomEvent('localdns:layoutchange')); } }
+  });
+  $('[data-ovb-lock]', pop).onclick = () => { setOverviewLayoutLocked(!layoutLocked); $('[data-ovb-lock]', pop)?.focus({preventScroll:true}); };
   $$('[data-ovb-key]', pop).forEach(box => {
     box.onchange = () => {
       const hidden = new Set(getHiddenBlocks());
@@ -308,33 +382,14 @@ function bindPopoverControls(pop) {
       if (reset) reset.disabled = hidden.size === 0 && isDefaultOrder(getBlockOrder());
     };
   });
-  // 上下移动：调整顺序后重建弹层列表（按钮禁用态会变），焦点留在被移动项的按钮上。
-  const rebindMove = (attr, dir) => {
-    $$(`[${attr}]`, pop).forEach(btn => {
-      btn.onclick = event => {
-        event.stopPropagation();
-        const key = btn.getAttribute(attr);
-        if (!moveBlock(key, dir)) return;
-        applyBlockVisibility();
-        setHTML(pop, popoverHtml());
-        bindPopoverControls(pop);
-        // 焦点留在被移动项的同向按钮上；移到首/尾后该按钮被禁用，改落到反向按钮。
-        const other = attr === 'data-ovb-up' ? 'data-ovb-down' : 'data-ovb-up';
-        const same = /** @type {HTMLButtonElement|null} */ ($(`[${attr}="${key}"]`, pop));
-        const fallback = /** @type {HTMLButtonElement|null} */ ($(`[${other}="${key}"]`, pop));
-        (same && !same.disabled ? same : fallback)?.focus({ preventScroll: true });
-      };
-    });
-  };
-  rebindMove('data-ovb-up', -1);
-  rebindMove('data-ovb-down', 1);
   $('[data-ovb-close]', pop).onclick = () => closePopover(true);
   $('[data-ovb-reset]', pop).onclick = () => {
     setHiddenBlocks([]);
     setBlockOrder(OVERVIEW_BLOCKS.map(([key]) => key));
+    undoOrder = null;
+    document.querySelector('.ov-layout-notice')?.remove();
     applyBlockVisibility();
-    setHTML(pop, popoverHtml());
-    bindPopoverControls(pop);
+    refreshPopover();
     // 重建后原按钮已移除（且已禁用），焦点落回第一项，避免掉到 body。
     focusFirstControl(pop);
   };
@@ -395,7 +450,8 @@ function watchBlockOrder(page) {
       orderObserver?.disconnect();
       return;
     }
-    applyBlockOrder(page);
+    if (page.dataset.overviewDragging !== 'true' && popover?.dataset.sorting !== 'true') applyBlockOrder(page);
+    dragController?.sync();
   });
   orderObserver.observe(page, { childList: true, subtree: true });
 }
@@ -429,10 +485,18 @@ function ensureTrigger() {
  * 入口在页面外，静默刷新不会重建，但重复绑定一次没有影响；弹层本体只在首次创建。
  */
 export function bindOverviewBlocks(page) {
+  dragController?.dispose();
   ensurePopover();
   applyBlockVisibility();
+  dragController = createOverviewDrag(page, {
+    nodes: () => blockNodes(page), order: unitKeys,
+    preview: keys => { applyBlockOrder(page, expandUnits(keys)); window.dispatchEvent(new CustomEvent('localdns:layoutchange')); },
+    commit: commitLayout,
+    hide: key => { setHiddenBlocks([...getHiddenBlocks(), ...(groupOf(key) || [key])]); applyBlockVisibility(); announceLayout('模块已隐藏，可在概览设置中恢复'); refreshPopover(); }
+  });
   watchBlockOrder(page);
   const trigger = ensureTrigger();
+  setOverviewLayoutLocked(layoutLocked);
   if (!trigger) return;
   trigger.onclick = event => {
     event.stopPropagation();

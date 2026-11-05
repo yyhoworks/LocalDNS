@@ -1,0 +1,36 @@
+/* One compact customizer owns both visibility and the layout lock state. */
+.navbar-content [data-ovb-trigger] { position:relative; }
+.navbar-content .top-actions-dock [data-ovb-trigger] > .ovb-lock-mark { position:absolute; width:11px; height:12px; right:3px; bottom:3px; padding:1px; border-radius:3px; background:var(--glass-bg-strong); color:var(--text-3); }
+.navbar-content [data-ovb-trigger][data-layout-locked="false"] { background:var(--glass-pill-active); color:var(--console-info); }
+.navbar-content .top-actions-dock [data-ovb-trigger][data-layout-locked="false"] > .ovb-lock-mark { color:var(--console-info); }
+.ovb-item { cursor:default; }
+.ovb-drag-handle { display:inline-flex; align-items:center; justify-content:center; align-self:center; flex:none; width:28px; min-height:34px; padding:4px; margin-left:auto; border:1px solid transparent; border-radius:6px; background:transparent; color:var(--text-2); cursor:grab; touch-action:none; user-select:none; }
+.ovb-drag-handle svg { width:17px; height:20px; }
+.ovb-drag-handle:hover:not(:disabled) { background:var(--glass-pill-active); border-color:var(--border-glass); color:var(--text-1); }
+.ovb-drag-handle:disabled { opacity:.3; cursor:not-allowed; }
+.ovb-list { overflow-anchor:none; }
+.ovb-dragging { opacity:.4; background:var(--glass-pill-active); outline:1px dashed var(--console-info); }
+.overview-blocks-popover[data-sorting="true"],.overview-blocks-popover[data-sorting="true"] * { user-select:none; cursor:grabbing; }
+.ovb-drag-ghost { max-width:260px; }
+.ov-drag-controls { display:none; }
+#page-content[data-overview-editing="true"] .ov-drag-controls { display:flex; grid-column:1/-1; width:100%; min-width:0; align-items:center; justify-content:space-between; gap:10px; padding:8px 12px; min-height:40px; border-bottom:1px dashed var(--border-highlight); background:var(--glass-bg); border-radius:var(--radius-card) var(--radius-card) 0 0; }
+#page-content[data-overview-editing="true"] .overview-cache-panel,#page-content[data-overview-editing="true"] .overview-slow-panel { flex-direction:column; }
+#page-content[data-overview-editing="true"] [data-ov-unit] { outline:1px dashed var(--border-highlight); outline-offset:3px; border-radius:var(--radius-card); }
+#page-content[data-overview-editing="true"] .console-shortcuts > summary { flex-wrap:wrap; }
+#page-content[data-overview-editing="true"] .console-shortcuts .ov-drag-controls { flex-basis:100%; border:0; border-top:1px dashed var(--border-highlight); border-radius:0; padding:6px 0 0; background:none; }
+.ov-drag-handle { display:inline-flex; align-items:center; gap:7px; padding:3px 6px; min-height:28px; border:0; background:none; color:var(--text-2); font:500 12px var(--font-sans); cursor:grab; touch-action:none; user-select:none; }
+.ov-drag-handle svg,.ov-drag-ghost svg { width:18px; height:18px; flex:none; }
+.ov-hide-block { border:0; background:none; color:var(--text-3); font:500 11px var(--font-sans); padding:5px 8px; cursor:pointer; }
+.ov-drag-handle:hover,.ov-hide-block:hover { color:var(--text-1); background:var(--glass-pill); border-radius:6px; }
+#page-content .ov-is-dragging { opacity:.4; outline:2px dashed var(--console-info); }
+.ov-pointer-dragging,.ov-pointer-dragging * { cursor:grabbing !important; user-select:none; }
+.ov-drag-ghost { position:fixed; z-index:2200; display:flex; align-items:center; gap:9px; max-width:232px; padding:12px 16px; border:1px solid var(--border-highlight); border-radius:10px; background:var(--glass-bg); backdrop-filter:var(--blur-filter); color:var(--text-1); font:500 13px var(--font-sans); box-shadow:0 10px 30px rgba(0,0,0,.2); pointer-events:none; }
+.ov-layout-notice { position:fixed; bottom:24px; left:50%; transform:translateX(-50%); z-index:1400; display:flex; align-items:center; gap:12px; width:max-content; max-width:calc(100vw - 28px); padding:12px 16px; border:1px solid var(--border-highlight); border-radius:12px; background:var(--glass-bg); backdrop-filter:var(--blur-filter); color:var(--text-1); font-size:12px; box-shadow:0 10px 25px rgba(0,0,0,.15); }
+.ov-layout-notice button { border:0; background:var(--glass-pill-active); color:var(--text-1); font:500 12px var(--font-sans); padding:5px 9px; border-radius:6px; cursor:pointer; white-space:nowrap; }
+.ovb-edit-state { display:flex; align-items:center; justify-content:space-between; gap:8px; padding:4px 0 12px; color:var(--text-3); font-size:11px; }
+@media(max-width:600px) {
+  body[data-console-route="overview"] .navbar-content [data-ovb-trigger] { display:inline-flex; }
+  .ovb-drag-handle { min-width:36px; min-height:44px; }
+  .ov-drag-handle,.ov-hide-block { min-height:44px; }
+  .ov-layout-notice { bottom:calc(82px + env(safe-area-inset-bottom)); gap:8px; flex-wrap:wrap; }
+}

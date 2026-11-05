@@ -1,0 +1,270 @@
+/* Approved B layout, using the live theme and user appearance preferences. */
+.management-balanced {
+  --b-ink: var(--text-1);
+  --b-copy: var(--text-2);
+  --b-muted: var(--text-3);
+  --b-line: var(--border-glass);
+  --b-line-soft: color-mix(in srgb, var(--border-glass) 65%, transparent);
+  --b-green: var(--console-success, #10b981);
+  --b-blue: var(--console-info, #3b82f6);
+  --b-panel: var(--glass-bg);
+}
+/* Async slots preserve the grid tracks while individual APIs settle. */
+.management-balanced { gap:20px; }
+.management-balanced .management-slot { display:contents; }
+.management-balanced .management-columns { display:grid; }
+.management-balanced .management-main { display:grid; min-width:0; }
+.management-balanced .management-right { display:flex; flex-direction:column; min-width:0; }
+.management-balanced .management-columns .data-cache-panel,
+.management-balanced .management-columns .data-requery-card,
+.management-balanced .management-columns .management-feature-panel { padding:0; gap:0; }
+.management-balanced .management-right .management-feature-panel { display:flex; flex-direction:column; flex:1; }
+.management-balanced .management-feature-panel > .card-body { display:flex; flex-direction:column; flex:1; }
+.management-balanced .management-feature-groups { display:flex; flex-direction:column; flex:1; }
+.management-balanced .management-feature-items { display:grid; grid-template-columns:1fr; gap:0; }
+.management-balanced .management-feature-items .management-feature-card { display:flex; flex-direction:row; align-items:center; justify-content:space-between; background:none; box-shadow:none; border:0; border-radius:0; transform:none; }
+.management-balanced .management-feature-items .management-feature-card > div:first-child { min-width:0; flex:1; }
+.management-balanced .management-feature-items .feature-footer { margin:0; padding:0; border:0; width:auto; flex:none; }
+.management-balanced .management-columns .card > .card-header { border-radius:var(--radius-card) var(--radius-card) 0 0; display:flex; }
+.management-balanced .data-requery-card { display:flex; flex-direction:column; }
+.management-balanced .data-requery-card > .card-body { display:flex; flex-direction:column; flex:1; }
+.management-balanced .management-cache-table { border-collapse:collapse; font-size:13px; }
+.management-balanced .management-cache-table th,.management-balanced .management-cache-table td { text-align:right; border-bottom:1px solid var(--b-line-soft); font-variant-numeric:tabular-nums; white-space:nowrap; }
+.management-balanced .management-cache-table th:first-child,.management-balanced .management-cache-table td:first-child { text-align:left; }
+.management-balanced .management-cache-table tr:last-child td { border-bottom:0; }
+.management-balanced .management-github { display:flex; flex-direction:row; align-items:center; flex-wrap:wrap; min-width:0; }
+.management-balanced .management-github-title { display:flex; align-items:center; }
+.management-balanced .management-github > .button { margin-left:auto; }
+.management-balanced .management-github p { order:2; flex-basis:100%; }
+.management-balanced .management-domain-data { display:flex; flex-direction:column; border-left:0; }
+.management-balanced #management-counts-slot { flex:1; min-width:0; }
+.management-balanced .management-domain-data .table-wrap { border:0; }
+.management-balanced .management-domain-data table { width:100%; }
+.management-balanced .management-domain-data thead { display:none; }
+.management-balanced .management-domain-data td { padding:6px 0; border:0; font-size:13px; }
+.management-balanced .management-domain-data td:last-child { text-align:right; font-size:21px; font-family:var(--font-numeral); padding-right:16px; }
+.management-balanced .management-more { display:inline-block; position:relative; vertical-align:middle; }
+.management-balanced .management-more summary { cursor:pointer; list-style:none; color:var(--text-2); padding:4px 8px; min-width:32px; min-height:32px; border-radius:6px; }
+.management-balanced .management-more summary::-webkit-details-marker { display:none; }
+.management-balanced .management-more summary:hover { background:var(--glass-pill-active); }
+.management-balanced .management-more-menu { position:absolute; top:calc(100% + 4px); right:0; z-index:40; padding:6px; width:max-content; min-width:120px; border:1px solid var(--border-glass); border-radius:10px; background:var(--bg-base); box-shadow:0 10px 24px rgba(0,0,0,.2); }
+.management-balanced .management-more-menu .button { width:100%; margin:0; }
+.management-balanced .cache-header-actions { margin-left:auto; }
+.management-balanced .data-cache-panel > .card-header { flex-wrap:wrap; }
+.management-balanced .management-status-dot.is-muted { background:var(--text-3); }
+.management-balanced .task-idle.is-error,.management-balanced .task-error,.management-balanced .feature-read-error { color:var(--console-danger); }
+.management-balanced .feature-read-error,.management-balanced .cache-settings-error { font-size:11px; }
+.management-balanced .task-error { font-size:12px; overflow-wrap:anywhere; margin-bottom:16px; }
+#management-github-editor .github-access-card { padding:0; border:0; background:none; box-shadow:none; }
+#management-github-editor .github-access-card > .card-header { padding:0 0 16px; }
+#management-github-editor .github-access-card > .card-body { padding:0; }
+.management-balanced .management-stack { gap: 20px; }
+.management-balanced .management-columns { grid-template-columns: minmax(0, 1.8fr) minmax(400px, 1fr); gap: 20px; align-items: stretch; }
+.management-balanced .management-main { grid-template-rows: auto 1fr; gap: 20px; }
+.management-balanced .management-right { gap: 20px; }
+.management-balanced .management-columns .card {
+  background: var(--b-panel);
+  border: 1px solid var(--b-line);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, .11);
+  overflow: visible;
+}
+.management-balanced .management-columns .card > .card-header {
+  min-height: 88px;
+  padding: 20px 24px;
+  background: rgba(225, 235, 255, .025);
+  border-bottom: 1px solid var(--b-line);
+  align-items: center;
+}
+.management-balanced .card-title { gap: 12px; }
+.management-balanced .card-title h2 { font-size: 17px; font-weight: 650; letter-spacing: .015em; color: var(--b-ink); line-height: 1.4; }
+.management-balanced .card-title p { margin-top: 5px; font-size: 12px; color: var(--b-muted); line-height: 1.6; }
+.management-balanced .card-title > .icon { color: var(--b-blue); width: 20px; height: 20px; background: none; border: 0; padding: 0; }
+.management-balanced .button.small { min-height: 32px; padding: 6px 12px; font-size: 12px; font-weight: 500; }
+.management-balanced .quiet-action { border-color: transparent; background: transparent; box-shadow: none; color: var(--b-copy); }
+.management-balanced .button.primary { background: #377def; border-color: #4a8bf5; color: #fff; box-shadow: none; }
+
+/* The two service entries form a compact, quieter utility tier. */
+.management-balanced .management-top-pair { gap: 20px; grid-template-columns: 1fr 1fr; }
+.management-balanced .management-top-pair > section { min-height: 92px; padding: 18px 24px; background: var(--glass-bg); border-color: var(--b-line); }
+.management-balanced .service-card-icon { width: 32px; height: 32px; border-radius: 10px; }
+.management-balanced .service-card-main { gap: 13px; }
+.management-balanced .service-card-copy h2, .management-balanced .proxy-panel-management h2 { font-size: 14px; color: var(--b-copy); font-weight: 600; }
+.management-balanced .service-card-copy p, .management-balanced .proxy-panel-management code { font-size: 11px; color: var(--b-muted); }
+.management-balanced .service-card-copy p { margin-top: 7px; }
+.management-balanced .service-card-badge { font-size: 10px; padding: 3px 7px; }
+.management-balanced .console-restart { min-height: 32px; padding: 6px 12px; font-size: 12px; }
+
+/* Current-pool emphasis and aligned numerals make the table scan in layers. */
+.management-balanced .data-cache-panel > .card-body { padding: 12px 24px 0; gap: 4px; }
+.management-balanced .cache-header-actions { gap: 6px; }
+.management-balanced .management-cache-table { table-layout: fixed; width: 100%; }
+.management-balanced .management-cache-table th { font-size: 11px; color: var(--b-muted); font-weight: 500; padding: 12px 10px; }
+.management-balanced .management-cache-table th:first-child { width: 26%; }
+.management-balanced .management-cache-table th:nth-child(2) { width: 17%; }
+.management-balanced .management-cache-table th:nth-child(3) { width: 12%; }
+.management-balanced .management-cache-table th:nth-child(4) { width: 16%; }
+.management-balanced .management-cache-table th:nth-child(5) { width: 13%; }
+.management-balanced .management-cache-table th:last-child { width: 16%; }
+.management-balanced .management-cache-table td { padding: 14px 10px; border-color: var(--b-line-soft); color: var(--b-copy); height: 66px; }
+.management-balanced .management-cache-table td:first-child, .management-balanced .management-cache-table th:first-child { padding-left: 12px; }
+.management-balanced .management-cache-table td:last-child, .management-balanced .management-cache-table th:last-child { padding-right: 8px; }
+.management-balanced .management-cache-name { font-size: 14px; font-weight: 550; color: var(--b-ink); }
+.management-balanced .management-current { display: inline-block; font-size: 9px; margin-left: 8px; padding: 2px 5px; line-height: 1.4; border-radius: 4px; color: var(--b-green); background: rgba(106, 208, 164, .09); vertical-align: 1px; }
+.management-balanced .management-cache-table .active-cache-row { background: rgba(100, 211, 162, .045); }
+.management-balanced .management-cache-table .cache-requests { font-family: var(--font-numeral); font-size: 16px; font-weight: 500; color: var(--b-ink); }
+.management-balanced .management-cache-table .cache-entries { font-family: var(--font-numeral); font-size: 14px; }
+.management-balanced .management-cache-table .cache-stale { font-family: var(--font-numeral); font-size: 12px; color: var(--b-muted); }
+.management-balanced .management-cache-table .cache-hit { font-size: 16px; font-family: var(--font-numeral); color: var(--b-copy); font-weight: 500; }
+.management-balanced .active-cache-row .cache-hit { color: var(--b-green); font-size: 21px; }
+.management-balanced .hit-track { display: block; width: 50px; height: 3px; background: rgba(173, 195, 227, .12); margin: 7px 0 0 auto; border-radius: 3px; overflow: hidden; }
+.management-balanced .hit-track > span { display: block; height: 100%; background: #7792bc; }
+.management-balanced .active-cache-row .hit-track > span { background: var(--b-green); }
+.management-balanced .management-cache-table .table-detail { min-height: 28px; padding: 3px 5px; color: var(--console-info); background: transparent; border: 0; box-shadow: none; margin: 0; }
+.management-balanced .management-cache-table .table-more { min-height: 28px; width: 25px; padding: 0; color: var(--b-muted); font-size: 17px; background: transparent; border: 0; box-shadow: none; margin-left: 5px; }
+.management-balanced .cache-footnote { display: flex; align-items: center; gap: 7px; min-height: 44px; border-top: 1px solid var(--b-line); font-size: 11px; color: var(--b-copy); }
+.management-balanced .management-status-dot { display: inline-block; width: 5px; height: 5px; flex: 0 0 5px; border-radius: 50%; background: var(--b-green); }
+.management-balanced .cache-footnote-secondary { margin-left: auto; color: var(--b-muted); }
+
+/* Priority: upcoming schedule and progress, then history, then list utilities. */
+.management-balanced .data-requery-card > .card-body { padding: 22px 24px 18px; gap: 22px; flex: 1; }
+.management-balanced .management-task-data { display: flex; flex-direction: column; flex: 1; }
+.management-balanced .task-section-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 20px; }
+.management-balanced .task-section-heading h3, .management-balanced .domain-heading h3 { font-size: 13px; font-weight: 600; color: var(--b-copy); margin: 0; }
+.management-balanced .task-idle { display: inline-flex; align-items: center; gap: 7px; font-size: 11px; color: var(--b-green); }
+.management-balanced .task-priority-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 32px; padding-bottom: 22px; }
+.management-balanced .task-field-label { font-size: 12px; color: var(--b-muted); display: flex; align-items: center; gap: 12px; }
+.management-balanced .schedule-enabled { color: var(--b-green); font-size: 10px; font-weight: 400; }
+.management-balanced .schedule-time { display: flex; align-items: baseline; gap: 2px; margin: 10px 0 4px; font-family: var(--font-numeral); line-height: 1; }
+.management-balanced .schedule-time strong { font-size: 34px; font-weight: 500; letter-spacing: -.025em; color: var(--b-ink); }
+.management-balanced .schedule-time > span { font-size: 18px; color: var(--b-muted); }
+.management-balanced .schedule-date { color: var(--b-copy); font-size: 13px; font-family: var(--font-numeral); margin-top: 7px; }
+.management-balanced .schedule-frequency { margin: 9px 0 0; font-size: 11px; color: var(--b-copy); }
+.management-balanced .schedule-frequency span { color: var(--b-muted); }
+.management-balanced .task-progress { border-left: 1px solid var(--b-line); padding-left: 32px; }
+.management-balanced .task-progress-value { display: flex; align-items: baseline; gap: 9px; margin-top: 10px; font-family: var(--font-numeral); line-height: 1; }
+.management-balanced .task-progress-value strong { font-size: 34px; font-weight: 500; letter-spacing: -.025em; color: var(--b-ink); }
+.management-balanced .task-progress-value > span { font-size: 16px; color: var(--b-muted); }
+.management-balanced .task-progress-track { height: 4px; background: rgba(122, 219, 177, .1); margin-top: 18px; max-width: 260px; border-radius: 4px; overflow: hidden; }
+.management-balanced .task-progress-track > span { width: 100%; height: 100%; display: block; background: #65bc99; }
+.management-balanced .task-progress-caption { color: var(--b-muted); font-size: 11px; margin: 10px 0 0; }
+.management-balanced .task-history { display: grid; grid-template-columns: 1.2fr 1fr; gap: 20px; padding-top: 16px; border-top: 1px solid var(--b-line-soft); margin: auto 0 0; }
+.management-balanced .task-history > div { display: flex; flex-direction: column; gap: 6px; }
+.management-balanced .task-history dt { color: var(--b-muted); font-size: 11px; }
+.management-balanced .task-history dd { color: var(--b-copy); font-size: 13px; font-family: var(--font-numeral); margin: 0; }
+.management-balanced .task-history dd span { margin-left: 5px; }
+.management-balanced .management-domain-data { border-top: 1px solid var(--b-line); padding: 18px 0 0; }
+.management-balanced .domain-heading { display: flex; justify-content: space-between; align-items: center; gap: 16px; }
+.management-balanced .domain-heading > span { color: var(--b-muted); font-size: 10px; }
+.management-balanced .domain-line { display: flex; align-items: center; gap: 16px; margin-top: 16px; }
+.management-balanced .domain-name { font-size: 13px; color: var(--b-copy); }
+.management-balanced .domain-value { display: flex; align-items: baseline; gap: 6px; }
+.management-balanced .domain-value strong { font-size: 21px; font-weight: 500; font-family: var(--font-numeral); color: var(--b-ink); }
+.management-balanced .domain-value > span { font-size: 11px; color: var(--b-muted); }
+.management-balanced .domain-actions { display: flex; gap: 8px; margin-left: auto; }
+.management-balanced .quiet-danger { border-color: transparent; background: none; box-shadow: none; color: var(--console-danger); }
+
+/* Group bands stay inside one continuous surface; switches share one axis. */
+.management-balanced .management-feature-panel > .card-body { padding: 0 24px 20px; }
+.management-balanced .management-feature-panel .card-header { justify-content: space-between; }
+.management-balanced .feature-total { color: var(--b-muted); font-size: 11px; white-space: nowrap; }
+.management-balanced .feature-total strong { color: var(--b-copy); font-size: 15px; font-weight: 500; font-family: var(--font-numeral); }
+.management-balanced .management-feature-groups { gap: 0; justify-content: space-between; }
+.management-balanced .management-feature-group { padding: 0; border: 0; }
+.management-balanced .management-feature-group + .management-feature-group { border: 0; padding: 14px 0 0; }
+.management-balanced .feature-group-heading { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin: 0 -24px 3px; padding: 11px 24px; background: rgba(221, 234, 255, .035); border-bottom: 1px solid var(--b-line-soft); }
+.management-balanced .feature-group-heading h3 { display: block; visibility: visible; margin: 0; color: var(--text-1); font-size: 12px; font-weight: 650; line-height: 1.6; }
+.management-balanced .feature-group-heading > span { color: var(--b-muted); font-size: 10px; }
+.management-balanced .management-feature-items .management-feature-card { min-height: 66px; padding: 11px 0; gap: 18px; }
+.management-balanced .management-feature-items .management-feature-card + .management-feature-card { border-top: 1px solid var(--b-line-soft); }
+.management-balanced .management-feature-items .management-feature-card h3 { font-size: 13px; color: var(--b-ink); font-weight: 500; line-height: 1.5; }
+.management-balanced .management-feature-items .management-feature-card p { font-size: 11px; color: var(--b-muted); line-height: 1.6; margin-top: 4px; }
+.management-balanced .management-feature-note { display: flex; align-items: center; gap: 7px; padding-top: 6px; margin: 2px 0 0; font-size: 10px; color: var(--b-muted); }
+.management-balanced .note-mark { width: 12px; height: 12px; border-radius: 50%; border: 1px solid #8190a9; display: inline-flex; align-items: center; justify-content: center; font-size: 9px; line-height: 1; }
+.management-balanced .management-github { padding: 18px 24px; gap: 8px; background: var(--glass-bg); }
+.management-balanced .management-github-title { gap: 10px; }
+.management-balanced .management-github h2 { font-size: 13px; color: var(--b-copy); font-weight: 550; }
+.management-balanced .management-github p { font-size: 11px; color: var(--b-muted); }
+.management-balanced .management-github .badge { font-size: 10px; background: rgba(220, 228, 244, .05); color: var(--b-muted); border: 0; }
+
+@media (max-width: 1400px) {
+  .management-balanced .management-columns { grid-template-columns: minmax(0, 1.7fr) minmax(355px, 1fr); }
+  .management-balanced .management-current { display: block; width: max-content; margin: 4px 0 0; }
+  .management-balanced .management-cache-table td { padding-left: 7px; padding-right: 7px; }
+  .management-balanced .management-cache-table th { padding-left: 7px; padding-right: 7px; }
+  .management-balanced .proxy-panel-management { flex-wrap: wrap; }
+  .management-balanced .proxy-panel-management > div { flex: 1 1 100%; }
+  .management-balanced .management-columns .card > .card-header { gap: 12px; }
+  .management-balanced .task-priority-grid { gap: 24px; }
+  .management-balanced .task-progress { padding-left: 24px; }
+}
+@media (max-width: 1100px) {
+  .management-balanced .management-columns { grid-template-columns: 1fr; }
+  .management-balanced .management-feature-groups { display: grid; grid-template-columns: 1.3fr 1fr 1fr; gap: 24px; padding-top: 12px; }
+  .management-balanced .management-feature-group + .management-feature-group { padding: 0; }
+  .management-balanced .feature-group-heading { margin: 0 0 3px; padding: 10px 0; background: none; }
+  .management-balanced .management-cache-table th:first-child { width: 26%; }
+  .management-balanced .management-current { display: inline-block; margin: 0 0 0 8px; }
+  .management-balanced .management-top-pair { grid-template-columns: 1fr 1fr; }
+}
+@media (max-width: 760px) {
+  .management-balanced .management-top-pair { grid-template-columns: 1fr; gap: 16px; }
+  .management-balanced .management-top-pair > section { min-height: 88px; padding: 18px; }
+  .management-balanced .management-service-actions { flex-wrap: wrap; gap: 14px; }
+  .management-balanced .service-card-copy p { max-width: 235px; line-height: 1.7; }
+  .management-balanced .proxy-panel-management > div { flex-basis: 100%; }
+  .management-balanced .management-main, .management-balanced .management-right, .management-balanced .management-columns { gap: 16px; }
+  .management-balanced .management-columns .card > .card-header { padding: 18px; min-height: 80px; }
+  .management-balanced .management-columns .card > .card-body { padding-left: 18px; padding-right: 18px; }
+  .management-balanced .management-feature-groups { display: flex; flex-direction: column; padding-top: 0; gap: 0; }
+  .management-balanced .management-feature-group + .management-feature-group { padding-top: 14px; }
+  .management-balanced .feature-group-heading { margin: 0 -18px 3px; padding: 11px 18px; background: rgba(221, 234, 255, .035); }
+  .management-balanced .management-feature-items .management-feature-card { min-height: 68px; }
+  .management-balanced .card-title h2 { font-size: 16px; }
+  .management-balanced .cache-header-actions { margin-left: auto; }
+  .management-balanced .data-cache-panel > .card-header { flex-wrap: wrap; }
+  .management-balanced .data-cache-panel > .card-body { padding-top: 0; }
+  .management-balanced .management-cache-table thead { display: none; }
+  .management-balanced .management-cache-table, .management-balanced .management-cache-table tbody { display: block; }
+  .management-balanced .management-cache-table tr { display: grid; grid-template-columns: 1fr 1fr; gap: 12px 18px; padding: 18px 0; border-bottom: 1px solid var(--b-line); }
+  .management-balanced .management-cache-table .active-cache-row { background: none; }
+  .management-balanced .management-cache-table td { height: auto; display: flex; align-items: baseline; justify-content: space-between; gap: 8px; padding: 0; font-size: 13px; border: 0; white-space: normal; }
+  .management-balanced .management-cache-table td:first-child, .management-balanced .management-cache-table td:last-child { grid-column: 1 / -1; padding: 0; }
+  .management-balanced .management-cache-table td:first-child { justify-content: flex-start; align-items: center; }
+  .management-balanced .management-cache-table td:last-child { justify-content: flex-end; }
+  .management-balanced .management-cache-table td::before { content: attr(data-label); font-size: 11px; color: var(--b-muted); }
+  .management-balanced .management-cache-table td:first-child::before, .management-balanced .management-cache-table td:last-child::before { display: none; }
+  .management-balanced .management-cache-table .cache-requests { font-size: 15px; }
+  .management-balanced .management-cache-table .active-cache-row .cache-hit { font-size: 16px; }
+  .management-balanced .hit-track { display: none; }
+  .management-balanced .management-current { margin-left: 2px; }
+  .management-balanced .cache-footnote { flex-wrap: wrap; padding: 12px 0; }
+  .management-balanced .cache-footnote-secondary { font-size: 10px; }
+  .management-balanced .data-requery-card .card-actions { width: 100%; gap: 5px; justify-content: flex-end; }
+  .management-balanced .data-requery-card .card-actions .button { padding-left: 8px; padding-right: 8px; font-size: 11px; }
+  .management-balanced .task-section-heading { margin-bottom: 18px; }
+  .management-balanced .task-priority-grid { grid-template-columns: 1fr 1fr; gap: 18px; }
+  .management-balanced .task-progress { padding-left: 18px; }
+  .management-balanced .task-field-label { flex-wrap: wrap; gap: 6px; min-height: 36px; align-content: start; }
+  .management-balanced .schedule-time strong, .management-balanced .task-progress-value strong { font-size: 28px; }
+  .management-balanced .schedule-time > span { font-size: 14px; }
+  .management-balanced .task-progress-value { gap: 5px; flex-wrap: wrap; }
+  .management-balanced .task-progress-value > span { font-size: 12px; }
+  .management-balanced .schedule-frequency { line-height: 1.8; }
+  .management-balanced .schedule-frequency > span { display: block; }
+  .management-balanced .task-history { grid-template-columns: 1fr; gap: 12px; }
+  .management-balanced .task-history > div { flex-direction: row; justify-content: space-between; gap: 12px; align-items: baseline; }
+  .management-balanced .task-history dd { font-size: 12px; }
+  .management-balanced .domain-line { gap: 10px; flex-wrap: wrap; }
+  .management-balanced .domain-value strong { font-size: 18px; }
+  .management-balanced .domain-actions { gap: 4px; }
+  .management-balanced .domain-actions .button { padding-left: 9px; padding-right: 9px; }
+  .management-balanced .management-github { padding: 18px; }
+  .management-balanced .management-more summary,.management-balanced .button.small { min-height:44px; }
+  .management-balanced .management-more summary { display:inline-flex; align-items:center; justify-content:center; min-width:44px; }
+  .management-balanced .management-domain-data table,.management-balanced .management-domain-data tbody,.management-balanced .management-domain-data tr { display:table; width:100%; }
+  .management-balanced .management-domain-data td { display:table-cell; background:none; }
+  .management-balanced .management-domain-data td:before { display:none; }
+  .management-balanced .management-domain-data td:last-child { font-size:18px; }
+  .management-balanced .management-cache-table .cache-row-actions:before { display:none; }
+  .management-balanced .management-cache-table .table-detail { padding:8px; min-height:44px; }
+}
