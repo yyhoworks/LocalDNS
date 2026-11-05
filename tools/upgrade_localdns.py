@@ -100,7 +100,7 @@ def dns(port, protocol):
 
 # Legacy metadata without updateCompatibility is accepted only for these backends.
 # Add a family here when a kernel ships before its packages declare the contract.
-SUPPORTED_BACKENDS = ('FJGLI', 'FJGOE', 'FJH21', 'FJH50', 'FJH7Q', 'FJH7T', 'FJHAI', 'FJMOS')
+SUPPORTED_BACKENDS = ('FJGLI', 'FJGOE', 'FJH21', 'FJH50', 'FJH7Q', 'FJH7T', 'FJHAI', 'FJMOS', 'FJN01')
 
 
 def compatible_release(metadata):
@@ -117,10 +117,10 @@ def verify(root, http_port, udp_port, tcp_port):
         version = read_json(marker)
         if version.get('backendVersion') in SUPPORTED_BACKENDS or compatible_release(version):
             expected_versions = (version['backendVersion'],)
-    if (root / 'ui/version.json').is_file():
-        v = read_json(root / 'ui/version.json').get('backendVersion')
-        if not marker.is_file() and v in SUPPORTED_BACKENDS:
-            expected_versions = (v,)
+    if not marker.is_file() and (root / 'ui/version.json').is_file():
+        version = read_json(root / 'ui/version.json')
+        if version.get('backendVersion') in SUPPORTED_BACKENDS or compatible_release(version):
+            expected_versions = (version['backendVersion'],)
     status = None
     for _ in range(40):
         try:
