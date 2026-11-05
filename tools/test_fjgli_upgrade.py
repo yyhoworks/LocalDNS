@@ -189,6 +189,50 @@ class MigrationTests(unittest.TestCase):
         self.assertGreaterEqual(service.call_count, 4)
 
 
+class TrafficFingerprintTests(unittest.TestCase):
+    """Runtime traffic statistics must not invalidate the settings fingerprint."""
+
+    def setUp(self):
+        self.temporary = tempfile.TemporaryDirectory()
+        self.addCleanup(self.temporary.cleanup)
+        self.root = Path(self.temporary.name)
+        for folder in ('config', 'rules/manual', 'ui/custom'):
+            (self.root / folder).mkdir(parents=True)
+        write_json(self.root / 'config/settings/switches.json', {'adguard': True})
+        write_json(self.root / 'ui/custom/settings.json', {'localdns': {'name': 'LocalDNS'}})
+        self.traffic = {'version': 2, 'updated': '2026-11-06T06:54:21+08:00', 'date': '2026-11-06',
+                        'source': 'mihomo', 'publish_interval_seconds': 30.0,
+                        'today': {'down': 412418177, 'up': 11258303}, 'total': {'down': 8595891730, 'up': 261876867},
+                        'days': 5, 'connections': {'active': 95, 'proxied': 23}}
+        write_json(self.root / 'ui/custom/traffic.json', self.traffic)
+        write_json(self.root / 'ui/custom/traffic-detail.json', dict(self.traffic, daily=[{'down': 2032502437}]))
+
+    def republish(self, **changes):
+        """Simulate the core republishing the traffic statistics."""
+        updated = dict(self.traffic, **changes)
+        write_json(self.root / 'ui/custom/traffic.json', updated)
+        write_json(self.root / 'ui/custom/traffic-detail.json', dict(updated, daily=[{'down': 999}]))
+
+    def test_fingerprint_ignores_republished_traffic_statistics(self):
+        before = upgrade.fingerprint(self.root)
+        self.republish(updated='2026-11-06T06:55:21+08:00', today={'down': 1}, total={'down': 2},
+                       connections={'active': 120})
+        self.assertEqual(upgrade.fingerprint(self.root), before)
+
+    def test_hashes_ignore_republished_traffic_statistics(self):
+        before = hashes(self.root / 'ui')
+        self.republish(updated='2026-11-06T06:55:21+08:00', today={'down': 1})
+        self.assertEqual(hashes(self.root / 'ui'), before)
+
+    def test_real_user_changes_are_still_detected(self):
+        before = upgrade.fingerprint(self.root)
+        write_json(self.root / 'ui/custom/settings.json', {'localdns': {'name': '我的 DNS'}})
+        write_json(self.root / 'config/settings/switches.json', {'adguard': False})
+        after = upgrade.fingerprint(self.root)
+        self.assertNotEqual(after['ui/custom/settings.json'], before['ui/custom/settings.json'])
+        self.assertNotEqual(after['config/settings/switches.json'], before['config/settings/switches.json'])
+
+
 class VerifyVersionTests(unittest.TestCase):
     def setUp(self):
         self.temporary = tempfile.TemporaryDirectory()

@@ -21,7 +21,8 @@ from urllib.request import ProxyHandler, Request, build_opener
 # Release packages place the shared installer support beside the UI updater.
 sys.path.insert(0, str(Path(__file__).resolve().parent / 'ui-updater'))
 import install_localdns as installer
-from fjgli_config import MigrationError, hashes, migrate_configuration, read_json, safe_tree, write_json
+from fjgli_config import (MigrationError, hashes, is_runtime_traffic, migrate_configuration,
+                         read_json, safe_tree, stable_bytes, write_json)
 
 MARKER = '.localdns-migration.json'
 
@@ -43,7 +44,9 @@ def fingerprint(root):
             if not path.is_file():
                 continue
             data = path.read_bytes()
-            if path.suffix == '.json' and folder == 'config':
+            if folder == 'ui/custom' and is_runtime_traffic(path):
+                data = stable_bytes(path)
+            elif path.suffix == '.json' and folder == 'config':
                 value = json.loads(data)
                 if path.name in ('requery.json', 'route_refresh.json'):
                     value.pop('status', None)
