@@ -19,7 +19,7 @@ import { icon } from '../../shared/components/icons.js';
 import { getNodeIcon, drawTopoCurves } from './topology/graph.js';
 import { trackRouteCleanup, navigate, renderRoute } from '../../core/router/router.js';
 import { toast } from '../../shared/components/toast.js';
-import { openDrawer } from '../../shared/components/drawer.js';
+import { openCacheDrawer } from '../management/cache-drawer.js';
 import { confirmDialog } from '../../shared/components/dialog.js';
 import { cacheName } from '../management/index.js';
 import * as proxyTrafficService from './proxy-traffic.js';
@@ -285,6 +285,9 @@ import { bindOverviewBlocks } from './blocks.js';
       return circle;
     }).join('');
 
+    // A user may unlock after a silent fetch began. Keep its current DOM and
+    // pointer capture instead of replacing the layout under their hand.
+    if(state.silent && page.dataset.overviewEditing==='true')return;
     setHTML(page, `
       <div class="view-title-row" data-shortcuts-summary="${esc(shortcutsSummary)}">
         <div style="display:flex;align-items:baseline;gap:12px">
@@ -873,7 +876,7 @@ import { bindOverviewBlocks } from './blocks.js';
         const tag = btn.dataset.overviewCacheView;
         try {
           const text = await api.request(`/plugins/${tag}/show`);
-          openDrawer(cacheName(tag), '缓存内容', `<pre>${esc(text)}</pre>`);
+          openCacheDrawer(cacheName(tag), text);
         } catch (e) {
           toast('查看缓存失败', 'error', e.message);
         }

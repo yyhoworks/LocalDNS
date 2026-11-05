@@ -99,7 +99,7 @@ export function cacheSettings(value: unknown): CacheSettings | null {
     restart_needed: data.restart_needed === true,
     limits,
     caches,
-    ...(isNumber(data.cache_memory_mb) && data.cache_memory_mb > 0 ? { cache_memory_mb: Number(data.cache_memory_mb) } : {}),
+    ...(isNumber(data.cache_memory_mb) && data.cache_memory_mb >= 0 ? { cache_memory_mb: Number(data.cache_memory_mb) } : {}),
   };
 }
 
@@ -192,10 +192,11 @@ export function cacheLimitsForm(settings: CacheSettings, helpers: CacheFormHelpe
   const budgetNote = settings.caches.some(cache => cacheBudget(cache, settings.cache_memory_mb))
     ? `<p class="form-note">内存预算按各池记录上限的比例分配${settings.cache_memory_mb ? `（当前 ${settings.cache_memory_mb} MB）` : ''}：上限越大分到的预算越多，改上限后要重启内核才按新比例重新分配。</p>`
     : '';
-  return `<div class="cache-limit-editor">
+  const memoryEditor = settings.cache_memory_mb === undefined ? '' : `<div class="cache-memory-editor"><label class="field" for="cache-memory-mb">总缓存内存预算（MB）<input id="cache-memory-mb" type="number" inputmode="numeric" min="0" step="1" required value="${settings.cache_memory_mb}" aria-describedby="cache-memory-help"></label><p class="form-note" id="cache-memory-help">0 表示不限内存，仅受记录上限约束。预算保存后立即生效；以下各池预算显示当前运行分配。</p></div>`;
+  return `<div class="cache-limit-editor">${memoryEditor}
       <div class="table-wrap"><table class="cache-limit-table"><thead><tr><th scope="col">缓存池</th>${header}</tr></thead><tbody>${rows}</tbody></table></div>
       <p class="form-note">取值范围：记录数 ${num(minEntries)}–${num(maxEntries)} 条；过期保留 ${minTtl}–${maxTtl} 小时；写盘间隔 ${minSave}–${maxSave} 分钟。</p>
-      <p class="form-note">记录上限在缓存启动时分配，保存后若内核提示需要重启，请用上方「重启内核」应用新上限；过期保留与写盘间隔保存后即可生效。</p>
+      <p class="form-note">各池参数保存后，若与运行值不同会标记「待重启」。请用系统页的「重启内核」应用；总内存预算单独保存并立即生效。</p>
       ${budgetNote}
     </div>`;
 }
@@ -208,7 +209,10 @@ export function readCacheLimits(settings: CacheSettings, read: (key: string, fie
     for (const field of CACHE_FIELDS) {
       const raw = read(cache.key, field).trim();
       if (!raw) throw new Error(`请填写「${cache.tag}」的${CACHE_UNITS[field].label}。`);
-      values[cache.key][field] = fromDisplay(field, Number(raw));
+      const n = Number(raw);
+      if (field === 'max_entries' && !Number.isInteger(n)) throw new Error(`「${cache.tag}」的最大记录数必须是整数。`);
+      // An unchanged rounded display value must not alter the stored seconds.
+      values[cache.key][field] = n === toDisplay(field, cache[field]) ? cache[field] : fromDisplay(field, n);
     }
   }
   return buildCacheLimits(settings, values);
@@ -242,4 +246,46 @@ export function buildCacheLimits(settings: CacheSettings, values: Record<string,
     payload[cache.key] = next;
   }
   return payload;
+}
+
+export function readCacheMemory(raw: string): number {
+  const value = Number(raw.trim());
+  if (!/^\d+$/.test(raw.trim()) || !Number.isSafeInteger(value * BYTES_PER_MB)) throw new Error('总缓存内存预算请输入可精确表示的非负整数 MB，0 表示不限内存。');
+  return value;
+}
+
+type LimitsPayload = Record<string, Record<CacheField, number>>;
+export interface CacheSaveClient {
+  read: () => Promise<CacheSettings | null>;
+  write: (path: string, body: unknown) => Promise<unknown>;
+}
+
+/** Re-read on every attempt so a partially successful save is safe to retry. */
+export async function saveCacheSettings(client: CacheSaveClient, limits: LimitsPayload, memory?: number): Promise<{settings: CacheSettings; changed: boolean}> {
+  const current = await client.read();
+  if (!current) throw new Error('当前内核未提供缓存参数，请重新打开窗口。');
+  const payload = buildCacheLimits(current, limits);
+  if (memory !== undefined) readCacheMemory(String(memory));
+  const limitsChanged = current.caches.some(cache => CACHE_FIELDS.some(field => cache[field] !== payload[cache.key][field]));
+  const memoryChanged = memory !== undefined && memory !== current.cache_memory_mb;
+  if (memoryChanged && current.cache_memory_mb === undefined) throw new Error('内核未返回总内存预算，请重新打开窗口。');
+  const saved: string[] = [];
+  let pending = '总内存预算';
+  try {
+    if (memoryChanged) { await client.write('/api/v1/cache/settings', {cache_memory_mb: memory}); saved.push('总内存预算'); }
+    pending = '各池参数';
+    if (limitsChanged) { await client.write('/api/v1/cache/limits', payload); saved.push('各池参数'); }
+  } catch (error) {
+    const reason = error instanceof Error ? error.message : String(error);
+    throw new Error(`${saved.length ? `已保存${saved.join('、')}；` : ''}${pending}保存未确认：${reason}。再次保存会先读取当前值，只提交尚未生效的修改。`, {cause:error});
+  }
+  if (!saved.length) return {settings:current,changed:false};
+  let next: CacheSettings | null;
+  try { next = await client.read(); } catch (error) {
+    throw new Error(`已提交${saved.join('、')}，但回读失败，暂无法确认结果。再次保存会先核对当前值。`, {cause:error});
+  }
+  if (!next || (memoryChanged && next.cache_memory_mb !== memory) || next.caches.some(cache => !payload[cache.key] || CACHE_FIELDS.some(field => cache[field] !== payload[cache.key][field]))) {
+    throw new Error('保存后回读值与提交值不一致，请重新读取缓存参数确认。');
+  }
+  return {settings:next,changed:true};
 }

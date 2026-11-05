@@ -27,6 +27,7 @@ import { esc } from '../../shared/format/number.js';
 import { icon } from '../../shared/components/icons.js';
 import { focusSelectors, restoreFocus } from './focus-restore.js';
 import { setPageLabel, focusPageHeading, markPageHeading } from './page-title.js';
+import { prepareOverviewRender } from '../../features/overview/blocks.js';
 
   let navigationSeq=0;
   const routeModules={overview:overviewRoute,logs:logsRoute,upstreams:upstreamsRoute,rules:rulesRoute,devices:devicesRoute,management:managementRoute,'proxy-config':proxyConfigRoute};
@@ -105,10 +106,12 @@ import { setPageLabel, focusPageHeading, markPageHeading } from './page-title.js
   }
 
   async function renderRoute(force=false,silent=false,approved=false){
+    if(silent && document.querySelector('[data-overview-editing="true"]'))return;
     const activeRoute=state.route;
     const activeModule=routeModule(activeRoute);
     if(!approved&&activeModule?.canLeave&&!await activeModule.canLeave())return;
     if(state.route!==activeRoute)return;
+    if(!silent)prepareOverviewRender(activeRoute);
     shellInterfaceService?.rememberDraft();
     const scope = beginRoute();
     scope.add(() => { topologyFlowService?.stop(); closeUpstreamErrorPopover(); closeSlowTypePopover(); closeDrawer(); modalClose(); });

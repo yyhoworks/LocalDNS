@@ -14,6 +14,7 @@
 @import './features/logs.css' layer(features);
 @import './features/upstreams.css' layer(features);
 @import './features/management.css' layer(features);
+@import './features/cache-detail.css' layer(features);
 @import './features/rules.css' layer(features);
 @import './features/proxy-panel.css' layer(features);
 @import './features/proxy-config.css' layer(features);
@@ -23,3 +24,5 @@
 @import './utilities/priority.css' layer(overrides);
 @import './features/toolbar.css' layer(overrides);
 @import './utilities/readability.css' layer(overrides);
+@import './features/overview-drag.css' layer(overrides);
+@import './features/management-balanced.css' layer(overrides);
