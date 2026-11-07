@@ -1046,7 +1046,16 @@
 .dev-row:hover { background:var(--glass-pill); }
 .dev-row.is-uncontrolled { opacity:.85; }
 .dev-ck { width:15px; height:15px; accent-color:var(--primary); cursor:pointer; }
-.dev-alias-btn { border:0; background:none; padding:0; font-size:16px; font-weight:600; color:var(--text-1); cursor:pointer; text-align:left; }
+.dev-alias-btn {
+  border: 0;
+  background: none;
+  padding: 0;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-1);
+  cursor: pointer;
+  text-align: left;
+}
 .dev-alias-btn:hover { color:var(--primary); }
 .dev-noalias { color:var(--text-3); font-weight:400; }
 .dev-tag { font-size:11px; color:var(--console-success); border:1px solid var(--border-glass); border-radius:6px; padding:1px 7px; font-weight:600; margin-left:8px; white-space:nowrap; }
