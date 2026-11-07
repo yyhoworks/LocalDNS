@@ -207,7 +207,7 @@ async function renderDevices(container, context) {
         <button type="button" class="dev-ip" data-devices-log-ip="${esc(d.ip)}" title="查看 ${esc(d.ip)} 的查询日志">${esc(d.ip)}</button>
       </div>
       <div>${badgeHtml(d)}</div>
-      <div class="dev-actcol"><div class="dev-bar"><i style="width:${pct}%"></i></div><div class="dev-num">${num(d.count)} 次</div></div>
+      <div class="dev-actcol"><div class="dev-bar"><i style="width:${pct}%"></i></div><div class="dev-num"><span class="mono">${num(d.count)}</span> 次</div></div>
       <div>${controlHtml(d)}</div>
       <div class="dev-ops">
         <button type="button" class="dev-iconbtn" data-devices-edit-alias title="管理设备别名">${icon('edit')}</button>
@@ -322,6 +322,7 @@ async function renderDevices(container, context) {
   // ---- 批量选择 ----
   const devSel = new Set();
   const syncBatchUI = () => {
+    $$('[data-devices-ck]', page).forEach(checkbox => { checkbox.checked = devSel.has(checkbox.dataset.devicesCk); });
     const bar = $('#devices-batchbar', page);
     bar.classList.toggle('show', devSel.size > 0);
     $('#devices-batch-n', page).textContent = `已选 ${devSel.size} 台`;
