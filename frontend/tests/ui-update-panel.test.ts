@@ -73,11 +73,22 @@ describe('upgrade panel primary action', () => {
     expect(start('ui').disabled).toBe(false);
   });
 
-  it('highlights the combined upgrade when the release ships a full package', async () => {
+  it('keeps a same-core reinstall secondary when a newer UI also ships a full package', async () => {
     const { start } = await mount(full);
+    expect(start('ui').classList.contains('primary')).toBe(true);
+    expect(start('full').classList.contains('primary')).toBe(false);
+    expect(start('ui').disabled).toBe(false);
+    expect(start('full').disabled).toBe(false);
+    expect(start('full').textContent).toBe('重装UI + 内核');
+  });
+
+  it('recommends the combined upgrade for a new core while keeping the UI upgrade available', async () => {
+    const { start } = await mount({ ...full, tag: 'fjn01-ui-v2026.11.01.8', backend: 'FJN01' });
     expect(start('full').classList.contains('primary')).toBe(true);
     expect(start('ui').classList.contains('primary')).toBe(false);
+    expect(start('ui').disabled).toBe(false);
     expect(start('full').disabled).toBe(false);
+    expect(start('full').textContent).toBe('升级UI + 内核');
   });
 
   it('moves the highlight to the file picker once a kernel ZIP is selected', async () => {

@@ -37,9 +37,14 @@ export function createUIUpdatePanel(container: HTMLElement) {
   }
   function paint() {
     const sameCore = Boolean(latest?.backend) && latest?.backend === currentUI()?.backendVersion?.toUpperCase();
-    // 同一时刻只留一颗蓝按钮：已选内核 ZIP > 完整包 > 只有 UI 更新。
+    // 优先已选内核 ZIP，其次为新内核的整套升级；同内核重装不抢占 UI 更新的主色。
     const idle = available && !busy && !running() && !uncertain;
-    const blue = !idle ? '' : selectedCore && client?.coreUpload ? 'core' : target('full').tag ? 'full' : target('ui').tag ? 'ui' : '';
+    let primaryMode: UpdateMode | '' = '';
+    if (idle) {
+      if (selectedCore && client?.coreUpload) primaryMode = 'core';
+      else if (client?.unified && !sameCore && target('full').tag) primaryMode = 'full';
+      else if (target('ui').tag) primaryMode = 'ui';
+    }
     for (const mode of modes) {
       const row = get(`[data-mode="${mode}"]`), start = row.querySelector<HTMLButtonElement>('[data-start]')!;
       const eligibility = target(mode), supported = mode === 'core' ? Boolean(client?.coreUpload) : mode === 'ui' || client?.unified;
@@ -48,7 +53,7 @@ export function createUIUpdatePanel(container: HTMLElement) {
       // 方案A「条件显示」：没有更高版本的 UI 时整行不出现，而不是留一个禁用按钮。
       row.hidden = mode === 'ui' && Boolean(latest) && eligibility.reason === '暂无比当前 UI 更新的正式版。' && !running();
       start.disabled = !available || !supported || (mode === 'core' ? !selectedCore : !eligibility.tag) || busy || running() || uncertain;
-      start.classList.toggle('primary', mode !== 'core' && blue === mode);
+      start.classList.toggle('primary', mode !== 'core' && primaryMode === mode);
       // 执行中保留主色并加旋转指示，不再落到 :disabled 的 46% 透明度。
       start.classList.toggle('busy', busyRow);
       if (busyRow) start.setAttribute('aria-busy', 'true'); else start.removeAttribute('aria-busy');
@@ -59,7 +64,7 @@ export function createUIUpdatePanel(container: HTMLElement) {
       pill.hidden = !pillText;
       pill.dataset.tone = busyRow ? 'live' : 'update';
       if (mode === 'core') {
-        row.querySelector<HTMLElement>('[data-core-picker]')!.classList.toggle('primary', blue === 'core');
+        row.querySelector<HTMLElement>('[data-core-picker]')!.classList.toggle('primary', primaryMode === 'core');
         row.querySelector<HTMLElement>('[data-core-picker-text]')!.textContent = selectedCore ? '更换内核 ZIP' : '选择内核 ZIP';
       }
       row.querySelector('[data-target]')!.textContent = mode === 'ui' ? `${currentUI()?.uiVersion || '—'} → ${latest?.version || '待检查'}` : mode === 'core' ? `当前内核：${currentUI()?.backendVersion || '—'}${running() && task.source === 'upload' && task.targetBackend ? ' → ' + task.targetBackend : ''}` : latest ? `${latest.version} / ${latest.backend}` : '检查更新后显示目标版本';
