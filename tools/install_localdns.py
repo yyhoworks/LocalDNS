@@ -32,7 +32,7 @@ from zipfile import BadZipFile, ZipFile
 
 REPO = 'https://github.com/yyhoworks/LocalDNS'
 API = 'https://api.github.com/repos/yyhoworks/LocalDNS/releases/'
-INSTALLER_VERSION = '1.4.1'
+INSTALLER_VERSION = '1.4.2'
 UPDATER_RUNTIME_MODULES = ('ui_updater.py', 'online_updater.py', 'core_upload.py', 'install_localdns.py',
                            'upgrade_localdns.py', 'fjgli_config.py')
 UPDATER_SETUP_FILES = ('install_ui_updater.py', 'install_online_updater.py') + UPDATER_RUNTIME_MODULES
@@ -45,6 +45,12 @@ class InstallError(RuntimeError):
 
 class GitHubRateLimitError(InstallError):
     pass
+
+
+class DownloadError(InstallError):
+    def __init__(self, message, *, retryable=False):
+        super().__init__(message)
+        self.retryable = retryable
 
 
 def github_retry_time(headers):
@@ -149,11 +155,11 @@ class HttpsRedirectHandler(HTTPRedirectHandler):
         return super().redirect_request(request, fp, code, message, headers, newurl)
 
 
-def fetch(url, destination=None):
+def fetch(url, destination=None, *, accept=None):
     if not url.startswith('https://'):
         raise InstallError('下载地址必须使用 HTTPS')
     request = Request(url, headers={'User-Agent': 'LocalDNS-installer/' + INSTALLER_VERSION,
-                                   'Accept': 'application/vnd.github+json' if url.startswith(API) else '*/*'})
+                                   'Accept': accept or ('application/vnd.github+json' if url.startswith(API) else '*/*')})
     opener = build_opener(HttpsRedirectHandler())
     try:
         with opener.open(request, timeout=60) as response:
@@ -168,8 +174,9 @@ def fetch(url, destination=None):
                 raise GitHubRateLimitError('GitHub API 请求受限，可在 ' + github_retry_time(error.headers) +
                                           ' 后重试；也可指定正式发行标签或使用离线包。') from None
         if error.code in (502, 503, 504):
-            raise InstallError('下载网关暂不可用（HTTP ' + str(error.code) +
-                               '），请检查服务器网络或代理；也可上传本地内核 ZIP：' + url) from None
+            raise DownloadError('下载网关暂不可用（HTTP ' + str(error.code) +
+                                '），请检查服务器网络或代理；也可上传本地内核 ZIP：' + url,
+                                retryable=True) from None
         raise InstallError('下载失败（HTTP ' + str(error.code) + '）：' + url) from None
     except (OSError, URLError) as error:
         reason = error.reason if isinstance(error, URLError) else error
@@ -183,7 +190,9 @@ def fetch(url, destination=None):
             detail = 'HTTPS 连接失败，请检查服务器网络、代理及 TLS 设置'
         else:
             detail = '下载连接失败，请检查服务器网络或代理'
-        raise InstallError(detail + '：' + url) from error
+        retryable = ((isinstance(error, URLError) and not isinstance(reason, ssl.SSLError))
+                     or isinstance(reason, (TimeoutError, ConnectionError, socket.gaierror)))
+        raise DownloadError(detail + '：' + url, retryable=retryable) from error
 
 
 # Trust model: online installs anchor integrity on the same GitHub Release's
@@ -252,13 +261,35 @@ class Packages:
         expected = REPO + '/releases/download/' + self.release['tag_name'] + '/' + name
         if url != expected:
             raise InstallError('发行文件不属于预期 GitHub 仓库')
+        routes = [(url, None)]
+        asset_id = asset.get('id')
+        if asset_id is not None:
+            if type(asset_id) is not int or asset_id <= 0:
+                raise InstallError('发行附件 ID 无效')
+            api_url = API + 'assets/' + str(asset_id)
+            if asset.get('url', api_url) != api_url:
+                raise InstallError('发行附件 API 地址不属于预期 GitHub 仓库')
+            # GitHub officially serves bytes (200) or redirects to its asset CDN (302).
+            # Prefer this endpoint so a blocked github.com download page is not required.
+            routes.insert(0, (api_url, 'application/octet-stream'))
         require_space(destination.parent, asset.get('size', 0))
         # Download to a random sibling first; the file only takes its final
         # name after the digest check passes, so unverified bytes are never
         # picked up under the release file name.
         temporary = destination.with_name(destination.name + '.part-' + uuid.uuid4().hex)
         try:
-            fetch(url, temporary)
+            for index, (address, accept) in enumerate(routes):
+                try:
+                    if accept:
+                        fetch(address, temporary, accept=accept)
+                    else:
+                        fetch(address, temporary)
+                    break
+                except (DownloadError, GitHubRateLimitError) as error:
+                    if index == len(routes) - 1 or (isinstance(error, DownloadError) and not error.retryable):
+                        raise
+                    temporary.unlink(missing_ok=True)
+                    log('GitHub 附件 API 暂不可用，改用同一附件的官方下载地址；摘要与文件清单校验不变。')
             expected_digest = asset.get('digest')
             if expected_digest and expected_digest != 'sha256:' + digest(temporary.read_bytes()):
                 raise InstallError('GitHub 附件摘要校验失败：' + name)

@@ -340,6 +340,83 @@ class InstallerTests(unittest.TestCase):
                     installer.fetch(url)
                 self.assertIs(type(caught.exception), expected)
 
+    def asset_download_fixture(self):
+        name = 'LocalDNS_UI_fixture_Update.zip'
+        data = b'fixture release payload'
+        tag = 'fjn8c-ui-v2026.11.08.4'
+        browser = installer.REPO + '/releases/download/' + tag + '/' + name
+        api = installer.API + 'assets/123'
+        manager = installer.Packages.__new__(installer.Packages)
+        manager.release = {'tag_name': tag}
+        manager.assets = {name: {'id': 123, 'url': api, 'browser_download_url': browser,
+                                'size': len(data), 'digest': 'sha256:' + installer.digest(data)}}
+        return manager, name, data, api, browser
+
+    def test_official_asset_api_is_preferred_without_requesting_the_download_page(self):
+        manager, name, data, api, _browser = self.asset_download_fixture()
+        destination = self.base / 'verified.zip'
+        def fetch(url, target, **options):
+            self.assertEqual(url, api)
+            self.assertEqual(options, {'accept': 'application/octet-stream'})
+            target.write_bytes(data)
+        with patch.object(installer, 'fetch', side_effect=fetch) as download:
+            manager.download(name, destination)
+        self.assertEqual(destination.read_bytes(), data)
+        self.assertEqual(download.call_count, 1)
+
+    def test_transient_api_failure_or_rate_limit_uses_browser_download_after_removing_partial_bytes(self):
+        manager, name, data, api, browser = self.asset_download_fixture()
+        for failure in [installer.DownloadError('timeout', retryable=True), installer.GitHubRateLimitError('limited')]:
+            with self.subTest(failure=failure):
+                destination = self.base / 'verified.zip'
+                def fetch(url, target, **options):
+                    if url == api:
+                        target.write_bytes(b'partial')
+                        raise failure
+                    self.assertEqual(url, browser)
+                    self.assertFalse(target.exists())
+                    self.assertFalse(options)
+                    target.write_bytes(data)
+                with patch.object(installer, 'fetch', side_effect=fetch) as download:
+                    manager.download(name, destination)
+                self.assertEqual(download.call_count, 2)
+                self.assertEqual(destination.read_bytes(), data)
+                self.assertFalse(list(self.base.glob('verified.zip.part-*')))
+
+    def test_certificate_missing_asset_and_digest_failures_do_not_trigger_a_second_route(self):
+        manager, name, _data, _api, _browser = self.asset_download_fixture()
+        for failure in [installer.DownloadError('certificate', retryable=False), installer.InstallError('HTTP 404'), None]:
+            with self.subTest(failure=failure):
+                destination = self.base / 'preserved.zip'; destination.write_bytes(b'previous verified bytes')
+                def fetch(_url, target, **_options):
+                    target.write_bytes(b'corrupt bytes')
+                    if failure: raise failure
+                with patch.object(installer, 'fetch', side_effect=fetch) as download:
+                    with self.assertRaises(installer.InstallError): manager.download(name, destination)
+                self.assertEqual(download.call_count, 1)
+                self.assertEqual(destination.read_bytes(), b'previous verified bytes')
+                self.assertFalse(list(self.base.glob('preserved.zip.part-*')))
+
+    def test_asset_api_identity_is_pinned_to_the_same_repository(self):
+        manager, name, _data, _api, _browser = self.asset_download_fixture()
+        manager.assets[name]['url'] = 'https://api.github.com/repos/other/repository/releases/assets/123'
+        with patch.object(installer, 'fetch') as download:
+            with self.assertRaisesRegex(installer.InstallError, '预期 GitHub 仓库'):
+                manager.download(name, self.base / 'invalid.zip')
+            download.assert_not_called()
+
+    def test_fetch_can_request_asset_bytes_and_keeps_certificate_failures_non_retryable(self):
+        with patch.object(installer, 'build_opener') as build:
+            build.return_value.open.return_value.__enter__.return_value.read.return_value = b'fixture'
+            self.assertEqual(installer.fetch(installer.API + 'assets/123', accept='application/octet-stream'), b'fixture')
+            request = build.return_value.open.call_args.args[0]
+            self.assertEqual(request.get_header('Accept'), 'application/octet-stream')
+        with patch.object(installer, 'build_opener') as build:
+            build.return_value.open.side_effect = URLError(ssl.SSLCertVerificationError(1, 'fixture'))
+            with self.assertRaises(installer.DownloadError) as error:
+                installer.fetch(installer.API + 'assets/123')
+            self.assertFalse(error.exception.retryable)
+
     def test_download_failures_distinguish_timeout_certificates_dns_and_gateway(self):
         url = 'https://github.com/yyhoworks/LocalDNS/releases/download/tag/SHA256SUMS.txt'
         cases = [
