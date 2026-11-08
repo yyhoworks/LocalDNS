@@ -6,6 +6,7 @@ export interface UIRelease { tag: string; version: string; backend: string; pack
 export type UpdateMode = 'ui' | 'core' | 'full';
 export interface UpdateCapabilities {
   protocol: string; modes: UpdateMode[]; installed: InstalledUI;
+  configurationMigrations?: string[];
   coreUpload?: { format: 'upstream-zip'; maxBytes: number; architecture: string };
 }
 export interface UIUpdateStatus {
@@ -29,7 +30,10 @@ function parts(value: string): number[] | undefined {
   return /^(\d{4}\.\d+\.\d+\.\d+)(?:-local[\w.-]*)?$/.exec(value)?.[1].split('.').map(Number);
 }
 
-export function upgradeTarget(installed: InstalledUI | null, release: UIRelease | null, options?: { mode: UpdateMode; unified: boolean }): { tag?: string; reason: string } {
+export function upgradeTarget(
+  installed: InstalledUI | null, release: UIRelease | null,
+  options?: { mode: UpdateMode; unified: boolean; migrationReady?: boolean },
+): { tag?: string; reason: string } {
   if (!installed || !release) return { reason: '先检查更新，获取可安装的正式版本。' };
   // A release tag without a backend prefix carries no core requirement; only
   // block when it names a different backend (mirrors assess() in index.js).
@@ -38,6 +42,9 @@ export function upgradeTarget(installed: InstalledUI | null, release: UIRelease 
   if (!current || !target) return { reason: '版本信息无效，请重新检查更新。' };
   const different = target.findIndex((value, index) => value !== current[index]);
   if (options?.unified && options.mode !== 'ui') {
+    if (release.backend === 'FJN8C' && options.migrationReady === false) {
+      return { reason: '请先更新升级服务，以支持 FJN8C 配置迁移；仅更新 UI 不会同步此服务。' };
+    }
     if (!release.packages.includes('含核心完整包')) return { reason: '该发行版没有提供完整包。' };
     if (!release.backend || !/^fj[a-z][a-z0-9]+-ui-v\d{4}\.\d+\.\d+\.\d+$/i.test(release.tag)) return { reason: '发行版标签无效。' };
     if (different >= 0 && target[different] < current[different]) return { reason: '目标发行版早于当前 UI，请使用回退操作。' };
@@ -58,6 +65,10 @@ export class UIUpdateClient {
   private http: HttpClient;
   capabilities?: UpdateCapabilities;
   get unified() { return this.capabilities?.protocol === 'localdns-updater/v2'; }
+  get migrationReady() {
+    const migrations = this.capabilities?.configurationMigrations;
+    return Array.isArray(migrations) && migrations.includes('FJN8C');
+  }
   get coreUpload() {
     const upload = this.capabilities?.coreUpload;
     return this.unified && upload?.format === 'upstream-zip' && Number.isSafeInteger(upload.maxBytes) && upload.maxBytes > 0 ? upload : undefined;
@@ -99,11 +110,15 @@ export class UIUpdateClient {
   async status() { return this.validate(await this.request(this.path + '/status')); }
   async upgrade(releaseTag: string, mode: UpdateMode = 'ui') {
     if (!this.unified && mode !== 'ui') throw new Error('请先安装支持内核升级的服务。');
+    if (mode !== 'ui' && /^fjn8c-ui-v/i.test(releaseTag) && !this.migrationReady) {
+      throw new Error('请先更新升级服务，以支持 FJN8C 配置迁移。');
+    }
     return this.validate(await this.request(this.path, { releaseTag, ...(this.unified ? { mode } : {}) }));
   }
   async rollback() { return this.validate(await this.request(this.path + '/rollback', {})); }
   async uploadCore(file: File, progress?: (percent: number) => void) {
     if (!this.coreUpload) throw new Error('请先更新升级服务，以支持上传内核 ZIP。');
+    if (!this.migrationReady) throw new Error('上传内核前请先更新升级服务，以支持新内核配置迁移。');
     if (!/\.zip$/i.test(file.name) || !file.size || file.size > this.coreUpload.maxBytes) {
       throw new Error(`请选择原作者内核 ZIP 文件，大小不超过 ${Math.floor(this.coreUpload.maxBytes / 1048576)} MB。`);
     }
