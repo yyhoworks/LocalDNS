@@ -6,6 +6,9 @@ import { confirmDialog } from '../../shared/components/dialog.js';
 export function createUIUpdatePanel(container: HTMLElement) {
   const modes: UpdateMode[] = ['ui', 'core', 'full'], names = { ui: 'UI', core: '内核', full: 'UI + 内核' };
   setHTML(container, `<h3>在线升级</h3><p class="version-note" data-connection>正在连接服务器升级入口…</p>
+    <p class="version-note" role="status" data-updater-warning hidden>
+      先更新升级服务：仅更新 UI 不会同步此服务。请解压本版 Update.zip，按安装说明重新安装，再准备内核升级。
+    </p>
     <div class="version-upgrade-choices">${modes.map(mode => `<div class="version-upgrade-row" data-mode="${mode}"><div><h4>${names[mode]}<span class="version-pill" data-pill hidden></span></h4><p class="version-note" data-target></p><p class="version-note" data-reason></p>${mode === 'core' ? '<p class="version-note" data-core-name role="status">尚未选择文件</p>' : ''}</div><div class="version-upgrade-controls">${mode === 'core' ? '<label class="button version-file-label" data-core-picker><span data-core-picker-text>选择内核 ZIP</span><input type="file" accept=".zip,application/zip" aria-label="选择原作者内核 ZIP" data-core-file disabled></label>' : ''}<button class="button" type="button" data-start="${mode}" disabled>${mode === 'core' ? '上传并准备更新' : '升级' + names[mode]}</button></div></div>`).join('')}</div>
     <div class="version-update-progress" hidden><progress aria-label="升级正在进行"></progress></div>
     <p class="version-update-result" role="status" aria-live="polite" hidden></p>
@@ -29,7 +32,10 @@ export function createUIUpdatePanel(container: HTMLElement) {
   const running = () => ['queued', 'running', 'awaiting_backup', 'rolling_back'].includes(task.state);
   const currentUI = () => installed ? { ...installed, uiVersion: task.installedVersion || installed.uiVersion, backendVersion: task.installedBackend || installed.backendVersion } : installed;
   const describe = (failure: unknown) => failure instanceof Error && (failure.name === 'TypeError' || /Failed to fetch|NetworkError/.test(failure.message)) ? '连接失败，请重试。' : failure instanceof Error ? failure.message : '连接失败，请重试。';
-  const target = (mode: UpdateMode) => upgradeTarget(currentUI(), latest, { mode, unified: Boolean(client?.unified) });
+  const target = (mode: UpdateMode) => upgradeTarget(currentUI(), latest, {
+    mode, unified: Boolean(client?.unified), migrationReady: client?.migrationReady,
+  });
+  const uploadReady = () => Boolean(client?.coreUpload && client.migrationReady);
   function accept(value: UIUpdateStatus) {
     if (task.jobId !== value.jobId) { verifiedHash = ''; backupResult = '尚未校验本机文件。'; file.value = ''; }
     task = value; uncertain = false;
@@ -41,13 +47,13 @@ export function createUIUpdatePanel(container: HTMLElement) {
     const idle = available && !busy && !running() && !uncertain;
     let primaryMode: UpdateMode | '' = '';
     if (idle) {
-      if (selectedCore && client?.coreUpload) primaryMode = 'core';
+      if (selectedCore && uploadReady()) primaryMode = 'core';
       else if (client?.unified && !sameCore && target('full').tag) primaryMode = 'full';
       else if (target('ui').tag) primaryMode = 'ui';
     }
     for (const mode of modes) {
       const row = get(`[data-mode="${mode}"]`), start = row.querySelector<HTMLButtonElement>('[data-start]')!;
-      const eligibility = target(mode), supported = mode === 'core' ? Boolean(client?.coreUpload) : mode === 'ui' || client?.unified;
+      const eligibility = target(mode), supported = mode === 'core' ? uploadReady() : mode === 'ui' || client?.unified;
       const fullReinstall = mode === 'full' && sameCore && Boolean(eligibility.tag);
       const busyRow = running() && task.mode === mode;
       // 方案A「条件显示」：没有更高版本的 UI 时整行不出现，而不是留一个禁用按钮。
@@ -73,15 +79,30 @@ export function createUIUpdatePanel(container: HTMLElement) {
       reason.id = 'version-reason-' + mode; reason.textContent = reasonText;
       start.setAttribute('aria-describedby', reason.id);
     }
-    coreFile.disabled = !available || !client?.coreUpload || busy || running() || uncertain;
+    coreFile.disabled = !available || !uploadReady() || busy || running() || uncertain;
     coreFile.setAttribute('aria-describedby', 'version-reason-core');
     get('[data-core-name]').textContent = selectedCore ? `${selectedCore.name} · ${(selectedCore.size / 1048576).toFixed(1)} MB` : '尚未选择文件';
     rollback.hidden = !available || !task.canRollback; rollback.disabled = busy || running() || uncertain;
     rollback.textContent = task.rollbackKind === 'full' ? '恢复上一整套版本' : '恢复上一版 UI';
     refresh.hidden = task.state !== 'succeeded' || task.installedVersion === installed?.uiVersion;
     retry.disabled = busy || reading; retry.textContent = available ? '刷新连接与状态' : '重试连接';
-    get('[data-help]').hidden = available && Boolean(client?.coreUpload);
-    get('[data-connection]').textContent = available ? (client?.coreUpload ? '已连接。UI 使用 GitHub 发行版，内核可上传 ZIP；上传完成后，关闭弹窗任务仍会继续。' : client?.unified ? '已连接。当前服务支持 UI 与整套升级；更新升级服务后可上传内核 ZIP。' : '已连接旧版升级服务，目前支持 UI 单独升级。') : busy ? '正在连接服务器升级入口…' : notEnabled ? '当前地址没有网页升级接口。请按安装说明启用独立升级服务，已有服务请核对 uiUpdaterBase 地址。' : '升级服务连接失败，请重试。';
+    const needsUpdater = available && Boolean(client?.unified) && !client?.migrationReady;
+    get('[data-updater-warning]').hidden = !needsUpdater || running();
+    get('[data-help]').hidden = available && uploadReady();
+    let connectionText: string;
+    if (!available) {
+      connectionText = busy ? '正在连接服务器升级入口…' : notEnabled
+        ? '当前地址没有网页升级接口。请按安装说明启用独立升级服务，已有服务请核对 uiUpdaterBase 地址。'
+        : '升级服务连接失败，请重试。';
+    } else if (needsUpdater) {
+      connectionText = running() ? '已连接。已有任务可按原流程继续；任务结束后请更新升级服务。'
+        : '已连接。升级服务需要更新；可先更新 UI，内核准备暂不可用。';
+    } else if (uploadReady()) {
+      connectionText = '已连接。UI 使用 GitHub 发行版，内核可上传 ZIP；上传完成后，关闭弹窗任务仍会继续。';
+    } else {
+      connectionText = '已连接旧版升级服务，目前支持 UI 单独升级。';
+    }
+    get('[data-connection]').textContent = connectionText;
     get('.version-update-progress').hidden = !uploading && !running() && !(busy && available) || task.state === 'awaiting_backup';
     get('.version-update-result').hidden = !uploading && !task.message; get('.version-update-result').textContent = uploading ? uploadMessage : task.message || '';
     get('.version-backup').hidden = task.state !== 'awaiting_backup' || !task.backup;

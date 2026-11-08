@@ -321,6 +321,24 @@ class OnlineTests(unittest.TestCase):
             setup.main(['--stage-root', str(stage), '--origin', 'http://dns.example:9099'])
         self.assertEqual(read_json(config_path)['architecture'], 'amd64-v3')
 
+    def test_incomplete_runtime_does_not_overwrite_an_existing_installation(self):
+        source = self.work / 'incomplete-source'
+        source.mkdir()
+        stage = self.work / 'incomplete-stage'
+        target = stage / 'opt/localdns'
+        shutil.copytree(self.root, target)
+        runtime = stage / 'opt/localdns-updater'
+        runtime.mkdir()
+        (runtime / 'ui_updater.py').write_bytes(b'existing runtime')
+        before = hashes(stage)
+        with patch.object(setup, '__file__', str(source / 'install_online_updater.py')):
+            with self.assertRaisesRegex(installer.InstallError, '安装文件缺失'):
+                setup.main(['--stage-root', str(stage), '--origin', 'http://dns.example:9099'])
+        self.assertEqual(hashes(stage), before)
+
+    def test_capabilities_advertise_verified_kernel_settings_migrations(self):
+        self.assertEqual(self.manager.capabilities()['configurationMigrations'], ['FJN8C'])
+
     def prepare_upload(self, backend='FJNEW'):
         # Uploaded cores retain the installed layout. Use the current config schema.
         from fjgli_config import migrate_configuration, replace_tree

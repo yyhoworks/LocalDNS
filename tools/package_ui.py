@@ -9,6 +9,7 @@ from datetime import datetime
 from pathlib import Path, PurePosixPath
 from zipfile import ZIP_DEFLATED, ZipFile, ZipInfo
 from fjgli_config import clean_template, kernel_configuration
+from install_localdns import UPDATER_SETUP_FILES
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -240,8 +241,7 @@ def main():
     validation = 'docs/validation/' + version['backendVersion'].lower() + '-' + version['uiVersion'] + '.md'
     if (ROOT / validation).is_file():
         common[validation] = (ROOT / validation).read_bytes()
-    for name in ['install_ui_updater.py', 'install_online_updater.py', 'ui_updater.py', 'online_updater.py', 'core_upload.py',
-                 'install_localdns.py', 'upgrade_localdns.py', 'fjgli_config.py', 'companion_services.py']:
+    for name in (*UPDATER_SETUP_FILES, 'companion_services.py'):
         common['ui-updater/' + name] = (ROOT / 'tools' / name).read_bytes()
     # Companion services are upgraded by the web updater only where already installed; see docs/WEB_UPDATE.md.
     common_modes = {}

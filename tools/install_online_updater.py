@@ -13,7 +13,19 @@ import install_localdns as installer
 from install_ui_updater import configure_script
 from ui_updater import COMPANION_SCRIPT, canonical_origin, companion_summary, run_companions
 
-MODULES = ('ui_updater.py', 'online_updater.py', 'core_upload.py', 'install_localdns.py', 'upgrade_localdns.py', 'fjgli_config.py')
+MODULES = installer.UPDATER_RUNTIME_MODULES
+
+
+def validate_modules(source):
+    """Reject an incomplete or invalid runtime before touching an installed service."""
+    for name in MODULES:
+        path = source / name
+        if not path.is_file() or path.is_symlink():
+            raise installer.InstallError('升级服务安装文件缺失或不安全：' + name + '；请重新解压完整发行包')
+        try:
+            compile(path.read_bytes(), str(path), 'exec')
+        except (SyntaxError, ValueError) as error:
+            raise installer.InstallError('升级服务安装文件无效：' + name) from error
 
 
 def service_files():
@@ -62,6 +74,7 @@ def main(argv=None):
     runtime = installer.install_path('/opt/localdns-updater', stage)
     private = installer.install_path('/var/lib/localdns-updater', stage)
     source = Path(__file__).resolve().parent
+    validate_modules(source)
     site = root / 'ui/config.js'
     installer.no_symlinks(site)
     before = site.read_bytes() if site.exists() else b'window.LOCALDNS_UI_CONFIG = {};\n'

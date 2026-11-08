@@ -42,6 +42,7 @@ describe('UI update requests', () => {
     fetcher.mockResolvedValueOnce(json({ protocol: 'localdns-ui-updater/v1', repository: 'https://github.com/yyhoworks/LocalDNS', capabilities: {
       protocol: 'localdns-updater/v2', modes: ['ui', 'core', 'full'], installed,
       coreUpload: { format: 'upstream-zip', maxBytes: 256 * 1048576, architecture: 'amd64-v1' },
+      configurationMigrations: ['FJN8C'],
     } }));
     const client = new UIUpdateClient('http://dns.example:9100', 'http://dns.example:9099/ui/', fetcher);
     await client.discover();
@@ -75,6 +76,23 @@ describe('UI update requests', () => {
     await client.upgrade(next.tag, 'core'); await client.continue('a'.repeat(24), 'b'.repeat(64)); await client.cancel('a'.repeat(24));
     expect(fetcher.mock.calls[1][1]?.body).toBe(JSON.stringify({ releaseTag: next.tag, mode: 'core' }));
     expect(fetcher.mock.calls.map(([url]) => url)).toEqual(['http://dns.example:9100/upgrade/ui', 'http://dns.example:9100/upgrade', 'http://dns.example:9100/upgrade/continue', 'http://dns.example:9100/upgrade/cancel']);
+  });
+  it('rejects new kernel writes without migration support while allowing an existing backup task to continue', async () => {
+    const fetcher = vi.fn<typeof fetch>().mockImplementation(async () => json({ state: 'queued', canRollback: false }));
+    fetcher.mockResolvedValueOnce(json({
+      protocol: 'localdns-ui-updater/v1', repository: 'https://github.com/yyhoworks/LocalDNS', capabilities: {
+        protocol: 'localdns-updater/v2', modes: ['ui', 'core', 'full'], installed,
+        coreUpload: { format: 'upstream-zip', maxBytes: 256 * 1048576, architecture: 'amd64-v1' },
+      },
+    }));
+    const client = new UIUpdateClient('http://dns.example:9100', 'http://dns.example:9099/ui/', fetcher);
+    await client.discover();
+    expect(client.migrationReady).toBe(false);
+    await expect(client.uploadCore(new File(['abc'], 'core.zip'))).rejects.toThrow('配置迁移');
+    await expect(client.upgrade('fjn8c-ui-v2026.11.08.3', 'full')).rejects.toThrow('配置迁移');
+    expect(fetcher).toHaveBeenCalledTimes(1);
+    await client.continue('a'.repeat(24), 'b'.repeat(64));
+    expect(fetcher.mock.calls[1][0]).toBe('http://dns.example:9100/upgrade/continue');
   });
   it('hashes backup files in chunks on plain HTTP without WebCrypto', async () => {
     expect(await hashBackup(new Blob(['abc']))).toBe('ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad');
