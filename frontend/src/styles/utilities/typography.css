@@ -1,0 +1,4 @@
+/* Explicit technical text must keep its font even on buttons with font: inherit. */
+.mono {
+  font-family: var(--font-mono);
+}

@@ -137,7 +137,7 @@
 .management-balanced .schedule-time { display: flex; align-items: baseline; gap: 2px; margin: 10px 0 4px; font-family: var(--font-numeral); line-height: 1; }
 .management-balanced .schedule-time strong { font-size: 34px; font-weight: 500; letter-spacing: -.025em; color: var(--b-ink); }
 .management-balanced .schedule-time > span { font-size: 18px; color: var(--b-muted); }
-.management-balanced .schedule-date { color: var(--b-copy); font-size: 13px; font-family: var(--font-numeral); margin-top: 7px; }
+.management-balanced .schedule-date { color: var(--b-copy); font-size: 13px; font-family: var(--font-sans); font-variant-numeric: tabular-nums; margin-top: 7px; }
 .management-balanced .schedule-frequency { margin: 9px 0 0; font-size: 11px; color: var(--b-copy); }
 .management-balanced .schedule-frequency span { color: var(--b-muted); }
 .management-balanced .task-progress { border-left: 1px solid var(--b-line); padding-left: 32px; }
@@ -150,7 +150,7 @@
 .management-balanced .task-history { display: grid; grid-template-columns: 1.2fr 1fr; gap: 20px; padding-top: 16px; border-top: 1px solid var(--b-line-soft); margin: auto 0 0; }
 .management-balanced .task-history > div { display: flex; flex-direction: column; gap: 6px; }
 .management-balanced .task-history dt { color: var(--b-muted); font-size: 11px; }
-.management-balanced .task-history dd { color: var(--b-copy); font-size: 13px; font-family: var(--font-numeral); margin: 0; }
+.management-balanced .task-history dd { color: var(--b-copy); font-size: 13px; font-family: var(--font-sans); font-variant-numeric: tabular-nums; margin: 0; }
 .management-balanced .task-history dd span { margin-left: 5px; }
 .management-balanced .management-domain-data { border-top: 1px solid var(--b-line); padding: 18px 0 0; }
 .management-balanced .domain-heading { display: flex; justify-content: space-between; align-items: center; gap: 16px; }
@@ -231,7 +231,7 @@
   .management-balanced .management-cache-table td:first-child, .management-balanced .management-cache-table td:last-child { grid-column: 1 / -1; padding: 0; }
   .management-balanced .management-cache-table td:first-child { justify-content: flex-start; align-items: center; }
   .management-balanced .management-cache-table td:last-child { justify-content: flex-end; }
-  .management-balanced .management-cache-table td::before { content: attr(data-label); font-size: 11px; color: var(--b-muted); }
+  .management-balanced .management-cache-table td::before { content: attr(data-label); font-family: var(--font-sans); font-size: 11px; font-weight: 400; color: var(--b-muted); }
   .management-balanced .management-cache-table td:first-child::before, .management-balanced .management-cache-table td:last-child::before { display: none; }
   .management-balanced .management-cache-table .cache-requests { font-size: 16px; }
   .management-balanced .management-cache-table .active-cache-row .cache-hit { font-size: 16px; }
