@@ -228,6 +228,7 @@ class OnlineUpdateManager:
         result = {'protocol': 'localdns-updater/v2', 'repository': installer.REPO,
                   'modes': sorted(MODES), 'architecture': self.arch, 'compatibility': CONTRACT,
                   'backupRequired': ['core', 'full', 'rollback'], 'installed': installed,
+                  'configurationMigrations': ['FJN8C'],
                   'coreUpload': {'format': 'upstream-zip', 'maxBytes': MAX_UPLOAD_BYTES, 'architecture': self.arch}}
         if self.startup_error is not None:
             result['needsAttention'] = True

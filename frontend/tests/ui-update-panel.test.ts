@@ -27,7 +27,10 @@ describe('upgrade panel recovery', () => {
     let upgraded = false;
     const discover = vi.spyOn(UIUpdateClient.prototype, 'discover').mockImplementation(async function(this: UIUpdateClient) {
       this.capabilities = { protocol: 'localdns-updater/v2', modes: ['ui', 'core', 'full'], installed,
-        ...(upgraded ? { coreUpload: { format: 'upstream-zip' as const, maxBytes: 256 * 1048576, architecture: 'amd64-v3' } } : {}) };
+        ...(upgraded ? {
+          configurationMigrations: ['FJN8C'],
+          coreUpload: { format: 'upstream-zip' as const, maxBytes: 256 * 1048576, architecture: 'amd64-v3' },
+        } : {}) };
     });
     vi.spyOn(UIUpdateClient.prototype, 'status').mockResolvedValue({ state: 'idle', canRollback: false });
     const { container, connect } = panel(); await connect();
@@ -40,11 +43,44 @@ describe('upgrade panel recovery', () => {
   });
 });
 
+describe('upgrade panel migration requirements', () => {
+  it('blocks new kernel preparation on old services and keeps pending backups available', async () => {
+    vi.spyOn(UIUpdateClient.prototype, 'discover').mockImplementation(async function(this: UIUpdateClient) {
+      this.capabilities = {
+        protocol: 'localdns-updater/v2', modes: ['ui', 'core', 'full'], installed,
+        coreUpload: { format: 'upstream-zip', maxBytes: 256 * 1048576, architecture: 'amd64-v3' },
+      };
+    });
+    const status = vi.spyOn(UIUpdateClient.prototype, 'status').mockResolvedValue({ state: 'idle', canRollback: false });
+    const { container, connect, setRelease } = panel();
+    setRelease(installed, {
+      tag: 'fjn8c-ui-v2026.11.08.3', version: '2026.11.08.3', backend: 'FJN8C', packages: ['UI 升级包', '含核心完整包'],
+    });
+    await connect();
+    expect(container.querySelector<HTMLButtonElement>('[data-start="ui"]')!.disabled).toBe(false);
+    expect(container.querySelector<HTMLButtonElement>('[data-start="full"]')!.disabled).toBe(true);
+    expect(container.querySelector<HTMLInputElement>('[data-core-file]')!.disabled).toBe(true);
+    expect(container.querySelector<HTMLElement>('[data-updater-warning]')!.hidden).toBe(false);
+    expect(container.querySelector('[data-connection]')!.textContent).toContain('升级服务需要更新');
+    expect(container.querySelector<HTMLElement>('[data-help]')!.hidden).toBe(false);
+    status.mockResolvedValue({
+      state: 'awaiting_backup', canRollback: false, jobId: 'a'.repeat(24), mode: 'core',
+      backup: { name: 'backup.tar.gz', sha256: 'b'.repeat(64), bytes: 100 },
+    });
+    await connect();
+    expect(container.querySelector<HTMLElement>('.version-backup')!.hidden).toBe(false);
+    expect(container.querySelector<HTMLButtonElement>('[data-download]')!.disabled).toBe(false);
+    expect(container.querySelector<HTMLElement>('[data-updater-warning]')!.hidden).toBe(true);
+    expect(container.querySelector('[data-connection]')!.textContent).toContain('已有任务可按原流程继续');
+  });
+});
+
 describe('upgrade panel primary action', () => {
   const next = { tag: 'fjmos-ui-v2026.11.01.8', version: '2026.11.01.8', backend: 'FJMOS', packages: ['UI 升级包'] };
   const full = { ...next, packages: ['UI 升级包', '含核心完整包'] };
   const ready = {
     protocol: 'localdns-updater/v2' as const, modes: ['ui', 'core', 'full'] as const, installed,
+    configurationMigrations: ['FJN8C'],
     coreUpload: { format: 'upstream-zip' as const, maxBytes: 256 * 1048576, architecture: 'amd64-v3' },
   };
 
