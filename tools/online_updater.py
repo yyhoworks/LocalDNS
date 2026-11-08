@@ -448,7 +448,7 @@ class OnlineUpdateManager:
 
     def make_backup(self):
         result = upgrade.backup(self.root, self.job_directory() / 'backup')
-        self.save(sourceRuntime={name: hashes(self.root / name) for name in ('ui', 'bin')})
+        self.save(sourceRuntime=upgrade.source_runtime_fingerprint(self.root))
         return {'name': 'localdns-original-' + self.state['jobId'] + '.tar.gz',
                 'sha256': result['sha256'], 'bytes': result['bytes']}
 
@@ -495,7 +495,7 @@ class OnlineUpdateManager:
                 saved = read_json(backup.parent / 'backup.json')
                 if upgrade.fingerprint(self.root) != saved['sourceFingerprint']:
                     raise UpdateError('下载备份后设置发生变化，已停止升级，请重新准备。', 409)
-                if self.state.get('sourceRuntime') != {name: hashes(self.root / name) for name in ('ui', 'bin')}:
+                if self.state.get('sourceRuntime') != upgrade.source_runtime_fingerprint(self.root):
                     raise UpdateError('下载备份后 UI 或内核文件发生变化，请重新准备。', 409)
                 if self.state.get('preparedHashes') != upgrade.stage_fingerprint(self.stage_path()):
                     raise UpdateError('暂存版本内容已改变，请重新准备升级。', 409)
