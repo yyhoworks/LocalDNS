@@ -6,7 +6,10 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from fjgli_config import MigrationError, clean_template, hashes, migrate_configuration, read_json, write_json
+from fjgli_config import (
+    MigrationError, adapt_kernel_configuration, clean_template, hashes, kernel_configuration,
+    migrate_configuration, read_json, write_json,
+)
 import upgrade_localdns as upgrade
 from package_ui import write_archive
 
@@ -271,6 +274,39 @@ class TrafficFingerprintTests(unittest.TestCase):
         after = upgrade.fingerprint(self.root)
         self.assertNotEqual(after['ui/custom/settings.json'], before['ui/custom/settings.json'])
         self.assertNotEqual(after['config/settings/switches.json'], before['config/settings/switches.json'])
+
+
+class KernelConfigurationTests(unittest.TestCase):
+    def test_old_cores_retain_the_original_configuration(self):
+        value = {'upstreams': [{'tag': 'node', 'addr': '192.0.2.53'}], 'future': {'keep': True}}
+        self.assertIs(kernel_configuration('config/upstreams/domestic.json', value, 'FJN01'), value)
+
+    def test_fjn8c_adds_distinct_unlabelled_providers_without_changing_existing_fields(self):
+        value = {'upstreams': [
+            {'tag': 'same', 'addr': '192.0.2.1', 'future': {'keep': True}},
+            {'tag': 'same', 'addr': '192.0.2.2', 'enabled': False},
+            {'tag': 'known', 'addr': '192.0.2.3', 'provider': '未标注 · domestic-1'},
+        ], 'ecs': '192.0.2.0/24', 'future_setting': 42}
+        result = kernel_configuration('config/upstreams/domestic.json', value, 'FJN8C')
+        self.assertEqual(result['ecs'], value['ecs'])
+        self.assertEqual(result['future_setting'], 42)
+        self.assertEqual(len({node['provider'] for node in result['upstreams']}), 3)
+        for before, after in zip(value['upstreams'], result['upstreams']):
+            self.assertEqual({key: item for key, item in after.items() if key != 'provider'},
+                             {key: item for key, item in before.items() if key != 'provider'})
+        self.assertNotIn('provider', value['upstreams'][0])
+        self.assertIs(kernel_configuration('config/upstreams/proxy.json', value, 'FJN8C'), value)
+
+    def test_prefetch_default_preserves_explicit_preferences_and_extension_fields(self):
+        value = {'full_cache': False, 'future': {'keep': True}}
+        result = kernel_configuration('config/settings/switches.json', value, 'FJN8C')
+        self.assertEqual(result, dict(value, prefetch=True))
+        self.assertNotIn('prefetch', value)
+        self.assertFalse(kernel_configuration('config/settings/switches.json', dict(value, prefetch=False), 'FJN8C')['prefetch'])
+        with self.assertRaises(MigrationError):
+            kernel_configuration('config/settings/switches.json', {'prefetch': 'false'}, 'FJN8C')
+        with self.assertRaises(MigrationError):
+            kernel_configuration('config/upstreams/foreign.json', {'upstreams': [{'provider': 1}]}, 'FJN8C')
 
 
 class VerifyVersionTests(unittest.TestCase):

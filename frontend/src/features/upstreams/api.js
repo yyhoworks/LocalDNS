@@ -14,9 +14,10 @@ export async function readUpstreams(scope) {
   const config = configResult.data, tags = tagsResult.data;
   // metrics/ecs 只是增强数据：失败时降级为空并标记 degraded，
   // 页面照常渲染（指标显示占位），不再因单个接口失败整页挂掉。
-  const [metricsResult, ecsResult] = await Promise.all([
+  const [metricsResult, ecsResult, statusResult] = await scope.guard(Promise.all([
     safeResult(() => api.metrics()), safeResult(() => api.request('/api/v1/upstream/ecs')),
-  ]);
+    safeResult(() => api.request('/api/v1/status')),
+  ]));
   const ecs = ecsResult.ok ? ecsResult.data : null;
   const groups = Array.isArray(tags) ? tags : Object.keys(config);
   const metrics = parseProm(metricsResult.ok ? metricsResult.data : ''), rows = [];
@@ -24,7 +25,14 @@ export async function readUpstreams(scope) {
     rows.push({ g: group, u: upstream, i: index, m: upstreamMetrics(metrics, group, upstream.tag) });
   }));
   rows.sort((a, b) => Number(b.u.enabled !== false) - Number(a.u.enabled !== false));
-  return { config, ecs: typeof ecs?.ecs === 'string' ? ecs.ecs : '', groups, rows, degraded: { metrics: !metricsResult.ok, ecs: !ecsResult.ok } };
+  // FJN01 rejects provider as an unknown field; never send it to an older core.
+  const configuredProviders = rows.some(row => typeof row.u.provider === 'string');
+  const version = statusResult.ok && typeof statusResult.data?.version === 'string' ? statusResult.data.version : null;
+  const providers = configuredProviders || (version === null ? null : version === 'FJN8C');
+  return {
+    config, ecs: typeof ecs?.ecs === 'string' ? ecs.ecs : '', groups, rows, providers,
+    degraded: { metrics: !metricsResult.ok, ecs: !ecsResult.ok, providers: providers === null },
+  };
 }
 
 export function writeUpstreamGroup(group, candidate, ecs) {

@@ -8,7 +8,7 @@ import sys
 from datetime import datetime
 from pathlib import Path, PurePosixPath
 from zipfile import ZIP_DEFLATED, ZipFile, ZipInfo
-from fjgli_config import clean_template
+from fjgli_config import clean_template, kernel_configuration
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -353,12 +353,24 @@ def main():
         full['localdns/bin/configure-ui.py'] = (ROOT / 'tools/configure_ui.py').read_bytes()
         modes['localdns/bin/configure-ui.py'] = 0o100755
         full['localdns/UI-VERSION'] = (version['uiVersion'] + '\n').encode()
+        configuration_changes = {}
+        if args.kernel_archive:
+            for name, data in base.items():
+                if not name.startswith('localdns/config/') or not name.endswith('.json'):
+                    continue
+                relative = name[len('localdns/'):]
+                value = json.loads(data)
+                adapted = kernel_configuration(relative, value, version['backendVersion'])
+                if adapted != value:
+                    full[name] = json_bytes(adapted)
+                    configuration_changes[name] = {'before': sha(data), 'after': sha(full[name])}
         full['release.json'] = json_bytes(dict(
             version, packageType='full', baseArchive=args.full_base.name,
             baseArchiveSha256=base_digest, backendBinarySha256=binary_sha,
             configurationSource=f"{version['backendVersion']} upstream runtime template" if args.runtime_template else meta['configurationSource'],
             templateCleanup=f"{version['backendVersion']}: cleared aliases, manual rules, runtime data, task history and private upstream examples" if args.runtime_template else meta.get('templateCleanup', ''),
-            uiFiles={name: sha(data) for name, data in ui.items()}, **kernel_metadata))
+            uiFiles={name: sha(data) for name, data in ui.items()}, **kernel_metadata,
+            **({'configurationMigration': configuration_changes} if configuration_changes else {})))
         for name, data in base.items():
             protected = ((name.startswith('localdns/') or re.match(r'LocalDNS_[A-Z0-9]+_Binaries/', name))
                          and not name.startswith('localdns/ui/') and name not in ('localdns/UI-VERSION','localdns/bin/configure-ui.py'))
@@ -366,7 +378,10 @@ def main():
                 protected = False
             if args.runtime_template and name.startswith('localdns/'):
                 protected = False
-            if (protected or name == 'localdns.service') and full[name] != data:
+            expected = data
+            if name in configuration_changes:
+                expected = json_bytes(kernel_configuration(name[len('localdns/'):], json.loads(data), version['backendVersion']))
+            if (protected or name == 'localdns.service') and full[name] != expected:
                 raise ValueError('Protected base content changed: ' + name)
         packages.append((f"LocalDNS_{version['backendVersion']}_UI_{version['uiVersion']}_Full.zip", full, modes))
 

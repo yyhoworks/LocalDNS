@@ -21,7 +21,9 @@ from urllib.request import ProxyHandler, Request, build_opener
 # Release packages place the shared installer support beside the UI updater.
 sys.path.insert(0, str(Path(__file__).resolve().parent / 'ui-updater'))
 import install_localdns as installer
-from fjgli_config import MigrationError, hashes, migrate_configuration, read_json, safe_tree, write_json
+from fjgli_config import (
+    MigrationError, adapt_kernel_configuration, hashes, migrate_configuration, read_json, safe_tree, write_json,
+)
 
 MARKER = '.localdns-migration.json'
 # Normalize only source comparisons. Stages and saved snapshots retain the
@@ -136,7 +138,7 @@ def dns(port, protocol):
 
 # Legacy metadata without updateCompatibility is accepted only for these backends.
 # Add a family here when a kernel ships before its packages declare the contract.
-SUPPORTED_BACKENDS = ('FJGLI', 'FJGOE', 'FJH21', 'FJH50', 'FJH7Q', 'FJH7T', 'FJHAI', 'FJMOS', 'FJN01')
+SUPPORTED_BACKENDS = ('FJGLI', 'FJGOE', 'FJH21', 'FJH50', 'FJH7Q', 'FJH7T', 'FJHAI', 'FJMOS', 'FJN01', 'FJN8C')
 
 
 def compatible_release(metadata):
@@ -238,6 +240,10 @@ def prepare(root, package, expected, stage, arch, mode='full'):
         (stage / 'bin/localdns').chmod(0o755)
     report = migrate_configuration(root, stage)
     report['targetBackend'] = backend
+    adapted = adapt_kernel_configuration(stage, backend)
+    if adapted:
+        report['kernelSettingsMigration'] = adapted
+        report['preserved']['config/upstreams'] = hashes(stage / 'config/upstreams')
     if mode == 'core':
         from fjgli_config import replace_tree
         replace_tree(root / 'ui', stage / 'ui')
