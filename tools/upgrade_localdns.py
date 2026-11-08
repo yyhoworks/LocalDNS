@@ -24,6 +24,14 @@ import install_localdns as installer
 from fjgli_config import MigrationError, hashes, migrate_configuration, read_json, safe_tree, write_json
 
 MARKER = '.localdns-migration.json'
+# Normalize only source comparisons. Stages and saved snapshots retain the
+# byte-level hashes used by released updaters, including all traffic data.
+_TRAFFIC_PATHS = ('ui/custom/traffic.json', 'ui/custom/traffic-detail.json')
+_TRAFFIC_VOLATILE_KEYS = (
+    'updated', 'published_at', 'generated_at', 'timestamp', 'date', 'since', 'utc_offset_minutes',
+    'today', 'yesterday', 'week', 'month', 'total', 'days',
+    'connections', 'daily', 'hourly', 'dimensions', 'dimensions_since',
+)
 
 
 def sha(path):
@@ -34,6 +42,34 @@ def sha(path):
         return value.hexdigest()
 
 
+def _source_bytes(root, path):
+    data = path.read_bytes()
+    if path.relative_to(root).as_posix() not in _TRAFFIC_PATHS:
+        return data
+    try:
+        value = json.loads(data)
+    except ValueError as error:
+        raise MigrationError('代理流量统计格式无效：' + str(path)) from error
+    if not isinstance(value, dict):
+        raise MigrationError('代理流量统计必须为 JSON 对象：' + str(path))
+    for key in _TRAFFIC_VOLATILE_KEYS:
+        value.pop(key, None)
+    return json.dumps(value, sort_keys=True, separators=(',', ':')).encode()
+
+
+def source_runtime_fingerprint(root):
+    """Compare the live UI/core while allowing the collector's counters to advance."""
+    result = {}
+    for name in ('ui', 'bin'):
+        folder = root / name
+        safe_tree(folder)
+        result[name] = {
+            path.relative_to(folder).as_posix(): hashlib.sha256(_source_bytes(root, path)).hexdigest()
+            for path in sorted(folder.rglob('*')) if path.is_file()
+        }
+    return result
+
+
 def fingerprint(root):
     """Watch user settings, excluding counters and automatically updated timestamps."""
     result = {}
@@ -42,7 +78,7 @@ def fingerprint(root):
         for path in sorted((root / folder).rglob('*')):
             if not path.is_file():
                 continue
-            data = path.read_bytes()
+            data = _source_bytes(root, path)
             if path.suffix == '.json' and folder == 'config':
                 value = json.loads(data)
                 if path.name in ('requery.json', 'route_refresh.json'):
