@@ -37,7 +37,7 @@ python3 -c 'import sys; sys.exit(0 if sys.version_info >= (3, 8) else "需要 Py
 
 SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd -P)
 # Updated together with install_localdns.py; an old bootstrap fails closed.
-ENGINE_SHA256=8305cce9668b497d92b214403e7e74519053d9314a82dfaead604c1cf28f5ef9
+ENGINE_SHA256=c5db29a8a4e8475fed30b8396a1ccf6f0fa4fb4e9c798cb28bf8c6b24b059e60
 if [ -f "$SCRIPT_DIR/install_localdns.py" ]; then
   python3 - "$SCRIPT_DIR/install_localdns.py" "$ENGINE_SHA256" <<'PY'
 import hashlib, pathlib, sys
