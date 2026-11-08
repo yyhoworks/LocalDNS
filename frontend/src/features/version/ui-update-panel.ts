@@ -55,17 +55,24 @@ export function createUIUpdatePanel(container: HTMLElement) {
       const row = get(`[data-mode="${mode}"]`), start = row.querySelector<HTMLButtonElement>('[data-start]')!;
       const eligibility = target(mode), supported = mode === 'core' ? uploadReady() : mode === 'ui' || client?.unified;
       const fullReinstall = mode === 'full' && sameCore && Boolean(eligibility.tag);
-      const busyRow = running() && task.mode === mode;
+      const activeRow = running() && task.mode === mode;
+      const awaitingRow = activeRow && task.state === 'awaiting_backup';
+      const busyRow = activeRow && !awaitingRow;
       // 方案A「条件显示」：没有更高版本的 UI 时整行不出现，而不是留一个禁用按钮。
-      row.hidden = mode === 'ui' && Boolean(latest) && eligibility.reason === '暂无比当前 UI 更新的正式版。' && !running();
+      row.hidden = (task.state === 'awaiting_backup' && task.mode !== mode)
+        || (mode === 'ui' && Boolean(latest) && eligibility.reason === '暂无比当前 UI 更新的正式版。' && !running());
       start.disabled = !available || !supported || (mode === 'core' ? !selectedCore : !eligibility.tag) || busy || running() || uncertain;
       start.classList.toggle('primary', mode !== 'core' && primaryMode === mode);
       // 执行中保留主色并加旋转指示，不再落到 :disabled 的 46% 透明度。
       start.classList.toggle('busy', busyRow);
       if (busyRow) start.setAttribute('aria-busy', 'true'); else start.removeAttribute('aria-busy');
-      start.textContent = mode === 'core' && uploading ? '正在上传…' : busyRow ? '更新中…' : busy && available ? '提交中…' : mode === 'core' ? '上传并准备更新' : mode === 'full' && fullReinstall ? '重装UI + 内核' : '升级' + names[mode];
+      start.textContent = mode === 'core' && uploading ? '正在上传…' : awaitingRow ? '等待备份确认'
+        : busyRow ? '更新中…' : busy && available ? '提交中…' : mode === 'core' ? '上传并准备更新'
+          : mode === 'full' && fullReinstall ? '重装UI + 内核' : '升级' + names[mode];
       const pill = row.querySelector<HTMLElement>('[data-pill]')!;
-      const pillText = busyRow ? '进行中' : mode === 'core' ? (selectedCore ? '已选择 ZIP' : '') : mode === 'full' ? (fullReinstall ? '内核已是最新' : eligibility.tag ? '完整包可用' : '') : eligibility.tag ? '有新版本' : '';
+      const pillText = awaitingRow ? '等待确认' : busyRow ? '进行中' : mode === 'core' ? (selectedCore ? '已选择 ZIP' : '')
+        : mode === 'full' ? (fullReinstall ? '内核已是最新' : eligibility.tag ? '完整包可用' : '')
+          : eligibility.tag ? '有新版本' : '';
       pill.textContent = pillText;
       pill.hidden = !pillText;
       pill.dataset.tone = busyRow ? 'live' : 'update';
@@ -74,14 +81,32 @@ export function createUIUpdatePanel(container: HTMLElement) {
         row.querySelector<HTMLElement>('[data-core-picker-text]')!.textContent = selectedCore ? '更换内核 ZIP' : '选择内核 ZIP';
       }
       row.querySelector('[data-target]')!.textContent = mode === 'ui' ? `${currentUI()?.uiVersion || '—'} → ${latest?.version || '待检查'}` : mode === 'core' ? `当前内核：${currentUI()?.backendVersion || '—'}${running() && task.source === 'upload' && task.targetBackend ? ' → ' + task.targetBackend : ''}` : latest ? `${latest.version} / ${latest.backend}` : '检查更新后显示目标版本';
-      const reasonText = !available ? busy ? '正在确认服务器支持的升级功能…' : notEnabled ? '请先在服务器安装或更新独立升级服务，仅替换 UI 文件不会启用此功能。' : '连接升级服务后才能操作，请重试连接。' : !supported ? '请先更新升级服务，以支持' + (mode === 'core' ? '上传内核 ZIP。' : '内核升级。') : mode === 'core' ? `先选择原作者的内核 ZIP，再上传；自动选择 ${client!.coreUpload!.architecture}，保留当前 UI 和设置。下载并校验备份后才会切换，DNS 会短暂重启。` : fullReinstall ? '内核已是最新，重装覆盖相同版本；先下载备份，切换时 DNS 会短暂重启。' : eligibility.reason;
+      let reasonText: string;
+      if (available && awaitingRow) {
+        reasonText = verifiedHash && verifiedHash === task.backup?.sha256 ? '本机备份校验通过，请在下方确认继续。'
+          : task.backupDownloaded ? '备份已下载，请在下方选择本机备份校验。'
+            : '请先在下方下载完整备份，再选择下载文件校验；确认前不会切换内核。';
+      } else if (!available) {
+        reasonText = busy ? '正在确认服务器支持的升级功能…' : notEnabled
+          ? '请先在服务器安装或更新独立升级服务，仅替换 UI 文件不会启用此功能。'
+          : '连接升级服务后才能操作，请重试连接。';
+      } else if (!supported) {
+        reasonText = '请先更新升级服务，以支持' + (mode === 'core' ? '上传内核 ZIP。' : '内核升级。');
+      } else if (mode === 'core') {
+        reasonText = `先选择原作者的内核 ZIP，再上传；自动选择 ${client!.coreUpload!.architecture}，保留当前 UI 和设置。`
+          + '下载并校验备份后才会切换，DNS 会短暂重启。';
+      } else {
+        reasonText = fullReinstall ? '内核已是最新，重装覆盖相同版本；先下载备份，切换时 DNS 会短暂重启。' : eligibility.reason;
+      }
       const reason = row.querySelector<HTMLElement>('[data-reason]')!;
       reason.id = 'version-reason-' + mode; reason.textContent = reasonText;
       start.setAttribute('aria-describedby', reason.id);
     }
     coreFile.disabled = !available || !uploadReady() || busy || running() || uncertain;
     coreFile.setAttribute('aria-describedby', 'version-reason-core');
-    get('[data-core-name]').textContent = selectedCore ? `${selectedCore.name} · ${(selectedCore.size / 1048576).toFixed(1)} MB` : '尚未选择文件';
+    const uploaded = running() && task.source === 'upload' && task.targetBackend;
+    get('[data-core-name]').textContent = selectedCore ? `${selectedCore.name} · ${(selectedCore.size / 1048576).toFixed(1)} MB`
+      : uploaded ? `${task.targetBackend} 内核已上传，无需重新选择文件。` : '尚未选择文件';
     rollback.hidden = !available || !task.canRollback; rollback.disabled = busy || running() || uncertain;
     rollback.textContent = task.rollbackKind === 'full' ? '恢复上一整套版本' : '恢复上一版 UI';
     refresh.hidden = task.state !== 'succeeded' || task.installedVersion === installed?.uiVersion;
