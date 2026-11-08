@@ -219,10 +219,50 @@ class TrafficFingerprintTests(unittest.TestCase):
                        connections={'active': 120})
         self.assertEqual(upgrade.fingerprint(self.root), before)
 
-    def test_hashes_ignore_republished_traffic_statistics(self):
+    def test_hashes_detect_republished_traffic_statistics(self):
         before = hashes(self.root / 'ui')
         self.republish(updated='2026-11-06T06:55:21+08:00', today={'down': 1})
-        self.assertEqual(hashes(self.root / 'ui'), before)
+        after = hashes(self.root / 'ui')
+        for name in ('custom/traffic.json', 'custom/traffic-detail.json'):
+            self.assertNotEqual(after[name], before[name])
+
+    def test_source_runtime_ignores_republished_traffic_statistics(self):
+        before = upgrade.source_runtime_fingerprint(self.root)
+        self.republish(updated='2026-11-06T06:55:21+08:00', today={'down': 1})
+        self.assertEqual(upgrade.source_runtime_fingerprint(self.root), before)
+
+    def test_settings_and_source_runtime_ignore_midnight_rollover(self):
+        settings = upgrade.fingerprint(self.root)
+        runtime = upgrade.source_runtime_fingerprint(self.root)
+        self.republish(updated='2026-11-07T00:00:01+08:00', date='2026-11-07', days=6)
+        self.assertEqual(upgrade.fingerprint(self.root), settings)
+        self.assertEqual(upgrade.source_runtime_fingerprint(self.root), runtime)
+
+    def test_unknown_traffic_fields_are_still_detected(self):
+        settings = upgrade.fingerprint(self.root)
+        runtime = upgrade.source_runtime_fingerprint(self.root)
+        self.republish(future_setting='changed')
+        self.assertNotEqual(upgrade.fingerprint(self.root), settings)
+        self.assertNotEqual(upgrade.source_runtime_fingerprint(self.root), runtime)
+
+    def test_only_exact_publication_paths_are_normalized(self):
+        path = self.root / 'ui/custom/nested/custom/traffic.json'
+        write_json(path, {'total': {'down': 1}})
+        settings = upgrade.fingerprint(self.root)
+        runtime = upgrade.source_runtime_fingerprint(self.root)
+        write_json(path, {'total': {'down': 2}})
+        self.assertNotEqual(upgrade.fingerprint(self.root), settings)
+        self.assertNotEqual(upgrade.source_runtime_fingerprint(self.root), runtime)
+
+    def test_invalid_traffic_data_stops_live_comparison(self):
+        path = self.root / 'ui/custom/traffic.json'
+        for data in ('{invalid', '[]'):
+            with self.subTest(data=data):
+                path.write_text(data, encoding='utf-8')
+                for compare in (upgrade.fingerprint, upgrade.source_runtime_fingerprint):
+                    with self.assertRaises(MigrationError):
+                        compare(self.root)
+                self.assertIn('custom/traffic.json', hashes(self.root / 'ui'))
 
     def test_real_user_changes_are_still_detected(self):
         before = upgrade.fingerprint(self.root)

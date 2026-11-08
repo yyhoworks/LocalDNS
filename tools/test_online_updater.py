@@ -1,6 +1,9 @@
 """Three-mode filesystem transactions, persistent backup gate and HTTP restrictions."""
 import json
 import contextlib
+import datetime as dt
+import hashlib
+import importlib.util
 import io
 import os
 import shutil
@@ -22,6 +25,11 @@ from fjgli_config import hashes, read_json, write_json, MigrationError
 from package_ui import write_archive
 from test_core_upload import bundle, zipped, elf
 import test_fjgli_upgrade as migration_fixtures
+
+collector_spec = importlib.util.spec_from_file_location(
+    'traffic_collector', Path(__file__).resolve().parents[1] / 'services/proxy-traffic/traffic_collector.py')
+collector = importlib.util.module_from_spec(collector_spec)
+collector_spec.loader.exec_module(collector)
 
 
 class OnlineTests(unittest.TestCase):
@@ -137,6 +145,93 @@ class OnlineTests(unittest.TestCase):
         self.assertEqual((self.root / 'bin/localdns').read_bytes(), b'original')
         self.assertFalse(self.manager.stage_path().exists())
         self.assertTrue(self.manager.backup_file(status['jobId'])[0].is_file())
+
+    def publish_traffic(self, stamp, state=None):
+        if state is None:
+            state = collector.load_state(self.work / 'traffic-state.json', stamp)
+        collector.sample({'connections': []}, state, stamp)
+        summary, detail = collector.publications(state)
+        write_json(self.root / 'ui/custom/traffic.json', summary)
+        write_json(self.root / 'ui/custom/traffic-detail.json', detail)
+        return state
+
+    def traffic_upgrade(self, mode, *, midnight=False, uploaded=False):
+        stamp = dt.datetime(2026, 11, 7, 23, 59, 40, tzinfo=dt.timezone(dt.timedelta(hours=8)))
+        state = self.publish_traffic(stamp)
+        if uploaded:
+            self.prepare_upload()
+        else:
+            self.prepare(mode)
+        self.publish_traffic(stamp + dt.timedelta(seconds=40 if midnight else 5), state)
+        self.manager = self.manager_at()
+        self.assertEqual(self.manager.status()['state'], 'awaiting_backup')
+        result = self.continue_update()
+        self.assertEqual(result['state'], 'succeeded', result)
+
+    def test_full_upgrade_accepts_midnight_traffic_publication_after_restart(self):
+        self.traffic_upgrade('full', midnight=True)
+
+    def test_core_upgrade_accepts_traffic_publication(self):
+        self.traffic_upgrade('core')
+
+    def test_uploaded_core_accepts_midnight_traffic_publication(self):
+        self.traffic_upgrade('core', midnight=True, uploaded=True)
+
+    def test_staged_traffic_change_blocks_upgrade(self):
+        self.publish_traffic(dt.datetime.now().astimezone())
+        self.prepare()
+        path = self.manager.stage_path() / 'ui/custom/traffic.json'
+        value = read_json(path)
+        value['total']['down'] = 987654321
+        write_json(path, value)
+        result = self.continue_update()
+        self.assertEqual(result['state'], 'failed', result)
+        self.assertIn('暂存版本内容已改变', result['message'])
+        self.assertEqual((self.root / 'bin/localdns').read_bytes(), b'original')
+
+    def test_legacy_snapshot_with_traffic_supports_rollback_after_restart(self):
+        self.publish_traffic(dt.datetime.now().astimezone())
+        self.prepare()
+        self.assertEqual(self.continue_update()['state'], 'succeeded')
+        reference = dict(self.manager.state['previous'])
+        previous = self.root.parent / reference['name']
+        # Persist the byte-level SHA-256 map used by the released updater.
+        reference['hashes'] = {
+            path.relative_to(previous).as_posix(): hashlib.sha256(path.read_bytes()).hexdigest()
+            for path in previous.rglob('*')
+            if path.is_file() and path.relative_to(previous).as_posix() != upgrade.MARKER
+        }
+        self.manager.save(previous=reference)
+        self.manager = self.manager_at()
+        self.manager.start(rollback=True)
+        result = self.finish()
+        self.assertEqual(result['state'], 'awaiting_backup', result)
+        self.assertEqual(self.continue_update()['state'], 'succeeded')
+        self.assertEqual((self.root / 'bin/localdns').read_bytes(), b'original')
+
+    def test_snapshot_traffic_change_blocks_rollback(self):
+        self.publish_traffic(dt.datetime.now().astimezone())
+        self.prepare()
+        self.assertEqual(self.continue_update()['state'], 'succeeded')
+        previous = self.root.parent / self.manager.state['previous']['name']
+        path = previous / 'ui/custom/traffic.json'
+        value = read_json(path)
+        value['total']['down'] = 987654321
+        write_json(path, value)
+        self.manager = self.manager_at()
+        self.manager.start(rollback=True)
+        result = self.finish()
+        self.assertEqual(result['state'], 'failed', result)
+        self.assertIn('上一版本快照内容已改变', result['message'])
+
+    def test_source_ui_and_core_changes_still_block_upgrade(self):
+        for relative in ('ui/index.html', 'bin/localdns'):
+            with self.subTest(relative=relative):
+                self.prepare()
+                (self.root / relative).write_bytes(b'changed runtime')
+                result = self.continue_update()
+                self.assertEqual(result['state'], 'failed', result)
+                self.assertIn('UI 或内核文件发生变化', result['message'])
 
     def test_waiting_job_survives_restart_serializes_requests_and_cancels_cleanly(self):
         status = self.prepare('core')
