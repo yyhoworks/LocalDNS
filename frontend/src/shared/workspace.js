@@ -95,9 +95,48 @@ export function initialize() {
     root.querySelectorAll('[data-rank-kind]').forEach(b=>b.onclick=()=>rankNavigate(b.dataset.rankKind,b.dataset.rankKey));
     root.querySelectorAll('[data-rank-all]').forEach(b=>b.onclick=()=>{const kind=b.dataset.rankAll,items=({domain:data.domains,client:data.clients,set:data.sets})[kind];ctx.openDrawer(({domain:'域名排行',client:'客户端排行',set:'分流结果'})[kind],'当前审计保留记录 · 最多 '+items.length+' 项',rankTable(kind,items,data.aliases,items.length));hydrateRankLatency(document.querySelector('#drawer'));document.querySelectorAll('#drawer [data-rank-kind]').forEach(button=>button.onclick=()=>{ctx.closeDrawer();rankNavigate(button.dataset.rankKind,button.dataset.rankKey);});});
   }
-  function upstreams(rows,groups) {
-    const total=rows.reduce((n,r)=>n+Number(r.m.q||0),0);
-    return `<div class="workspace-upstream-groups">${groups.map(group=>{const items=rows.filter(r=>r.g===group),q=items.reduce((n,r)=>n+Number(r.m.q||0),0);return `<section class="glass-card workspace-upstream-group"><header class="gc-head"><div><h2 class="gc-title">${esc(ctx.groupName(group))}</h2><span class="workspace-subline">${items.filter(r=>r.u.enabled!==false).length} 个启用节点</span></div><span class="workspace-upstream-total">${number(q)} 次 · ${percent(q,total)}</span></header><div class="table-wrap"><table class="workspace-upstream-table"><thead><tr><th>启用</th><th>节点 / 协议 / 地址</th><th>请求数</th><th>平均响应</th><th>采纳率</th><th>错误</th><th>成功率</th><th>操作</th></tr></thead><tbody>${items.map(({g,u,i,m})=>`<tr data-group="${esc(g)}" data-index="${i}"><td><label class="switch"><input class="up-toggle" type="checkbox" aria-label="启用 ${esc(u.tag)}" ${u.enabled!==false?'checked':''}><span class="switch-track"><span class="switch-thumb"></span></span></label></td><td><strong>${esc(u.tag)}</strong> ${badge(u.protocol)}<span class="workspace-subline mono">${esc(u.addr||u.server_addr||'—')}</span></td><td>${number(m.q)}<span class="workspace-subline">${percent(m.q,total)}</span></td><td>${m.latencySamples>0?ctx.ms(m.latency):'—'}</td><td>${percent(m.win,m.q)}</td><td>${m.err?`<button type="button" class="up-error-detail-trigger" data-group="${esc(g)}" data-index="${i}" aria-label="查看 ${esc(u.tag)} 错误详情">${number(m.err)}</button>`:'0'}</td><td>${m.q>0&&m.success!==null?ctx.pct(m.success):'—'}</td><td><div class="workspace-actions"><button type="button" class="button small up-edit">编辑</button><button type="button" class="button small danger up-delete">删除</button></div></td></tr>`).join('')||'<tr><td colspan="8" class="table-empty">暂无上游节点</td></tr>'}</tbody></table></div></section>`;}).join('')}</div><details class="workspace-note"><summary>统计口径</summary><p>份额按节点请求总数计算，并发可能计入多个节点。采纳率 = 采纳数 / 节点请求数；成功率与采纳率分别统计。无样本时显示“—”。</p></details>`;
+  function upstreams(rows, groups, providers = false) {
+    const total = rows.reduce((sum, row) => sum + Number(row.m.q || 0), 0);
+    const rowHtml = ({g, u, i, m}) => `<tr data-group="${esc(g)}" data-index="${i}">
+      <td><label class="switch">
+        <input class="up-toggle" type="checkbox" aria-label="启用 ${esc(u.tag)}" ${u.enabled !== false ? 'checked' : ''}>
+        <span class="switch-track"><span class="switch-thumb"></span></span>
+      </label></td>
+      <td><strong>${esc(u.tag)}</strong> ${badge(u.protocol)}
+        ${providers && g !== 'proxy' ? `<span class="workspace-subline">服务商：${esc(u.provider || '未标注')}</span>` : ''}
+        <span class="workspace-subline mono">${esc(u.addr || u.server_addr || '—')}</span>
+      </td>
+      <td>${number(m.q)}<span class="workspace-subline">${percent(m.q, total)}</span></td>
+      <td>${m.latencySamples > 0 ? ctx.ms(m.latency) : '—'}</td>
+      <td>${percent(m.win, m.q)}</td>
+      <td>${m.err ? `<button type="button" class="up-error-detail-trigger" data-group="${esc(g)}"
+        data-index="${i}" aria-label="查看 ${esc(u.tag)} 错误详情">${number(m.err)}</button>` : '0'}</td>
+      <td>${m.q > 0 && m.success !== null ? ctx.pct(m.success) : '—'}</td>
+      <td><div class="workspace-actions">
+        <button type="button" class="button small up-edit">编辑</button>
+        <button type="button" class="button small danger up-delete">删除</button>
+      </div></td>
+    </tr>`;
+    const sections = groups.map(group => {
+      const items = rows.filter(row => row.g === group);
+      const queries = items.reduce((sum, row) => sum + Number(row.m.q || 0), 0);
+      return `<section class="glass-card workspace-upstream-group">
+        <header class="gc-head"><div><h2 class="gc-title">${esc(ctx.groupName(group))}</h2>
+          <span class="workspace-subline">${items.filter(row => row.u.enabled !== false).length} 个启用节点</span>
+        </div><span class="workspace-upstream-total">${number(queries)} 次 · ${percent(queries, total)}</span></header>
+        <div class="table-wrap"><table class="workspace-upstream-table"><thead><tr>
+          <th>启用</th><th>节点 / 协议 / 地址</th><th>请求数</th><th>平均响应</th>
+          <th>采纳率</th><th>错误</th><th>成功率</th><th>操作</th>
+        </tr></thead><tbody>
+          ${items.map(rowHtml).join('') || '<tr><td colspan="8" class="table-empty">暂无上游节点</td></tr>'}
+        </tbody></table></div>
+      </section>`;
+    });
+    return `<div class="workspace-upstream-groups">${sections.join('')}</div>
+      <details class="workspace-note"><summary>统计口径</summary>
+        <p>份额按节点请求总数计算，并发可能计入多个节点。采纳率 = 采纳数 / 节点请求数；
+          成功率与采纳率分别统计。无样本时显示“—”。</p>
+      </details>`;
   }
   const purpose = r => ['custom_cn','geosite_cn','geoip_cn'].includes(r.tag) ? '国内解析' : '海外解析';
   function diversionRow(r, format) {

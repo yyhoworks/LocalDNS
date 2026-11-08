@@ -39,15 +39,30 @@ export function taskBody(status, config) {
 }
 
 export function groupedFeatures(profiles, status) {
-  const groups = [['请求与过滤', profiles.slice(0, 4)], ['缓存策略', profiles.slice(4, 6)], ['客户端分流', profiles.slice(6)]];
-  return `<div class="management-feature-groups">${groups.map(([name, items], index) => {
-    const on = items.filter(p => status[p.tag] === 'A').length, unknown = items.filter(p => !['A', 'B'].includes(status[p.tag])).length;
-    return `<section class="management-feature-group"><div class="feature-group-heading"><h3>${name}</h3><span>${on} / ${items.length} 开启${unknown ? ` · ${unknown} 项未知` : ''}</span></div><div class="management-feature-items">${items.map(p => {
-      const known = ['A', 'B'].includes(status[p.tag]);
-      const description = known ? (status[p.tag] === 'A' ? p.on : p.off) || p.desc : p.desc;
-      return `<div class="feature-card management-feature-card"><div><h3>${esc(p.name)}</h3><p>${esc(description)}</p>${!known ? '<span class="feature-read-error">读取失败</span>' : ''}</div><div class="feature-footer"><label class="switch"><input data-switch="${p.tag}" aria-label="${esc(p.name)}" type="checkbox" ${status[p.tag] === 'A' ? 'checked' : ''} ${known ? '' : 'disabled'}><span class="switch-track"><span class="switch-thumb"></span></span></label></div></div>`;
-    }).join('')}</div>${index === 2 ? '<p class="management-feature-note">FakeIP 与 RealIP 互斥启用</p>' : ''}</section>`;
-  }).join('')}</div>`;
+  const groups = [['filter', '请求与过滤'], ['cache', '缓存策略'], ['client', '客户端分流']];
+  const sections = groups.map(([key, name]) => {
+    const items = profiles.filter(profile => profile.group === key);
+    const on = items.filter(profile => status[profile.tag] === 'A').length;
+    const unknown = items.filter(profile => !['A', 'B'].includes(status[profile.tag])).length;
+    const controls = items.map(profile => {
+      const known = ['A', 'B'].includes(status[profile.tag]);
+      const description = known ? (status[profile.tag] === 'A' ? profile.on : profile.off) || profile.desc : profile.desc;
+      return `<div class="feature-card management-feature-card"><div>
+        <h3>${esc(profile.name)}</h3><p>${esc(description)}</p>
+        ${!known ? '<span class="feature-read-error">读取失败</span>' : ''}
+      </div><div class="feature-footer"><label class="switch">
+        <input data-switch="${profile.tag}" aria-label="${esc(profile.name)}" type="checkbox"
+          ${status[profile.tag] === 'A' ? 'checked' : ''} ${known ? '' : 'disabled'}>
+        <span class="switch-track"><span class="switch-thumb"></span></span>
+      </label></div></div>`;
+    });
+    return `<section class="management-feature-group"><div class="feature-group-heading">
+      <h3>${name}</h3><span>${on} / ${items.length} 开启${unknown ? ` · ${unknown} 项未知` : ''}</span>
+    </div><div class="management-feature-items">${controls.join('')}</div>
+      ${key === 'client' ? '<p class="management-feature-note">FakeIP 与 RealIP 互斥启用</p>' : ''}
+    </section>`;
+  });
+  return `<div class="management-feature-groups">${sections.join('')}</div>`;
 }
 
 export function featureSummary(profiles, status) {
