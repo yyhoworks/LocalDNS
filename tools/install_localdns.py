@@ -13,6 +13,7 @@ import re
 import shlex
 import shutil
 import socket
+import ssl
 import stat
 import struct
 import subprocess
@@ -31,7 +32,10 @@ from zipfile import BadZipFile, ZipFile
 
 REPO = 'https://github.com/yyhoworks/LocalDNS'
 API = 'https://api.github.com/repos/yyhoworks/LocalDNS/releases/'
-INSTALLER_VERSION = '1.4.0'
+INSTALLER_VERSION = '1.4.1'
+UPDATER_RUNTIME_MODULES = ('ui_updater.py', 'online_updater.py', 'core_upload.py', 'install_localdns.py',
+                           'upgrade_localdns.py', 'fjgli_config.py')
+UPDATER_SETUP_FILES = ('install_ui_updater.py', 'install_online_updater.py') + UPDATER_RUNTIME_MODULES
 ALPINE_RESOLVER_BRIDGE = '#include <resolv.h>\nint __res_init(void) { return res_init(); }\n'
 
 
@@ -163,9 +167,23 @@ def fetch(url, destination=None):
             if error.code == 429 or error.headers.get('X-RateLimit-Remaining') == '0' or error.headers.get('Retry-After') or 'rate limit' in body or 'abuse detection' in body:
                 raise GitHubRateLimitError('GitHub API 请求受限，可在 ' + github_retry_time(error.headers) +
                                           ' 后重试；也可指定正式发行标签或使用离线包。') from None
+        if error.code in (502, 503, 504):
+            raise InstallError('下载网关暂不可用（HTTP ' + str(error.code) +
+                               '），请检查服务器网络或代理；也可上传本地内核 ZIP：' + url) from None
         raise InstallError('下载失败（HTTP ' + str(error.code) + '）：' + url) from None
     except (OSError, URLError) as error:
-        raise InstallError('无法下载，请检查网络及系统 CA 证书：' + url) from error
+        reason = error.reason if isinstance(error, URLError) else error
+        if isinstance(reason, ssl.SSLCertVerificationError):
+            detail = 'HTTPS 证书校验失败，请检查服务器时间及系统 CA 证书'
+        elif isinstance(reason, (TimeoutError, socket.timeout)):
+            detail = '下载连接或读取超时，请检查服务器网络或代理；也可上传本地内核 ZIP'
+        elif isinstance(reason, socket.gaierror):
+            detail = '下载域名解析失败，请检查服务器 DNS'
+        elif isinstance(reason, ssl.SSLError):
+            detail = 'HTTPS 连接失败，请检查服务器网络、代理及 TLS 设置'
+        else:
+            detail = '下载连接失败，请检查服务器网络或代理'
+        raise InstallError(detail + '：' + url) from error
 
 
 # Trust model: online installs anchor integrity on the same GitHub Release's
@@ -944,9 +962,15 @@ def main(argv=None):
             raise InstallError('UI 与发行包的版本元数据不一致')
         setup_names = ('install_ui_updater.py', 'ui_updater.py', 'install_localdns.py')
         if (payload / 'ui-updater/install_online_updater.py').is_file():
-            setup_names += ('install_online_updater.py', 'online_updater.py', 'upgrade_localdns.py', 'fjgli_config.py')
+            setup_names = UPDATER_SETUP_FILES
         if args.with_ui_updater and not all((payload / 'ui-updater' / name).is_file() for name in setup_names):
             raise InstallError('此发行包尚未包含网页升级执行端，请选择包含此功能的新发行版')
+        if args.with_ui_updater:
+            state = (stage if stage else Path('/')) / 'var/lib/localdns-updater/state.json'
+            no_symlinks(state)
+            if state.is_file() and json.loads(state.read_text()).get('state') in (
+                    'queued', 'running', 'awaiting_backup', 'rolling_back'):
+                raise InstallError('已有升级任务，请先完成或取消，再更新升级服务；现有安装未更改')
         log('模式：' + ('保留现有核心的 UI 更新' if mode == 'ui' else '全新安装') + '；架构：' + arch)
         if mode == 'ui':
             update_ui(root, payload, metadata, stage)

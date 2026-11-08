@@ -37,7 +37,7 @@ python3 -c 'import sys; sys.exit(0 if sys.version_info >= (3, 8) else "需要 Py
 
 SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd -P)
 # Updated together with install_localdns.py; an old bootstrap fails closed.
-ENGINE_SHA256=731cf5bb5b996558948b6699e3808996e8490d6e84d07b5bc9d217d74e6aca69
+ENGINE_SHA256=8305cce9668b497d92b214403e7e74519053d9314a82dfaead604c1cf28f5ef9
 if [ -f "$SCRIPT_DIR/install_localdns.py" ]; then
   python3 - "$SCRIPT_DIR/install_localdns.py" "$ENGINE_SHA256" <<'PY'
 import hashlib, pathlib, sys
@@ -51,7 +51,7 @@ WORK=$(mktemp -d "${TMPDIR:-/tmp}/localdns-bootstrap.XXXXXXXX")
 trap 'rm -rf "$WORK"' 0
 trap 'exit 1' HUP INT TERM
 python3 - "$WORK/install_localdns.py" "$ENGINE_SHA256" <<'PY'
-import hashlib, pathlib, sys, urllib.error, urllib.request
+import hashlib, pathlib, socket, ssl, sys, urllib.error, urllib.request
 url = 'https://raw.githubusercontent.com/yyhoworks/LocalDNS/main/tools/install_localdns.py'
 try:
     request = urllib.request.Request(url, headers={'User-Agent': 'LocalDNS-bootstrap'})
@@ -61,7 +61,18 @@ try:
         raise ValueError('安装器摘要不匹配，请重新下载最新 install.sh')
     compile(source, url, 'exec')
     pathlib.Path(sys.argv[1]).write_bytes(source)
-except (OSError, ValueError, SyntaxError, urllib.error.URLError) as error:
-    raise SystemExit('安装器下载失败，请检查 GitHub 连通性和系统 CA 证书：' + str(error))
+except (ValueError, SyntaxError) as error:
+    raise SystemExit('安装器校验失败：' + str(error))
+except (OSError, urllib.error.URLError) as error:
+    reason = error.reason if isinstance(error, urllib.error.URLError) else error
+    if isinstance(reason, ssl.SSLCertVerificationError):
+        message = '安装器 HTTPS 证书校验失败，请检查服务器时间和 CA 证书'
+    elif isinstance(reason, (TimeoutError, socket.timeout)):
+        message = '安装器下载超时，请检查服务器访问 GitHub 的网络或代理'
+    elif isinstance(reason, socket.gaierror):
+        message = '安装器下载域名解析失败，请检查服务器 DNS'
+    else:
+        message = '安装器下载连接失败，请检查服务器网络或代理'
+    raise SystemExit(message + '：' + str(error))
 PY
 python3 "$WORK/install_localdns.py" "$@"

@@ -6,11 +6,12 @@ import json
 import os
 import re
 import socket
+import ssl
 import stat
 import struct
 import tempfile
 import unittest
-from urllib.error import HTTPError
+from urllib.error import HTTPError, URLError
 from pathlib import Path
 from unittest.mock import patch
 from zipfile import ZipFile, ZipInfo
@@ -110,6 +111,45 @@ class InstallerTests(unittest.TestCase):
         self.assertEqual(len(list(self.root.glob('ui.previous-*'))), 1)
         self.install('--arch', 'amd64-v1')
         self.assertEqual(len(list(self.root.glob('ui-backup-*.tar.gz'))), 2)
+
+    def updater_payload(self, omit=()):
+        names = installer.UPDATER_SETUP_FILES
+        files = {'ui-updater/' + name: (ROOT / 'tools' / name).read_bytes() for name in names if name not in omit}
+        self.archive('Full', dict(self.payload, **files), 'full')
+        self.archive('Update', dict({'ui/' + name: value for name, value in self.ui.items()}, **files), 'ui-update')
+        self.refresh_sums()
+
+    def test_real_oneclick_setup_installs_and_refreshes_all_updater_modules(self):
+        self.updater_payload()
+        self.install('--arch', 'amd64-v1', '--with-ui-updater')
+        runtime = self.stage / 'opt/localdns-updater'
+        for name in ('core_upload.py', 'online_updater.py', 'fjgli_config.py', 'upgrade_localdns.py'):
+            self.assertEqual((runtime / name).read_bytes(), (ROOT / 'tools' / name).read_bytes())
+        state = self.stage / 'var/lib/localdns-updater'
+        (state / 'state.json').write_text('{"state":"succeeded","previous":{"kind":"ui","name":"keep"}}')
+        original = (self.root / 'bin/localdns').read_bytes()
+        (runtime / 'core_upload.py').write_text('# old module\n')
+        self.install('--arch', 'amd64-v1', '--with-ui-updater')
+        self.assertEqual((runtime / 'core_upload.py').read_bytes(), (ROOT / 'tools/core_upload.py').read_bytes())
+        self.assertEqual((self.root / 'bin/localdns').read_bytes(), original)
+        self.assertEqual(json.loads((state / 'state.json').read_text())['previous']['name'], 'keep')
+
+    def test_missing_upload_module_is_rejected_before_installing_anything(self):
+        self.updater_payload(omit=('core_upload.py',))
+        with self.assertRaisesRegex(installer.InstallError, '网页升级执行端'):
+            self.install('--arch', 'amd64-v1', '--with-ui-updater')
+        self.assertFalse(self.root.exists())
+
+    def test_oneclick_refresh_preserves_an_active_task_and_current_files(self):
+        self.updater_payload()
+        self.install('--arch', 'amd64-v1', '--with-ui-updater')
+        state = self.stage / 'var/lib/localdns-updater/state.json'
+        state.write_text('{"state":"awaiting_backup","jobId":"keep"}')
+        protected = {p: p.read_bytes() for p in [state, self.root / 'ui/index.html', self.root / 'bin/localdns']}
+        with self.assertRaisesRegex(installer.InstallError, '已有升级任务'):
+            self.install('--arch', 'amd64-v1', '--with-ui-updater')
+        for path, value in protected.items():
+            self.assertEqual(path.read_bytes(), value)
 
     def test_cross_core_ui_update_stops_before_creating_backups_or_changing_files(self):
         self.install('--arch', 'amd64-v1')
@@ -299,6 +339,24 @@ class InstallerTests(unittest.TestCase):
                 with self.assertRaises(expected) as caught:
                     installer.fetch(url)
                 self.assertIs(type(caught.exception), expected)
+
+    def test_download_failures_distinguish_timeout_certificates_dns_and_gateway(self):
+        url = 'https://github.com/yyhoworks/LocalDNS/releases/download/tag/SHA256SUMS.txt'
+        cases = [
+            (URLError(TimeoutError('fixture')), '超时', 'CA 证书'),
+            (TimeoutError('fixture'), '超时', 'CA 证书'),
+            (URLError(ssl.SSLCertVerificationError(1, 'fixture')), '证书校验失败', '下载连接或读取超时'),
+            (URLError(socket.gaierror(-2, 'fixture')), '域名解析失败', 'CA 证书'),
+            (HTTPError(url, 504, 'fixture', {}, io.BytesIO()), 'HTTP 504', 'CA 证书'),
+        ]
+        for failure, expected, unwanted in cases:
+            with self.subTest(failure=failure), patch.object(installer, 'build_opener') as build:
+                build.return_value.open.side_effect = failure
+                with self.assertRaises(installer.InstallError) as error:
+                    installer.fetch(url)
+                self.assertIn(expected, str(error.exception))
+                self.assertNotIn(unwanted, str(error.exception))
+                self.assertIn(url, str(error.exception))
 
 
 if __name__ == '__main__':
