@@ -32,7 +32,9 @@ describe('management task states', () => {
 });
 describe('management groups and cache rows', () => {
   it('keeps unknown feature states disabled and distinct from off', () => {
-    const profiles = Array.from({length:8}, (_, i) => ({tag:'switch'+i,name:'Feature '+i,desc:'Description'}));
+    const profiles = Array.from({length:8}, (_, i) => ({
+      tag: 'switch' + i, name: 'Feature ' + i, desc: 'Description', group: i < 4 ? 'filter' : i < 6 ? 'cache' : 'client',
+    }));
     const root = render(groupedFeatures(profiles, {switch0:'A',switch1:'B'}));
     expect(root.querySelectorAll('input')).toHaveLength(8);
     expect(root.querySelectorAll('input:disabled')).toHaveLength(6);

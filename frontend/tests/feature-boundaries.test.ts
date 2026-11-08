@@ -36,6 +36,7 @@ describe('logs boundary', () => {
 it.each([
   ['/api/v1/upstream/config', { custom:[{tag:4}] }],
   ['/api/v1/upstream/config', { domestic:[{enabled:'yes'}] }],
+  ['/api/v1/upstream/config', { foreign:[{provider:3}] }],
   ['/api/v1/upstream/tags', [1]], ['/api/v1/upstream/ecs', {ecs:4}],
   ['/plugins/client_name', {'192.0.2.1':{name:'bad'}}],
   ['/api/v2/audit/logs', {logs:[{answers:[null]}]}],

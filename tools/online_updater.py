@@ -405,6 +405,7 @@ class OnlineUpdateManager:
         saved = read_json(self.job_directory() / 'backup/backup.json')
         if upgrade.fingerprint(stage) != saved['sourceFingerprint']:
             raise UpdateError('准备期间设置发生变化，请重新上传并准备')
+        adapted = upgrade.adapt_kernel_configuration(stage, backend)
         (stage / 'bin/localdns').write_bytes(binary)
         (stage / 'bin/localdns').chmod(0o755)
         write_json(stage / 'core-version.json', {'backendVersion': backend, 'updateCompatibility': CONTRACT,
@@ -413,6 +414,7 @@ class OnlineUpdateManager:
                   'packageSha256': self.state['uploadSha256'], 'preflight': None,
                   'targetFingerprint': upgrade.fingerprint(stage),
                   'report': {'targetBackend': backend, 'missingSubscriptionFiles': [],
+                             'kernelSettingsMigration': adapted,
                              'preserved': {name: hashes(stage / name) for name in
                                            ('config/upstreams', 'rules/manual', 'config/subscriptions')}}}
         installer.atomic_json(stage / upgrade.MARKER, record)
@@ -453,9 +455,15 @@ class OnlineUpdateManager:
                 'sha256': result['sha256'], 'bytes': result['bytes']}
 
     def wait_for_backup(self, archive):
+        migration = read_json(self.stage_path() / upgrade.MARKER)['report'].get('kernelSettingsMigration', [])
+        notes = []
+        if 'config/settings/switches.json' in migration:
+            notes.append('新内核默认启用缓存预取，可在系统页调整。')
+        if any(name.startswith('config/upstreams/') for name in migration):
+            notes.append('未标注服务商按节点独立标记；升级后请核对同一服务商名称。')
         self.save(state='awaiting_backup', step='backup', backup=archive, backupDownloaded=False,
                   preparedHashes=upgrade.stage_fingerprint(self.stage_path()),
-                  message='备份已就绪。请下载到本机，并选择下载文件校验后继续。')
+                  message='备份已就绪。' + ''.join(notes) + '请下载到本机，并选择下载文件校验后继续。')
 
     def backup_file(self, job_id):
         with self.mutex:

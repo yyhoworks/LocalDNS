@@ -189,7 +189,9 @@ python tools/package_ui.py --proxy-config-service dist/<releaseTag>/LocalDNS_Pro
 python tools/package_ui.py --full-base /path/to/published-full.zip --base-sha256 <verified-sha256>
 ```
 
-两个包均包含作者表和第三方许可。默认情况下后端程序、默认配置与规则沿用已校验的基础包。仅更新内核时额外传入 `--kernel-archive /path/to/LocalDNS_FJG4Z.zip --kernel-sha256 <verified-sha256>`：只读取三种架构 ELF 程序，不导入上游包内 UI、配置与规则；默认配置、规则和服务文件仍与旧完整包逐字节一致。
+两个包均包含作者表和第三方许可。默认情况下后端程序、默认配置与规则沿用已校验的基础包。更新内核时额外传入 `--kernel-archive /path/to/LocalDNS_FJN8C.zip --kernel-sha256 <verified-sha256>`：只读取四种架构 ELF 程序，不导入上游包内 UI、配置与规则。
+
+FJN8C 需要新增服务商和预取字段，打包与升级共用 `fjgli_config.kernel_configuration()`，只在新完整包 / 暂存目录执行已验证的四份配置迁移；保留所有其他字段，并将完整包配置的前后哈希记录到 `release.json.configurationMigration`。原始备份与通用哈希校验不变，其余默认配置、规则和服务文件继续与基础包逐字节一致。新核心出现未知配置差异时应先审查并补充明确迁移，不能放宽整类文件的完整性保护。
 
 后端单独升级不增加 UI 版号，以 `releaseTag` 选择独立发布说明和构建目录。完整包名包含后端版本，UI 升级包不包含内核。
 

@@ -46,7 +46,7 @@ export function normalizeResponse(path: string, value: unknown): unknown {
     if (endpoint === '/api/v1/upstream/config') {
       for (const group of Object.values(data)) array(group, '上游配置').forEach(item => {
         const upstream = record(item, '上游');
-        for (const key of ['tag', 'addr', 'server_addr', 'protocol', 'dial_addr', 'socks5']) {
+        for (const key of ['tag', 'addr', 'server_addr', 'protocol', 'dial_addr', 'socks5', 'provider']) {
           if (upstream[key] !== undefined && typeof upstream[key] !== 'string') throw new ApiError(`上游 ${key} 类型无效。`, 0, item, 'contract');
         }
         if (upstream.enabled !== undefined && typeof upstream.enabled !== 'boolean') throw new ApiError('上游启用状态类型无效。', 0, item, 'contract');

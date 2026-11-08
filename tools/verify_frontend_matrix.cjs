@@ -12,7 +12,10 @@ const metrics = fs.readFileSync(path.join(root, 'frontend/tests/fixtures/metrics
 const version = require('../VERSION.json');
 const baseline = process.env.LOCALDNS_FRONTEND_BASELINE;
 if (baseline) assert.match(baseline, /^[a-f0-9]{40}$/i);
-const selectors = {overview:'.console-service-summary', logs:'.log-detail', upstreams:'#up-add', rules:'.wb-list-heading', management:'[data-collection-control="caches"]'};
+const selectors = {
+  overview:'.console-service-summary', logs:'.log-detail', upstreams:'#up-add', rules:'.wb-list-heading',
+  management:'#management-cache-slot .management-cache-table'
+};
 const report = {checks:[], views:[], errors:[], warnings:[], resources:[], requests:[]};
 const cache = new Map();
 let server, browser;
@@ -46,6 +49,9 @@ async function ready(page, route) {
         await context.route('**/*', async route => {
           const request = route.request(), url = new URL(request.url()), p = fixtureKey(url.pathname);
           if (url.hostname==='api.github.com') return route.fulfill({contentType:'application/json', body:JSON.stringify({tag_name:version.releaseTag,draft:false,prerelease:false,assets:[]})});
+          if (p==='/ui/custom/traffic.json') return route.fulfill({json:{
+            date:'2026-10-19', updated:'2026-10-19T16:00:00+08:00', today:{up:1024, down:2048}
+          }});
           if (url.port==='9090') return route.fulfill({contentType:'image/svg+xml',body:'<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32"><rect width="32" height="32" fill="#386b89"/></svg>'});
           if (p==='/metrics' || p.startsWith('/api/') || p.startsWith('/plugins/')) {
             report.requests.push({mode,width,skin,theme,nav,method:request.method(),url:p+url.search});
@@ -92,10 +98,12 @@ async function ready(page, route) {
         }
         if (mode==='generated' && skin==='claude' && theme==='light-glass' && nav==='left') {
           // A saved collection choice must survive a fresh application instance.
-          await page.locator('[data-collection-control="caches"] [data-layout="list"]').click();
-          await page.reload(); await ready(page,'management');
-          assert.equal(await page.locator('[data-collection-kind="caches"]').getAttribute('data-collection-layout'),'list');
-          await page.locator('[data-collection-control="caches"] [data-layout="cards"]').click();
+          // Cache management now owns a fixed table; upstreams retains the collection layout contract.
+          await page.evaluate(() => { location.hash='#/upstreams'; }); await ready(page,'upstreams');
+          await page.locator('[data-collection-control="upstreams"] [data-layout="list"]').click();
+          await page.reload(); await ready(page,'upstreams');
+          assert.equal(await page.locator('[data-collection-kind="upstreams"]').getAttribute('data-collection-layout'),'list');
+          await page.locator('[data-collection-control="upstreams"] [data-layout="cards"]').click();
           await page.evaluate(() => { location.hash='#/logs'; }); await ready(page,'logs');
           const logRequest=report.requests.filter(item=>item.mode===mode&&item.width===width&&item.url.startsWith('/api/v2/audit/logs?')).at(-1);
           assert.equal(new URL(logRequest.url,origin).searchParams.get('limit'),width===390?'25':'50');

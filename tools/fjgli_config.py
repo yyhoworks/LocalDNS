@@ -39,6 +39,61 @@ def hashes(root):
             for p in sorted(Path(root).rglob('*')) if p.is_file()}
 
 
+def kernel_configuration(relative, value, backend):
+    """Apply only the settings additions verified against the supplied FJN8C kernel."""
+    if backend != 'FJN8C':
+        return value
+    if relative == 'config/settings/switches.json':
+        if not isinstance(value, dict):
+            raise MigrationError('功能设置必须为对象')
+        result = copy.deepcopy(value)
+        result.setdefault('prefetch', True)
+        if not isinstance(result['prefetch'], bool):
+            raise MigrationError('缓存预取设置必须为布尔值')
+        return result
+    groups = {f'config/upstreams/{group}.json': group for group in ('domestic', 'foreign', 'foreign_ecs')}
+    if relative not in groups:
+        return value
+    if not isinstance(value, dict) or not isinstance(value.get('upstreams'), list):
+        raise MigrationError('上游配置格式无效：' + relative)
+    result = copy.deepcopy(value)
+    used = {node['provider'] for node in result['upstreams']
+            if isinstance(node, dict) and isinstance(node.get('provider'), str) and node['provider'].strip()}
+    for index, node in enumerate(result['upstreams']):
+        if not isinstance(node, dict):
+            raise MigrationError('上游节点必须为对象：' + relative)
+        provider = node.get('provider')
+        if provider is not None and not isinstance(provider, str):
+            raise MigrationError('上游服务商必须为文本：' + relative)
+        if not provider or not provider.strip():
+            # Per-node labels preserve the old node identities; never guess an ISP
+            # or collapse unrelated servers into a single provider voting group.
+            label = '未标注 · ' + groups[relative] + '-' + str(index + 1)
+            provider, suffix = label, 1
+            while provider in used:
+                suffix += 1
+                provider = label + '-' + str(suffix)
+            node['provider'] = provider
+            used.add(provider)
+    return result
+
+
+def adapt_kernel_configuration(root, backend):
+    """Adapt a staged installation only; callers retain the untouched source backup."""
+    changed = []
+    for relative in ('config/settings/switches.json', 'config/upstreams/domestic.json',
+                     'config/upstreams/foreign.json', 'config/upstreams/foreign_ecs.json'):
+        path = Path(root) / relative
+        if not path.is_file():
+            continue
+        value = read_json(path)
+        adapted = kernel_configuration(relative, value, backend)
+        if adapted != value:
+            write_json(path, adapted)
+            changed.append(relative)
+    return changed
+
+
 def replace_tree(source, target):
     safe_tree(source)
     safe_tree(target)
