@@ -17,7 +17,7 @@ const switches: Record<string, { key: string; value?: string }> = {
 };
 const groups = 'custom_cn|custom_non_cn|geoip_cn|geoip_non_cn|geosite_cn|geosite_non_cn';
 
-function features(value: unknown): Features {
+export function parseFeatures(value: unknown): Features {
   if (!value || typeof value !== 'object' || Array.isArray(value)) {
     throw new ApiError('功能开关返回格式无效。', 0, value, 'contract');
   }
@@ -29,6 +29,9 @@ function features(value: unknown): Features {
   }
   if (!['normal', 'listed_proxy_only', 'listed_direct'].includes(String(data.client_policy))) {
     throw new ApiError('客户端策略无法识别。', 0, value, 'contract');
+  }
+  if ('prefetch' in data && typeof data.prefetch !== 'boolean') {
+    throw new ApiError('缓存预取开关类型无效。', 0, value, 'contract');
   }
   return data;
 }
@@ -51,7 +54,7 @@ export class BackendClient {
       this.family = this.http.request('/api/v1/features').then(value => {
         // Older cores may serve the UI fallback for unknown routes.
         if (typeof value === 'string' && /^\s*(?:<!doctype html|<html)/i.test(value)) return 'legacy' as const;
-        features(value);
+        parseFeatures(value);
         return 'fjgli' as const;
       }).catch(error => {
         if (error instanceof ApiError && [404, 405, 501].includes(error.status)) return 'legacy' as const;
@@ -73,7 +76,7 @@ export class BackendClient {
     if (!field) throw new Error('内核不支持此功能开关。');
     if (action === 'show') {
       return this.http.request('/api/v1/features', options).then(value => {
-        const data = features(value);
+        const data = parseFeatures(value);
         return (field.value ? data[field.key] === field.value : data[field.key] === true) ? 'A' : 'B';
       });
     }
@@ -83,7 +86,7 @@ export class BackendClient {
     // Existing screens disable the opposite switch after selecting a policy.
     // Serialize these changes and only clear the policy that is actually selected.
     const operation = this.policyQueue.then(async () => {
-      const current = features(await this.http.request('/api/v1/features', { ...options, method: 'GET', body: undefined }));
+      const current = parseFeatures(await this.http.request('/api/v1/features', { ...options, method: 'GET', body: undefined }));
       if (value === 'B' && current.client_policy !== field.value) return current;
       return this.json('/api/v1/features', options, 'PUT', { client_policy: value === 'A' ? field.value : 'normal' });
     });

@@ -9,6 +9,7 @@ import { modalOpen, confirmDialog } from '../../shared/components/dialog.js';
 import { toast } from '../../shared/components/toast.js';
 import { openCacheDrawer } from './cache-drawer.js';
 import { switchProfiles } from './feature-profiles.js';
+import { readFeatureSwitches } from './features';
 import { modalClose } from '../../shared/components/dialog.js';
 import { $, state, page, $$ } from '../../core/context.js';
 import { api } from '../../core/api/api.js';
@@ -251,7 +252,7 @@ import { clearGithubToken, maskToken, RATE_LIMIT_ENDPOINT, readGithubToken, RELE
 
     const renderSeq=state.renderSeq;
     const isCurrent=()=>state.route==='management'&&state.renderSeq===renderSeq;
-    const tags=switchProfiles.map(x=>x.tag);
+    let activeProfiles = switchProfiles.filter(profile => !profile.optional);
     const skeletonBlock=(height=150)=>`<div class="skeleton" style="height:${height}px;border-radius:12px"></div>`;
 
     setHTML(page, `
@@ -305,7 +306,10 @@ import { clearGithubToken, maskToken, RATE_LIMIT_ENDPOINT, readGithubToken, RELE
     // 服务徽标复用本页已有的 /metrics 健康检查：初始为“状态未知”，
     // 只有后端成功响应指标时才翻为“运行中”；失败则保持未知，不写死端口。
     const serviceBadge=page.querySelector('.service-card-badge');
-    const switchPromise=Promise.all(tags.map(t=>safe(()=>api.request(`/plugins/${t}/show`),'error'))).then(results=>Object.fromEntries(tags.map((t,i)=>[t,String(results[i]).trim()])));
+    const switchPromise = readFeatureSwitches(path => api.request(path)).then(result => {
+      activeProfiles = result.profiles;
+      return result.status;
+    });
     const metricsPromise=api.metrics();
     const cacheSettingsPromise=safeResult(()=>readCacheSettings(path=>api.request(path)));
     metricsPromise.then(()=>{if(!isCurrent()||!serviceBadge)return;serviceBadge.classList.add('success');serviceBadge.textContent='● 运行中';},()=>{/* 查不到时保持“状态未知” */});
@@ -315,10 +319,35 @@ import { clearGithubToken, maskToken, RATE_LIMIT_ENDPOINT, readGithubToken, RELE
 
     switchPromise.then(status=>{
       if(!isCurrent())return;
-      const featureHtml=groupedFeatures(switchProfiles,status);
+      const featureHtml=groupedFeatures(activeProfiles,status);
       const featureSlot=$('#management-feature-slot');
-      if(featureSlot)setHTML(featureSlot, card('功能设置',featureHtml,{iconName:'features',subtitle:'按用途分组管理',actions:featureSummary(switchProfiles,status),className:'management-feature-panel'}));
-      $$('[data-switch]').forEach(x=>x.onchange=async()=>{const tag=x.dataset.switch,val=x.checked?'A':'B';let rollbackNeeded=false;$$('[data-switch]',page).forEach(input=>input.disabled=true);try{await api.json(`/plugins/${tag}/post`,'POST',{value:val});if(x.checked&&(tag==='switch2'||tag==='switch12')){rollbackNeeded=true;const other=tag==='switch2'?'switch12':'switch2';await api.json(`/plugins/${other}/post`,'POST',{value:'B'});}toast('功能状态已保存');renderRoute(true)}catch(e){if(rollbackNeeded){try{await api.json(`/plugins/${tag}/post`,'POST',{value:val==='A'?'B':'A'});}catch{/* 回滚失败时仍用下面的重渲染回读服务端真实状态 */}}toast('切换失败','error',e.message);renderRoute(true)}});
+      if (featureSlot) setHTML(featureSlot, card('功能设置', featureHtml, {
+        iconName: 'features', subtitle: '按用途分组管理', actions: featureSummary(activeProfiles, status),
+        className: 'management-feature-panel',
+      }));
+      $$('[data-switch]', page).forEach(input => input.onchange = async () => {
+        const tag = input.dataset.switch, value = input.checked ? 'A' : 'B';
+        let rollbackNeeded = false;
+        $$('[data-switch]', page).forEach(control => control.disabled = true);
+        try {
+          if (tag === 'prefetch') await api.json('/api/v1/features', 'PUT', { prefetch: input.checked });
+          else await api.json(`/plugins/${tag}/post`, 'POST', { value });
+          if (input.checked && (tag === 'switch2' || tag === 'switch12')) {
+            rollbackNeeded = true;
+            const other = tag === 'switch2' ? 'switch12' : 'switch2';
+            await api.json(`/plugins/${other}/post`, 'POST', { value: 'B' });
+          }
+          if (isCurrent()) toast('功能状态已保存');
+        } catch (error) {
+          if (rollbackNeeded) {
+            try { await api.json(`/plugins/${tag}/post`, 'POST', { value: value === 'A' ? 'B' : 'A' }); }
+            catch { /* Re-read the server's actual state below. */ }
+          }
+          if (isCurrent()) toast('切换失败', 'error', error.message);
+        } finally {
+          if (isCurrent()) renderRoute(true);
+        }
+      });
     });
 
     Promise.all([switchPromise,metricsPromise,cacheSettingsPromise]).then(([status,metricsRaw,cacheSettingsResult])=>{

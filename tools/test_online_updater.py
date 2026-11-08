@@ -357,6 +357,48 @@ class OnlineTests(unittest.TestCase):
         self.assertEqual(self.continue_update()['state'], 'succeeded')
         self.assertEqual((self.root / 'bin/localdns').read_bytes(), b'original')
 
+    def test_fjn8c_upload_adapts_staging_only_and_restores_original_settings(self):
+        self.prepare_upload('FJN8C')
+        self.assertIn('缓存预取', self.manager.status()['message'])
+        self.assertIn('服务商', self.manager.status()['message'])
+        stage = self.manager.stage_path()
+        self.assertTrue(read_json(stage / 'config/settings/switches.json')['prefetch'])
+        self.assertIn('provider', read_json(stage / 'config/upstreams/domestic.json')['upstreams'][0])
+        self.assertNotIn('prefetch', read_json(self.root / 'config/settings/switches.json'))
+        self.assertNotIn('provider', read_json(self.root / 'config/upstreams/domestic.json')['upstreams'][0])
+        original = hashes(self.root / 'config')
+        report = read_json(stage / upgrade.MARKER)['report']
+        self.assertIn('config/settings/switches.json', report['kernelSettingsMigration'])
+        self.assertEqual(self.continue_update()['state'], 'succeeded')
+        self.manager.start(rollback=True)
+        self.assertEqual(self.finish()['state'], 'awaiting_backup')
+        self.assertEqual(self.continue_update()['state'], 'succeeded')
+        self.assertEqual(hashes(self.root / 'config'), original)
+
+    def check_fjn8c_release_migration(self, mode):
+        self.version.update(backendVersion='FJN8C', releaseTag='fjn8c-ui-v2026.11.08.2', uiVersion='2026.11.08.2')
+        self.package()
+        original = hashes(self.root / 'config')
+        old_ui = (self.root / 'ui/index.html').read_bytes()
+        self.prepare(mode)
+        stage = self.manager.stage_path()
+        self.assertEqual(hashes(self.root / 'config'), original)
+        self.assertTrue(read_json(stage / 'config/settings/switches.json')['prefetch'])
+        self.assertIn('provider', read_json(stage / 'config/upstreams/domestic.json')['upstreams'][0])
+        self.assertEqual((stage / 'ui/index.html').read_bytes(), old_ui if mode == 'core' else b'new UI')
+        self.assertEqual(self.continue_update()['state'], 'succeeded')
+        self.manager.start(rollback=True)
+        self.assertEqual(self.finish()['state'], 'awaiting_backup')
+        self.assertEqual(self.continue_update()['state'], 'succeeded')
+        self.assertEqual(hashes(self.root / 'config'), original)
+        self.assertEqual((self.root / 'ui/index.html').read_bytes(), old_ui)
+
+    def test_fjn8c_full_release_migrates_staging_and_restores_the_original_snapshot(self):
+        self.check_fjn8c_release_migration('full')
+
+    def test_fjn8c_core_release_migrates_staging_and_preserves_ui_then_rolls_back(self):
+        self.check_fjn8c_release_migration('core')
+
     def test_uploaded_same_version_uses_binary_identity_and_preflight_failure_keeps_old_core(self):
         self.prepare_upload('FJH7T')
         self.manager.downloaded(self.manager.status()['jobId'])

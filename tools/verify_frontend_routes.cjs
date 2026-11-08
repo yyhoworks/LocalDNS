@@ -53,7 +53,7 @@ let server,browser;
    await page.evaluate(route=>location.hash='#/'+route,name);await page.locator(routeSelectors[name]).waitFor();
    await page.evaluate(()=>document.fonts.ready);
    await page.waitForFunction(()=>!document.querySelector('#page-content .skeleton'));
-   if(name==='management')await page.locator('[data-collection-control="caches"]').waitFor();
+   if(name==='management')await page.locator('#management-cache-slot .management-cache-table').waitFor();
    await page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));
    assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),`${name}/${width} overflows`);
    assert(await page.locator('#page-content').innerText());
@@ -80,7 +80,12 @@ let server,browser;
     state='error';await page.evaluate(route=>location.hash='#/'+route,name);
     // Overview degrades per source instead of failing the page (features/overview/index.js degradedParts):
     // it still renders and reports every unavailable part in one toast. Other routes show .error-panel.
-    if(name==='overview'){await page.locator(routeSelectors.overview).waitFor();await page.locator('.toast',{hasText:'部分数据暂不可用'}).filter({hasText:'运行统计、排行数据、系统指标读取失败'}).first().waitFor();}
+    if(name==='overview'){
+     await page.locator(routeSelectors.overview).waitFor();
+     let notice=page.locator('.toast',{hasText:'部分数据暂不可用'});
+     for(const label of ['运行统计','排行数据','系统指标','开关状态','读取失败'])notice=notice.filter({hasText:label});
+     await notice.first().waitFor();
+    }
     else await page.locator('.error-panel').first().waitFor();
     state='success';const retry=page.locator('#retry-page,#rule-retry');
     if(await retry.count())await retry.first().click();else await page.reload();

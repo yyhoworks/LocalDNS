@@ -8,13 +8,23 @@ import { modalOpen, confirmDialog } from '../../shared/components/dialog.js';
 import { renderRoute } from '../../core/router/router.js';
 import { esc } from '../../shared/format/number.js';
 import { groupName } from './groups.js';
+import { providerOptions, withProvider } from './providers';
 
   async function renderUpstreams(container, context){
  const renderScope = context.scope, page = container;
 
-    const {config, ecs, groups, rows, degraded} = await readUpstreams(renderScope);
-    const model = {config, ecs, groups};
-    setHTML(page, `<div class="view-title-row"><div><h1>解析</h1></div><div class="workspace-actions"><button type="button" class="glass-btn primary" id="up-add">添加上游节点</button></div></div><div class="col-12">${workspaceService.upstreams(rows,groups)}</div>`);
+    const {config, ecs, groups, rows, providers, degraded} = await readUpstreams(renderScope);
+    const model = {config, ecs, groups, providers};
+    setHTML(page, `<div class="view-title-row"><div><h1>解析</h1></div><div class="workspace-actions">
+      <button type="button" class="glass-btn primary" id="up-add">
+        添加上游节点
+      </button></div></div><div class="col-12">${workspaceService.upstreams(rows, groups, providers === true)}</div>`);
+    if (degraded.providers) {
+      const note = document.createElement('p');
+      note.className = 'form-note';
+      note.textContent = '服务商设置暂不可用，请刷新后重试；其他上游设置仍可编辑。';
+      page.querySelector('.view-title-row')?.after(note);
+    }
     if(degraded?.metrics||degraded?.ecs){const note=document.createElement('p');note.className='form-note';note.textContent=`部分数据暂不可用：${[degraded.metrics?'上游指标':null,degraded.ecs?'ECS 设置':null].filter(Boolean).join('、')}读取失败，已按空数据展示。`;const titleRow=page.querySelector('.view-title-row');if(titleRow)titleRow.after(note);else page.append(note);}
     $$('.up-toggle',page).forEach(x=>x.onchange=()=>toggleUpstream(x.closest('tr'),x.checked));
     $$('.up-edit',page).forEach(x=>x.onclick=()=>openUpstreamModal(x.closest('tr')));
@@ -42,10 +52,18 @@ import { groupName } from './groups.js';
     // SOCKS5 only for foreign / foreign_ecs; ECS only for foreign_ecs. The timeout takes the place of the fields a group does not have.
     const hasSocks=g=>g==='foreign'||g==='foreign_ecs';
     const fieldsHtml=(g,v)=>{
-      const f=(id,label,value,extra='')=>`<div class="field"><label>${label}</label><input id="${id}" ${extra} value="${esc(value)}"></div>`;
+      const f = (id, label, value, extra = '', hint = '') => `<div class="field">
+        <label for="${id}">${label}</label><input id="${id}" ${extra} value="${esc(value)}">
+        ${hint ? `<p class="form-note">${esc(hint)}</p>` : ''}</div>`;
       return `<div class="field"><label>名称</label><input id="u-tag" value="${esc(v.tag)}" required></div>
       <div class="field"><label>协议</label><select id="u-protocol">${['udp','tcp','tls','https'].map(x=>`<option ${x===v.protocol?'selected':''}>${x}</option>`).join('')}</select></div>
       ${f('u-addr','服务器地址',v.addr,'required placeholder="223.5.5.5:53 或 https://.../dns-query"')}
+      ${model.providers === true && g !== 'proxy' ? `
+        ${f('u-provider', '服务商', v.provider, 'list="u-provider-options" autocomplete="off" required',
+          '同一服务商请使用相同名称，支持自定义名称。')}
+        <datalist id="u-provider-options">
+          ${providerOptions(g).map(name => `<option value="${esc(name)}"></option>`).join('')}
+        </datalist>` : ''}
       ${f('u-dial','拨号地址',v.dial,'placeholder="可选"')}
       ${hasSocks(g)?f('u-socks','SOCKS5',v.socks,'placeholder="可选"'):''}
       ${g==='foreign_ecs'?f('u-ecs','ECS',v.ecs,'placeholder="一个 IPv4 或 IPv6，可留空；IPv4 默认 /24，IPv6 默认 /56"'):''}
@@ -53,17 +71,30 @@ import { groupName } from './groups.js';
     };
     // modal 内缓存上次输入的 ECS：切换分组导致 ECS 输入框被移除时，
     // 下次切回 foreign_ecs 优先用缓存值而非全局 model.ecs，避免丢掉已输入值。
-    let cachedEcs=null;
-    const readForm=()=>{const ecsField=$('#u-ecs');if(ecsField)cachedEcs=ecsField.value;return {tag:$('#u-tag').value,protocol:$('#u-protocol').value,addr:$('#u-addr').value,dial:$('#u-dial').value,socks:$('#u-socks')?$('#u-socks').value:'',ecs:ecsField?ecsField.value:((cachedEcs??model.ecs)||''),timeout:$('#u-timeout').value};};
-    const initial={tag:u.tag||'',protocol:u.protocol||'udp',addr:u.addr||u.server_addr||'',dial:u.dial_addr||'',socks:u.socks5||'',ecs:model.ecs||'',timeout:u.upstream_query_timeout||0};
+    let cachedEcs = null, cachedProvider = u.provider || '';
+    const readForm = () => {
+      const ecsField = $('#u-ecs'), providerField = $('#u-provider');
+      if (ecsField) cachedEcs = ecsField.value;
+      if (providerField) cachedProvider = providerField.value;
+      return {
+        tag: $('#u-tag').value, protocol: $('#u-protocol').value, addr: $('#u-addr').value,
+        dial: $('#u-dial').value, socks: $('#u-socks')?.value || '', provider: cachedProvider,
+        ecs: ecsField ? ecsField.value : ((cachedEcs ?? model.ecs) || ''), timeout: $('#u-timeout').value,
+      };
+    };
+    const initial = {
+      tag: u.tag || '', protocol: u.protocol || 'udp', addr: u.addr || u.server_addr || '', dial: u.dial_addr || '',
+      socks: u.socks5 || '', provider: u.provider || '', ecs: model.ecs || '', timeout: u.upstream_query_timeout || 0,
+    };
     modalOpen(edit?'编辑上游 DNS':'添加上游 DNS','保存后立即生效',`<div class="grid grid-2">
       <div class="field"><label>所属组</label><select id="u-group" ${edit?'disabled':''}>${groups.map(g=>`<option value="${esc(g)}" ${g===group?'selected':''}>${esc(groupName(g))}</option>`).join('')}</select></div>
       <span id="u-fields" style="display:contents">${fieldsHtml(group,initial)}</span>
     </div>`,async()=>{
       const g=$('#u-group').value;
       const v=readForm();
-      const item=Object.assign({},u,{tag:v.tag.trim(),protocol:v.protocol,enabled:u.enabled!==false});
-      if(!item.tag)throw new Error('名称不能为空');
+      const node = { ...u, tag: v.tag.trim(), protocol: v.protocol, enabled: u.enabled !== false };
+      if (!node.tag) throw new Error('名称不能为空');
+      const item = withProvider(node, g, v.provider, model.providers === true);
       item.addr=v.addr.trim();
       item.dial_addr=v.dial.trim();
       if(hasSocks(g))item.socks5=v.socks.trim();else delete item.socks5;
