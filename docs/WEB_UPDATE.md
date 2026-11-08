@@ -58,6 +58,13 @@ python3 ui-updater/install_ui_updater.py --unified \
 
 ## GitHub 限流时更新
 
+2026.11.08.4 在正常取得发行元数据后，优先通过同一仓库的[官方附件 API](https://docs.github.com/en/rest/releases/assets#get-a-release-asset)
+使用 `Accept: application/octet-stream` 下载文件，支持 HTTPS 302 重定向到 GitHub 附件 CDN。
+这样不必先访问 `github.com/releases/download/...` 网页下载路径；版本 API 可访问、下载网页却超时 / 504 的网络也可更新。
+这是同一附件的官方入口，仍核对 API `digest`、`SHA256SUMS.txt` 和全文件清单，不关闭 TLS 或使用第三方镜像。
+附件 API 仍受 GitHub 限额约束；超时、网关或限流时才回退对应附件的原始下载地址。
+证书、权限、文件缺失和摘要错误不走备用入口。无法取得附件 ID 的已知标签降级路径继续使用官方下载地址。
+
 浏览器检查版本与服务器查询发行版是两条独立请求。GitHub 匿名 REST 请求按出口 IP 共享每小时 60 次额度，共用代理或 NAT 的用户更容易触发限制。参考 [GitHub 官方限流说明](https://docs.github.com/en/rest/using-the-rest-api/rate-limits-for-the-rest-api)。
 
 - 网页仍保留上次成功检查的发行版与时间。遇到限流时读取 `Retry-After` / `X-RateLimit-Reset`，显示允许再次检查的时间；缺少可读响应头时至少等待一分钟。等待状态写入本机浏览器存储，手动检查和刷新页面也遵守等待时间。
@@ -70,6 +77,10 @@ python3 ui-updater/install_ui_updater.py --unified \
 这些行为需要新版 UI 及服务器安装器/升级服务同时更新。只升级网页无法改变服务器旧下载逻辑。GitHub 也可能对网页或下载施加独立限制，降级不能保证解决所有 403、429 或网络错误。
 
 ## 上传原作者内核 ZIP
+
+任务到“等待备份确认”时，服务器已暂停准备后的步骤，并未持续更换内核。
+需下载完整备份、在当前浏览器选择文件校验，再点击继续，才会预检与切换。
+新版 UI 在此阶段停止转圈并收起其他升级选项；页面刷新后“内核已上传”表示现有任务文件仍在，无需重新上传。
 
 下载日志提示“连接或读取超时”或 HTTP 502 / 503 / 504 时，先检查服务器访问 GitHub 下载域名的网络和代理。
 能检查版本不代表能下载附件；浏览器与服务器的网络也可能不同。只有明确的“证书校验失败”才指向时间或 CA 检查。

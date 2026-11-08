@@ -65,6 +65,7 @@ describe('upgrade panel migration requirements', () => {
     expect(container.querySelector<HTMLElement>('[data-help]')!.hidden).toBe(false);
     status.mockResolvedValue({
       state: 'awaiting_backup', canRollback: false, jobId: 'a'.repeat(24), mode: 'core',
+      source: 'upload', targetBackend: 'FJN8C',
       backup: { name: 'backup.tar.gz', sha256: 'b'.repeat(64), bytes: 100 },
     });
     await connect();
@@ -72,6 +73,16 @@ describe('upgrade panel migration requirements', () => {
     expect(container.querySelector<HTMLButtonElement>('[data-download]')!.disabled).toBe(false);
     expect(container.querySelector<HTMLElement>('[data-updater-warning]')!.hidden).toBe(true);
     expect(container.querySelector('[data-connection]')!.textContent).toContain('已有任务可按原流程继续');
+    const start = container.querySelector<HTMLButtonElement>('[data-start="core"]')!;
+    expect(start.textContent).toBe('等待备份确认');
+    expect(start.classList.contains('busy')).toBe(false);
+    expect(start.hasAttribute('aria-busy')).toBe(false);
+    expect(container.querySelector('[data-mode="core"] [data-pill]')!.textContent).toBe('等待确认');
+    expect(container.querySelector('[data-core-name]')!.textContent).toContain('内核已上传');
+    expect(container.querySelector('[data-mode="core"] [data-reason]')!.textContent).toContain('下方下载完整备份');
+    expect(container.querySelector('[data-mode="core"] [data-reason]')!.textContent).not.toContain('先更新升级服务');
+    expect(container.querySelector<HTMLElement>('[data-mode="full"]')!.hidden).toBe(true);
+    expect(container.querySelector<HTMLElement>('[data-mode="ui"]')!.hidden).toBe(true);
   });
 });
 
