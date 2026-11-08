@@ -14,6 +14,9 @@
     .tabular, .mono, td {
       font-variant-numeric: tabular-nums;
     }
+    code, pre, kbd, samp {
+      font-family: var(--font-mono);
+    }
     .wallpaper-layer {
       position: fixed;
       inset: 0;
