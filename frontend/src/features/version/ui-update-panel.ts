@@ -33,7 +33,7 @@ export function createUIUpdatePanel(container: HTMLElement) {
   const currentUI = () => installed ? { ...installed, uiVersion: task.installedVersion || installed.uiVersion, backendVersion: task.installedBackend || installed.backendVersion } : installed;
   const describe = (failure: unknown) => failure instanceof Error && (failure.name === 'TypeError' || /Failed to fetch|NetworkError/.test(failure.message)) ? '连接失败，请重试。' : failure instanceof Error ? failure.message : '连接失败，请重试。';
   const target = (mode: UpdateMode) => upgradeTarget(currentUI(), latest, {
-    mode, unified: Boolean(client?.unified), migrationReady: client?.migrationReady,
+    mode, unified: Boolean(client?.unified), configurationMigrations: client?.configurationMigrations,
   });
   const uploadReady = () => Boolean(client?.coreUpload && client.migrationReady);
   function accept(value: UIUpdateStatus) {

@@ -8,6 +8,9 @@ from pathlib import Path, PurePosixPath
 from urllib.parse import urlsplit
 
 
+KERNEL_SETTINGS_MIGRATIONS = ('FJN8C', 'FJO02')
+
+
 class MigrationError(RuntimeError):
     pass
 
@@ -40,8 +43,8 @@ def hashes(root):
 
 
 def kernel_configuration(relative, value, backend):
-    """Apply only the settings additions verified against the supplied FJN8C kernel."""
-    if backend != 'FJN8C':
+    """Apply only the settings additions verified for the target kernel."""
+    if backend not in KERNEL_SETTINGS_MIGRATIONS:
         return value
     if relative == 'config/settings/switches.json':
         if not isinstance(value, dict):

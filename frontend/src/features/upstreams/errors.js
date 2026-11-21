@@ -15,19 +15,54 @@ import { api } from '../../core/api/api.js';
     http:'HTTP 错误',protocol:'回答格式错误',unpack:'回答格式错误',other:'其他错误'
   };
 
-  function upstreamErrorReasonName(reason){return upstreamErrorReasonLabels[String(reason||'').toLowerCase()]||String(reason||'其他错误').replace(/_/g,' ')}
+  function upstreamErrorReasonName(reason) {
+    const key = String(reason || 'other').toLowerCase();
+    return Object.prototype.hasOwnProperty.call(upstreamErrorReasonLabels, key)
+      ? upstreamErrorReasonLabels[key] : String(reason).replace(/_/g, ' ');
+  }
+
+  function readErrorReasons(metrics, name, group, tag) {
+    const rows = metrics.filter(sample => sample.name === name && sample.labels.metrics_tag === group
+      && sample.labels.tag === tag && sample.labels.reason && Number.isFinite(sample.value) && sample.value >= 0);
+    const counts = new Map();
+    for (const row of rows) {
+      const reason = row.labels.reason.toLowerCase();
+      counts.set(reason, (counts.get(reason) || 0) + row.value);
+    }
+    const reasons = [...counts].filter(([, value]) => value > 0)
+      .map(([reason, value]) => ({ reason, label: upstreamErrorReasonName(reason), value }))
+      .sort((left, right) => right.value - left.value || left.label.localeCompare(right.label));
+    return { reasons, reasonSupported: rows.length > 0 };
+  }
+
+  function readErrorRound(metrics, group, tag, lastError) {
+    const sample = name => metrics.find(item => item.name === name && item.labels.metrics_tag === group
+      && item.labels.tag === tag)?.value;
+    const errors = sample('localdns_upstream_round_errors');
+    const successes = sample('localdns_upstream_round_successes');
+    if (![errors, successes].every(value => Number.isFinite(value) && value >= 0)) return null;
+    const now = metricFind(metrics, 'localdns_unixtime_seconds');
+    const quiet = metricFind(metrics, 'localdns_upstream_error_round_quiet_seconds');
+    if (Number.isFinite(now) && Number.isFinite(quiet) && quiet > 0 && lastError > 0 && now - lastError >= quiet) {
+      return { err: 0, success: null, lastError: 0, reasons: [], reasonSupported: false };
+    }
+    return {
+      err: errors, success: successes + errors > 0 ? successes / (successes + errors) * 100 : null, lastError,
+      ...readErrorReasons(metrics, 'localdns_upstream_round_error_reason', group, tag),
+    };
+  }
 
   function upstreamMetrics(metrics,group,tag){
     const labels={metrics_tag:group,tag};
     const q=metricFind(metrics,'localdns_upstream_query_total',labels),err=metricFind(metrics,'localdns_upstream_error_total',labels),win=metricFind(metrics,'localdns_upstream_upstream_winner_total',labels),sum=metricFind(metrics,'localdns_upstream_response_latency_millisecond_sum',labels),count=metricFind(metrics,'localdns_upstream_response_latency_millisecond_count',labels);
-    const reasonMetricNames=new Set(['localdns_upstream_upstream_error_reason_total']);
-    const reasonRows=metrics.filter(x=>reasonMetricNames.has(x.name)&&x.labels.metrics_tag===group&&x.labels.tag===tag&&x.labels.reason);
-    const reasonMap={}; reasonRows.forEach(x=>{const key=String(x.labels.reason||'other').toLowerCase();reasonMap[key]=(reasonMap[key]||0)+(Number(x.value)||0)});
-    const reasons=Object.entries(reasonMap).map(([reason,value])=>({reason,label:upstreamErrorReasonName(reason),value})).filter(x=>x.value>0).sort((a,b)=>b.value-a.value||a.label.localeCompare(b.label));
-    const lastErrorNames=['localdns_upstream_upstream_last_error_unixtime_seconds'];
-    let lastError=0; for(const name of lastErrorNames){lastError=metricFind(metrics,name,labels);if(lastError)break;}
+    const lastError = metricFind(metrics, 'localdns_upstream_upstream_last_error_unixtime_seconds', labels);
     const ok=metricFind(metrics,'localdns_upstream_success_total',labels);
-    return {q,err,win,latencySamples:count,latency:count?sum/count:0,success:(ok+err)?ok/(ok+err)*100:null,adoption:q?win/q*100:0,reasons,lastError,reasonSupported:reasonRows.length>0};
+    return {
+      q, err, win, latencySamples: count, latency: count ? sum / count : 0,
+      success: ok + err ? ok / (ok + err) * 100 : null, adoption: q ? win / q * 100 : 0, lastError,
+      ...readErrorReasons(metrics, 'localdns_upstream_upstream_error_reason_total', group, tag),
+      round: readErrorRound(metrics, group, tag, lastError),
+    };
   }
 
   function upstreamErrorTime(ts){
@@ -48,7 +83,9 @@ import { api } from '../../core/api/api.js';
 
   function openUpstreamErrorPopover(trigger,row){
     closeUpstreamErrorPopover();
-    const {g,u,m}=row;
+    const {g,u}=row;
+    const m = row.m.round ?? row.m;
+    const countLabel = row.m.round ? '当前轮次' : '累计';
     const reasonTotal=(m.reasons||[]).reduce((n,x)=>n+(Number(x.value)||0),0);
     const detail=m.reasonSupported
       ?(m.reasons.length
@@ -58,14 +95,21 @@ import { api } from '../../core/api/api.js';
     const totalMismatch=m.reasonSupported&&reasonTotal!==Number(m.err||0)?`<div class="up-error-warning">分类合计 ${num(reasonTotal)} 与错误总数 ${num(m.err)} 不一致，请检查后端统计口径。</div>`:'';
     const last=m.lastError?`<div class="up-error-meta-row"><span>最近错误</span><strong>${esc(upstreamErrorTime(m.lastError))}</strong></div>`:'';
     const pop=document.createElement('div'); pop.id='upstream-error-popover'; pop.className='up-error-popover'; pop.setAttribute('role','dialog'); pop.setAttribute('aria-label',`${u.tag} 错误详情`);
-    setHTML(pop, `<div class="up-error-popover-head"><div><strong>${esc(u.tag)} · 错误详情</strong><span>${esc(groupName(g))} · ${esc(u.protocol||'')}</span></div><button type="button" class="up-error-popover-close" aria-label="关闭">×</button></div>${detail}${totalMismatch}<div class="up-error-popover-meta"><div class="up-error-meta-row"><span>总计</span><strong>${num(m.err)}</strong></div>${last}</div><div class="up-error-recent"></div>`);
+    setHTML(pop, `<div class="up-error-popover-head"><div><strong>${esc(u.tag)} · 错误详情</strong>
+      <span>${esc(groupName(g))} · ${esc(u.protocol || '')}</span></div>
+      <button type="button" class="up-error-popover-close" aria-label="关闭">×</button></div>
+      ${detail}${totalMismatch}<div class="up-error-popover-meta">
+      <div class="up-error-meta-row"><span>${countLabel}错误</span><strong>${num(m.err)}</strong></div>${last}</div>
+      <div class="up-error-recent"></div>`);
     document.body.appendChild(pop); pop.querySelector('.up-error-popover-close').onclick=closeUpstreamErrorPopover;
     const recentBox=pop.querySelector('.up-error-recent');
     if(Number(m.err||0)>0) api.json('/api/v1/status').then(st=>{
       const s=(st.upstream_stats||[]).find(x=>x.group===g&&x.tag===u.tag);
       const list=(s&&s.recent_errors)||[];
-      if(!list.length) return;
-      setHTML(recentBox, `<div class="up-error-recent-title">最近错误原因</div>${list.map(x=>`<div class="up-error-recent-row"><span>${esc(upstreamErrorTime(x.time))}</span><em>${esc(x.error)}</em></div>`).join('')}`);
+      if (!pop.isConnected || !list.length) return;
+      setHTML(recentBox, `<div class="up-error-recent-title">最近错误记录</div>${list.map(item =>
+        `<div class="up-error-recent-row"><span>${esc(upstreamErrorTime(item.time))}</span>
+          <em>${esc(item.error)}</em></div>`).join('')}`);
     }).catch(()=>{});
     const r=trigger.getBoundingClientRect(),gap=8,pad=12,w=Math.min(340,window.innerWidth-pad*2); pop.style.width=`${w}px`;
     const ph=pop.offsetHeight; let left=Math.min(Math.max(pad,r.left+r.width/2-w/2),window.innerWidth-w-pad); let top=r.bottom+gap;

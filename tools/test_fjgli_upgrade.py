@@ -308,6 +308,13 @@ class KernelConfigurationTests(unittest.TestCase):
         with self.assertRaises(MigrationError):
             kernel_configuration('config/upstreams/foreign.json', {'upstreams': [{'provider': 1}]}, 'FJN8C')
 
+    def test_fjo02_leaves_existing_prefetch_providers_and_proxy_settings_unchanged(self):
+        settings = {'prefetch': False, 'full_cache': True, 'future': {'keep': True}}
+        self.assertEqual(kernel_configuration('config/settings/switches.json', settings, 'FJO02'), settings)
+        upstreams = {'upstreams': [{'tag': 'custom', 'provider': '服务商', 'future': 42}], 'ecs': '192.0.2.0/24'}
+        self.assertEqual(kernel_configuration('config/upstreams/foreign_ecs.json', upstreams, 'FJO02'), upstreams)
+        self.assertIs(kernel_configuration('config/upstreams/proxy.json', upstreams, 'FJO02'), upstreams)
+
 
 class VerifyVersionTests(unittest.TestCase):
     def setUp(self):

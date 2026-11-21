@@ -28,7 +28,7 @@ describe('upgrade panel recovery', () => {
     const discover = vi.spyOn(UIUpdateClient.prototype, 'discover').mockImplementation(async function(this: UIUpdateClient) {
       this.capabilities = { protocol: 'localdns-updater/v2', modes: ['ui', 'core', 'full'], installed,
         ...(upgraded ? {
-          configurationMigrations: ['FJN8C'],
+          configurationMigrations: ['FJN8C', 'FJO02'],
           coreUpload: { format: 'upstream-zip' as const, maxBytes: 256 * 1048576, architecture: 'amd64-v3' },
         } : {}) };
     });
@@ -91,7 +91,7 @@ describe('upgrade panel primary action', () => {
   const full = { ...next, packages: ['UI 升级包', '含核心完整包'] };
   const ready = {
     protocol: 'localdns-updater/v2' as const, modes: ['ui', 'core', 'full'] as const, installed,
-    configurationMigrations: ['FJN8C'],
+    configurationMigrations: ['FJN8C', 'FJO02'],
     coreUpload: { format: 'upstream-zip' as const, maxBytes: 256 * 1048576, architecture: 'amd64-v3' },
   };
 
