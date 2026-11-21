@@ -26,13 +26,19 @@ export interface UIUpdateStatus {
   canRollback: boolean;
 }
 
+const migrationKernels = ['FJN8C', 'FJO02'];
+
+function lacksMigration(backend: string, migrations: readonly string[] = []): boolean {
+  return migrationKernels.includes(backend) && !migrations.includes(backend);
+}
+
 function parts(value: string): number[] | undefined {
   return /^(\d{4}\.\d+\.\d+\.\d+)(?:-local[\w.-]*)?$/.exec(value)?.[1].split('.').map(Number);
 }
 
 export function upgradeTarget(
   installed: InstalledUI | null, release: UIRelease | null,
-  options?: { mode: UpdateMode; unified: boolean; migrationReady?: boolean },
+  options?: { mode: UpdateMode; unified: boolean; configurationMigrations?: readonly string[] },
 ): { tag?: string; reason: string } {
   if (!installed || !release) return { reason: '先检查更新，获取可安装的正式版本。' };
   // A release tag without a backend prefix carries no core requirement; only
@@ -42,8 +48,8 @@ export function upgradeTarget(
   if (!current || !target) return { reason: '版本信息无效，请重新检查更新。' };
   const different = target.findIndex((value, index) => value !== current[index]);
   if (options?.unified && options.mode !== 'ui') {
-    if (release.backend === 'FJN8C' && options.migrationReady === false) {
-      return { reason: '请先更新升级服务，以支持 FJN8C 配置迁移；仅更新 UI 不会同步此服务。' };
+    if (lacksMigration(release.backend, options.configurationMigrations)) {
+      return { reason: `请先更新升级服务，以支持 ${release.backend} 配置迁移；仅更新 UI 不会同步此服务。` };
     }
     if (!release.packages.includes('含核心完整包')) return { reason: '该发行版没有提供完整包。' };
     if (!release.backend || !/^fj[a-z][a-z0-9]+-ui-v\d{4}\.\d+\.\d+\.\d+$/i.test(release.tag)) return { reason: '发行版标签无效。' };
@@ -65,10 +71,11 @@ export class UIUpdateClient {
   private http: HttpClient;
   capabilities?: UpdateCapabilities;
   get unified() { return this.capabilities?.protocol === 'localdns-updater/v2'; }
-  get migrationReady() {
+  get configurationMigrations(): readonly string[] {
     const migrations = this.capabilities?.configurationMigrations;
-    return Array.isArray(migrations) && migrations.includes('FJN8C');
+    return Array.isArray(migrations) ? migrations : [];
   }
+  get migrationReady() { return migrationKernels.every(backend => !lacksMigration(backend, this.configurationMigrations)); }
   get coreUpload() {
     const upload = this.capabilities?.coreUpload;
     return this.unified && upload?.format === 'upstream-zip' && Number.isSafeInteger(upload.maxBytes) && upload.maxBytes > 0 ? upload : undefined;
@@ -110,8 +117,9 @@ export class UIUpdateClient {
   async status() { return this.validate(await this.request(this.path + '/status')); }
   async upgrade(releaseTag: string, mode: UpdateMode = 'ui') {
     if (!this.unified && mode !== 'ui') throw new Error('请先安装支持内核升级的服务。');
-    if (mode !== 'ui' && /^fjn8c-ui-v/i.test(releaseTag) && !this.migrationReady) {
-      throw new Error('请先更新升级服务，以支持 FJN8C 配置迁移。');
+    const backend = releaseTag.toUpperCase().split('-UI-V')[0];
+    if (mode !== 'ui' && lacksMigration(backend, this.configurationMigrations)) {
+      throw new Error(`请先更新升级服务，以支持 ${backend} 配置迁移。`);
     }
     return this.validate(await this.request(this.path, { releaseTag, ...(this.unified ? { mode } : {}) }));
   }

@@ -8,10 +8,26 @@ export function initialize() {
   const missing = value => value === null || value === undefined || value === '';
   const elapsed = value => missing(value) || !Number.isFinite(Number(value)) ? '未记录' : Number(value).toLocaleString('zh-CN', {maximumFractionDigits:3}) + ' ms';
   const facts = rows => '<dl class="query-path-facts">' + rows.map(([key,value]) => `<div><dt>${esc(key)}</dt><dd>${esc(missing(value) ? '未记录' : value)}</dd></div>`).join('') + '</dl>';
+  function cacheOriginFacts(record) {
+    const origin = record.origin;
+    if (record.cache !== true || !origin || typeof origin !== 'object' || Array.isArray(origin)) return [];
+    const fields = [['原始分流', origin.domain_set], ['原始上游尝试', origin.upstream_attempt], ['原始学习记录', origin.learning]];
+    return fields.filter(([, value]) => typeof value === 'string' && value.trim()).map(([key, value]) => [
+      key, key === '原始分流' ? overviewInsightsService.label(value) : value,
+    ]);
+  }
   function model(record, aliases = {}) {
     const answers = Array.isArray(record.answers) ? record.answers : [];
     const steps = [{name:'请求来源',result:aliases[record.client_ip] || record.client_ip || '未记录',facts:[['客户端',record.client_ip],['查询名称',record.query_name],['类型 / 类别',[record.query_type,record.query_class].filter(Boolean).join(' / ')]],note:'本条日志记录的查询问题与来源。'}];
-    if (typeof record.cache === 'boolean') steps.push({name:'缓存记录',result:record.cache ? '缓存命中' : '未标记命中',facts:[['缓存标记',String(record.cache)],['最终分流',record.domain_set]],note:record.cache ? '此请求标记为缓存命中；命中前的其他执行步骤未记录。' : 'cache=false 仅表示未标记缓存命中，不据此推断检查顺序。'});
+    if (typeof record.cache === 'boolean') {
+      const origin = cacheOriginFacts(record);
+      const note = !record.cache ? 'cache=false 仅表示未标记缓存命中，不据此推断检查顺序。'
+        : origin.length ? '原始字段来自缓存条目，不代表本次查询访问了上游。' : '此请求标记为缓存命中；未记录缓存来源。';
+      steps.push({
+        name: '缓存记录', result: record.cache ? '缓存命中' : '未标记命中', note,
+        facts: [['缓存标记', String(record.cache)], ['最终分流', record.domain_set], ...origin],
+      });
+    }
     if (record.domain_set) steps.push({name:'分流结果',result:overviewInsightsService.label(record.domain_set),facts:[['最终分流',overviewInsightsService.label(record.domain_set)],['分流代码',record.domain_set],['学习记录',record.learning],['上游尝试',record.upstream_attempt]],note:'最终分类与日志原文；未将分类推断为具体规则条目或上游节点。'});
     steps.push({name:'返回应答',result:record.response_code || '未记录',facts:[['响应码',record.response_code],['应答条数',answers.length],['请求总耗时',elapsed(record.duration_ms)]],note:'请求总耗时按接口原值显示，阶段耗时没有单独记录。'});
     const cached = record.cache === true && record.domain_set === 'cache_main';

@@ -19,4 +19,13 @@ assert(!model({...partial,response_code:'NXDOMAIN',domain_set:'',answers:[]}).co
 const hostile = '<img src=x onerror=alert(1)>';
 assert(!html({...partial,query_name:hostile,domain_set:hostile,answers:[{data:hostile}]}).includes(hostile));
 assert(html({...partial,answers:[{type:'CNAME',data:'target.example.test',ttl:0}]}).includes('<td>0 s</td>'));
-console.log(JSON.stringify({checks:10,status:'passed',scope:'evidence,zero-time,RR metadata,negative replies,escaping'}));
+const cached = {...partial,cache:true,domain_set:'cache_main',origin:{domain_set:'direct_list',upstream_attempt:'domestic:fixture'}};
+const cacheStep = record => model(record).steps.find(step => step.name === '缓存记录');
+assert.equal(cacheStep(cached).facts.find(([label]) => label === '原始分流')[1], '直连名单命中');
+assert.equal(cacheStep(cached).facts.find(([label]) => label === '原始上游尝试')[1], 'domestic:fixture');
+assert(cacheStep(cached).note.includes('不代表本次查询访问了上游'));
+assert(!cacheStep({...cached,origin:null}).facts.some(([label]) => label.startsWith('原始')));
+assert(!cacheStep({...cached,cache:false}).facts.some(([label]) => label.startsWith('原始')));
+assert(!cacheStep({...cached,origin:{domain_set:[],upstream_attempt:{}}}).facts.some(([label]) => label.startsWith('原始')));
+assert(!html({...cached,origin:{learning:hostile}}).includes(hostile));
+console.log(JSON.stringify({checks:17,status:'passed',scope:'evidence,zero-time,RR metadata,negative replies,cache origin,escaping'}));

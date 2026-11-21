@@ -12,7 +12,7 @@ from pathlib import Path
 
 import install_localdns as installer
 import upgrade_localdns as upgrade
-from fjgli_config import hashes, read_json, safe_tree, write_json
+from fjgli_config import KERNEL_SETTINGS_MIGRATIONS, hashes, read_json, safe_tree, write_json
 from ui_updater import UpdateError, TAG, now, version_parts, run_companions, companion_summary, companion_brief
 from core_upload import MAX_UPLOAD_BYTES, read_kernel
 
@@ -228,7 +228,7 @@ class OnlineUpdateManager:
         result = {'protocol': 'localdns-updater/v2', 'repository': installer.REPO,
                   'modes': sorted(MODES), 'architecture': self.arch, 'compatibility': CONTRACT,
                   'backupRequired': ['core', 'full', 'rollback'], 'installed': installed,
-                  'configurationMigrations': ['FJN8C'],
+                  'configurationMigrations': list(KERNEL_SETTINGS_MIGRATIONS),
                   'coreUpload': {'format': 'upstream-zip', 'maxBytes': MAX_UPLOAD_BYTES, 'architecture': self.arch}}
         if self.startup_error is not None:
             result['needsAttention'] = True
