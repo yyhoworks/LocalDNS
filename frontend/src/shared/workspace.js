@@ -97,7 +97,10 @@ export function initialize() {
   }
   function upstreams(rows, groups, providers = false) {
     const total = rows.reduce((sum, row) => sum + Number(row.m.q || 0), 0);
-    const rowHtml = ({g, u, i, m}) => `<tr data-group="${esc(g)}" data-index="${i}">
+    const rowHtml = ({g, u, i, m}) => {
+      const outcome = m.round ?? m;
+      const scope = m.round ? '当前轮次' : '累计';
+      return `<tr data-group="${esc(g)}" data-index="${i}">
       <td><label class="switch">
         <input class="up-toggle" type="checkbox" aria-label="启用 ${esc(u.tag)}" ${u.enabled !== false ? 'checked' : ''}>
         <span class="switch-track"><span class="switch-thumb"></span></span>
@@ -109,14 +112,15 @@ export function initialize() {
       <td>${number(m.q)}<span class="workspace-subline">${percent(m.q, total)}</span></td>
       <td>${m.latencySamples > 0 ? ctx.ms(m.latency) : '—'}</td>
       <td>${percent(m.win, m.q)}</td>
-      <td>${m.err ? `<button type="button" class="up-error-detail-trigger" data-group="${esc(g)}"
-        data-index="${i}" aria-label="查看 ${esc(u.tag)} 错误详情">${number(m.err)}</button>` : '0'}</td>
-      <td>${m.q > 0 && m.success !== null ? ctx.pct(m.success) : '—'}</td>
+      <td title="${scope}错误">${outcome.err ? `<button type="button" class="up-error-detail-trigger" data-group="${esc(g)}"
+        data-index="${i}" aria-label="查看 ${esc(u.tag)} ${scope}错误详情">${number(outcome.err)}</button>` : '0'}</td>
+      <td title="${scope}成功率">${(m.round || m.q > 0) && outcome.success !== null ? ctx.pct(outcome.success) : '—'}</td>
       <td><div class="workspace-actions">
         <button type="button" class="button small up-edit">编辑</button>
         <button type="button" class="button small danger up-delete">删除</button>
       </div></td>
     </tr>`;
+    };
     const sections = groups.map(group => {
       const items = rows.filter(row => row.g === group);
       const queries = items.reduce((sum, row) => sum + Number(row.m.q || 0), 0);
@@ -135,7 +139,9 @@ export function initialize() {
     return `<div class="workspace-upstream-groups">${sections.join('')}</div>
       <details class="workspace-note"><summary>统计口径</summary>
         <p>份额按节点请求总数计算，并发可能计入多个节点。采纳率 = 采纳数 / 节点请求数；
-          成功率与采纳率分别统计。无样本时显示“—”。</p>
+          ${rows.some(row => row.m.round)
+        ? '错误和成功率优先使用当前轮次数据，缺少轮次数据时使用累计值。' : '成功率与采纳率分别统计。'}
+          无样本时显示“—”。</p>
       </details>`;
   }
   const purpose = r => ['custom_cn','geosite_cn','geoip_cn'].includes(r.tag) ? '国内解析' : '海外解析';

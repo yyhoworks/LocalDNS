@@ -6,6 +6,16 @@ const release = { tag: 'fjgac-ui-v2026.10.19.9', version: '2026.10.19.9', backen
 const json = (value: unknown, status = 200) => new Response(JSON.stringify(value), { status, headers: { 'Content-Type': 'application/json' } });
 
 describe('UI upgrade eligibility', () => {
+  it('requires the migration for the target kernel, not just a v2 service', () => {
+    const next = { ...release, tag: 'fjo02-ui-v2026.11.21.1', version: '2026.11.21.1', backend: 'FJO02',
+      packages: ['UI 升级包', '含核心完整包'] };
+    const old = { unified: true, configurationMigrations: ['FJN8C'] };
+    expect(upgradeTarget(installed, next, { ...old, mode: 'full' }).reason).toContain('FJO02 配置迁移');
+    expect(upgradeTarget(installed, next, { ...old, mode: 'ui' }).tag).toBe(next.tag);
+    expect(upgradeTarget(installed, next, { ...old, mode: 'full', configurationMigrations: ['FJN8C', 'FJO02'] }).tag)
+      .toBe(next.tag);
+  });
+
   it('requires a newer UI of the same core and a real update package', () => {
     expect(upgradeTarget(installed, release).tag).toBe(release.tag);
     expect(upgradeTarget({ ...installed, uiVersion: '2026.10.19.10-local' }, release).tag).toBeUndefined();
@@ -42,7 +52,7 @@ describe('UI update requests', () => {
     fetcher.mockResolvedValueOnce(json({ protocol: 'localdns-ui-updater/v1', repository: 'https://github.com/yyhoworks/LocalDNS', capabilities: {
       protocol: 'localdns-updater/v2', modes: ['ui', 'core', 'full'], installed,
       coreUpload: { format: 'upstream-zip', maxBytes: 256 * 1048576, architecture: 'amd64-v1' },
-      configurationMigrations: ['FJN8C'],
+      configurationMigrations: ['FJN8C', 'FJO02'],
     } }));
     const client = new UIUpdateClient('http://dns.example:9100', 'http://dns.example:9099/ui/', fetcher);
     await client.discover();
@@ -62,6 +72,21 @@ describe('UI update requests', () => {
     expect(client.unified).toBe(true); expect(client.coreUpload).toBeUndefined();
     await expect(client.uploadCore(new File(['abc'], 'core.zip'))).rejects.toThrow('请先更新升级服务');
     expect(fetcher).toHaveBeenCalledTimes(1);
+  });
+  it('blocks FJO02 preparation on an FJN8C-only service but allows a supported kernel', async () => {
+    const fetcher = vi.fn<typeof fetch>().mockResolvedValue(json({ state: 'queued', canRollback: false }));
+    fetcher.mockResolvedValueOnce(json({
+      protocol: 'localdns-ui-updater/v1', repository: 'https://github.com/yyhoworks/LocalDNS', capabilities: {
+        protocol: 'localdns-updater/v2', modes: ['ui', 'core', 'full'], installed, configurationMigrations: ['FJN8C'],
+        coreUpload: { format: 'upstream-zip', maxBytes: 256 * 1048576, architecture: 'amd64-v1' },
+      },
+    }));
+    const client = new UIUpdateClient('', 'http://dns.example/ui/', fetcher);
+    await client.discover();
+    await expect(client.upgrade('fjo02-ui-v2026.11.21.1', 'full')).rejects.toThrow('FJO02 配置迁移');
+    await expect(client.uploadCore(new File(['abc'], 'LocalDNS_FJO02.zip'))).rejects.toThrow('配置迁移');
+    expect(fetcher).toHaveBeenCalledTimes(1);
+    await expect(client.upgrade('fjn8c-ui-v2026.11.08.4', 'full')).resolves.toMatchObject({ state: 'queued' });
   });
   it('uses independent versions and three operations with the unified service', async () => {
     const next = { ...release, backend: 'FJHAI', tag: 'fjhai-ui-v2026.10.19.9', packages: ['UI 升级包', '含核心完整包'] };

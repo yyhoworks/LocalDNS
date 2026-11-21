@@ -337,7 +337,7 @@ class OnlineTests(unittest.TestCase):
         self.assertEqual(hashes(stage), before)
 
     def test_capabilities_advertise_verified_kernel_settings_migrations(self):
-        self.assertEqual(self.manager.capabilities()['configurationMigrations'], ['FJN8C'])
+        self.assertEqual(self.manager.capabilities()['configurationMigrations'], ['FJN8C', 'FJO02'])
 
     def prepare_upload(self, backend='FJNEW'):
         # Uploaded cores retain the installed layout. Use the current config schema.
@@ -375,8 +375,8 @@ class OnlineTests(unittest.TestCase):
         self.assertEqual(self.continue_update()['state'], 'succeeded')
         self.assertEqual((self.root / 'bin/localdns').read_bytes(), b'original')
 
-    def test_fjn8c_upload_adapts_staging_only_and_restores_original_settings(self):
-        self.prepare_upload('FJN8C')
+    def check_upload_settings_migration(self, backend):
+        self.prepare_upload(backend)
         self.assertIn('缓存预取', self.manager.status()['message'])
         self.assertIn('服务商', self.manager.status()['message'])
         stage = self.manager.stage_path()
@@ -393,8 +393,14 @@ class OnlineTests(unittest.TestCase):
         self.assertEqual(self.continue_update()['state'], 'succeeded')
         self.assertEqual(hashes(self.root / 'config'), original)
 
-    def check_fjn8c_release_migration(self, mode):
-        self.version.update(backendVersion='FJN8C', releaseTag='fjn8c-ui-v2026.11.08.2', uiVersion='2026.11.08.2')
+    def test_fjn8c_upload_adapts_staging_only_and_restores_original_settings(self):
+        self.check_upload_settings_migration('FJN8C')
+
+    def test_fjo02_upload_adapts_staging_only_and_restores_original_settings(self):
+        self.check_upload_settings_migration('FJO02')
+
+    def check_release_migration(self, backend, mode):
+        self.version.update(backendVersion=backend, releaseTag=f'{backend.lower()}-ui-v2026.11.21.1', uiVersion='2026.11.21.1')
         self.package()
         original = hashes(self.root / 'config')
         old_ui = (self.root / 'ui/index.html').read_bytes()
@@ -412,10 +418,13 @@ class OnlineTests(unittest.TestCase):
         self.assertEqual((self.root / 'ui/index.html').read_bytes(), old_ui)
 
     def test_fjn8c_full_release_migrates_staging_and_restores_the_original_snapshot(self):
-        self.check_fjn8c_release_migration('full')
+        self.check_release_migration('FJN8C', 'full')
 
     def test_fjn8c_core_release_migrates_staging_and_preserves_ui_then_rolls_back(self):
-        self.check_fjn8c_release_migration('core')
+        self.check_release_migration('FJN8C', 'core')
+
+    def test_fjo02_full_release_migrates_staging_and_restores_the_original_snapshot(self):
+        self.check_release_migration('FJO02', 'full')
 
     def test_uploaded_same_version_uses_binary_identity_and_preflight_failure_keeps_old_core(self):
         self.prepare_upload('FJH7T')

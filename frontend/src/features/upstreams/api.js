@@ -3,6 +3,8 @@ import { parseProm } from '../../shared/metrics/prometheus';
 import { safeResult } from '../../shared/async.js';
 import { upstreamMetrics } from './errors.js';
 
+const providerKernels = new Set(['FJN8C', 'FJO02']);
+
 export async function readUpstreams(scope) {
   // config/tags 是页面骨架：任一失败仍然整页报错。
   const [configResult, tagsResult] = await scope.guard(Promise.all([
@@ -28,7 +30,7 @@ export async function readUpstreams(scope) {
   // FJN01 rejects provider as an unknown field; never send it to an older core.
   const configuredProviders = rows.some(row => typeof row.u.provider === 'string');
   const version = statusResult.ok && typeof statusResult.data?.version === 'string' ? statusResult.data.version : null;
-  const providers = configuredProviders || (version === null ? null : version === 'FJN8C');
+  const providers = configuredProviders || (version === null ? null : providerKernels.has(version));
   return {
     config, ecs: typeof ecs?.ecs === 'string' ? ecs.ecs : '', groups, rows, providers,
     degraded: { metrics: !metricsResult.ok, ecs: !ecsResult.ok, providers: providers === null },

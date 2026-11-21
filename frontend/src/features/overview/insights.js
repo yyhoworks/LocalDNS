@@ -32,6 +32,10 @@ const overviewInsightsService = (() => {
     nxdomain:'域名不存在', conflict:'冲突复核', follow_a:'跟随 A', hidden_recent:'刚发现隐藏',
     hidden:'隐藏域名', fakeip:'走代理', realip:'直连', ecs:'ECS', domestic_fallback:'国内兜底',
     domestic_negative:'国内无结果', domestic:'问国内', direct_ip:'直连 IP 段',
+    probing:'直连检测中', probe_direct:'可直连', probe_proxy:'直连不通',
+    probe_v6_blocked:'IPv6 直连不通', probe_unverified:'直连未确认',
+    renewed:'过期重解析', renew_late:'重解析完成前返回旧应答',
+    domestic_wait:'等待国内应答超时', abroad_first:'国外先应答', abroad_wait:'国外应答待复核',
     foreign_cn:'国外返回国内地址', use_foreign_cn:'采用国外返回的国内地址', unknown:'列表外',
     sinkhole:'黑洞地址', upstream_error:'上游出错', overload:'繁忙拒绝', error:'出错'
   };
