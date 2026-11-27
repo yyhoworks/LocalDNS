@@ -9,6 +9,9 @@ let delay: number;
 let fail: boolean;
 let writes: string[];
 let completed: number;
+let customSplitEnabled: boolean;
+let customSplitMode: 'default' | 'custom';
+let customSplitRules: Array<Record<string, unknown>>;
 const features = { request_blocking: true, block_special_qtypes: true, adguard: true,
   block_aaaa: false, full_cache: true, route_cache: true, client_policy: 'normal' };
 
@@ -16,6 +19,10 @@ beforeAll(async () => {
   vi.stubGlobal('matchMedia', () => ({ matches: true, addEventListener: vi.fn() }));
   document.body.innerHTML = '<main id="page-content"></main><div id="toast-stack"></div>';
   root = document.getElementById('page-content')!;
+  Object.defineProperties(HTMLDialogElement.prototype, {
+    showModal: { configurable: true, value(this: HTMLDialogElement) { this.open = true; } },
+    close: { configurable: true, value(this: HTMLDialogElement) { this.open = false; } },
+  });
   [rules, lifetime, context] = await Promise.all([
     import('../src/features/rules/index.js'), import('../src/core/router/route-lifetime'), import('../src/core/context.js'),
   ]);
@@ -30,11 +37,33 @@ beforeAll(async () => {
 beforeEach(() => {
   vi.useFakeTimers();
   root.replaceChildren();
+  document.getElementById('confirm-modal')?.remove();
   document.getElementById('toast-stack')!.replaceChildren();
   context.state.route = 'rules';context.state.ruleTag = 'whitelist';
   delay = 20000;fail = false;writes = [];completed = 0;
+  customSplitEnabled = true;
+  customSplitMode = 'custom';
+  customSplitRules = [
+    { type: 'block_list', enabled: true },
+    { type: 'proxy_rule', name: 'Proxy source', url: 'https://example.com/proxy.srs', enabled: true, rule_count: 4 },
+  ];
   vi.stubGlobal('fetch', async (input: string | URL | Request, options: RequestInit = {}) => {
     const path = new URL(String(input), location.origin).pathname;
+    if (path === '/api/v1/custom-split' && (!options.method || options.method === 'GET')) {
+      return customSplitEnabled ? Response.json({ mode: customSplitMode, rules: customSplitRules }) :
+        Response.json({ error: 'unsupported' }, { status: 404 });
+    }
+    if (path === '/api/v1/status') return Response.json({ rules: { block: 12 } });
+    if (path === '/api/v1/custom-split' && options.method === 'PUT') {
+      writes.push(path);
+      const value = JSON.parse(String(options.body));
+      if (value.mode) customSplitMode = value.mode;
+      if (value.rules) customSplitRules = value.rules.map((rule: Record<string, unknown>) => {
+        const stored = customSplitRules.find(item => item.type === rule.type && item.name === rule.name);
+        return { ...stored, ...rule };
+      });
+      return Response.json({ mode: customSplitMode, rules: customSplitRules });
+    }
     if (options.method && options.method !== 'GET') {
       writes.push(path);
       return await new Promise<Response>((resolve, reject) => {
@@ -142,5 +171,37 @@ describe('rule download interactions', () => {
     expect(button('#div-update-all').textContent).toBe('更新全部');
     expect(document.querySelector('#toast-stack')!.textContent).toContain('结果待确认');
     expect(writes).toHaveLength(2);
+  });
+
+  it('shows FJOP0 mode controls and saves mode changes through the capability endpoint', async () => {
+    await enter('adguard');
+    expect(root.querySelector('[data-rule-mode="custom"]')).not.toBeNull();
+    root.querySelector<HTMLButtonElement>('[data-rule-mode="default"]')!.click();
+    document.querySelector<HTMLButtonElement>('#confirm-ok')!.click();
+    await settle();
+    expect(customSplitMode).toBe('default');
+    expect(writes).toEqual(['/api/v1/custom-split']);
+    expect(root.querySelector('[data-rule-tab="custom-split"]')).toBeNull();
+  });
+
+  it('saves custom rule order and enabled state without touching legacy groups', async () => {
+    await enter('custom-split');
+    expect(root.querySelector('.custom-split-list')?.textContent).toContain('Proxy source');
+    root.querySelector<HTMLButtonElement>('[data-split-move="1"][data-index="0"]')!.click();
+    await settle();
+    expect(customSplitRules.map(rule => rule.type)).toEqual(['proxy_rule', 'block_list']);
+    const enabled = root.querySelector<HTMLInputElement>('[data-split-enabled="0"]')!;
+    enabled.checked = false;
+    enabled.dispatchEvent(new Event('change', { bubbles: true }));
+    await settle();
+    expect(customSplitRules[0].enabled).toBe(false);
+    expect(writes).toEqual(['/api/v1/custom-split', '/api/v1/custom-split']);
+  });
+
+  it('keeps the custom mode hidden when an older core does not expose it', async () => {
+    customSplitEnabled = false;
+    await enter('adguard');
+    expect(root.querySelector('#rule-mode-controls')?.textContent).toBe('');
+    expect(root.querySelector('[data-rule-tab="custom-split"]')).toBeNull();
   });
 });

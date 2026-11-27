@@ -3,7 +3,8 @@ const pending = new Map();
 const views = new Map();
 const selectors = {
   adguard: '.ad-update,#ad-update-all,.ad-enable,.ad-edit,.ad-delete,#ad-add',
-  diversion: '.div-update,#div-update-all,[data-div-update-group],.div-enable,.div-edit,.div-delete,#div-add'
+  diversion: '.div-update,#div-update-all,[data-div-update-group],.div-enable,.div-edit,.div-delete,#div-add',
+  'custom-split': '.sp-update,#sp-update-all,.sp-enable,.sp-edit,.sp-delete,[data-split-move],#sp-add'
 };
 
 export function syncRuleUpdateState(body, collection, refresh) {
@@ -11,14 +12,17 @@ export function syncRuleUpdateState(body, collection, refresh) {
   if (refresh) views.set(collection, { body, refresh });
   const operation = pending.get(collection);
   for (const button of body.querySelectorAll(selectors[collection])) {
-    const update = button.matches('.ad-update,.div-update,#ad-update-all,#div-update-all,[data-div-update-group]');
-    button.disabled = Boolean(operation);
+    const update = button.matches(
+      '.ad-update,.div-update,.sp-update,#ad-update-all,#div-update-all,#sp-update-all,[data-div-update-group]',
+    );
+    button.disabled = Boolean(operation) || button.hasAttribute('data-always-disabled');
     if (!update) continue;
     const row = button.closest('[data-id],[data-tag][data-name]');
     const active = operation && (operation.kind === 'all' || (operation.kind === 'group'
       ? button.dataset.divUpdateGroup === operation.tag || row?.dataset.tag === operation.tag
       : collection === 'adguard' ? row?.dataset.id === operation.id
-        : row?.dataset.tag === operation.tag && row?.dataset.name === operation.name));
+        : collection === 'custom-split' ? row?.dataset.name === operation.name
+          : row?.dataset.tag === operation.tag && row?.dataset.name === operation.name));
     if (!button.dataset.idleLabel) button.dataset.idleLabel = button.textContent;
     const label = active ? '更新中…' : button.dataset.idleLabel;
     if (button.textContent !== label) button.textContent = label;
@@ -45,7 +49,8 @@ export async function runRuleUpdate(body, collection, operation, task) {
   finally {
     pending.delete(collection);
     const view = views.get(collection);
-    if (view?.body !== body && view?.body.isConnected && view.body.dataset.ruleCollection === collection) await view.refresh();
+    if ((view?.body !== body || operation.signal?.aborted) &&
+      view?.body.isConnected && view.body.dataset.ruleCollection === collection) await view.refresh();
     else syncRuleUpdateState(body, collection);
   }
 }

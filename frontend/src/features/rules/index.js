@@ -18,6 +18,7 @@ import { modalOpen, confirmDialog } from '../../shared/components/dialog.js';
 import { downloadText } from '../../shared/downloads.js';
 import { safeResult } from '../../shared/async.js';
 import { runRuleUpdate, syncRuleUpdateState, ruleUpdatePending } from './update-state.js';
+import { probeCustomSplit, renderCustomSplitRules } from './custom-split.ts';
 
   const ruleGroups=[
     ['核心分流',[['whitelist','白名单'],['greylist','灰名单'],['blocklist','黑名单']]],
@@ -27,6 +28,8 @@ import { runRuleUpdate, syncRuleUpdateState, ruleUpdatePending } from './update-
   const ruleProfiles=ruleGroups.flatMap(([,items])=>items);
 
   let ruleViews, activeTab='lists', ruleCounts=new Map();
+  let customSplitCapability={supported:false};
+  let modeChangePending=false;
   const ruleEntryCount=text=>String(text).split('\n').filter(line=>line.trim()&&!line.trim().startsWith('#')).length;
   const updateRule=path=>api.request(path,{method:'POST'});
   const updateUncertain=error=>['timeout','network','invalid-json'].includes(error?.code);
@@ -36,31 +39,132 @@ import { runRuleUpdate, syncRuleUpdateState, ruleUpdatePending } from './update-
   }
   const ruleModalOptions={pendingLabel:'更新中…',onError:error=>updateError(error,'保存失败')};
 
+  function renderRuleTabs(){
+    const tabs=$('#rule-top-tabs');
+    if(!tabs)return;
+    const entries=[['lists','名单管理'],['adguard','广告拦截 (AdGuard)'],['diversion','在线分流 (SRS)']];
+    if(customSplitCapability.snapshot?.mode==='custom')entries.push(['custom-split','自定义分流']);
+    setHTML(tabs,entries.map(([key,label])=>`
+      <button type="button" class="seg-item" data-rule-tab="${key}">${label}</button>`).join(''));
+    $$('[data-rule-tab]',tabs).forEach(button=>button.onclick=()=>renderRuleTab(button.dataset.ruleTab));
+    syncRuleTabs();
+  }
+
+  function syncRuleTabs(){
+    $$('#rule-top-tabs [data-rule-tab]').forEach(button=>{
+      const selected=button.dataset.ruleTab===activeTab;
+      button.classList.toggle('active',selected);
+      button.setAttribute('aria-pressed',String(selected));
+    });
+  }
+
+  async function readCustomSplitCapability(scope){
+    const capability=await probeCustomSplit(scope.signal);
+    if(scope.signal.aborted)return;
+    if(capability.supported||!customSplitCapability.supported){
+      const hadTab=customSplitCapability.snapshot?.mode==='custom';
+      customSplitCapability=capability;
+      if(hadTab!==(capability.snapshot?.mode==='custom'))renderRuleTabs();
+    }else{
+      customSplitCapability={...customSplitCapability,error:capability.error||'分流模式读取失败'};
+    }
+    renderCustomSplitMode();
+  }
+
+  function renderCustomSplitMode(){
+    const controls=$('#rule-mode-controls');
+    if(!controls)return;
+    if(!customSplitCapability.supported){
+      setHTML(controls,customSplitCapability.error?`<div class="custom-split-availability" role="status">
+        <span>自定义分流能力暂不可核对</span><button class="button ghost" type="button" id="rule-mode-retry">重试</button></div>`:'');
+      $('#rule-mode-retry')?.addEventListener('click',()=>readCustomSplitCapability(currentScope()),{once:true});
+      return;
+    }
+    const mode=customSplitCapability.snapshot?.mode;
+    const unavailable=Boolean(customSplitCapability.error);
+    setHTML(controls,`<div class="custom-split-mode" role="group" aria-label="分流模式">
+      <span>分流模式</span>
+      ${[['default','默认'],['custom','自定义']].map(([key,label])=>`
+        <button type="button" data-rule-mode="${key}" aria-pressed="${mode===key}"
+          class="${mode===key?'active':''}" ${modeChangePending||unavailable?'disabled':''}>${label}</button>`).join('')}
+      ${unavailable?'<button type="button" id="rule-mode-retry">重新读取</button>':''}
+    </div>`);
+    $('#rule-mode-retry')?.addEventListener('click',()=>readCustomSplitCapability(currentScope()),{once:true});
+    controls.querySelectorAll('[data-rule-mode]').forEach(button=>button.addEventListener('click',()=>{
+      void changeCustomSplitMode(button.dataset.ruleMode);
+    }));
+  }
+
+  async function changeCustomSplitMode(mode,approved=false){
+    if(modeChangePending||ruleUpdatePending('custom-split')||!customSplitCapability.supported||
+      customSplitCapability.error||!['default','custom'].includes(mode)||
+      customSplitCapability.snapshot?.mode===mode)return;
+    if(!approved&&rulesWorkbenchService?.canLeave(()=>changeCustomSplitMode(mode,true))===false)return;
+    const scope=currentScope();
+    modeChangePending=true;
+    try{
+      if(!await confirmDialog({title:'切换分流模式',
+        message:mode==='custom'?'切换后按自定义分流顺序匹配规则。确认切换？':'切换后恢复内核默认分流逻辑。确认切换？',
+        confirmText:'切换'})||scope.signal.aborted)return;
+      renderCustomSplitMode();
+      await api.json('/api/v1/custom-split','PUT',{mode});
+      await readCustomSplitCapability(scope);
+      if(!scope.signal.aborted&&customSplitCapability.snapshot?.mode===mode){
+        await renderRuleTab(mode==='custom'?'custom-split':'lists',true);
+        $$('#rule-top-tabs [data-rule-tab]').find(button=>button.dataset.ruleTab===activeTab)?.focus();
+      }
+    }catch(error){
+      updateError(error,'分流模式切换失败');
+      if(!scope.signal.aborted)await readCustomSplitCapability(scope);
+    }finally{
+      if(!scope.signal.aborted){
+        modeChangePending=false;
+        renderCustomSplitMode();
+      }
+    }
+  }
+
   async function renderRules(container, context){
  const renderScope = context.scope, page = container;
  ruleViews=new LatestView(renderScope);
  ruleCounts=new Map();
  activeTab='lists';
+ customSplitCapability={supported:false};
+ modeChangePending=false;
  rulesWorkbenchService.mount();
  mountToolbar();
 
     setHTML(page, `
     <div class="view-title-row">
-      <div style="display:flex;align-items:baseline;gap:12px"><h1>分流</h1><span class="gc-sub">统一维护本地名单、AdGuard 广告拦截与 SRS 在线分流规则</span></div>
-      <div class="seg-group" id="rule-top-tabs">
-        <button type="button" class="seg-item active" data-rule-tab="lists">名单管理</button>
-        <button type="button" class="seg-item" data-rule-tab="adguard">广告拦截 (AdGuard)</button>
-        <button type="button" class="seg-item" data-rule-tab="diversion">在线分流 (SRS)</button>
-      </div>
+      <div style="display:flex;align-items:baseline;gap:12px"><h1>分流</h1>
+        <span class="gc-sub">维护本地名单、广告拦截与分流规则</span></div>
+      <div class="seg-group" id="rule-top-tabs"></div>
     </div>
+    <div id="rule-mode-controls"></div>
     <div id="rule-tab-body" class="col-12"></div>`);
-    $$('[data-rule-tab]').forEach(x=>x.onclick=()=>renderRuleTab(x.dataset.ruleTab));
-    await renderScope.guard(renderRuleTab('lists'));
+    renderRuleTabs();renderCustomSplitMode();
+    await renderScope.guard(Promise.all([renderRuleTab('lists'),readCustomSplitCapability(renderScope)]));
   }
 
   async function renderRuleTab(tab,approved=false){
- const renderScope = currentScope();
-if(!approved&&rulesWorkbenchService?.canLeave(()=>renderRuleTab(tab,true))===false)return;activeTab=tab;$$('[data-rule-tab]').forEach(y=>y.classList.toggle('active',y.dataset.ruleTab===tab));const body=$('#rule-tab-body');body.dataset.ruleCollection=tab;setHTML(body, loadingPage());if(tab==='lists')return renderListRules(body);if(tab==='adguard')return renderAdguard(body);return renderDiversion(body);}
+    if(!approved&&rulesWorkbenchService?.canLeave(()=>renderRuleTab(tab,true))===false)return;
+    activeTab=tab;
+    syncRuleTabs();
+    const body=$('#rule-tab-body');
+    body.dataset.ruleCollection=tab;
+    setHTML(body,loadingPage());
+    if(tab==='lists')return renderListRules(body);
+    if(tab==='adguard')return renderAdguard(body);
+    if(tab==='custom-split'){
+      const view=ruleViews.begin();
+      const refresh=()=>{
+        if(view.signal.aborted||!body.isConnected||activeTab!==tab)return Promise.resolve();
+        return renderCustomSplitRules(body,view.signal,refresh);
+      };
+      return refresh();
+    }
+    return renderDiversion(body);
+  }
 
   async function renderListRules(body){
  if(activeTab!=='lists'||!body?.isConnected||currentScope().signal.aborted)return;

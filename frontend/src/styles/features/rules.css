@@ -593,6 +593,62 @@ body[data-console-route="rules"] .rule-menu-note{margin-left:auto;max-width:46ch
 @media(max-width:1120px){ .div-stats { grid-template-columns:repeat(3,minmax(0,1fr)); } }
 @media(max-width:600px){ .div-stats { grid-template-columns:repeat(2,minmax(0,1fr)); } }
 
+#rule-mode-controls:empty{display:none}
+.custom-split-mode,
+.custom-split-availability {
+  display:flex;align-items:center;gap:7px;flex-wrap:wrap;margin:12px 0;color:var(--text-3);font-size:12px;
+}
+.custom-split-mode button {
+  min-height:34px;padding:6px 12px;border:1px solid var(--border-glass);
+  border-radius:calc(7px * var(--radius-scale));background:var(--glass-pill);
+  color:var(--text-2);font:500 12px/1.2 var(--font-sans);cursor:pointer;
+}
+.custom-split-mode button.active {
+  border-color:var(--border-highlight);background:var(--glass-pill-active);
+  color:var(--text-1);font-weight:600;
+}
+.custom-split-mode button:disabled { opacity:.62;cursor:default; }
+.custom-split-card .card-body { display:flex;flex-direction:column;gap:12px; }
+.custom-split-toolbar {
+  display:flex;align-items:center;justify-content:space-between;gap:10px;
+  color:var(--text-3);font-size:12px;
+}
+.custom-split-toolbar>div,
+.custom-split-actions,
+.custom-split-order { display:flex;align-items:center;gap:6px;flex-wrap:wrap; }
+.custom-split-list { display:flex;flex-direction:column;gap:7px;margin:0;padding:0;list-style:none; }
+.custom-split-row {
+  display:grid;grid-template-columns:74px minmax(0,1fr) auto;align-items:center;gap:12px;
+  padding:11px 12px;border:1px solid var(--border-glass);border-radius:var(--radius-node);
+  background:var(--glass-bg);min-width:0;
+}
+.custom-split-row.is-disabled{opacity:.68}
+.custom-split-order{flex-direction:column;align-items:stretch;color:var(--text-3);font-size:11px;text-align:center}
+.custom-split-order button{min-height:30px;padding:4px 6px;font-size:11px}
+.custom-split-main{display:flex;align-items:center;gap:11px;min-width:0}
+.custom-split-enabled{flex:0 0 auto;min-width:32px;min-height:40px;display:grid;place-items:center}
+.custom-split-copy{display:flex;flex-direction:column;gap:3px;min-width:0}
+.custom-split-copy strong{font-size:13px;font-weight:550;overflow-wrap:anywhere}
+.custom-split-copy>span{font-size:11px;color:var(--text-3);overflow-wrap:anywhere}
+.custom-split-copy .custom-split-source{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.custom-split-actions{justify-content:flex-end}
+.custom-split-actions .button{min-height:34px;padding:6px 9px;font-size:11px}
+.custom-split-availability{justify-content:flex-end}
+@media(max-width:760px){
+  .custom-split-row{grid-template-columns:1fr;gap:8px;padding:11px}
+  .custom-split-order{flex-direction:row;align-items:center;text-align:left}
+  .custom-split-order span{min-width:28px}
+  .custom-split-main{align-items:flex-start}
+  .custom-split-actions{justify-content:flex-start;padding-left:40px}
+  .custom-split-actions .button{min-height:40px}
+}
+@media(max-width:600px){
+  .custom-split-mode button{min-height:40px}
+  .custom-split-toolbar{align-items:flex-start;flex-direction:column}
+  .custom-split-toolbar>div{width:100%}
+  .custom-split-toolbar .button{flex:1;justify-content:center;min-height:42px}
+}
+
 /* 在线分流：按类型折叠的分组表，组头显示来源数、规则数与组级更新 */
 .div-group { border:1px solid var(--border-glass); border-radius:calc(12px * var(--radius-scale)); margin-bottom:10px; overflow:hidden; }
 .div-group[hidden] { display:none; }
