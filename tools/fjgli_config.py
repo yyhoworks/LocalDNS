@@ -8,7 +8,7 @@ from pathlib import Path, PurePosixPath
 from urllib.parse import urlsplit
 
 
-KERNEL_SETTINGS_MIGRATIONS = ('FJN8C', 'FJO02')
+KERNEL_SETTINGS_MIGRATIONS = ('FJN8C', 'FJO02', 'FJOP0')
 
 
 class MigrationError(RuntimeError):

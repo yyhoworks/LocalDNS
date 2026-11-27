@@ -26,7 +26,7 @@ export interface UIUpdateStatus {
   canRollback: boolean;
 }
 
-const migrationKernels = ['FJN8C', 'FJO02'];
+const migrationKernels = ['FJN8C', 'FJO02', 'FJOP0'];
 
 function lacksMigration(backend: string, migrations: readonly string[] = []): boolean {
   return migrationKernels.includes(backend) && !migrations.includes(backend);

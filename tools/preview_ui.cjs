@@ -13,7 +13,9 @@ function isReadEndpoint(url) {
 }
 // Read-only routes of the released FJGOE (FJGLI API) backend, as rewritten by frontend/src/core/api/backend-client.ts.
 function isFjgliReadEndpoint(url) {
+  if (url === '/api/v1/rule-groups/custom_split/update') return false;
   return url === '/api/v1/features' || url === '/api/v1/client-aliases' || url === '/api/v1/domain-stats' ||
+    url === '/api/v1/custom-split' ||
     /^\/api\/v1\/querylog\/(status|capacity|settings|stats|entries|rank\/[\w-]+)$/.test(url) ||
     /^\/api\/v1\/(lists|caches|learned)\/[\w-]+$/.test(url) ||
     /^\/api\/v1\/route-refresh\/(status|counts|schedule)$/.test(url) || url === '/api/v1/adguard/rules' ||

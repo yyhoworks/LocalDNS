@@ -19,7 +19,7 @@ localdns_upstream_round_error_reason{metrics_tag="foreign",tag="fixture",reason=
 localdns_upstream_error_round_quiet_seconds 100`;
 
 describe('FJO02 upstream support', () => {
-  it.each([['FJO02', true], ['FJN8C', true], ['FJN01', false]] as const)(
+  it.each([['FJOP0', true], ['FJO02', true], ['FJN8C', true], ['FJN01', false]] as const)(
     'identifies provider support on %s even without configured nodes', async (version, providers) => {
       request.mockImplementation(async path => ({
         '/api/v1/upstream/config': { domestic: [], foreign: [], foreign_ecs: [], proxy: [] },

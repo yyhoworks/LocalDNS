@@ -52,7 +52,7 @@ describe('UI update requests', () => {
     fetcher.mockResolvedValueOnce(json({ protocol: 'localdns-ui-updater/v1', repository: 'https://github.com/yyhoworks/LocalDNS', capabilities: {
       protocol: 'localdns-updater/v2', modes: ['ui', 'core', 'full'], installed,
       coreUpload: { format: 'upstream-zip', maxBytes: 256 * 1048576, architecture: 'amd64-v1' },
-      configurationMigrations: ['FJN8C', 'FJO02'],
+      configurationMigrations: ['FJN8C', 'FJO02', 'FJOP0'],
     } }));
     const client = new UIUpdateClient('http://dns.example:9100', 'http://dns.example:9099/ui/', fetcher);
     await client.discover();

@@ -337,7 +337,7 @@ class OnlineTests(unittest.TestCase):
         self.assertEqual(hashes(stage), before)
 
     def test_capabilities_advertise_verified_kernel_settings_migrations(self):
-        self.assertEqual(self.manager.capabilities()['configurationMigrations'], ['FJN8C', 'FJO02'])
+        self.assertEqual(self.manager.capabilities()['configurationMigrations'], ['FJN8C', 'FJO02', 'FJOP0'])
 
     def prepare_upload(self, backend='FJNEW'):
         # Uploaded cores retain the installed layout. Use the current config schema.
@@ -399,6 +399,9 @@ class OnlineTests(unittest.TestCase):
     def test_fjo02_upload_adapts_staging_only_and_restores_original_settings(self):
         self.check_upload_settings_migration('FJO02')
 
+    def test_fjop0_upload_adapts_staging_only_and_restores_original_settings(self):
+        self.check_upload_settings_migration('FJOP0')
+
     def check_release_migration(self, backend, mode):
         self.version.update(backendVersion=backend, releaseTag=f'{backend.lower()}-ui-v2026.11.21.1', uiVersion='2026.11.21.1')
         self.package()
@@ -425,6 +428,9 @@ class OnlineTests(unittest.TestCase):
 
     def test_fjo02_full_release_migrates_staging_and_restores_the_original_snapshot(self):
         self.check_release_migration('FJO02', 'full')
+
+    def test_fjop0_full_release_migrates_staging_and_restores_the_original_snapshot(self):
+        self.check_release_migration('FJOP0', 'full')
 
     def test_uploaded_same_version_uses_binary_identity_and_preflight_failure_keeps_old_core(self):
         self.prepare_upload('FJH7T')

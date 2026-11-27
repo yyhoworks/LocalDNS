@@ -3,7 +3,7 @@ import { parseProm } from '../../shared/metrics/prometheus';
 import { safeResult } from '../../shared/async.js';
 import { upstreamMetrics } from './errors.js';
 
-const providerKernels = new Set(['FJN8C', 'FJO02']);
+const providerKernels = new Set(['FJN8C', 'FJO02', 'FJOP0']);
 
 export async function readUpstreams(scope) {
   // config/tags 是页面骨架：任一失败仍然整页报错。
